@@ -1,13 +1,125 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Bot, Mail, Lock, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Bot, Mail, Lock, User, Check } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
+  const [searchParams] = useSearchParams();
+  const selectedPlan = searchParams.get('plan');
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const plans = {
+    free: { name: "Free", price: "R$ 0", features: ["10 gerações de IA por mês", "Acesso básico às APIs"] },
+    pro: { name: "Pro", price: "R$ 29", features: ["1000 gerações de IA por mês", "Acesso completo às APIs", "Sem marca d'água"] },
+    team: { name: "Team", price: "R$ 99", features: ["Gerações ilimitadas", "Colaboração em equipe", "API própria"] }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (formData.password !== formData.confirmPassword) {
+        toast({
+          title: "Erro",
+          description: "As senhas não coincidem",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Register user with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast({
+          title: "Conta criada!",
+          description: "Verifique seu email para confirmar a conta."
+        });
+
+        // If a paid plan was selected, redirect to checkout
+        if (selectedPlan && selectedPlan !== 'free') {
+          // Wait for user to confirm email before redirecting to checkout
+          toast({
+            title: "Confirme seu email",
+            description: "Após confirmar seu email, você será redirecionado para o checkout."
+          });
+        } else {
+          // Redirect to dashboard for free plan
+          window.location.href = '/dashboard';
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar conta",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckout = async (plan: string) => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para assinar um plano",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { plan },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Open Stripe checkout in a new tab
+      window.open(data.url, '_blank');
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar checkout",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -19,15 +131,35 @@ const Register = () => {
           <span className="text-2xl font-bold">ContentHub AI</span>
         </div>
 
+        {/* Selected Plan Display */}
+        {selectedPlan && selectedPlan !== 'free' && (
+          <Card className="mb-6 border-primary">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Plano Selecionado: {plans[selectedPlan as keyof typeof plans]?.name}</h3>
+                  <p className="text-sm text-muted-foreground">{plans[selectedPlan as keyof typeof plans]?.price}/mês</p>
+                </div>
+                <Badge variant="secondary">Selecionado</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Criar conta gratuita</CardTitle>
+            <CardTitle className="text-2xl">
+              {selectedPlan && selectedPlan !== 'free' ? 'Criar conta e assinar' : 'Criar conta gratuita'}
+            </CardTitle>
             <CardDescription>
-              Comece a criar conteúdo com IA hoje mesmo
+              {selectedPlan && selectedPlan !== 'free' 
+                ? 'Crie sua conta e prossiga para o pagamento'
+                : 'Comece a criar conteúdo com IA hoje mesmo'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome completo</Label>
                 <div className="relative">
@@ -37,6 +169,8 @@ const Register = () => {
                     type="text"
                     placeholder="Seu nome completo"
                     className="pl-10"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     required
                   />
                 </div>
@@ -51,6 +185,8 @@ const Register = () => {
                     type="email"
                     placeholder="seu@email.com"
                     className="pl-10"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     required
                   />
                 </div>
@@ -65,6 +201,8 @@ const Register = () => {
                     type="password"
                     placeholder="Mínimo 8 caracteres"
                     className="pl-10"
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                     required
                   />
                 </div>
@@ -79,6 +217,8 @@ const Register = () => {
                     type="password"
                     placeholder="Digite a senha novamente"
                     className="pl-10"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                     required
                   />
                 </div>
@@ -103,39 +243,10 @@ const Register = () => {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full">
-                Criar conta gratuita
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Criando conta...' : selectedPlan && selectedPlan !== 'free' ? 'Criar conta e continuar' : 'Criar conta gratuita'}
               </Button>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Ou continue com
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="w-full">
-                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Google
-              </Button>
-              <Button variant="outline" className="w-full">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-                GitHub
-              </Button>
-            </div>
 
             <div className="text-center text-sm text-muted-foreground">
               Já tem uma conta?{" "}

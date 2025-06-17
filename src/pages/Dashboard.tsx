@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -11,12 +11,136 @@ import {
   TrendingUp, 
   Clock, 
   ArrowRight,
-  Plus
+  Plus,
+  Crown,
+  RefreshCw,
+  CreditCard,
+  Settings
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
+  const { toast } = useToast();
+  const [subscription, setSubscription] = useState({
+    subscribed: false,
+    subscription_tier: null,
+    subscription_end: null,
+    loading: true
+  });
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
+
+  // Check subscription status on component mount
+  useEffect(() => {
+    checkSubscriptionStatus();
+  }, []);
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      setCheckingSubscription(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setSubscription(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      setSubscription({
+        subscribed: data.subscribed || false,
+        subscription_tier: data.subscription_tier,
+        subscription_end: data.subscription_end,
+        loading: false
+      });
+    } catch (error: any) {
+      console.error('Error checking subscription:', error);
+      setSubscription(prev => ({ ...prev, loading: false }));
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
+
+  const handleUpgrade = async (plan: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para assinar um plano",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { plan },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Open Stripe checkout in a new tab
+      window.open(data.url, '_blank');
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar checkout",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Open Stripe customer portal in a new tab
+      window.open(data.url, '_blank');
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao abrir portal do cliente",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Update stats based on subscription tier
+  const getGenerationLimit = () => {
+    if (subscription.subscription_tier === 'Pro') return "1000";
+    if (subscription.subscription_tier === 'Team') return "∞";
+    return "10";
+  };
+
   const stats = [
     {
       title: "Gerações de IA",
@@ -81,12 +205,24 @@ const Dashboard = () => {
               Bem-vindo ao ContentHub AI. Comece criando seu primeiro conteúdo.
             </p>
           </div>
-          <Link to="/workspace">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Conteúdo
+          <div className="flex items-center gap-3">
+            {subscription.subscribed && (
+              <Badge variant="secondary" className="flex items-center gap-2">
+                <Crown className="h-4 w-4" />
+                Plano {subscription.subscription_tier}
+              </Badge>
+            )}
+            <Button onClick={() => checkSubscriptionStatus()} variant="outline" size="sm" disabled={checkingSubscription}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${checkingSubscription ? 'animate-spin' : ''}`} />
+              Atualizar
             </Button>
-          </Link>
+            <Link to="/workspace">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Conteúdo
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -208,20 +344,40 @@ const Dashboard = () => {
               </div>
             </div>
             
-            <div className="mt-6 p-4 bg-muted rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Upgrade para Pro</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Desbloqueie 1000 gerações por mês e recursos avançados
-                  </p>
+            {!subscription.subscribed ? (
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Upgrade para Pro</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Desbloqueie 1000 gerações por mês e recursos avançados
+                    </p>
+                  </div>
+                  <Button onClick={() => handleUpgrade('pro')}>
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Upgrade
+                  </Button>
                 </div>
-                <Button>
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Upgrade
-                </Button>
               </div>
-            </div>
+            ) : (
+              <div className="mt-6 p-4 bg-primary/10 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Crown className="h-4 w-4" />
+                      Plano {subscription.subscription_tier} Ativo
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Gerencie sua assinatura no portal do cliente
+                    </p>
+                  </div>
+                  <Button onClick={handleManageSubscription}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Gerenciar
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

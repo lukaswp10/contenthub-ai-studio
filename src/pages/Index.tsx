@@ -208,7 +208,18 @@ const Index = () => {
                       </li>
                     ))}
                   </ul>
-                  <Button className="w-full" variant={plan.popular ? "default" : "outline"}>
+                  <Button 
+                    className="w-full" 
+                    variant={plan.popular ? "default" : "outline"}
+                    onClick={() => {
+                      if (plan.name === "Free") {
+                        window.location.href = "/register";
+                      } else {
+                        const planKey = plan.name === "Pro" ? "pro" : "team";
+                        window.location.href = `/register?plan=${planKey}`;
+                      }
+                    }}
+                  >
                     {plan.name === "Free" ? "Começar Grátis" : "Assinar Agora"}
                   </Button>
                 </CardContent>
