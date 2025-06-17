@@ -34,11 +34,22 @@ const Login = () => {
       const { error } = await signIn(formData.email, formData.password);
       
       if (error) {
-        toast({
-          title: "Erro ao fazer login",
-          description: error.message,
-          variant: "destructive"
-        });
+        console.log('Erro no login:', error);
+        
+        // Verificar se é erro de email não confirmado
+        if (error.message.includes('Email not confirmed')) {
+          toast({
+            title: "Email não confirmado",
+            description: "Por favor, verifique seu email e clique no link de confirmação antes de fazer login.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Erro ao fazer login",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
       } else {
         toast({
           title: "Login realizado!",
