@@ -19,60 +19,23 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const [subscription, setSubscription] = useState({
-    subscribed: false,
-    subscription_tier: null,
-    subscription_end: null,
-    loading: true
-  });
+  const { subscription, session, checkSubscription } = useAuth();
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
-  // Check subscription status on component mount
-  useEffect(() => {
-    checkSubscriptionStatus();
-  }, []);
-
-  const checkSubscriptionStatus = async () => {
-    try {
-      setCheckingSubscription(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setSubscription(prev => ({ ...prev, loading: false }));
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) throw error;
-
-      setSubscription({
-        subscribed: data.subscribed || false,
-        subscription_tier: data.subscription_tier,
-        subscription_end: data.subscription_end,
-        loading: false
-      });
-    } catch (error: any) {
-      console.error('Error checking subscription:', error);
-      setSubscription(prev => ({ ...prev, loading: false }));
-    } finally {
-      setCheckingSubscription(false);
-    }
+  const handleCheckSubscription = async () => {
+    setCheckingSubscription(true);
+    await checkSubscription();
+    setCheckingSubscription(false);
   };
 
   const handleUpgrade = async (plan: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         toast({
           title: "Erro",
@@ -104,8 +67,6 @@ const Dashboard = () => {
 
   const handleManageSubscription = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         toast({
           title: "Erro",
@@ -212,7 +173,7 @@ const Dashboard = () => {
                 Plano {subscription.subscription_tier}
               </Badge>
             )}
-            <Button onClick={() => checkSubscriptionStatus()} variant="outline" size="sm" disabled={checkingSubscription}>
+            <Button onClick={handleCheckSubscription} variant="outline" size="sm" disabled={checkingSubscription}>
               <RefreshCw className={`h-4 w-4 mr-2 ${checkingSubscription ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>

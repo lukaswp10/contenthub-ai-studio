@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Mail, Lock, User, Check } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,7 +15,16 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const selectedPlan = searchParams.get('plan');
   const { toast } = useToast();
+  const { signUp, user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -43,35 +53,27 @@ const Register = () => {
       }
 
       // Register user with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-          }
-        }
+      const { error } = await signUp(formData.email, formData.password, {
+        full_name: formData.name,
       });
 
       if (error) throw error;
 
-      if (data.user) {
-        toast({
-          title: "Conta criada!",
-          description: "Verifique seu email para confirmar a conta."
-        });
+      toast({
+        title: "Conta criada!",
+        description: "Verifique seu email para confirmar a conta."
+      });
 
-        // If a paid plan was selected, redirect to checkout
-        if (selectedPlan && selectedPlan !== 'free') {
-          // Wait for user to confirm email before redirecting to checkout
-          toast({
-            title: "Confirme seu email",
-            description: "Após confirmar seu email, você será redirecionado para o checkout."
-          });
-        } else {
-          // Redirect to dashboard for free plan
-          window.location.href = '/dashboard';
-        }
+      // If a paid plan was selected, redirect to checkout
+      if (selectedPlan && selectedPlan !== 'free') {
+        // Wait for user to confirm email before redirecting to checkout
+        toast({
+          title: "Confirme seu email",
+          description: "Após confirmar seu email, você será redirecionado para o checkout."
+        });
+      } else {
+        // Redirect to dashboard for free plan
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast({

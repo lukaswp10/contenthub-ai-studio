@@ -1,13 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Bot, Mail, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const { signIn, user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await signIn(formData.email, formData.password);
+      
+      if (error) {
+        toast({
+          title: "Erro ao fazer login",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Login realizado!",
+          description: "Bem-vindo de volta!"
+        });
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro inesperado",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -27,7 +76,7 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -37,6 +86,8 @@ const Login = () => {
                     type="email"
                     placeholder="seu@email.com"
                     className="pl-10"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     required
                   />
                 </div>
@@ -51,6 +102,8 @@ const Login = () => {
                     type="password"
                     placeholder="Digite sua senha"
                     className="pl-10"
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                     required
                   />
                 </div>
@@ -75,8 +128,8 @@ const Login = () => {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full">
-                Entrar
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Entrando...' : 'Entrar'}
               </Button>
             </form>
 
