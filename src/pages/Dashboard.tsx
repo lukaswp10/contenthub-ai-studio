@@ -22,6 +22,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import ProjectHistory from "@/components/ProjectHistory";
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -257,26 +258,7 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {recentProjects.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BarChart className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-medium mb-2">Nenhum projeto ainda</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Comece criando seu primeiro projeto
-                  </p>
-                  <Link to="/workspace">
-                    <Button variant="outline" size="sm">
-                      Criar Projeto
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Projects will be listed here when available */}
-                </div>
-              )}
+              <ProjectHistory />
             </CardContent>
           </Card>
         </div>
