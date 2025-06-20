@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Workspace = () => {
   const [searchParams] = useSearchParams();
-  const { subscription } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState(searchParams.get('type') || 'text');
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ const Workspace = () => {
   // Usage stats (mock data for now)
   const [usageStats, setUsageStats] = useState({
     used: 0,
-    limit: subscription.subscribed ? (subscription.subscription_tier === 'Team' ? 999 : 1000) : 10
+    limit: profile?.plan_type !== 'free' ? (profile?.plan_type === 'agency' ? 999 : 1000) : 10
   });
 
   useEffect(() => {
@@ -265,10 +265,10 @@ Principais benefícios:
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {subscription.subscribed && (
+            {profile?.plan_type !== 'free' && (
               <Badge variant="secondary" className="flex items-center gap-2">
                 <Crown className="h-4 w-4" />
-                Plano {subscription.subscription_tier}
+                Plano {profile.plan_type}
               </Badge>
             )}
           </div>

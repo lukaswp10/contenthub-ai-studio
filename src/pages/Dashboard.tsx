@@ -26,13 +26,14 @@ import ProjectHistory from "@/components/ProjectHistory";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const { subscription, session, checkSubscription } = useAuth();
-  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const { user, profile, session } = useAuth();
+  const [checkingProfile, setCheckingProfile] = useState(false);
 
-  const handleCheckSubscription = async () => {
-    setCheckingSubscription(true);
-    await checkSubscription();
-    setCheckingSubscription(false);
+  const handleRefreshProfile = async () => {
+    setCheckingProfile(true);
+    // Force refresh profile data
+    window.location.reload();
+    setCheckingProfile(false);
   };
 
   const handleUpgrade = async (plan: string) => {
@@ -98,8 +99,8 @@ const Dashboard = () => {
 
   // Update stats based on subscription tier
   const getGenerationLimit = () => {
-    if (subscription.subscription_tier === 'Pro') return "1000";
-    if (subscription.subscription_tier === 'Team') return "∞";
+    if (profile?.plan_type === 'pro') return "1000";
+    if (profile?.plan_type === 'agency') return "∞";
     return "10";
   };
 
@@ -168,14 +169,14 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {subscription.subscribed && (
+            {profile?.plan_type !== 'free' && (
               <Badge variant="secondary" className="flex items-center gap-2">
                 <Crown className="h-4 w-4" />
-                Plano {subscription.subscription_tier}
+                Plano {profile.plan_type}
               </Badge>
             )}
-            <Button onClick={handleCheckSubscription} variant="outline" size="sm" disabled={checkingSubscription}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${checkingSubscription ? 'animate-spin' : ''}`} />
+            <Button onClick={handleRefreshProfile} variant="outline" size="sm" disabled={checkingProfile}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${checkingProfile ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Link to="/workspace">
@@ -287,7 +288,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {!subscription.subscribed ? (
+            {profile?.plan_type === 'free' ? (
               <div className="mt-6 p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
@@ -308,7 +309,7 @@ const Dashboard = () => {
                   <div>
                     <h4 className="font-medium flex items-center gap-2">
                       <Crown className="h-4 w-4" />
-                      Plano {subscription.subscription_tier} Ativo
+                      Plano {profile?.plan_type} Ativo
                     </h4>
                     <p className="text-sm text-muted-foreground">
                       Gerencie sua assinatura no portal do cliente
