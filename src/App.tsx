@@ -13,6 +13,7 @@ import { ConfirmEmailPage } from './pages/auth/ConfirmEmail'
 import { AuthCallbackPage } from './pages/auth/AuthCallback'
 import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
+import AutomationPage from './pages/Automation'
 import NotFound from './pages/NotFound'
 
 const queryClient = new QueryClient();
@@ -48,6 +49,15 @@ export default function App() {
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Workspace />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/automation"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <AutomationPage />
                   </ProtectedRoute>
                 }
               />
