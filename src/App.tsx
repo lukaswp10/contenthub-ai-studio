@@ -11,6 +11,7 @@ import { LoginPage } from './pages/auth/Login'
 import { RegisterPage } from './pages/auth/Register'
 import { ConfirmEmailPage } from './pages/auth/ConfirmEmail'
 import { AuthCallbackPage } from './pages/auth/AuthCallback'
+import OnboardingPage from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
 import AutomationPage from './pages/Automation'
@@ -33,6 +34,16 @@ export default function App() {
 
               {/* Auth callback */}
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+
+              {/* Onboarding route */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <OnboardingPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected routes */}
               <Route
