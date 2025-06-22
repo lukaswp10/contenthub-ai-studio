@@ -17,6 +17,9 @@ import Workspace from './pages/Workspace'
 import AutomationPage from './pages/Automation'
 import NotFound from './pages/NotFound'
 
+// Debug component
+import { AuthDebugger } from './components/debug/AuthDebugger'
+
 const queryClient = new QueryClient();
 
 export default function App() {
@@ -98,6 +101,9 @@ export default function App() {
                 },
               }}
             />
+            
+            {/* Debug component - only in development */}
+            {process.env.NODE_ENV === 'development' && <AuthDebugger />}
           </AuthProvider>
         </Router>
       </TooltipProvider>

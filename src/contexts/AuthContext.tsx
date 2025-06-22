@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { debugAuth } from '@/utils/debug'
 
 interface Profile {
   id: string
@@ -42,17 +43,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
+      debugAuth.log('Fetching profile for user:', userId)
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        debugAuth.error('Profile fetch error:', error)
+        throw error
+      }
+      
+      debugAuth.log('Profile fetched successfully:', data)
       setProfile(data as Profile)
       return data
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      debugAuth.error('Error fetching profile:', error)
       return null
     }
   }
@@ -85,21 +93,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, currentSession) => {
         if (!mounted) return
 
-        console.log('Auth event:', event)
+        console.log('Auth event:', event, currentSession?.user?.email)
         
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
         if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id)
+          // Use setTimeout to prevent infinite loops
+          setTimeout(async () => {
+            await fetchProfile(currentSession.user.id)
+          }, 0)
         } else {
           setProfile(null)
         }
 
-        // Handle auth events
+        // Handle auth events - ONLY show toasts, no navigation here
         switch (event) {
           case 'SIGNED_IN':
-            toast.success('Login realizado com sucesso!')
+            console.log('User signed in successfully')
             break
           case 'SIGNED_OUT':
             toast.success('Logout realizado com sucesso!')
@@ -123,19 +134,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Attempting to sign in with:', email)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Sign in error:', error)
+        throw error
+      }
 
-      // Update last login
+      console.log('Sign in successful, user:', data.user?.email)
+
+      // Update last login - use setTimeout to prevent blocking
       if (data.user) {
-        await supabase
-          .from('profiles')
-          .update({ last_login_at: new Date().toISOString() })
-          .eq('id', data.user.id)
+        setTimeout(async () => {
+          await supabase
+            .from('profiles')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('id', data.user.id)
+        }, 100)
       }
 
       return
