@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -42,8 +43,12 @@ export function RegisterPage() {
     formState: { errors },
     setError,
     watch,
+    setValue,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      terms: false,
+    },
   })
 
   const password = watch('password', '')
@@ -216,11 +221,11 @@ export function RegisterPage() {
                 )}
               </div>
 
-              {/* Terms */}
+              {/* Terms - Corrigido para usar boolean corretamente */}
               <div className="flex items-start space-x-2">
                 <Checkbox
                   id="terms"
-                  {...register('terms')}
+                  onCheckedChange={(checked) => setValue('terms', !!checked)}
                   disabled={isLoading}
                 />
                 <div className="space-y-1">
