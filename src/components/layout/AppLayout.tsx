@@ -18,7 +18,8 @@ import {
   Crown,
   CreditCard,
   HelpCircle,
-  Shield
+  Shield,
+  Video
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +52,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       href: '/dashboard', 
       icon: LayoutDashboard,
       description: 'Visão geral e métricas'
+    },
+    {
+      name: 'Upload',
+      href: '/upload',
+      icon: Video,
+      description: 'Enviar novo vídeo',
+      highlight: true
     },
     { 
       name: 'Automação', 
@@ -242,31 +250,20 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="flex h-full flex-col pt-16 lg:pt-0">
             <div className="flex-1 px-4 py-6">
               <nav className="space-y-1">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={`
-                        group flex items-center space-x-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200
-                        ${isActive(item.href)
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                        }
-                      `}
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      <Icon className={`h-5 w-5 ${isActive(item.href) ? 'text-white' : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-white'}`} />
-                      <div className="flex-1">
+                <ul className="space-y-2">
+                  {navigation.map((item) => (
+                    <li key={item.name}>
+                      <Link
+                        to={item.href}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-blue-50 dark:hover:bg-slate-800 ${isActive(item.href) ? 'bg-blue-100 dark:bg-slate-700 font-semibold' : ''} ${item.highlight ? 'border-l-4 border-blue-600 bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-300' : ''}`}
+                      >
+                        <item.icon className="h-5 w-5" />
                         <span>{item.name}</span>
-                        <p className={`text-xs mt-0.5 ${isActive(item.href) ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>
-                          {item.description}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
+                        {item.highlight && <span className="ml-2 px-2 py-0.5 text-xs rounded bg-blue-600 text-white">Novo</span>}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </nav>
             </div>
 

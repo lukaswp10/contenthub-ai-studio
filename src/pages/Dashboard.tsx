@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,8 @@ import {
   Plus,
   Crown,
   RefreshCw,
-  Settings
+  Settings,
+  Video
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
@@ -162,6 +162,12 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/upload">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Upload
+              </Button>
+            </Link>
             {userPlan !== 'free' && (
               <Badge variant="secondary" className="flex items-center gap-2">
                 <Crown className="h-4 w-4" />

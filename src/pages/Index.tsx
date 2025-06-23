@@ -19,8 +19,10 @@ import {
   Users
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
+  const { user } = useAuth();
   const features = [
     {
       icon: Scissors,
@@ -164,16 +166,27 @@ const Index = () => {
               </a>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <Button variant="ghost">
-                  Entrar
-                </Button>
-              </Link>
-              <Link to="/register">
-                <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  Começar Grátis
-                </Button>
-              </Link>
+              {user ? (
+                <Link to="/upload">
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Novo Upload
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="ghost">
+                      Entrar
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                      Começar Grátis
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

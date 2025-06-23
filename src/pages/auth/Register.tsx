@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -73,11 +72,8 @@ export function RegisterPage() {
     try {
       setIsLoading(true)
       await signUp(data.email, data.password, data.fullName)
-      
-      // Navigate to email confirmation page
-      navigate('/auth/confirm-email', { 
-        state: { email: data.email } 
-      })
+      // Redirecionar direto para dashboard
+      navigate('/dashboard', { replace: true })
     } catch (error: any) {
       setError('root', {
         message: error.message || 'Erro ao criar conta',
