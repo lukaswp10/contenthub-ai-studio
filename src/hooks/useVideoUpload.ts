@@ -236,10 +236,15 @@ async function uploadToCloudinary(
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     
-    // Add all upload params
+    // Add all upload params with proper type conversion
     Object.entries(uploadParams).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        formData.append(key, String(value))
+        // Preserve numbers as numbers, convert others to string
+        if (typeof value === 'number') {
+          formData.append(key, value as any)
+        } else {
+          formData.append(key, String(value))
+        }
       }
     })
     
