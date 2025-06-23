@@ -184,6 +184,6 @@ go run . help
 
 # ContentHub AI Studio
 
-Sistema completo de automação de redes sociais com IA.
+An AI-powered social media management platform.
 
-**Status**: ✅ Produção - Forçando re-sync com Supabase
+<!-- Trigger rebuild -->
