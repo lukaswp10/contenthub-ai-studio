@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { v2 as cloudinary } from 'https://esm.sh/cloudinary@1.41.0'
+import { v2 as cloudinary } from 'https://esm.sh/cloudinary@1.42.0'
 import { createHash } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
 const corsHeaders = {
