@@ -159,7 +159,7 @@ serve(async (req) => {
     // Generate signature for secure upload
     const paramsToSign = Object.keys(uploadParams)
       .sort()
-      .filter(key => key !== 'context' && uploadParams[key as keyof typeof uploadParams])
+      .filter(key => key !== 'context' && uploadParams[key as keyof typeof uploadParams] !== undefined)
       .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
       .join('&')
     
