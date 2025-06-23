@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { v2 as cloudinary } from 'https://esm.sh/cloudinary@1.41.0'
+import { v2 as cloudinary } from 'https://esm.sh/cloudinary@1.42.0'
 import { createHash } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
 const corsHeaders = {
@@ -136,7 +136,7 @@ serve(async (req) => {
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
     const publicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}`
 
-    // Cloudinary upload parameters
+    // Simplified Cloudinary upload parameters to avoid 400 errors
     const uploadParams = {
       public_id: publicId,
       folder: `videos/${user.id}`,
@@ -144,32 +144,7 @@ serve(async (req) => {
       type: 'upload' as const,
       timestamp: timestamp,
       
-      // Video transformations
-      eager: [
-        // Generate preview thumbnail
-        { 
-          width: 480, 
-          height: 270, 
-          crop: 'fill', 
-          gravity: 'center',
-          format: 'jpg',
-          quality: 'auto:good'
-        },
-        // Generate animated preview (GIF)
-        {
-          width: 320,
-          height: 180,
-          crop: 'fill',
-          gravity: 'center',
-          format: 'gif',
-          duration: 3,
-          start_offset: '5',
-          flags: 'animated'
-        }
-      ],
-      eager_async: true,
-      
-      // Optimization
+      // Basic video optimization
       video_codec: 'auto',
       audio_codec: 'auto',
       
@@ -178,16 +153,13 @@ serve(async (req) => {
         user_id: user.id,
         original_filename: fileName,
         upload_source: 'contenthub-ai'
-      },
-      
-      // Notifications
-      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-webhook`
+      }
     }
 
     // Generate signature for secure upload
     const paramsToSign = Object.keys(uploadParams)
       .sort()
-      .filter(key => key !== 'eager' && key !== 'context' && uploadParams[key as keyof typeof uploadParams])
+      .filter(key => key !== 'context' && uploadParams[key as keyof typeof uploadParams])
       .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
       .join('&')
     
