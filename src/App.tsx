@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
@@ -12,6 +11,7 @@ import { LoginPage } from './pages/auth/Login'
 import { RegisterPage } from './pages/auth/Register'
 import { ConfirmEmailPage } from './pages/auth/ConfirmEmail'
 import { AuthCallbackPage } from './pages/auth/AuthCallback'
+import { OAuthCallbackPage } from './pages/auth/OAuthCallback'
 import OnboardingPage from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
@@ -36,8 +36,9 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/auth/confirm-email" element={<ConfirmEmailPage />} />
 
-              {/* Auth callback */}
+              {/* Auth callbacks */}
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/auth/oauth-callback" element={<OAuthCallbackPage />} />
 
               {/* Onboarding route */}
               <Route

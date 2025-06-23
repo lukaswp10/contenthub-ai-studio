@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DndProvider } from 'react-dnd'
@@ -8,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS, SocialAccount } from '@/types/social'
 import { PlatformCard } from '@/components/automation/PlatformCard'
 import { ConnectedAccountsList } from '@/components/automation/ConnectedAccountsList'
+import { BulkAccountManager } from '@/components/automation/BulkAccountManager'
 import { PostingSchedule } from '@/components/automation/PostingSchedule'
 import { ConnectionModal } from '@/components/automation/ConnectionModal'
 import { ScheduledPostsQueue } from '@/components/automation/ScheduledPostsQueue'
@@ -22,7 +22,8 @@ import {
   Plus,
   Sparkles,
   AlertCircle,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -173,6 +174,10 @@ export default function AutomationPage() {
                 <Settings className="h-4 w-4" />
                 Plataformas
               </TabsTrigger>
+              <TabsTrigger value="accounts" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Gerenciar Contas
+              </TabsTrigger>
               <TabsTrigger value="schedule" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Agenda
@@ -237,6 +242,33 @@ export default function AutomationPage() {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Accounts Management Tab */}
+            <TabsContent value="accounts">
+              {loadingAccounts ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : accounts.length > 0 ? (
+                <BulkAccountManager
+                  accounts={accounts}
+                  onUpdate={() => queryClient.invalidateQueries({ queryKey: ['social-accounts'] })}
+                />
+              ) : (
+                <div className="bg-card rounded-lg border p-8 text-center">
+                  <div className="text-6xl mb-4">👥</div>
+                  <h3 className="text-lg font-medium mb-2">
+                    Nenhuma conta para gerenciar
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Conecte suas redes sociais primeiro para usar o gerenciamento em massa
+                  </p>
+                  <Button onClick={() => setActiveTab('platforms')}>
+                    Conectar Contas
+                  </Button>
+                </div>
+              )}
             </TabsContent>
 
             {/* Schedule Tab */}

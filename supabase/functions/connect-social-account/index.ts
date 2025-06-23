@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -90,7 +89,7 @@ serve(async (req) => {
     }
 
     // Gerar URL de OAuth para conta real
-    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&profileKey=${profileKey}&redirect=${encodeURIComponent(redirect_url)}`
+    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&profileKey=${profileKey}&redirect=${encodeURIComponent(`${redirect_url}/auth/oauth-callback`)}`
 
     console.log(`OAuth URL gerada: ${oauthUrl}`)
 

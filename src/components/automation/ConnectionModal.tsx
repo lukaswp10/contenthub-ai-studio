@@ -1,13 +1,11 @@
-
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, ExternalLink, CheckCircle, AlertTriangle } from 'lucide-react'
-import { SocialPlatform } from '@/types/social'
-import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
+import { SocialPlatform } from '@/types/social'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { LoaderCircle, CheckCircle } from 'lucide-react'
 
 interface ConnectionModalProps {
   platform: SocialPlatform
@@ -27,6 +25,7 @@ export function ConnectionModal({
   const [isConnecting, setIsConnecting] = useState(false)
   const [step, setStep] = useState<'info' | 'connecting' | 'success'>('info')
   const [accountInfo, setAccountInfo] = useState<any>(null)
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null)
 
   const handleConnect = async () => {
     try {
@@ -37,15 +36,15 @@ export function ConnectionModal({
       const { data, error } = await supabase.functions.invoke('connect-social-account', {
         body: {
           platform: platform.id,
-          redirect_url: window.location.href,
+          redirect_url: `${window.location.origin}/automation`,
         },
       })
 
       if (error) throw error
 
-      // For demo purposes, simulate OAuth flow
-      // In production, this would redirect to OAuth provider
       if (data.oauth_url) {
+        setOauthUrl(data.oauth_url)
+        
         // Open OAuth in popup
         const width = 600
         const height = 700
@@ -58,18 +57,28 @@ export function ConnectionModal({
           `width=${width},height=${height},left=${left},top=${top}`
         )
 
+        if (!popup) {
+          throw new Error('Popup bloqueado. Permita popups para este site.')
+        }
+
         // Listen for OAuth callback
         const checkInterval = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkInterval)
-            checkOAuthResult()
+            checkOAuthResult(data.profile_key)
           }
         }, 1000)
-      } else {
-        // Simulate successful connection for demo
+
+        // Timeout after 5 minutes
         setTimeout(() => {
-          simulateSuccessfulConnection()
-        }, 2000)
+          clearInterval(checkInterval)
+          if (!popup?.closed) {
+            popup.close()
+            throw new Error('Tempo limite excedido. Tente novamente.')
+          }
+        }, 300000)
+      } else {
+        throw new Error('URL de OAuth não foi gerada')
       }
     } catch (error: any) {
       console.error('Connection error:', error)
@@ -83,20 +92,20 @@ export function ConnectionModal({
     }
   }
 
-  const checkOAuthResult = async () => {
+  const checkOAuthResult = async (profileKey: string) => {
     try {
-      // Check if account was connected
-      const { data, error } = await supabase
-        .from('social_accounts')
-        .select('*')
-        .eq('user_id', user!.id)
-        .eq('platform', platform.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+      // Call complete-oauth function to verify connection
+      const { data, error } = await supabase.functions.invoke('complete-oauth', {
+        body: {
+          profile_key: profileKey,
+          platform: platform.id,
+        },
+      })
 
-      if (data) {
-        setAccountInfo(data)
+      if (error) throw error
+
+      if (data.success) {
+        setAccountInfo(data.account_data)
         setStep('success')
         setTimeout(() => {
           onSuccess()
@@ -106,12 +115,12 @@ export function ConnectionModal({
           })
         }, 1500)
       } else {
-        throw new Error('Falha na conexão')
+        throw new Error(data.error || 'Falha na conexão')
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Erro ao verificar conexão",
+        description: error.message || "Erro ao verificar conexão",
         variant: "destructive"
       })
       setStep('info')
@@ -119,131 +128,110 @@ export function ConnectionModal({
     }
   }
 
-  const simulateSuccessfulConnection = () => {
-    // For demo purposes
-    setAccountInfo({
-      username: 'demo_user',
-      display_name: 'Demo User',
-      followers: 1234,
-    })
-    setStep('success')
-    setTimeout(() => {
-      onSuccess()
+  const handleClose = () => {
+    if (step === 'connecting') {
       toast({
-        title: "Sucesso",
-        description: `${platform.name} conectado com sucesso!`
+        title: "Atenção",
+        description: "Processo de conexão em andamento. Aguarde a conclusão.",
+        variant: "destructive"
       })
-    }, 1500)
+      return
+    }
+    
+    setStep('info')
+    setIsConnecting(false)
+    setAccountInfo(null)
+    setOauthUrl(null)
+    onClose()
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
+          <DialogTitle className="flex items-center gap-2">
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
               style={{ background: platform.bgGradient || platform.color }}
             >
-              <span className="text-xl">{platform.icon}</span>
+              {platform.icon}
             </div>
             Conectar {platform.name}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {step === 'info' && (
             <>
-              {/* What we'll do */}
-              <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4 space-y-3">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100">O que vamos fazer:</h4>
-                <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Conectar sua conta {platform.name} com segurança</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Obter permissão para postar em seu nome</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Configurar horários otimizados automaticamente</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Você sempre aprova antes de qualquer post</span>
-                  </li>
+              <p className="text-sm text-muted-foreground">
+                Você será redirecionado para {platform.name} para autorizar o acesso à sua conta.
+              </p>
+              
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <h4 className="font-medium text-sm">O que será acessado:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Informações básicas do perfil</li>
+                  <li>• Publicar conteúdo em seu nome</li>
+                  <li>• Visualizar estatísticas de engajamento</li>
                 </ul>
               </div>
 
-              {/* Security info */}
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Segurança:</strong> Usamos OAuth 2.0, o padrão da indústria. 
-                  Nunca pedimos ou armazenamos sua senha do {platform.name}.
-                </AlertDescription>
-              </Alert>
-
-              {/* Features */}
-              <div>
-                <h4 className="font-medium mb-3">Recursos disponíveis:</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {platform.features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-primary rounded-full" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Connect button */}
-              <Button
-                onClick={handleConnect}
-                className="w-full"
-                size="lg"
+              <Button 
+                onClick={handleConnect} 
                 disabled={isConnecting}
+                className="w-full"
               >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Conectar {platform.name}
+                {isConnecting ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />
+                    Conectando...
+                  </>
+                ) : (
+                  'Conectar Conta'
+                )}
               </Button>
             </>
           )}
 
           {step === 'connecting' && (
-            <div className="text-center py-8">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-              <h3 className="font-semibold text-lg mb-2">
-                Conectando ao {platform.name}...
-              </h3>
-              <p className="text-muted-foreground">
-                Uma nova janela foi aberta. Complete o login no {platform.name}.
-              </p>
+            <div className="text-center space-y-4">
+              <LoaderCircle className="h-12 w-12 animate-spin text-primary mx-auto" />
+              <div>
+                <h3 className="font-medium mb-2">Conectando com {platform.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Uma nova janela foi aberta. Complete a autorização e feche a janela quando terminar.
+                </p>
+              </div>
+              
+              {oauthUrl && (
+                <div className="bg-muted rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-2">Se a janela não abriu automaticamente:</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => window.open(oauthUrl, '_blank')}
+                    className="w-full"
+                  >
+                    Abrir {platform.name} Manualmente
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
-          {step === 'success' && accountInfo && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">
-                Conta conectada com sucesso!
-              </h3>
-              <div className="bg-muted rounded-lg p-4 mt-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={accountInfo.avatar_url || `https://ui-avatars.com/api/?name=${accountInfo.username}`}
-                    alt={accountInfo.username}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <div className="text-left">
-                    <p className="font-medium">{accountInfo.display_name}</p>
-                    <p className="text-sm text-muted-foreground">@{accountInfo.username}</p>
+          {step === 'success' && (
+            <div className="text-center space-y-4">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+              <div>
+                <h3 className="font-medium mb-2">Conta Conectada!</h3>
+                {accountInfo && (
+                  <div className="bg-muted rounded-lg p-3 text-sm">
+                    <p><strong>@{accountInfo.username}</strong></p>
+                    <p className="text-muted-foreground">
+                      {accountInfo.followers?.toLocaleString() || 0} seguidores
+                    </p>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
