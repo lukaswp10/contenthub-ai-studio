@@ -134,7 +134,8 @@ serve(async (req) => {
     // Generate unique public_id
     const timestamp = Math.round(Date.now() / 1000)
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-    let publicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}`
+    const randomSuffix = Math.random().toString(36).substring(2, 8)
+    let publicId = `videos/${user.id}/${timestamp}_${randomSuffix}_${sanitizedFileName}`
     
     // Verificar se o public_id já existe e gerar um único se necessário
     let counter = 0
@@ -152,7 +153,7 @@ serve(async (req) => {
       
       // Gerar novo public_id com contador
       counter++
-      finalPublicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}_${counter}`
+      finalPublicId = `videos/${user.id}/${timestamp}_${randomSuffix}_${sanitizedFileName}_${counter}`
     }
     
     if (counter >= 10) {
