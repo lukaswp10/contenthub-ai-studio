@@ -100,6 +100,7 @@ export function useVideoUpload() {
 
       // Upload to Cloudinary with progress tracking
       setUploadProgress(30)
+      console.log('Upload params:', uploadData.upload_url, uploadData.upload_params)
       const uploadedUrl = await uploadToCloudinary(
         file,
         uploadData.upload_url,
@@ -243,6 +244,9 @@ async function uploadToCloudinary(
     
     // Add file last
     formData.append('file', file)
+    
+    // Log FormData enviado
+    console.log('FormData enviado para Cloudinary:', Object.fromEntries(formData.entries()))
     
     const xhr = new XMLHttpRequest()
     
