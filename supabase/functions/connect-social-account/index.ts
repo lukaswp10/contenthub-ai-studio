@@ -17,83 +17,148 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')!
+    console.log('🔍 Iniciando requisição...')
+    
+    const authHeader = req.headers.get('Authorization')
+    console.log('🔑 Auth header recebido:', authHeader ? 'Sim' : 'Não')
+    
+    if (!authHeader) {
+      console.log('❌ Sem header de autorização')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Header de autorização não fornecido'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     )
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Não autenticado')
+    console.log('👤 Verificando usuário...')
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError) {
+      console.log('❌ Erro ao verificar usuário:', userError.message)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erro de autenticação: ' + userError.message
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+    
+    if (!user) {
+      console.log('❌ Usuário não autenticado')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Não autenticado'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    console.log('✅ Usuário autenticado:', user.email)
 
     const { platform, redirect_url }: ConnectRequest = await req.json()
+    console.log('📋 Dados recebidos:', { platform, redirect_url })
 
-    console.log(`Conectando plataforma ${platform} para usuário ${user.id}`)
-
-    // Verificar limites do plano
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan_type')
-      .eq('id', user.id)
-      .single()
-
-    const { count: currentCount } = await supabase
-      .from('social_accounts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('platform', platform)
-
-    const platformLimits = {
-      free: { tiktok: 1, instagram: 1, youtube: 0, twitter: 0, linkedin: 0, facebook: 1 },
-      pro: { tiktok: 5, instagram: 5, youtube: 3, twitter: 3, linkedin: 2, facebook: 3 },
-      agency: { tiktok: 20, instagram: 20, youtube: 10, twitter: 10, linkedin: 5, facebook: 10 }
-    }
-
-    const maxAllowed = platformLimits[profile?.plan_type as keyof typeof platformLimits]?.[platform as keyof typeof platformLimits.free] || 0
-    
-    if ((currentCount || 0) >= maxAllowed) {
-      throw new Error(`Limite de contas ${platform} atingido para o plano ${profile?.plan_type}`)
-    }
-
-    // Usar Ayrshare para conectar conta real
+    // Verificar se Ayrshare API key está configurada
     const ayrshareApiKey = Deno.env.get('AYRSHARE_API_KEY')
     if (!ayrshareApiKey) {
-      throw new Error('Ayrshare API key não configurada')
-    }
-
-    // Criar perfil no Ayrshare
-    const profileResponse = await fetch('https://app.ayrshare.com/api/profiles/create', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${ayrshareApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        title: `${user.email}_${platform}_${Date.now()}`,
-        disableSocial: Object.keys(platformLimits.free).filter(p => p !== platform)
+      console.log('❌ Ayrshare API key não configurada')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Ayrshare API key não configurada'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
-    })
-
-    if (!profileResponse.ok) {
-      const errorText = await profileResponse.text()
-      console.error('Ayrshare profile creation error:', errorText)
-      throw new Error(`Erro ao criar perfil no Ayrshare: ${errorText}`)
     }
 
-    const profileData = await profileResponse.json()
-    const profileKey = profileData.profileKey
+    console.log('🔗 Verificando perfil existente...')
+    
+    // Verificar se já existe um perfil para este usuário
+    const { data: existingProfile } = await supabase
+      .from('ayrshare_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    let profileKey = existingProfile?.profile_key
 
     if (!profileKey) {
-      throw new Error('Profile key não retornado pelo Ayrshare')
+      console.log('📝 Criando novo perfil no Ayrshare...')
+      
+      // Criar perfil no Ayrshare
+      const profileResponse = await fetch('https://app.ayrshare.com/api/profiles/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ayrshareApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: `${user.email}_${Date.now()}`,
+          disableSocial: [] // Habilitar todas as redes
+        })
+      })
+
+      if (!profileResponse.ok) {
+        const errorText = await profileResponse.text()
+        console.error('❌ Erro ao criar perfil no Ayrshare:', errorText)
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Erro ao criar perfil no Ayrshare: ${errorText}`
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const profileData = await profileResponse.json()
+      profileKey = profileData.profileKey
+
+      if (!profileKey) {
+        console.error('❌ Profile key não retornado pelo Ayrshare')
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Profile key não retornado pelo Ayrshare'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      // Salvar perfil no banco de dados
+      const { error: insertError } = await supabase
+        .from('ayrshare_profiles')
+        .insert({
+          user_id: user.id,
+          profile_key: profileKey,
+          title: profileData.title,
+          created_at: new Date().toISOString()
+        })
+
+      if (insertError) {
+        console.error('❌ Erro ao salvar perfil:', insertError)
+      }
     }
 
+    console.log('🔗 Gerando URL de OAuth...')
+    
     // Gerar URL de OAuth para conta real
+    // Baseado na documentação do Ayrshare, a URL correta é:
     const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&profileKey=${profileKey}&redirect=${encodeURIComponent(`${redirect_url}/auth/oauth-callback`)}`
 
-    console.log(`OAuth URL gerada: ${oauthUrl}`)
+    console.log('✅ URL gerada:', oauthUrl)
 
-    // Criar entrada temporária na base de dados (será atualizada após OAuth)
+    // Criar entrada temporária na base de dados
     const tempAccount = {
       user_id: user.id,
       platform,
@@ -122,11 +187,17 @@ serve(async (req) => {
       .insert(tempAccount)
 
     if (insertError) {
-      console.error('Erro ao inserir conta temporária:', insertError)
-      throw insertError
+      console.error('❌ Erro ao inserir conta temporária:', insertError)
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erro ao salvar conta temporária'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    console.log(`Conta ${platform} em processo de conexão para usuário ${user.id}`)
+    console.log('✅ Conta temporária criada')
 
     return new Response(JSON.stringify({
       success: true,
@@ -138,7 +209,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Connect social account error:', error)
+    console.error('❌ Erro geral:', error)
     return new Response(JSON.stringify({ 
       success: false,
       error: error.message 
