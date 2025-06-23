@@ -136,9 +136,6 @@ serve(async (req) => {
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
     const publicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}`
 
-    // Serializar context como string para Cloudinary
-    const contextString = `user_id=${user.id}|original_filename=${fileName}|upload_source=contenthub-ai`
-
     // Simplified Cloudinary upload parameters to avoid 400 errors
     const uploadParams = {
       public_id: publicId,
@@ -152,13 +149,17 @@ serve(async (req) => {
       audio_codec: 'auto',
       
       // Metadata
-      context: contextString
+      context: {
+        user_id: user.id,
+        original_filename: fileName,
+        upload_source: 'contenthub-ai'
+      }
     }
 
     // Generate signature for secure upload
     const paramsToSign = Object.keys(uploadParams)
       .sort()
-      .filter(key => uploadParams[key as keyof typeof uploadParams] !== undefined)
+      .filter(key => key !== 'context' && uploadParams[key as keyof typeof uploadParams] !== undefined)
       .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
       .join('&')
     
