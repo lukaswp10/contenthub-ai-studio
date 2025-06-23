@@ -160,14 +160,23 @@ serve(async (req) => {
     console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
 
     // Generate signature for secure upload
-    // IMPORTANTE: Usar a mesma lógica que funcionou nos testes cURL
-    const paramsToSign = Object.keys(uploadParams)
+    // IMPORTANTE: Incluir apenas os parâmetros que o Cloudinary espera na assinatura
+    const signatureParams = {
+      context: uploadParams.context,
+      folder: uploadParams.folder,
+      public_id: uploadParams.public_id,
+      timestamp: uploadParams.timestamp,
+      type: uploadParams.type,
+      upload_preset: uploadParams.upload_preset
+    };
+
+    const paramsToSign = Object.keys(signatureParams)
       .sort()
-      .filter(key => uploadParams[key as keyof typeof uploadParams] !== undefined && uploadParams[key as keyof typeof uploadParams] !== '')
-      .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
+      .filter(key => signatureParams[key as keyof typeof signatureParams] !== undefined && signatureParams[key as keyof typeof signatureParams] !== '')
+      .map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
       .join('&')
     
-    console.log('Params to sign:', paramsToSign)
+    console.log('Params to sign (only signature params):', paramsToSign)
     
     // IMPORTANTE: Verificar se o CLOUDINARY_API_SECRET no Supabase está correto: gJh-IPVTqWOv12GKCDDBJ1gy4i8
     const apiSecret = Deno.env.get('CLOUDINARY_API_SECRET')!
