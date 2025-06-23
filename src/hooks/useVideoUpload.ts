@@ -101,6 +101,7 @@ export function useVideoUpload() {
       // Upload to Cloudinary with progress tracking
       setUploadProgress(30)
       console.log('Upload params:', uploadData.upload_url, uploadData.upload_params)
+      console.log('uploadData.upload_params:', JSON.stringify(uploadData.upload_params, null, 2))
       const uploadedUrl = await uploadToCloudinary(
         file,
         uploadData.upload_url,
