@@ -17,6 +17,8 @@ import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
 import AutomationPage from './pages/Automation'
 import Upload from './pages/Upload'
+import Clips from './pages/Clips'
+import Schedule from './pages/Schedule'
 import NotFound from './pages/NotFound'
 
 // Debug component
@@ -84,6 +86,24 @@ export default function App() {
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Upload />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/clips"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Clips />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/schedule"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Schedule />
                   </ProtectedRoute>
                 }
               />
