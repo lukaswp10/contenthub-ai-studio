@@ -152,7 +152,8 @@ serve(async (req) => {
       audio_codec: 'auto',
       
       // Metadata
-      context: contextString
+      context: contextString,
+      upload_preset: 'clipbursts-upload'
     }
 
     console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
