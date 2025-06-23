@@ -82,94 +82,32 @@ serve(async (req) => {
       })
       .eq('id', video_id)
 
-    // Get direct MP3 URL from Cloudinary for better Whisper compatibility
-    const audioUrl = cloudinary_url.replace(/\.(mp4|mov|avi|webm|mkv)$/i, '.mp3')
-      .replace('/upload/', '/upload/f_mp3,ac_mono,ar_16000/')
+    console.log(`Audio URL for transcription: ${cloudinary_url}`)
 
-    console.log(`Audio URL for transcription: ${audioUrl}`)
-
-    // Call Replicate Whisper API (REAL)
-    const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+    // Call Hugging Face Whisper API (MORE RELIABLE)
+    const huggingFaceResponse = await fetch('https://api-inference.huggingface.co/models/openai/whisper-large-v3', {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${Deno.env.get('REPLICATE_API_TOKEN')}`,
+        'Authorization': `Bearer ${Deno.env.get('HUGGINGFACE_API_KEY')}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        version: "vaibhavs10/incredibly-fast-whisper:3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
-        input: {
-          audio: audioUrl,
-          task: "transcribe",
-          batch_size: 64,
-          timestamp: "word", // Get word-level timestamps
-          diarization: true, // Enable speaker diarization
-          language: language === 'auto' ? null : language,
-          // Advanced options for better quality
-          condition_on_previous_text: true,
-          temperature_increment_on_fallback: 0.2,
-          compression_ratio_threshold: 2.4,
-          logprob_threshold: -1.0,
-          no_speech_threshold: 0.6
-        },
-        webhook: `${Deno.env.get('SUPABASE_URL')}/functions/v1/transcription-webhook`,
-        webhook_events_filter: ["completed"]
+        inputs: cloudinary_url,
+        parameters: {
+          return_timestamps: true
+        }
       })
     })
 
-    if (!replicateResponse.ok) {
-      const errorText = await replicateResponse.text()
-      console.error('Replicate API error:', errorText)
-      throw new Error(`Replicate API error: ${errorText}`)
+    if (!huggingFaceResponse.ok) {
+      const errorText = await huggingFaceResponse.text()
+      console.error('Hugging Face API error:', errorText)
+      throw new Error(`Hugging Face API error: ${errorText}`)
     }
 
-    const prediction = await replicateResponse.json()
-    console.log('Prediction created:', prediction.id)
+    const whisperOutput = await huggingFaceResponse.json() as WhisperResponse
+    console.log('Transcription completed successfully')
 
-    // Poll for completion (with exponential backoff)
-    let attempts = 0
-    const maxAttempts = 60 // 5 minutes max
-    let delay = 2000 // Start with 2 seconds
-    let result = prediction
-
-    while (result.status === 'starting' || result.status === 'processing') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Timeout na transcrição - processo demorou mais de 5 minutos')
-      }
-
-      await new Promise(resolve => setTimeout(resolve, delay))
-      
-      // Exponential backoff: increase delay up to 10 seconds
-      delay = Math.min(delay * 1.2, 10000)
-      
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: {
-          'Authorization': `Token ${Deno.env.get('REPLICATE_API_TOKEN')}`
-        }
-      })
-
-      if (!statusResponse.ok) {
-        console.error('Error checking prediction status')
-        throw new Error('Erro ao verificar status da transcrição')
-      }
-
-      result = await statusResponse.json()
-      attempts++
-      
-      console.log(`Attempt ${attempts}: Status = ${result.status}, Progress = ${result.logs || 'N/A'}`)
-    }
-
-    if (result.status === 'failed') {
-      console.error('Transcription failed:', result.error)
-      throw new Error(`Transcrição falhou: ${result.error}`)
-    }
-
-    if (result.status !== 'succeeded') {
-      throw new Error(`Status inesperado: ${result.status}`)
-    }
-
-    // Parse Whisper output
-    const whisperOutput = result.output as WhisperResponse
-    
     // Process transcription data
     const transcriptionData = {
       text: whisperOutput.text,
@@ -243,11 +181,11 @@ serve(async (req) => {
     }
     
     // Identificar tipos específicos de erro
-    if (error.message?.includes('Replicate API error')) {
-      errorCode = 'REPLICATE_API_ERROR'
+    if (error.message?.includes('Hugging Face API error')) {
+      errorCode = 'HUGGINGFACE_API_ERROR'
       if (error.message.includes('402')) {
         errorMessage = 'Erro de cobrança na API de transcrição'
-        errorDetails = 'É necessário configurar um método de pagamento na conta Replicate'
+        errorDetails = 'É necessário configurar um método de pagamento na conta Hugging Face'
       } else if (error.message.includes('401')) {
         errorMessage = 'Erro de autenticação na API de transcrição'
         errorDetails = 'Token de API inválido ou expirado'
@@ -261,7 +199,7 @@ serve(async (req) => {
     } else if (error.message?.includes('Timeout')) {
       errorCode = 'TIMEOUT_ERROR'
       errorMessage = 'Transcrição demorou muito tempo'
-      errorDetails = 'O processo de transcrição excedeu o tempo limite de 5 minutos'
+      errorDetails = 'O processo de transcrição excedeu o tempo limite'
     } else if (error.message?.includes('Vídeo não encontrado')) {
       errorCode = 'VIDEO_NOT_FOUND'
       errorMessage = 'Vídeo não encontrado no banco de dados'
@@ -334,7 +272,10 @@ function detectLanguage(text: string): string {
     es: (text.match(patterns.es) || []).length
   }
 
-  return Object.entries(scores).reduce((a, b) => scores[a as keyof typeof scores] > scores[b[0] as keyof typeof scores] ? a : b[0]) as string
+  const maxScore = Math.max(scores.pt, scores.en, scores.es)
+  if (maxScore === scores.pt) return 'pt'
+  if (maxScore === scores.en) return 'en'
+  return 'es'
 }
 
 function calculateAverageConfidence(segments: WhisperSegment[]): number {
