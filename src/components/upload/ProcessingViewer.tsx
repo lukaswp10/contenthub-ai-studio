@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { cn } from '@/lib/utils';
 
 type Video = Tables<'videos'>;
 
@@ -82,15 +83,45 @@ const statusConfig = {
   }
 };
 
+const statusSteps = [
+  { key: 'uploading', label: 'Upload', icon: FileVideo },
+  { key: 'queued', label: 'Fila', icon: Clock },
+  { key: 'transcribing', label: 'Transcrição', icon: FileText },
+  { key: 'analyzing', label: 'Análise', icon: FileText },
+  { key: 'generating_clips', label: 'Clips', icon: Scissors },
+  { key: 'ready', label: 'Pronto', icon: CheckCircle },
+];
+
 export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerProps) {
   const [videos, setVideos] = useState<ProcessingVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stepTimestamps, setStepTimestamps] = useState<Record<string, number>>({});
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
 
   useEffect(() => {
     loadProcessingVideos();
     const interval = setInterval(loadProcessingVideos, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!videos.length) return;
+    const video = videos[0];
+    // Timeout: se etapa atual durar mais de 5 minutos, alerta
+    const now = Date.now();
+    const currentStep = video.processing_status;
+    setStepTimestamps((prev) => {
+      if (!prev[currentStep]) {
+        return { ...prev, [currentStep]: now };
+      }
+      return prev;
+    });
+    if (stepTimestamps[currentStep] && now - stepTimestamps[currentStep] > 5 * 60 * 1000) {
+      setTimeoutWarning(true);
+    } else {
+      setTimeoutWarning(false);
+    }
+  }, [videos, stepTimestamps]);
 
   const loadProcessingVideos = async () => {
     try {
@@ -224,6 +255,7 @@ export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerP
           const config = statusConfig[video.processing_status as keyof typeof statusConfig] || statusConfig.uploading;
           const Icon = config.icon;
           const progress = calculateProgress(video);
+          const currentStepIndex = statusSteps.findIndex(s => s.key === video.processing_status);
 
           return (
             <div key={video.id} className="border rounded-lg p-4 space-y-3">
@@ -247,6 +279,24 @@ export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerP
                     <span>Criado: {new Date(video.created_at || '').toLocaleString('pt-BR')}</span>
                   </div>
 
+                  {/* Barra de progresso multi-etapas */}
+                  <div className="flex items-center gap-2 mb-2">
+                    {statusSteps.map((step, idx) => (
+                      <div key={step.key} className="flex flex-col items-center">
+                        <div className={cn(
+                          'rounded-full p-1 border-2',
+                          idx < currentStepIndex ? 'border-green-500 bg-green-500 text-white' :
+                          idx === currentStepIndex ? 'border-blue-500 bg-blue-500 text-white animate-pulse' :
+                          'border-gray-300 bg-gray-100 text-gray-400')
+                        }>
+                          <step.icon className="h-5 w-5" />
+                        </div>
+                        <span className={cn('text-xs mt-1', idx === currentStepIndex ? 'font-bold text-blue-600' : 'text-gray-400')}>{step.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Barra de progresso linear */}
                   {video.processing_status !== 'ready' && video.processing_status !== 'failed' && video.processing_status !== 'cancelled' && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -254,6 +304,25 @@ export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerP
                         <span>{progress}%</span>
                       </div>
                       <Progress value={progress} className="h-2" />
+                    </div>
+                  )}
+
+                  {/* Logs detalhados */}
+                  <div className="mt-2 text-xs text-gray-600 space-y-1">
+                    {statusSteps.slice(0, currentStepIndex + 1).map((step, idx) => (
+                      <div key={step.key} className="flex items-center gap-2">
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                        <span>{step.label} {idx === currentStepIndex ? '(em andamento)' : 'concluído'}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Timeout/Travamento */}
+                  {timeoutWarning && (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      <span className="text-yellow-800 font-medium">Ainda processando, pode demorar alguns minutos. Se persistir, tente novamente ou entre em contato com o suporte.</span>
+                      <Button size="sm" variant="outline" onClick={loadProcessingVideos} className="ml-2">Recarregar status</Button>
                     </div>
                   )}
 

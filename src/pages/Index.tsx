@@ -167,12 +167,19 @@ const Index = () => {
             </div>
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
               {user ? (
-                <Link to="/upload">
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 w-full sm:w-auto">
-                    <Upload className="h-4 w-4" />
-                    Novo Upload
-                  </Button>
-                </Link>
+                <>
+                  <Link to="/dashboard">
+                    <Button className="bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-md hover:from-green-600 hover:to-blue-700 flex items-center gap-2 w-full sm:w-auto">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link to="/upload">
+                    <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 w-full sm:w-auto">
+                      <Upload className="h-4 w-4" />
+                      Novo Upload
+                    </Button>
+                  </Link>
+                </>
               ) : (
                 <>
                   <Link to="/login">
