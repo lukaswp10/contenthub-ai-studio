@@ -153,7 +153,7 @@ serve(async (req) => {
       
       // Metadata
       context: contextString,
-      upload_preset: 'clipbursts-upload'
+      upload_preset: 'ml_default'
     }
 
     // Log todos os parâmetros antes de assinar
