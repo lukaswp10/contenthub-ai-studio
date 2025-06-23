@@ -131,53 +131,46 @@ serve(async (req) => {
       api_secret: Deno.env.get('CLOUDINARY_API_SECRET'),
     })
 
-    // Generate unique public_id
+    // Cria o registro do vídeo primeiro para obter o video_id único
+    const { data: video, error: videoError } = await supabase
+      .from('videos')
+      .insert({
+        user_id: user.id,
+        title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+        original_filename: fileName,
+        file_size_bytes: fileSize,
+        duration_seconds: duration,
+        processing_status: 'uploading',
+        processing_preferences: processingConfig || profile.processing_preferences
+      })
+      .select()
+      .single()
+
+    if (videoError) throw videoError
+
+    // Agora gera o public_id usando o video_id
     const timestamp = Math.round(Date.now() / 1000)
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-    const randomSuffix = Math.random().toString(36).substring(2, 8)
-    let publicId = `videos/${user.id}/${timestamp}_${randomSuffix}_${sanitizedFileName}`
-    
-    // Verificar se o public_id já existe e gerar um único se necessário
-    let counter = 0
-    let finalPublicId = publicId
-    while (counter < 10) { // Máximo 10 tentativas
-      const { data: existingVideo } = await supabase
-        .from('videos')
-        .select('id')
-        .eq('cloudinary_public_id', finalPublicId)
-        .single()
-      
-      if (!existingVideo) {
-        break // public_id é único
-      }
-      
-      // Gerar novo public_id com contador
-      counter++
-      finalPublicId = `videos/${user.id}/${timestamp}_${randomSuffix}_${sanitizedFileName}_${counter}`
-    }
-    
-    if (counter >= 10) {
-      throw new Error('Erro ao gerar ID único para o vídeo. Tente novamente.')
-    }
-    
-    publicId = finalPublicId
+    const publicId = `videos/${user.id}/${video.id}_${timestamp}_${sanitizedFileName}`
+
+    // Atualiza o registro com o public_id
+    await supabase
+      .from('videos')
+      .update({ cloudinary_public_id: publicId })
+      .eq('id', video.id)
 
     // Serializar context como string para Cloudinary
     const contextString = `user_id=${user.id}|original_filename=${fileName}|upload_source=contenthub-ai`
 
-    // Simplified Cloudinary upload parameters to avoid 400 errors
+    // Simplified Cloudinary upload parameters
     const uploadParams = {
       public_id: publicId,
       folder: `videos/${user.id}`,
       resource_type: 'video' as const,
       type: 'upload' as const,
       timestamp: String(timestamp),
-      
-      // Basic video optimization
       video_codec: 'auto',
       audio_codec: 'auto',
-      
-      // Metadata
       context: contextString,
       upload_preset: 'ml_default'
     }
@@ -211,27 +204,6 @@ serve(async (req) => {
     const signature = await generateCloudinarySignature(paramsToSign, apiSecret)
     
     console.log('Generated signature:', signature)
-
-    // Create video record in database
-    const { data: video, error: videoError } = await supabase
-      .from('videos')
-      .insert({
-        user_id: user.id,
-        title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
-        original_filename: fileName,
-        file_size_bytes: fileSize,
-        duration_seconds: duration,
-        cloudinary_public_id: publicId,
-        processing_status: 'uploading',
-        // Store processing config
-        processing_preferences: processingConfig || profile.processing_preferences
-      })
-      .select()
-      .single()
-
-    if (videoError) throw videoError
-
-    console.log(`Created video record ${video.id} for upload`)
 
     // Update usage
     await supabase
