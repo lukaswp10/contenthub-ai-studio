@@ -7,15 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BarChart, 
   Bot, 
-  Image, 
   Zap, 
   TrendingUp, 
-  Clock, 
   ArrowRight,
   Plus,
   Crown,
   RefreshCw,
-  CreditCard,
   Settings
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -137,41 +134,19 @@ const Dashboard = () => {
       color: "bg-green-500"
     },
     {
-      title: "Conteúdos Criados",
-      value: "0",
-      icon: Image,
-      color: "bg-purple-500"
-    },
-    {
-      title: "Automações",
+      title: "Contas Conectadas",
       value: "0",
       icon: Zap,
-      color: "bg-orange-500"
+      color: "bg-purple-500"
     }
-  ];
-
-  const recentProjects = [
-    // Vazio por enquanto - será preenchido quando houver dados reais
   ];
 
   const quickActions = [
     {
-      title: "Criar Texto com IA",
-      description: "Gere conteúdo usando modelos de linguagem avançados",
-      icon: Bot,
-      href: "/workspace?type=text"
-    },
-    {
-      title: "Gerar Imagens",
-      description: "Crie imagens únicas com inteligência artificial",
-      icon: Image,
-      href: "/workspace?type=image"
-    },
-    {
-      title: "Automatizar Posts",
-      description: "Configure automação para redes sociais",
+      title: "Automação Social",
+      description: "Configure e gerencie suas redes sociais",
       icon: Zap,
-      href: "/workspace?type=social"
+      href: "/automation"
     }
   ];
 
@@ -183,7 +158,7 @@ const Dashboard = () => {
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">
-              Bem-vindo ao ContentHub AI. Comece criando seu primeiro conteúdo.
+              Bem-vindo ao ContentHub AI. Gerencie seus conteúdos e automações.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -197,17 +172,17 @@ const Dashboard = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${checkingProfile ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Link to="/workspace">
+            <Link to="/automation">
               <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Conteúdo
+                <Zap className="h-4 w-4 mr-2" />
+                Automação Social
               </Button>
             </Link>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -240,7 +215,7 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle>Ações Rápidas</CardTitle>
               <CardDescription>
-                Comece a criar conteúdo em segundos
+                Acesse rapidamente as principais funcionalidades
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

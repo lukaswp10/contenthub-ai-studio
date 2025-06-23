@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -6,7 +7,6 @@ import {
   LayoutDashboard, 
   Zap, 
   FolderOpen, 
-  Image, 
   BarChart, 
   Settings, 
   Bot, 
@@ -28,9 +28,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Workspace', href: '/workspace', icon: Zap },
+    { name: 'Automação', href: '/automation', icon: Zap },
+    { name: 'Workspace', href: '/workspace', icon: Bot },
     { name: 'Projetos', href: '/projects', icon: FolderOpen },
-    { name: 'Galeria', href: '/gallery', icon: Image },
     { name: 'Analytics', href: '/analytics', icon: BarChart },
     { name: 'Configurações', href: '/settings', icon: Settings },
   ];

@@ -57,17 +57,56 @@ serve(async (req) => {
       throw new Error(`Limite de contas ${platform} atingido para o plano ${profile?.plan_type}`)
     }
 
-    // Para demo, criar conta mock diretamente
-    const mockAccount = {
+    // Usar Ayrshare para conectar conta real
+    const ayrshareApiKey = Deno.env.get('AYRSHARE_API_KEY')
+    if (!ayrshareApiKey) {
+      throw new Error('Ayrshare API key não configurada')
+    }
+
+    // Criar perfil no Ayrshare
+    const profileResponse = await fetch('https://app.ayrshare.com/api/profiles/create', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ayrshareApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: `${user.email}_${platform}_${Date.now()}`,
+        disableSocial: Object.keys(platformLimits.free).filter(p => p !== platform)
+      })
+    })
+
+    if (!profileResponse.ok) {
+      const errorText = await profileResponse.text()
+      console.error('Ayrshare profile creation error:', errorText)
+      throw new Error(`Erro ao criar perfil no Ayrshare: ${errorText}`)
+    }
+
+    const profileData = await profileResponse.json()
+    const profileKey = profileData.profileKey
+
+    if (!profileKey) {
+      throw new Error('Profile key não retornado pelo Ayrshare')
+    }
+
+    // Gerar URL de OAuth para conta real
+    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&profileKey=${profileKey}&redirect=${encodeURIComponent(redirect_url)}`
+
+    console.log(`OAuth URL gerada: ${oauthUrl}`)
+
+    // Criar entrada temporária na base de dados (será atualizada após OAuth)
+    const tempAccount = {
       user_id: user.id,
       platform,
-      platform_user_id: `demo_${platform}_${Date.now()}`,
-      username: `demo_user_${Math.floor(Math.random() * 1000)}`,
-      display_name: 'Demo User',
-      avatar_url: `https://ui-avatars.com/api/?name=Demo+User&background=random`,
-      verified: Math.random() > 0.5,
-      total_followers: Math.floor(Math.random() * 10000),
-      engagement_rate: Math.random() * 10,
+      platform_user_id: `temp_${platform}_${Date.now()}`,
+      username: `connecting_${Math.floor(Math.random() * 1000)}`,
+      display_name: 'Conectando...',
+      avatar_url: `https://ui-avatars.com/api/?name=Connecting&background=007bff&color=fff`,
+      verified: false,
+      ayrshare_profile_key: profileKey,
+      connection_status: 'connecting',
+      total_followers: 0,
+      engagement_rate: 0,
       posting_schedule: {
         enabled: true,
         times: ['09:00', '15:00', '21:00'],
@@ -81,19 +120,20 @@ serve(async (req) => {
 
     const { error: insertError } = await supabase
       .from('social_accounts')
-      .insert(mockAccount)
+      .insert(tempAccount)
 
     if (insertError) {
-      console.error('Erro ao inserir conta:', insertError)
+      console.error('Erro ao inserir conta temporária:', insertError)
       throw insertError
     }
 
-    console.log(`Conta ${platform} criada com sucesso para usuário ${user.id}`)
+    console.log(`Conta ${platform} em processo de conexão para usuário ${user.id}`)
 
     return new Response(JSON.stringify({
       success: true,
-      oauth_url: `https://demo-oauth.com/${platform}`,
-      account: mockAccount
+      oauth_url: oauthUrl,
+      profile_key: profileKey,
+      message: `Redirecionando para ${platform}...`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
