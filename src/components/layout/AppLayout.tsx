@@ -283,7 +283,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:ml-72 w-full">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
+        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-sm w-full">
           <div className="flex h-16 items-center px-4 lg:px-8">
             {/* Mobile menu button */}
             <Button
@@ -386,7 +386,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         </header>
 
         {/* Page Content */}
-        <main className="w-full grow px-2 lg:px-8">
+        <main className="w-full grow">
           {children}
         </main>
       </div>

@@ -189,7 +189,7 @@ export default function Upload() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 w-full px-0">
+      <div className="space-y-8 w-full">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
