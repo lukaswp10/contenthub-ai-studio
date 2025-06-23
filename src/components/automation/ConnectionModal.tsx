@@ -39,14 +39,13 @@ export function ConnectionModal({
         throw new Error('Usuário não autenticado. Faça login novamente.')
       }
 
+      console.log('🔑 Token de sessão obtido:', session.access_token ? 'Sim' : 'Não')
+
       console.log('📡 Chamando Edge Function connect-social-account...')
       const { data, error } = await supabase.functions.invoke('connect-social-account', {
         body: {
           platform: platform.id,
           redirect_url: `${window.location.origin}/automation`,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
         }
       })
 
