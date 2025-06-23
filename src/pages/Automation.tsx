@@ -14,6 +14,7 @@ import { ScheduledPostsQueue } from '@/components/automation/ScheduledPostsQueue
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import AppLayout from '@/components/layout/AppLayout'
 import { 
   Settings, 
@@ -23,7 +24,10 @@ import {
   Sparkles,
   AlertCircle,
   Loader2,
-  Users
+  Users,
+  TrendingUp,
+  Clock,
+  Zap
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -86,7 +90,7 @@ export default function AutomationPage() {
     enabled: !!user,
   })
 
-  // Group accounts by platforma
+  // Group accounts by platform
   const accountsByPlatform = accounts.reduce((acc, account) => {
     if (!acc[account.platform]) {
       acc[account.platform] = []
@@ -103,9 +107,17 @@ export default function AutomationPage() {
     return currentCount < maxAllowed
   }
 
-  // Get total connected accounts
+  // Calculate overall analytics
   const totalConnectedAccounts = accounts.length
   const activeAccounts = accounts.filter(a => a.is_active && a.connection_status === 'connected').length
+  const errorAccounts = accounts.filter(a => a.connection_status === 'error').length
+  const rateLimitedAccounts = accounts.filter(a => a.connection_status === 'rate_limited').length
+  const totalFollowers = accounts.reduce((sum, acc) => sum + (acc.total_followers || 0), 0)
+  const avgEngagement = accounts.length > 0 
+    ? accounts.reduce((sum, acc) => sum + (acc.engagement_rate || 0), 0) / accounts.length 
+    : 0
+  const totalPostsToday = accounts.reduce((sum, acc) => sum + (acc.posts_today || 0), 0)
+  const totalPostsThisWeek = accounts.reduce((sum, acc) => sum + (acc.posts_this_week || 0), 0)
 
   // Open connection modal
   const handleConnectPlatform = (platformId: string) => {
@@ -124,33 +136,99 @@ export default function AutomationPage() {
   return (
     <AppLayout>
       <DndProvider backend={HTML5Backend}>
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
               <div>
-                <h1 className="text-3xl font-bold">Automação Social</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold">Automação Social</h1>
                 <p className="text-muted-foreground mt-2">
                   Conecte suas redes sociais e automatize seus posts
                 </p>
               </div>
               
               {/* Quick stats */}
-              <div className="flex gap-6">
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{totalConnectedAccounts}</p>
-                  <p className="text-sm text-muted-foreground">Contas conectadas</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{activeAccounts}</p>
-                  <p className="text-sm text-muted-foreground">Contas ativas</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-bold">{scheduledPosts.length}</p>
-                  <p className="text-sm text-muted-foreground">Posts agendados</p>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Card className="text-center">
+                  <CardContent className="p-3">
+                    <p className="text-2xl sm:text-3xl font-bold">{totalConnectedAccounts}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Contas conectadas</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-3">
+                    <p className="text-2xl sm:text-3xl font-bold">{activeAccounts}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Contas ativas</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-3">
+                    <p className="text-2xl sm:text-3xl font-bold">{scheduledPosts.length}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Posts agendados</p>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-3">
+                    <p className="text-2xl sm:text-3xl font-bold">{totalPostsToday}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Posts hoje</p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
+
+            {/* Detailed analytics */}
+            {accounts.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">Seguidores</span>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {totalFollowers > 1000000 
+                        ? `${(totalFollowers / 1000000).toFixed(1)}M`
+                        : totalFollowers > 1000 
+                          ? `${(totalFollowers / 1000).toFixed(1)}K`
+                          : totalFollowers.toLocaleString()
+                      }
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-medium">Engajamento</span>
+                    </div>
+                    <p className="text-2xl font-bold">{avgEngagement.toFixed(1)}%</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium">Posts semana</span>
+                    </div>
+                    <p className="text-2xl font-bold">{totalPostsThisWeek}</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium">Auto-posting</span>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {accounts.filter(a => a.auto_posting_enabled).length}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Alert for free users */}
             {profile?.plan_type === 'free' && (
@@ -165,32 +243,58 @@ export default function AutomationPage() {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Error accounts alert */}
+            {errorAccounts > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Atenção:</strong> {errorAccounts} conta(s) com erro de conexão. 
+                  Verifique as configurações ou atualize as conexões.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Rate limited accounts alert */}
+            {rateLimitedAccounts > 0 && (
+              <Alert className="mb-6">
+                <Clock className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Rate Limit:</strong> {rateLimitedAccounts} conta(s) atingiram o limite de requisições. 
+                  Aguarde alguns minutos antes de tentar novamente.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6">
-              <TabsTrigger value="platforms" className="flex items-center gap-2">
+            <TabsList className="mb-6 w-full overflow-x-auto">
+              <TabsTrigger value="platforms" className="flex items-center gap-2 whitespace-nowrap">
                 <Settings className="h-4 w-4" />
-                Plataformas
+                <span className="hidden sm:inline">Plataformas</span>
+                <span className="sm:hidden">Plataformas</span>
               </TabsTrigger>
-              <TabsTrigger value="accounts" className="flex items-center gap-2">
+              <TabsTrigger value="accounts" className="flex items-center gap-2 whitespace-nowrap">
                 <Users className="h-4 w-4" />
-                Gerenciar Contas
+                <span className="hidden sm:inline">Gerenciar Contas</span>
+                <span className="sm:hidden">Contas</span>
               </TabsTrigger>
-              <TabsTrigger value="schedule" className="flex items-center gap-2">
+              <TabsTrigger value="schedule" className="flex items-center gap-2 whitespace-nowrap">
                 <Calendar className="h-4 w-4" />
-                Agenda
+                <span className="hidden sm:inline">Agenda</span>
+                <span className="sm:hidden">Agenda</span>
               </TabsTrigger>
-              <TabsTrigger value="queue" className="flex items-center gap-2">
+              <TabsTrigger value="queue" className="flex items-center gap-2 whitespace-nowrap">
                 <BarChart3 className="h-4 w-4" />
-                Fila de Posts
+                <span className="hidden sm:inline">Fila de Posts</span>
+                <span className="sm:hidden">Fila</span>
               </TabsTrigger>
             </TabsList>
 
             {/* Platforms Tab */}
             <TabsContent value="platforms" className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* Available Platforms */}
                 <div>
                   <h2 className="text-xl font-semibold mb-4">Conectar Redes Sociais</h2>

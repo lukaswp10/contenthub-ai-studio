@@ -45,6 +45,7 @@ export interface SocialAccount {
   total_following: number
   engagement_rate: number
   posts_today: number
+  posts_this_week: number
   last_posted_at?: string
   
   // Schedule
