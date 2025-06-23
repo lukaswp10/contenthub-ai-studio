@@ -20,6 +20,7 @@ import {
 import { useVideoUpload } from '@/hooks/useVideoUpload';
 import { ProcessingConfig } from '@/components/upload/ProcessingConfig';
 import { ProcessingViewer } from '@/components/upload/ProcessingViewer';
+import { ProcessingMonitor } from '@/components/upload/ProcessingMonitor';
 import { RecentVideos } from '@/components/upload/RecentVideos';
 import { Tables } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +32,7 @@ export default function Upload() {
   const [activeTab, setActiveTab] = useState('upload');
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [showConfig, setShowConfig] = useState(false);
+  const [showMonitor, setShowMonitor] = useState(false);
   const { toast } = useToast();
   
   const {
@@ -87,12 +89,13 @@ export default function Upload() {
     }
 
     try {
-      await uploadVideo();
+      const result = await uploadVideo();
       toast({
         title: "Upload iniciado!",
         description: "Seu vídeo está sendo processado. Você pode acompanhar o progresso na aba 'Processamento'.",
       });
       setActiveTab('processing');
+      setShowMonitor(true);
       resetUpload();
     } catch (error) {
       console.error('Upload error:', error);
@@ -168,6 +171,22 @@ export default function Upload() {
     return 'Vídeo enviado com sucesso!';
   };
 
+  const handleProcessingComplete = (result: any) => {
+    toast({
+      title: "Processamento concluído!",
+      description: "Todas as etapas foram executadas com sucesso.",
+    });
+    setShowMonitor(false);
+  };
+
+  const handleProcessingError = (error: any) => {
+    toast({
+      title: "Erro no processamento",
+      description: error.message || "Ocorreu um erro durante o processamento.",
+      variant: "destructive",
+    });
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -201,103 +220,108 @@ export default function Upload() {
               Processamento
             </TabsTrigger>
             <TabsTrigger value="recent" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
+              <FileVideo className="h-4 w-4" />
               Recentes
             </TabsTrigger>
           </TabsList>
 
           {/* Upload Tab */}
           <TabsContent value="upload" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Upload Area */}
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <UploadIcon className="h-5 w-5" />
-                      Upload de Vídeo
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* File Upload */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UploadIcon className="h-5 w-5" />
+                  Upload de Vídeo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* File Upload Area */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="video-upload"
+                  />
+                  <label htmlFor="video-upload" className="cursor-pointer">
                     <div className="space-y-4">
+                      <UploadIcon className="h-12 w-12 mx-auto text-gray-400" />
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Selecione um arquivo de vídeo
-                        </label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                          <input
-                            type="file"
-                            accept="video/*"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            id="video-upload"
-                            disabled={isUploading}
-                          />
-                          <label
-                            htmlFor="video-upload"
-                            className="cursor-pointer block"
-                          >
-                            <UploadIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-lg font-medium text-gray-900">
-                              {file ? file.name : 'Clique para selecionar um vídeo'}
-                            </p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              MP4, MOV, AVI, WebM ou MKV (máx. 500MB)
-                            </p>
-                          </label>
+                        <p className="text-lg font-medium">
+                          {file ? file.name : "Clique para selecionar um vídeo"}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {file ? `${formatFileSize(file.size)}` : "MP4, MOV, AVI até 500MB"}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* File Info */}
+                {file && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileVideo className="h-8 w-8 text-blue-500" />
+                        <div>
+                          <p className="font-medium">{file.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {formatFileSize(file.size)}
+                          </p>
                         </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFile(null)}
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-                      {/* File Preview */}
-                      {file && (
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center gap-3">
-                            <FileVideo className="h-8 w-8 text-blue-500" />
-                            <div className="flex-1">
-                              <p className="font-medium">{file.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setFile(null)}
-                              disabled={isUploading}
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                {/* Upload Form */}
+                {file && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Título do Vídeo
+                      </label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Digite o título do vídeo"
+                      />
                     </div>
 
-                    {/* Video Details */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium">Título do Vídeo</label>
-                        <input
-                          type="text"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Digite um título para o vídeo"
-                          className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          disabled={isUploading}
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Descrição (opcional)
+                      </label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Descreva o conteúdo do vídeo"
+                      />
+                    </div>
 
-                      <div>
-                        <label className="text-sm font-medium">Descrição</label>
-                        <textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Descreva o conteúdo do vídeo (opcional)"
-                          rows={3}
-                          className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          disabled={isUploading}
-                        />
-                      </div>
+                    {/* Processing Options */}
+                    <div className="flex items-center justify-between">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowConfig(true)}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configurações
+                      </Button>
                     </div>
 
                     {/* Upload Progress */}
@@ -305,7 +329,7 @@ export default function Upload() {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>{getUploadStepName(uploadProgress)}</span>
-                          <span>{Math.round(uploadProgress)}%</span>
+                          <span>{uploadProgress}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
@@ -313,30 +337,19 @@ export default function Upload() {
                             style={{ width: `${uploadProgress}%` }}
                           />
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <p className="text-sm text-gray-500">
                           {getUploadStepDescription(uploadProgress)}
-                        </div>
+                        </p>
                       </div>
                     )}
 
-                    {/* Error Message */}
+                    {/* Upload Error */}
                     {uploadError && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                        <div className="flex items-center gap-2 text-red-700">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="font-medium">Erro no upload:</span>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-5 w-5 text-red-500" />
+                          <p className="text-red-700">{uploadError}</p>
                         </div>
-                        <p className="text-sm text-red-600 mt-1">{uploadError}</p>
-                        {uploadError.includes('Limite mensal') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 border-red-300 text-red-700 hover:bg-red-100"
-                            onClick={() => window.open('https://clipsforge.com/upgrade', '_blank')}
-                          >
-                            Fazer upgrade
-                          </Button>
-                        )}
                       </div>
                     )}
 
@@ -345,44 +358,42 @@ export default function Upload() {
                       onClick={handleUpload}
                       disabled={!file || !title.trim() || isUploading}
                       className="w-full"
-                      size="lg"
                     >
                       {isUploading ? (
                         <>
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                          Fazendo upload...
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                          Enviando...
                         </>
                       ) : (
                         <>
                           <UploadIcon className="h-4 w-4 mr-2" />
-                          Fazer Upload e Processar
+                          Enviar Vídeo
                         </>
                       )}
                     </Button>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Processing Configuration */}
-              <div>
-                <ProcessingConfig
-                  onConfigChange={(config) => {
-                    console.log('Processing config:', config);
-                  }}
-                />
-              </div>
-            </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Processing Tab */}
           <TabsContent value="processing" className="space-y-6">
-            <ProcessingViewer
-              onVideoComplete={handleVideoComplete}
-              onRetry={handleRetry}
-            />
+            {showMonitor ? (
+              <ProcessingMonitor
+                videoId={selectedVideo?.id}
+                onComplete={handleProcessingComplete}
+                onError={handleProcessingError}
+              />
+            ) : (
+              <ProcessingViewer
+                onVideoComplete={handleVideoComplete}
+                onRetry={handleRetry}
+              />
+            )}
           </TabsContent>
 
-          {/* Recent Videos Tab */}
+          {/* Recent Tab */}
           <TabsContent value="recent" className="space-y-6">
             <RecentVideos
               onVideoSelect={handleVideoSelect}
@@ -392,106 +403,14 @@ export default function Upload() {
           </TabsContent>
         </Tabs>
 
-        {/* Selected Video Details Modal */}
-        {selectedVideo && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Detalhes do Vídeo</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedVideo(null)}
-                >
-                  ✕
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                  {selectedVideo.cloudinary_secure_url ? (
-                    <video
-                      src={selectedVideo.cloudinary_secure_url}
-                      controls
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <FileVideo className="h-12 w-12 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h4 className="font-medium text-lg">{selectedVideo.title}</h4>
-                  {selectedVideo.description && (
-                    <p className="text-muted-foreground mt-1">{selectedVideo.description}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Duração:</span>
-                    <p>{formatDuration(selectedVideo.duration_seconds)}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Tamanho:</span>
-                    <p>{formatFileSize(selectedVideo.file_size_bytes)}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span>
-                    <p className="capitalize">{selectedVideo.processing_status}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Criado:</span>
-                    <p>{new Date(selectedVideo.created_at || '').toLocaleString('pt-BR')}</p>
-                  </div>
-                </div>
-
-                {selectedVideo.processing_status === 'ready' && (
-                  <div className="space-y-2">
-                    {selectedVideo.ai_suggested_clips && selectedVideo.ai_suggested_clips > 0 && (
-                      <div className="text-sm">
-                        <span className="font-medium">Clipes sugeridos:</span>
-                        <p>{selectedVideo.ai_suggested_clips}</p>
-                      </div>
-                    )}
-                    {selectedVideo.ai_main_topics && selectedVideo.ai_main_topics.length > 0 && (
-                      <div className="text-sm">
-                        <span className="font-medium">Tópicos principais:</span>
-                        <p>{selectedVideo.ai_main_topics.join(', ')}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleViewClips(selectedVideo.id)}
-                    disabled={selectedVideo.processing_status !== 'ready'}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Ver Clipes
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleShareVideo(selectedVideo)}
-                    disabled={selectedVideo.processing_status !== 'ready'}
-                  >
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Compartilhar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedVideo(null)}
-                  >
-                    Fechar
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Processing Config Modal */}
+        {showConfig && (
+          <ProcessingConfig
+            onConfigChange={(config) => {
+              console.log('Processing config:', config);
+              setShowConfig(false);
+            }}
+          />
         )}
       </div>
     </AppLayout>
