@@ -33,13 +33,21 @@ export function ConnectionModal({
       setIsConnecting(true)
       setStep('connecting')
 
-      // Call Ayrshare to initiate OAuth
+      // Get user session for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Usuário não autenticado. Faça login novamente.')
+      }
+
       console.log('📡 Chamando Edge Function connect-social-account...')
       const { data, error } = await supabase.functions.invoke('connect-social-account', {
         body: {
           platform: platform.id,
           redirect_url: `${window.location.origin}/automation`,
         },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       })
 
       console.log('📥 Resposta da Edge Function:', { data, error })
