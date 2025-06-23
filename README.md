@@ -181,9 +181,3 @@ To run from source:
 # Go >= 1.22
 go run . help
 ```
-
-# ContentHub AI Studio
-
-An AI-powered social media management platform.
-
-<!-- Trigger rebuild -->
