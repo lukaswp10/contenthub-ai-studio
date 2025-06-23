@@ -136,12 +136,31 @@ export function useVideoUpload() {
         })
         .eq('id', videoData.id)
       if (updateError) {
-        if (updateError.code === '409') {
+        if (updateError.code === '409' || updateError.message?.includes('duplicate key value violates unique constraint "videos_cloudinary_public_id_key"')) {
+          console.error('Erro de duplicata detectado:', updateError);
           toast({
-            title: "Conflito ao atualizar vídeo",
-            description: "O vídeo já foi atualizado ou removido. Recarregue a página.",
+            title: "Erro de duplicata",
+            description: "Este vídeo já foi processado anteriormente. Tente com um arquivo diferente.",
             variant: "destructive",
           });
+          
+          // Limpar o registro duplicado se possível
+          try {
+            await supabase
+              .from('videos')
+              .delete()
+              .eq('id', videoData.id);
+          } catch (deleteError) {
+            console.error('Erro ao limpar registro duplicado:', deleteError);
+          }
+          
+          // Resetar upload
+          setFile(null)
+          setTitle('')
+          setDescription('')
+          setUploadProgress(0)
+          setCurrentVideoId(null)
+          
           return null;
         }
         throw updateError;

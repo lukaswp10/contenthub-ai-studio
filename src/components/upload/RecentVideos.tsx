@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Play, 
   Eye, 
@@ -12,10 +13,12 @@ import {
   MoreHorizontal,
   Download,
   Share2,
-  Trash2
+  Trash2,
+  CheckSquare
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useToast } from '@/hooks/use-toast';
 
 type Video = Tables<'videos'>;
 
@@ -80,6 +83,10 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [deletingMultiple, setDeletingMultiple] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadRecentVideos();
@@ -146,15 +153,102 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
 
   const handleDelete = async (videoId: string) => {
     if (!window.confirm('Tem certeza que deseja excluir este vídeo? Essa ação não pode ser desfeita.')) return;
+    
     setDeletingId(videoId);
     try {
+      // Excluir do Supabase
       const { error } = await supabase.from('videos').delete().eq('id', videoId);
       if (error) throw error;
+      
+      // Remover da lista local
       setVideos((prev) => prev.filter((v) => v.id !== videoId));
+      
+      // Remover da seleção se estiver selecionado
+      setSelectedVideos((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(videoId);
+        return newSet;
+      });
+      
+      toast({
+        title: "Vídeo excluído",
+        description: "O vídeo foi removido com sucesso.",
+      });
     } catch (err) {
-      alert('Erro ao excluir vídeo.');
+      console.error('Erro ao excluir vídeo:', err);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o vídeo. Tente novamente.",
+        variant: "destructive",
+      });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleSelectVideo = (videoId: string, checked: boolean) => {
+    setSelectedVideos((prev) => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(videoId);
+      } else {
+        newSet.delete(videoId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedVideos(new Set(videos.map(v => v.id)));
+    } else {
+      setSelectedVideos(new Set());
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedVideos.size === 0) return;
+    
+    const count = selectedVideos.size;
+    if (!window.confirm(`Tem certeza que deseja excluir ${count} vídeo${count > 1 ? 's' : ''}? Essa ação não pode ser desfeita.`)) return;
+    
+    setDeletingMultiple(true);
+    try {
+      // Excluir do Supabase
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .in('id', Array.from(selectedVideos));
+      
+      if (error) throw error;
+      
+      // Remover da lista local
+      setVideos((prev) => prev.filter((v) => !selectedVideos.has(v.id)));
+      
+      // Limpar seleção
+      setSelectedVideos(new Set());
+      setIsSelectMode(false);
+      
+      toast({
+        title: "Vídeos excluídos",
+        description: `${count} vídeo${count > 1 ? 's' : ''} removido${count > 1 ? 's' : ''} com sucesso.`,
+      });
+    } catch (err) {
+      console.error('Erro ao excluir vídeos:', err);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir os vídeos. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingMultiple(false);
+    }
+  };
+
+  const toggleSelectMode = () => {
+    setIsSelectMode(!isSelectMode);
+    if (isSelectMode) {
+      setSelectedVideos(new Set());
     }
   };
 
@@ -199,7 +293,41 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Vídeos Recentes</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Vídeos Recentes</CardTitle>
+          <div className="flex items-center gap-2">
+            {isSelectMode && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSelectAll(true)}
+                  disabled={selectedVideos.size === videos.length}
+                >
+                  <CheckSquare className="h-4 w-4 mr-1" />
+                  Selecionar Todos
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedVideos.size === 0 || deletingMultiple}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Excluir ({selectedVideos.size})
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSelectMode}
+            >
+              <CheckSquare className="h-4 w-4 mr-1" />
+              {isSelectMode ? 'Cancelar' : 'Selecionar'}
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -209,6 +337,17 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
 
             return (
               <div key={video.id} className="group relative border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                {/* Checkbox for selection mode */}
+                {isSelectMode && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <Checkbox
+                      checked={selectedVideos.has(video.id)}
+                      onCheckedChange={(checked) => handleSelectVideo(video.id, checked as boolean)}
+                      className="bg-white border-2"
+                    />
+                  </div>
+                )}
+                
                 {/* Thumbnail */}
                 <div className="relative h-32 bg-gray-100">
                   {video.cloudinary_secure_url ? (
@@ -286,6 +425,7 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
                       variant="ghost"
                       className="flex-1 h-8 text-xs"
                       onClick={() => onVideoSelect?.(video)}
+                      disabled={isSelectMode}
                     >
                       <Eye className="h-3 w-3 mr-1" />
                       Ver
@@ -298,6 +438,7 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           onClick={() => onViewClips?.(video.id)}
+                          disabled={isSelectMode}
                         >
                           <Download className="h-3 w-3" />
                         </Button>
@@ -306,6 +447,7 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           onClick={() => onShareVideo?.(video)}
+                          disabled={isSelectMode}
                         >
                           <Share2 className="h-3 w-3" />
                         </Button>
@@ -316,7 +458,7 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
                       variant="ghost"
                       className="h-8 w-8 p-0 text-red-600"
                       title="Excluir vídeo"
-                      disabled={deletingId === video.id}
+                      disabled={deletingId === video.id || isSelectMode}
                       onClick={() => handleDelete(video.id)}
                     >
                       <Trash2 className="h-4 w-4" />
