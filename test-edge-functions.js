@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 async function testEdgeFunctions() {
   console.log('🧪 Testando Edge Functions...\n')
 
-  // Teste 1: Verificar se a função connect-social-account existe
+  // Teste 1: Verificar se a função connect-social-account existe e ver a resposta
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/connect-social-account`, {
       method: 'POST',
@@ -16,13 +16,33 @@ async function testEdgeFunctions() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        platform: 'instagram',
-        redirect_url: 'https://contenthub-ai-studio.vercel.app'
+        platform: 'tiktok',
+        redirect_url: 'https://contenthub-ai-studio.vercel.app/automation'
       })
     })
 
     console.log('📡 Teste connect-social-account:')
     console.log(`Status: ${response.status}`)
+    
+    // Tentar ler a resposta
+    try {
+      const responseText = await response.text()
+      console.log('📄 Resposta completa:')
+      console.log(responseText)
+      
+      // Tentar parsear como JSON
+      try {
+        const responseJson = JSON.parse(responseText)
+        if (responseJson.oauth_url) {
+          console.log('\n🔗 URL de OAuth retornada:')
+          console.log(responseJson.oauth_url)
+        }
+      } catch (e) {
+        console.log('❌ Resposta não é JSON válido')
+      }
+    } catch (e) {
+      console.log('❌ Não foi possível ler a resposta')
+    }
     
     if (response.status === 401) {
       console.log('✅ Função encontrada - Erro 401 esperado (não autenticado)')
