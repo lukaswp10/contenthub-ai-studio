@@ -82,79 +82,11 @@ serve(async (req) => {
       })
     }
 
-    console.log('🔗 Verificando perfil existente...')
+    console.log('🔗 Gerando URL de OAuth direta...')
     
-    // Verificar se já existe um perfil para este usuário
-    const { data: existingProfile } = await supabase
-      .from('ayrshare_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    let profileKey = existingProfile?.profile_key
-
-    if (!profileKey) {
-      console.log('📝 Criando novo perfil no Ayrshare...')
-      
-      // Criar perfil no Ayrshare
-      const profileResponse = await fetch('https://app.ayrshare.com/api/profiles/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${ayrshareApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: `${user.email}_${Date.now()}`,
-          disableSocial: [] // Habilitar todas as redes
-        })
-      })
-
-      if (!profileResponse.ok) {
-        const errorText = await profileResponse.text()
-        console.error('❌ Erro ao criar perfil no Ayrshare:', errorText)
-        return new Response(JSON.stringify({
-          success: false,
-          error: `Erro ao criar perfil no Ayrshare: ${errorText}`
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-
-      const profileData = await profileResponse.json()
-      profileKey = profileData.profileKey
-
-      if (!profileKey) {
-        console.error('❌ Profile key não retornado pelo Ayrshare')
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Profile key não retornado pelo Ayrshare'
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-
-      // Salvar perfil no banco de dados
-      const { error: insertError } = await supabase
-        .from('ayrshare_profiles')
-        .insert({
-          user_id: user.id,
-          profile_key: profileKey,
-          title: profileData.title,
-          created_at: new Date().toISOString()
-        })
-
-      if (insertError) {
-        console.error('❌ Erro ao salvar perfil:', insertError)
-      }
-    }
-
-    console.log('🔗 Gerando URL de OAuth...')
-    
-    // Gerar URL de OAuth para conta real
-    // Baseado na documentação do Ayrshare, a URL correta é:
-    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&profileKey=${profileKey}&redirect=${encodeURIComponent(`${redirect_url}/auth/oauth-callback`)}`
+    // Usar OAuth direto do Ayrshare sem criar perfil via API
+    // Isso funciona com planos gratuitos/Pro
+    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&redirect=${encodeURIComponent(`${redirect_url}/auth/oauth-callback`)}`
 
     console.log('✅ URL gerada:', oauthUrl)
 
@@ -167,7 +99,6 @@ serve(async (req) => {
       display_name: 'Conectando...',
       avatar_url: `https://ui-avatars.com/api/?name=Connecting&background=007bff&color=fff`,
       verified: false,
-      ayrshare_profile_key: profileKey,
       connection_status: 'connecting',
       total_followers: 0,
       engagement_rate: 0,
@@ -202,7 +133,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       oauth_url: oauthUrl,
-      profile_key: profileKey,
       message: `Redirecionando para ${platform}...`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
