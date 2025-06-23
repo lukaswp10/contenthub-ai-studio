@@ -85,7 +85,7 @@ export default function AutomationPage() {
     enabled: !!user,
   })
 
-  // Group accounts by platform
+  // Group accounts by platforma
   const accountsByPlatform = accounts.reduce((acc, account) => {
     if (!acc[account.platform]) {
       acc[account.platform] = []
