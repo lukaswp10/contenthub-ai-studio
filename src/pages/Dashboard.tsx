@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,22 @@ import ProjectHistory from "@/components/ProjectHistory";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const { user, profile, session } = useAuth();
+  const { user, profile, session, loading } = useAuth();
   const [checkingProfile, setCheckingProfile] = useState(false);
+
+  // Show loading state while authentication is loading
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-6 flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Carregando...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const handleRefreshProfile = async () => {
     setCheckingProfile(true);
@@ -97,10 +112,13 @@ const Dashboard = () => {
     }
   };
 
+  // Get user plan safely
+  const userPlan = profile?.plan_type || 'free';
+
   // Update stats based on subscription tier
   const getGenerationLimit = () => {
-    if (profile?.plan_type === 'pro') return "1000";
-    if (profile?.plan_type === 'agency') return "∞";
+    if (userPlan === 'pro') return "1000";
+    if (userPlan === 'agency') return "∞";
     return "10";
   };
 
@@ -108,7 +126,7 @@ const Dashboard = () => {
     {
       title: "Gerações de IA",
       value: "0",
-      limit: "10",
+      limit: getGenerationLimit(),
       icon: Bot,
       color: "bg-blue-500"
     },
@@ -169,10 +187,10 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {profile?.plan_type !== 'free' && (
+            {userPlan !== 'free' && (
               <Badge variant="secondary" className="flex items-center gap-2">
                 <Crown className="h-4 w-4" />
-                Plano {profile.plan_type}
+                Plano {userPlan}
               </Badge>
             )}
             <Button onClick={handleRefreshProfile} variant="outline" size="sm" disabled={checkingProfile}>
@@ -279,8 +297,8 @@ const Dashboard = () => {
                 <div className="text-sm text-muted-foreground">Gerações este mês</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">10</div>
-                <div className="text-sm text-muted-foreground">Limite do plano Free</div>
+                <div className="text-2xl font-bold text-green-600">{getGenerationLimit()}</div>
+                <div className="text-sm text-muted-foreground">Limite do plano {userPlan}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">0</div>
@@ -288,7 +306,7 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {profile?.plan_type === 'free' ? (
+            {userPlan === 'free' ? (
               <div className="mt-6 p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
@@ -309,7 +327,7 @@ const Dashboard = () => {
                   <div>
                     <h4 className="font-medium flex items-center gap-2">
                       <Crown className="h-4 w-4" />
-                      Plano {profile?.plan_type} Ativo
+                      Plano {userPlan} Ativo
                     </h4>
                     <p className="text-sm text-muted-foreground">
                       Gerencie sua assinatura no portal do cliente
