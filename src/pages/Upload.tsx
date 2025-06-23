@@ -304,6 +304,16 @@ export default function Upload() {
                           <span className="font-medium">Erro no upload:</span>
                         </div>
                         <p className="text-sm text-red-600 mt-1">{uploadError}</p>
+                        {uploadError.includes('Limite mensal') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 border-red-300 text-red-700 hover:bg-red-100"
+                            onClick={() => window.open('https://clipsforge.com/upgrade', '_blank')}
+                          >
+                            Fazer upgrade
+                          </Button>
+                        )}
                       </div>
                     )}
 

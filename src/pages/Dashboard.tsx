@@ -24,7 +24,7 @@ import ProjectHistory from "@/components/ProjectHistory";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const { user, profile, session, loading } = useAuth();
+  const { user, profile, session, loading, refreshProfile } = useAuth();
   const [checkingProfile, setCheckingProfile] = useState(false);
 
   // Show loading state while authentication is loading
@@ -43,9 +43,21 @@ const Dashboard = () => {
 
   const handleRefreshProfile = async () => {
     setCheckingProfile(true);
-    // Force refresh profile data
-    window.location.reload();
-    setCheckingProfile(false);
+    try {
+      await refreshProfile();
+      toast({
+        title: 'Plano atualizado!',
+        description: 'Seu plano foi recarregado com sucesso.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Erro ao atualizar plano',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckingProfile(false);
+    }
   };
 
   const handleUpgrade = async (plan: string) => {

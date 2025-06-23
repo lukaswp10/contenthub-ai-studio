@@ -29,6 +29,7 @@ interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
   refreshSession: () => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -278,6 +279,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Expor função para forçar refresh do profile
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id)
+    }
+  }
+
   const value = {
     user,
     session,
@@ -290,6 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     updateProfile,
     refreshSession,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
