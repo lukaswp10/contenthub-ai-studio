@@ -168,10 +168,11 @@ serve(async (req) => {
     
     console.log('Params to sign:', paramsToSign)
     
-    const signature = await generateCloudinarySignature(
-      paramsToSign,
-      Deno.env.get('CLOUDINARY_API_SECRET')!
-    )
+    // IMPORTANTE: Verificar se o CLOUDINARY_API_SECRET no Supabase está correto: gJh-IPVTqWOv12GKCDDBJ1gy4i8
+    const apiSecret = Deno.env.get('CLOUDINARY_API_SECRET')!
+    console.log('API Secret being used (first 4 chars):', apiSecret.substring(0, 4) + '...')
+    
+    const signature = await generateCloudinarySignature(paramsToSign, apiSecret)
     
     console.log('Generated signature:', signature)
 
