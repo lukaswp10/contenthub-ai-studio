@@ -107,18 +107,24 @@ serve(async (req) => {
 
     const whisperOutput = await huggingFaceResponse.json() as WhisperResponse
     console.log('Transcription completed successfully')
+    console.log('Whisper output structure:', JSON.stringify(whisperOutput, null, 2))
 
-    // Process transcription data
+    // Validate response structure
+    if (!whisperOutput || typeof whisperOutput !== 'object') {
+      throw new Error('Invalid response from Hugging Face API')
+    }
+
+    // Process transcription data with safe defaults
     const transcriptionData = {
-      text: whisperOutput.text,
-      segments: whisperOutput.segments || [],
-      language: whisperOutput.language || detectLanguage(whisperOutput.text),
-      words: whisperOutput.words || [],
-      speakers: whisperOutput.speakers || [],
+      text: whisperOutput.text || '',
+      segments: Array.isArray(whisperOutput.segments) ? whisperOutput.segments : [],
+      language: whisperOutput.language || detectLanguage(whisperOutput.text || ''),
+      words: Array.isArray(whisperOutput.words) ? whisperOutput.words : [],
+      speakers: Array.isArray(whisperOutput.speakers) ? whisperOutput.speakers : [],
       // Additional metadata
       duration: whisperOutput.duration || video.duration_seconds,
-      confidence: calculateAverageConfidence(whisperOutput.segments),
-      speakers_count: whisperOutput.speakers?.length || 1
+      confidence: calculateAverageConfidence(Array.isArray(whisperOutput.segments) ? whisperOutput.segments : []),
+      speakers_count: Array.isArray(whisperOutput.speakers) ? whisperOutput.speakers.length : 1
     }
 
     console.log(`Transcription completed: ${transcriptionData.text.length} characters, ${transcriptionData.segments.length} segments`)
