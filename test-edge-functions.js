@@ -18,10 +18,13 @@ async function testEdgeFunctions() {
     
     console.log('📤 Payload enviado:', JSON.stringify(payload, null, 2))
     
+    // Simular o header de autorização que o frontend envia
+    const authHeader = `Bearer ${SUPABASE_ANON_KEY}`
+    
     const response = await fetch(`${SUPABASE_URL}/functions/v1/connect-social-account`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
         'X-Client-Info': 'supabase-js/2.38.0'
       },
@@ -31,6 +34,10 @@ async function testEdgeFunctions() {
     console.log('📡 Teste connect-social-account:')
     console.log(`Status: ${response.status}`)
     console.log(`Status Text: ${response.statusText}`)
+    console.log('📋 Headers da resposta:')
+    for (const [key, value] of response.headers.entries()) {
+      console.log(`  ${key}: ${value}`)
+    }
     
     // Tentar ler a resposta
     try {
