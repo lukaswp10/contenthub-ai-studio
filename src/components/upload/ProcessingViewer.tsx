@@ -315,6 +315,12 @@ export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerP
                         <span>{step.label} {idx === currentStepIndex ? '(em andamento)' : 'concluído'}</span>
                       </div>
                     ))}
+                    {video.error_message && (
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <span className="text-red-700 font-medium">Erro: {video.error_message}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Timeout/Travamento */}
@@ -323,16 +329,6 @@ export function ProcessingViewer({ onVideoComplete, onRetry }: ProcessingViewerP
                       <AlertCircle className="h-4 w-4 text-yellow-600" />
                       <span className="text-yellow-800 font-medium">Ainda processando, pode demorar alguns minutos. Se persistir, tente novamente ou entre em contato com o suporte.</span>
                       <Button size="sm" variant="outline" onClick={loadProcessingVideos} className="ml-2">Recarregar status</Button>
-                    </div>
-                  )}
-
-                  {video.error_message && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                      <div className="flex items-center gap-2 text-red-700">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="font-medium">Erro:</span>
-                      </div>
-                      <p className="text-sm text-red-600 mt-1">{video.error_message}</p>
                     </div>
                   )}
 
