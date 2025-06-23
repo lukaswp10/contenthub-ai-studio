@@ -23,12 +23,13 @@ import {
   Twitter,
   Linkedin,
   Facebook,
-  Tiktok,
+  Music,
   MoreHorizontal,
   RefreshCw,
   Sparkles,
   Target,
-  TrendingUp
+  TrendingUp,
+  Star
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
@@ -71,7 +72,7 @@ const Schedule = () => {
   const platforms = [
     { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'from-pink-500 to-purple-500' },
     { id: 'youtube', name: 'YouTube', icon: Youtube, color: 'from-red-500 to-red-600' },
-    { id: 'tiktok', name: 'TikTok', icon: Tiktok, color: 'from-black to-gray-800' },
+    { id: 'tiktok', name: 'TikTok', icon: Music, color: 'from-black to-gray-800' },
     { id: 'twitter', name: 'Twitter', icon: Twitter, color: 'from-blue-400 to-blue-500' },
     { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: 'from-blue-600 to-blue-700' },
     { id: 'facebook', name: 'Facebook', icon: Facebook, color: 'from-blue-600 to-blue-700' }
