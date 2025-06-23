@@ -175,7 +175,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-row">
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-white/95 backdrop-blur-xl border-r border-slate-200/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
@@ -281,7 +281,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="lg:pl-72">
+      <div className="flex-1 flex flex-col lg:ml-72 w-full">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
           <div className="flex h-16 items-center px-4 lg:px-8">
@@ -386,7 +386,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen px-2 lg:px-8">
+        <main className="w-full grow px-2 lg:px-8">
           {children}
         </main>
       </div>
