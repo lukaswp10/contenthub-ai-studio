@@ -160,9 +160,10 @@ serve(async (req) => {
     console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
 
     // Generate signature for secure upload
+    // IMPORTANTE: Usar a mesma lógica que funcionou nos testes cURL
     const paramsToSign = Object.keys(uploadParams)
       .sort()
-      .filter(key => uploadParams[key as keyof typeof uploadParams] !== undefined)
+      .filter(key => uploadParams[key as keyof typeof uploadParams] !== undefined && uploadParams[key as keyof typeof uploadParams] !== '')
       .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
       .join('&')
     
