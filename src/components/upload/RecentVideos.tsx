@@ -11,7 +11,8 @@ import {
   AlertCircle,
   MoreHorizontal,
   Download,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
@@ -78,6 +79,7 @@ const statusConfig = {
 export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: RecentVideosProps) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecentVideos();
@@ -140,6 +142,20 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
     if (diffInHours < 24) return `${diffInHours}h atrás`;
     if (diffInHours < 48) return 'Ontem';
     return date.toLocaleDateString('pt-BR');
+  };
+
+  const handleDelete = async (videoId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este vídeo? Essa ação não pode ser desfeita.')) return;
+    setDeletingId(videoId);
+    try {
+      const { error } = await supabase.from('videos').delete().eq('id', videoId);
+      if (error) throw error;
+      setVideos((prev) => prev.filter((v) => v.id !== videoId));
+    } catch (err) {
+      alert('Erro ao excluir vídeo.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -295,6 +311,16 @@ export function RecentVideos({ onVideoSelect, onViewClips, onShareVideo }: Recen
                         </Button>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-red-600"
+                      title="Excluir vídeo"
+                      disabled={deletingId === video.id}
+                      onClick={() => handleDelete(video.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
