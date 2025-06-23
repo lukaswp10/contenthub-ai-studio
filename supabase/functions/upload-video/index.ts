@@ -134,7 +134,32 @@ serve(async (req) => {
     // Generate unique public_id
     const timestamp = Math.round(Date.now() / 1000)
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-    const publicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}`
+    let publicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}`
+    
+    // Verificar se o public_id já existe e gerar um único se necessário
+    let counter = 0
+    let finalPublicId = publicId
+    while (counter < 10) { // Máximo 10 tentativas
+      const { data: existingVideo } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('cloudinary_public_id', finalPublicId)
+        .single()
+      
+      if (!existingVideo) {
+        break // public_id é único
+      }
+      
+      // Gerar novo public_id com contador
+      counter++
+      finalPublicId = `videos/${user.id}/${timestamp}_${sanitizedFileName}_${counter}`
+    }
+    
+    if (counter >= 10) {
+      throw new Error('Erro ao gerar ID único para o vídeo. Tente novamente.')
+    }
+    
+    publicId = finalPublicId
 
     // Serializar context como string para Cloudinary
     const contextString = `user_id=${user.id}|original_filename=${fileName}|upload_source=contenthub-ai`

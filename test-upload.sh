@@ -38,9 +38,36 @@ echo ""
 echo "Executando cURL..."
 echo ""
 
+# Verifica se public_id já existe
+counter=0
+finalPublicId=$PUBLIC_ID
+while (counter < 10) {
+  existingVideo=$(curl -X GET "$UPLOAD_URL" \
+    -F "public_id=$finalPublicId" \
+    -F "folder=$FOLDER" \
+    -F "resource_type=video" \
+    -F "type=upload" \
+    -F "timestamp=$TIMESTAMP" \
+    -F "video_codec=auto" \
+    -F "audio_codec=auto" \
+    -F "context=$CONTEXT" \
+    -F "upload_preset=$UPLOAD_PRESET" \
+    -F "signature=$SIGNATURE" \
+    -F "api_key=$API_KEY" \
+    -v 2>/dev/null)
+  
+  if [ -z "$existingVideo" ]; then
+    break; # É único
+  fi
+  
+  # Gera novo ID com contador
+  counter++
+  finalPublicId="${PUBLIC_ID}_${counter}"
+}
+
 curl -X POST "$UPLOAD_URL" \
   -F "file=@test-video.mp4" \
-  -F "public_id=$PUBLIC_ID" \
+  -F "public_id=$finalPublicId" \
   -F "folder=$FOLDER" \
   -F "resource_type=video" \
   -F "type=upload" \
