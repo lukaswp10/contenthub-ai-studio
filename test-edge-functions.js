@@ -147,6 +147,7 @@ async function testEdgeFunctions() {
   console.log('- Status 400 = ❌ Erro na função (problema no código)')
   console.log('- Status 200 = ✅ Função funcionando perfeitamente')
   console.log('\n🎯 Se todas as funções retornaram 401, elas estão deployadas!')
+  console.log('\n🔍 Para ver o erro exato, verifique os logs da Edge Function no Supabase Dashboard!')
 }
 
 // Executar o teste
