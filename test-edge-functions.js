@@ -9,20 +9,28 @@ async function testEdgeFunctions() {
 
   // Teste 1: Verificar se a função connect-social-account existe e ver a resposta
   try {
+    console.log('📡 Testando connect-social-account com payload exato do frontend...')
+    
+    const payload = {
+      platform: 'tiktok',
+      redirect_url: 'https://contenthub-ai-studio.vercel.app/automation'
+    }
+    
+    console.log('📤 Payload enviado:', JSON.stringify(payload, null, 2))
+    
     const response = await fetch(`${SUPABASE_URL}/functions/v1/connect-social-account`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Client-Info': 'supabase-js/2.38.0'
       },
-      body: JSON.stringify({
-        platform: 'tiktok',
-        redirect_url: 'https://contenthub-ai-studio.vercel.app/automation'
-      })
+      body: JSON.stringify(payload)
     })
 
     console.log('📡 Teste connect-social-account:')
     console.log(`Status: ${response.status}`)
+    console.log(`Status Text: ${response.statusText}`)
     
     // Tentar ler a resposta
     try {
@@ -37,8 +45,17 @@ async function testEdgeFunctions() {
           console.log('\n🔗 URL de OAuth retornada:')
           console.log(responseJson.oauth_url)
         }
+        if (responseJson.error) {
+          console.log('\n❌ Erro retornado:')
+          console.log(responseJson.error)
+        }
+        if (responseJson.message) {
+          console.log('\n💬 Mensagem:')
+          console.log(responseJson.message)
+        }
       } catch (e) {
         console.log('❌ Resposta não é JSON válido')
+        console.log('Resposta raw:', responseText)
       }
     } catch (e) {
       console.log('❌ Não foi possível ler a resposta')
@@ -48,6 +65,8 @@ async function testEdgeFunctions() {
       console.log('✅ Função encontrada - Erro 401 esperado (não autenticado)')
     } else if (response.status === 404) {
       console.log('❌ Erro 404: Função não encontrada - NÃO DEPLOYADA')
+    } else if (response.status === 400) {
+      console.log('❌ Erro 400: Bad Request - Problema na função')
     } else {
       console.log('✅ Função encontrada e respondendo')
     }
@@ -118,6 +137,7 @@ async function testEdgeFunctions() {
   console.log('📋 Resumo:')
   console.log('- Status 404 = Função NÃO deployada')
   console.log('- Status 401 = ✅ Função deployada (esperado sem autenticação)')
+  console.log('- Status 400 = ❌ Erro na função (problema no código)')
   console.log('- Status 200 = ✅ Função funcionando perfeitamente')
   console.log('\n🎯 Se todas as funções retornaram 401, elas estão deployadas!')
 }
