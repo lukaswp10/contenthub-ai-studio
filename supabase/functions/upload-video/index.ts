@@ -162,10 +162,14 @@ serve(async (req) => {
       .map(key => `${key}=${uploadParams[key as keyof typeof uploadParams]}`)
       .join('&')
     
+    console.log('Params to sign:', paramsToSign)
+    
     const signature = await generateCloudinarySignature(
       paramsToSign,
       Deno.env.get('CLOUDINARY_API_SECRET')!
     )
+    
+    console.log('Generated signature:', signature)
 
     // Create video record in database
     const { data: video, error: videoError } = await supabase
