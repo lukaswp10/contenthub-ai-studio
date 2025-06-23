@@ -233,7 +233,56 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Transcription error:', error)
     
-    // Update video status to failed
+    // Capturar detalhes do erro para melhor diagnóstico
+    let errorMessage = 'Erro na transcrição do vídeo'
+    let errorDetails = ''
+    let errorCode = 'UNKNOWN_ERROR'
+    
+    if (error.message) {
+      errorMessage = error.message
+    }
+    
+    // Identificar tipos específicos de erro
+    if (error.message?.includes('Replicate API error')) {
+      errorCode = 'REPLICATE_API_ERROR'
+      if (error.message.includes('402')) {
+        errorMessage = 'Erro de cobrança na API de transcrição'
+        errorDetails = 'É necessário configurar um método de pagamento na conta Replicate'
+      } else if (error.message.includes('401')) {
+        errorMessage = 'Erro de autenticação na API de transcrição'
+        errorDetails = 'Token de API inválido ou expirado'
+      } else if (error.message.includes('429')) {
+        errorMessage = 'Limite de requisições excedido'
+        errorDetails = 'Muitas requisições simultâneas. Tente novamente em alguns minutos'
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Erro interno do servidor de transcrição'
+        errorDetails = 'Problema temporário no serviço. Tente novamente'
+      }
+    } else if (error.message?.includes('Timeout')) {
+      errorCode = 'TIMEOUT_ERROR'
+      errorMessage = 'Transcrição demorou muito tempo'
+      errorDetails = 'O processo de transcrição excedeu o tempo limite de 5 minutos'
+    } else if (error.message?.includes('Vídeo não encontrado')) {
+      errorCode = 'VIDEO_NOT_FOUND'
+      errorMessage = 'Vídeo não encontrado no banco de dados'
+      errorDetails = 'O vídeo pode ter sido removido ou não existe'
+    } else if (error.message?.includes('Não autenticado')) {
+      errorCode = 'AUTH_ERROR'
+      errorMessage = 'Usuário não autenticado'
+      errorDetails = 'Sessão expirada. Faça login novamente'
+    }
+    
+    // Log detalhado do erro
+    console.error('Erro detalhado na transcrição:', {
+      errorCode,
+      errorMessage,
+      errorDetails,
+      originalError: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Update video status to failed with detailed error
     const { video_id } = await req.json().catch(() => ({}))
     if (video_id) {
       const supabase = createClient(
@@ -245,10 +294,13 @@ serve(async (req) => {
         .from('videos')
         .update({ 
           processing_status: 'failed',
-          error_message: error.message,
+          error_message: errorMessage,
           error_details: { 
             step: 'transcription',
-            error: error.message,
+            error_code: errorCode,
+            error_message: errorMessage,
+            error_details: errorDetails,
+            original_error: error.message,
             timestamp: new Date().toISOString()
           }
         })
@@ -257,7 +309,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      error: errorMessage,
+      details: errorDetails,
+      code: errorCode
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

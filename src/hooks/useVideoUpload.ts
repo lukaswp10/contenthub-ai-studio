@@ -113,7 +113,21 @@ export function useVideoUpload() {
 
       // Update video record with Cloudinary URL
       setUploadProgress(80)
-      await supabase
+      // Checar existência do vídeo antes do update
+      const { data: videoExists, error: getError } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('id', videoData.id)
+        .single();
+      if (!videoExists) {
+        toast({
+          title: "Vídeo não encontrado",
+          description: "O vídeo pode ter sido removido ou processado.",
+          variant: "destructive",
+        });
+        return null;
+      }
+      const { error: updateError } = await supabase
         .from('videos')
         .update({
           cloudinary_public_id: uploadData.upload_params.public_id,
@@ -121,10 +135,21 @@ export function useVideoUpload() {
           processing_status: 'queued'
         })
         .eq('id', videoData.id)
+      if (updateError) {
+        if (updateError.code === '409') {
+          toast({
+            title: "Conflito ao atualizar vídeo",
+            description: "O vídeo já foi atualizado ou removido. Recarregue a página.",
+            variant: "destructive",
+          });
+          return null;
+        }
+        throw updateError;
+      }
 
       // Trigger transcription
       setUploadProgress(85)
-      const { error: transcribeError } = await supabase.functions.invoke('transcribe-video', {
+      const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('transcribe-video', {
         body: {
           video_id: videoData.id,
           cloudinary_url: uploadedUrl,
@@ -134,6 +159,65 @@ export function useVideoUpload() {
 
       if (transcribeError) {
         console.error('Transcription trigger error:', transcribeError)
+        
+        // Capturar mensagem de erro detalhada
+        let errorMessage = 'Erro na transcrição do vídeo'
+        let errorDetails = ''
+        let errorCode = 'UNKNOWN_ERROR'
+        
+        if (transcribeError.message) {
+          errorMessage = transcribeError.message
+        }
+        
+        // Verificar se há dados de erro detalhados na resposta
+        if (transcribeData?.error) {
+          errorMessage = transcribeData.error
+        }
+        
+        if (transcribeData?.details) {
+          errorDetails = transcribeData.details
+        }
+        
+        if (transcribeData?.code) {
+          errorCode = transcribeData.code
+        }
+        
+        // Log detalhado do erro
+        console.error('Erro detalhado na transcrição:', {
+          error: transcribeError,
+          errorCode,
+          message: errorMessage,
+          details: errorDetails,
+          videoId: videoData.id,
+          cloudinaryUrl: uploadedUrl,
+          timestamp: new Date().toISOString()
+        })
+        
+        // Atualizar status do vídeo para failed com mensagem de erro
+        await supabase
+          .from('videos')
+          .update({ 
+            processing_status: 'failed',
+            error_message: `${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`
+          })
+          .eq('id', videoData.id)
+        
+        // Resetar upload e mostrar erro
+        setUploadError(`${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`)
+        toast({
+          title: "Erro na transcrição",
+          description: `${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`,
+          variant: "destructive",
+        })
+        
+        // Resetar estado do upload
+        setFile(null)
+        setTitle('')
+        setDescription('')
+        setUploadProgress(0)
+        setCurrentVideoId(null)
+        
+        return null
       }
 
       setUploadProgress(100)

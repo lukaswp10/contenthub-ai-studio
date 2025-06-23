@@ -148,6 +148,26 @@ export default function Upload() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getUploadStepName = (progress: number) => {
+    if (progress < 10) return 'Validando arquivo';
+    if (progress < 20) return 'Criando registro';
+    if (progress < 30) return 'Preparando upload';
+    if (progress < 80) return 'Enviando vídeo';
+    if (progress < 85) return 'Atualizando dados';
+    if (progress < 100) return 'Iniciando processamento';
+    return 'Upload concluído';
+  };
+
+  const getUploadStepDescription = (progress: number) => {
+    if (progress < 10) return 'Verificando formato e tamanho do arquivo';
+    if (progress < 20) return 'Criando registro do vídeo no banco de dados';
+    if (progress < 30) return 'Gerando URL de upload segura';
+    if (progress < 80) return 'Enviando arquivo para o Cloudinary';
+    if (progress < 85) return 'Salvando informações do vídeo';
+    if (progress < 100) return 'Iniciando transcrição e análise';
+    return 'Vídeo enviado com sucesso!';
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -284,7 +304,7 @@ export default function Upload() {
                     {isUploading && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Fazendo upload...</span>
+                          <span>{getUploadStepName(uploadProgress)}</span>
                           <span>{Math.round(uploadProgress)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
@@ -292,6 +312,9 @@ export default function Upload() {
                             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${uploadProgress}%` }}
                           />
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {getUploadStepDescription(uploadProgress)}
                         </div>
                       </div>
                     )}
