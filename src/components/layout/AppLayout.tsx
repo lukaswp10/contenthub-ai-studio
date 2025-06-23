@@ -386,7 +386,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen pt-4 px-2 lg:px-8">
+        <main className="min-h-screen px-2 lg:px-8">
           {children}
         </main>
       </div>
