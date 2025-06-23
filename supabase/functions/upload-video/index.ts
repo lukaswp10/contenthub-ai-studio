@@ -145,7 +145,7 @@ serve(async (req) => {
       folder: `videos/${user.id}`,
       resource_type: 'video' as const,
       type: 'upload' as const,
-      timestamp: timestamp,
+      timestamp: String(timestamp),
       
       // Basic video optimization
       video_codec: 'auto',
