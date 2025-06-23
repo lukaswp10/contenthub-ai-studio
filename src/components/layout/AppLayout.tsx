@@ -43,7 +43,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, profile } = useAuth();
   const { toast } = useToast();
 
   const navigation = [
@@ -117,11 +117,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   };
 
   const getPlanInfo = () => {
-    // Mock - você pode integrar com seu sistema de planos
+    const plan = profile?.plan_type || 'free';
+    let name = plan.charAt(0).toUpperCase() + plan.slice(1);
+    let color = 'text-yellow-600';
+    if (plan === 'pro') {
+      color = 'text-purple-600';
+    } else if (plan === 'agency') {
+      color = 'text-blue-600';
+    }
     return {
-      name: 'Free',
+      name,
       icon: <Crown className="h-3 w-3" />,
-      color: 'text-yellow-600'
+      color
     };
   };
 
