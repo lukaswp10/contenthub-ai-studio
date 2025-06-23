@@ -112,7 +112,7 @@ serve(async (req) => {
           no_speech_threshold: 0.6
         },
         webhook: `${Deno.env.get('SUPABASE_URL')}/functions/v1/transcription-webhook`,
-        webhook_events_filter: ["completed", "failed"]
+        webhook_events_filter: ["completed"]
       })
     })
 
