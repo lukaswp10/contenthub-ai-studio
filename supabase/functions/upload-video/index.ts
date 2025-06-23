@@ -156,6 +156,7 @@ serve(async (req) => {
       upload_preset: 'clipbursts-upload'
     }
 
+    // Log todos os parâmetros antes de assinar
     console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
 
     // Generate signature for secure upload
@@ -204,12 +205,12 @@ serve(async (req) => {
       })
       .eq('id', user.id)
 
+    // Log final params enviados para o frontend
     const finalUploadParams = {
       ...uploadParams,
       signature,
       api_key: Deno.env.get('CLOUDINARY_API_KEY'),
     }
-
     console.log('Final upload params:', JSON.stringify(finalUploadParams, null, 2))
 
     return new Response(JSON.stringify({
