@@ -2,7 +2,7 @@
 // Execute: node test-edge-functions.js
 
 const SUPABASE_URL = 'https://rgwbtdzdeibobuveegfp.supabase.co'
-const SUPABASE_ANON_KEY = 'sua_chave_anonima_aqui' // Substitua pela sua chave
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd2J0ZHpkZWlib2J1dmVlZ2ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNjczNDIsImV4cCI6MjA2NTY0MzM0Mn0.f3ZdePT5fk6EuO-eP4fu4EBCN97V3mNxYAKU39sduGw'
 
 async function testEdgeFunctions() {
   console.log('🧪 Testando Edge Functions...\n')
@@ -25,7 +25,7 @@ async function testEdgeFunctions() {
     console.log(`Status: ${response.status}`)
     
     if (response.status === 401) {
-      console.log('❌ Erro 401: Não autenticado (esperado sem login)')
+      console.log('✅ Função encontrada - Erro 401 esperado (não autenticado)')
     } else if (response.status === 404) {
       console.log('❌ Erro 404: Função não encontrada - NÃO DEPLOYADA')
     } else {
@@ -55,7 +55,7 @@ async function testEdgeFunctions() {
     console.log(`Status: ${response.status}`)
     
     if (response.status === 401) {
-      console.log('❌ Erro 401: Não autenticado (esperado sem login)')
+      console.log('✅ Função encontrada - Erro 401 esperado (não autenticado)')
     } else if (response.status === 404) {
       console.log('❌ Erro 404: Função não encontrada - NÃO DEPLOYADA')
     } else {
@@ -84,7 +84,7 @@ async function testEdgeFunctions() {
     console.log(`Status: ${response.status}`)
     
     if (response.status === 401) {
-      console.log('❌ Erro 401: Não autenticado (esperado sem login)')
+      console.log('✅ Função encontrada - Erro 401 esperado (não autenticado)')
     } else if (response.status === 404) {
       console.log('❌ Erro 404: Função não encontrada - NÃO DEPLOYADA')
     } else {
@@ -97,8 +97,9 @@ async function testEdgeFunctions() {
   console.log('\n' + '='.repeat(50) + '\n')
   console.log('📋 Resumo:')
   console.log('- Status 404 = Função NÃO deployada')
-  console.log('- Status 401 = Função deployada (mas precisa autenticação)')
-  console.log('- Status 200 = Função funcionando perfeitamente')
+  console.log('- Status 401 = ✅ Função deployada (esperado sem autenticação)')
+  console.log('- Status 200 = ✅ Função funcionando perfeitamente')
+  console.log('\n🎯 Se todas as funções retornaram 401, elas estão deployadas!')
 }
 
 // Executar o teste
