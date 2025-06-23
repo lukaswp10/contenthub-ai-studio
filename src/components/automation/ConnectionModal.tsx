@@ -29,10 +29,12 @@ export function ConnectionModal({
 
   const handleConnect = async () => {
     try {
+      console.log('🔄 Iniciando conexão com:', platform.id)
       setIsConnecting(true)
       setStep('connecting')
 
       // Call Ayrshare to initiate OAuth
+      console.log('📡 Chamando Edge Function connect-social-account...')
       const { data, error } = await supabase.functions.invoke('connect-social-account', {
         body: {
           platform: platform.id,
@@ -40,9 +42,15 @@ export function ConnectionModal({
         },
       })
 
-      if (error) throw error
+      console.log('📥 Resposta da Edge Function:', { data, error })
+
+      if (error) {
+        console.error('❌ Erro na Edge Function:', error)
+        throw error
+      }
 
       if (data.oauth_url) {
+        console.log('🔗 URL de OAuth recebida:', data.oauth_url)
         setOauthUrl(data.oauth_url)
         
         // Open OAuth in popup
@@ -51,6 +59,7 @@ export function ConnectionModal({
         const left = window.innerWidth / 2 - width / 2
         const top = window.innerHeight / 2 - height / 2
         
+        console.log('🪟 Abrindo popup OAuth...')
         const popup = window.open(
           data.oauth_url,
           'oauth-popup',
@@ -58,12 +67,16 @@ export function ConnectionModal({
         )
 
         if (!popup) {
+          console.error('❌ Popup bloqueado pelo navegador')
           throw new Error('Popup bloqueado. Permita popups para este site.')
         }
+
+        console.log('✅ Popup aberto com sucesso')
 
         // Listen for OAuth callback
         const checkInterval = setInterval(() => {
           if (popup?.closed) {
+            console.log('🔄 Popup fechado, verificando resultado...')
             clearInterval(checkInterval)
             checkOAuthResult(data.profile_key)
           }
@@ -73,15 +86,17 @@ export function ConnectionModal({
         setTimeout(() => {
           clearInterval(checkInterval)
           if (!popup?.closed) {
+            console.error('⏰ Timeout - popup não foi fechado')
             popup.close()
             throw new Error('Tempo limite excedido. Tente novamente.')
           }
         }, 300000)
       } else {
+        console.error('❌ URL de OAuth não foi gerada')
         throw new Error('URL de OAuth não foi gerada')
       }
     } catch (error: any) {
-      console.error('Connection error:', error)
+      console.error('❌ Connection error:', error)
       toast({
         title: "Erro",
         description: error.message || 'Erro ao conectar conta',
