@@ -99,7 +99,7 @@ serve(async (req) => {
       display_name: 'Conectando...',
       avatar_url: `https://ui-avatars.com/api/?name=Connecting&background=007bff&color=fff`,
       verified: false,
-      connection_status: 'connecting',
+      connection_status: 'error',
       total_followers: 0,
       engagement_rate: 0,
       posting_schedule: {
