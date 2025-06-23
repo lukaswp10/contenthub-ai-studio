@@ -155,6 +155,8 @@ serve(async (req) => {
       context: contextString
     }
 
+    console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
+
     // Generate signature for secure upload
     const paramsToSign = Object.keys(uploadParams)
       .sort()
@@ -201,15 +203,19 @@ serve(async (req) => {
       })
       .eq('id', user.id)
 
+    const finalUploadParams = {
+      ...uploadParams,
+      signature,
+      api_key: Deno.env.get('CLOUDINARY_API_KEY'),
+    }
+
+    console.log('Final upload params:', JSON.stringify(finalUploadParams, null, 2))
+
     return new Response(JSON.stringify({
       success: true,
       video_id: video.id,
       upload_url: `https://api.cloudinary.com/v1_1/${Deno.env.get('CLOUDINARY_CLOUD_NAME')}/video/upload`,
-      upload_params: {
-        ...uploadParams,
-        signature,
-        api_key: Deno.env.get('CLOUDINARY_API_KEY'),
-      }
+      upload_params: finalUploadParams
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
