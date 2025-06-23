@@ -108,7 +108,7 @@ Com nossa plataforma, você pode:
 Não perca essa oportunidade!
 
 Atenciosamente,
-Equipe ContentHub AI`,
+Equipe ClipsForge`,
 
         social: `🚀 ${textPrompt}
 

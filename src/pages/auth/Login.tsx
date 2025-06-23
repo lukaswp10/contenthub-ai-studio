@@ -89,7 +89,7 @@ export function LoginPage() {
               <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white text-xl font-bold">C</span>
               </div>
-              <span className="text-2xl font-bold">ClipForge AI</span>
+              <span className="text-2xl font-bold">ClipsForge</span>
             </Link>
             <h2 className="mt-6 text-3xl font-bold">Bem-vindo de volta</h2>
             <p className="mt-2 text-gray-600">

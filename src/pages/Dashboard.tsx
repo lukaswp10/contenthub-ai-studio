@@ -154,32 +154,32 @@ const Dashboard = () => {
     <AppLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">
-              Bem-vindo ao ContentHub AI. Gerencie seus conteúdos e automações.
+              Bem-vindo ao ClipsForge. Gerencie seus conteúdos e automações.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link to="/upload">
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 Novo Upload
               </Button>
             </Link>
             {userPlan !== 'free' && (
-              <Badge variant="secondary" className="flex items-center gap-2">
+              <Badge variant="secondary" className="flex items-center gap-2 justify-center">
                 <Crown className="h-4 w-4" />
                 Plano {userPlan}
               </Badge>
             )}
-            <Button onClick={handleRefreshProfile} variant="outline" size="sm" disabled={checkingProfile}>
+            <Button onClick={handleRefreshProfile} variant="outline" size="sm" disabled={checkingProfile} className="w-full sm:w-auto">
               <RefreshCw className={`h-4 w-4 mr-2 ${checkingProfile ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Link to="/automation">
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Zap className="h-4 w-4 mr-2" />
                 Automação Social
               </Button>

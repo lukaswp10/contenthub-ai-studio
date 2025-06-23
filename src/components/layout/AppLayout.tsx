@@ -143,19 +143,19 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           </Button>
 
           {/* Logo */}
-          <Link to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
               <Bot className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ContentHub AI
+              ClipsForge
             </span>
           </Link>
 
           <div className="flex-1" />
 
           {/* Header actions */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             {/* Notifications */}
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
@@ -165,21 +165,21 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             {/* User menu */}
             <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 h-auto p-2">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" className="flex items-center space-x-2 h-auto p-1 md:p-2">
+                  <Avatar className="h-7 w-7 md:h-8 md:w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs md:text-sm">
                       {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium">{user?.email}</p>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-xs md:text-sm font-medium truncate max-w-32 lg:max-w-40">{user?.email}</p>
                     <div className="flex items-center space-x-1">
                       {planInfo.icon}
                       <p className="text-xs text-muted-foreground">{planInfo.name}</p>
                     </div>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

@@ -32,7 +32,7 @@ export default function Onboarding() {
           <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="h-8 w-8 text-white" />
           </div>
-          <CardTitle className="text-3xl">Bem-vindo ao ClipForge AI!</CardTitle>
+          <CardTitle className="text-3xl">Bem-vindo ao ClipsForge!</CardTitle>
           <p className="text-gray-600 mt-2">
             Sua conta foi criada com sucesso. Vamos começar!
           </p>
@@ -66,7 +66,7 @@ export default function Onboarding() {
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             size="lg"
           >
-            Começar a Usar ClipForge AI
+            Começar a Usar ClipsForge
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </CardContent>

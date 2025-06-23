@@ -16,6 +16,7 @@ import OnboardingPage from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
 import AutomationPage from './pages/Automation'
+import Upload from './pages/Upload'
 import NotFound from './pages/NotFound'
 
 // Debug component
@@ -74,6 +75,79 @@ export default function App() {
                 element={
                   <ProtectedRoute requireOnboarding>
                     <AutomationPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/upload"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Upload />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Redirect non-existent routes to dashboard */}
+              <Route
+                path="/projects"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/billing"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/help"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/privacy"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <Dashboard />
                   </ProtectedRoute>
                 }
               />

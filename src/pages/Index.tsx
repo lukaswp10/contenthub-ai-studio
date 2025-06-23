@@ -123,7 +123,7 @@ const Index = () => {
     {
       name: "Felipe Castro",
       role: "Podcaster - 2M seguidores",
-      content: "Meu podcast de 3h virou 15 clips virais. ClipForge aumentou meu alcance no TikTok em 500%!",
+      content: "Meu podcast de 3h virou 15 clips virais. ClipsForge aumentou meu alcance no TikTok em 500%!",
       rating: 5
     },
     {
@@ -151,7 +151,7 @@ const Index = () => {
                 <Video className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                ClipForge AI
+                ClipsForge
               </span>
             </div>
             <div className="hidden md:flex items-center space-x-6">
@@ -165,10 +165,10 @@ const Index = () => {
                 Casos de Uso
               </a>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
               {user ? (
                 <Link to="/upload">
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2">
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 w-full sm:w-auto">
                     <Upload className="h-4 w-4" />
                     Novo Upload
                   </Button>
@@ -176,12 +176,12 @@ const Index = () => {
               ) : (
                 <>
                   <Link to="/login">
-                    <Button variant="ghost">
+                    <Button variant="ghost" className="w-full sm:w-auto">
                       Entrar
                     </Button>
                   </Link>
                   <Link to="/register">
-                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto">
                       Começar Grátis
                     </Button>
                   </Link>
@@ -310,7 +310,7 @@ const Index = () => {
               Para Todos os Criadores
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Não importa seu nicho, ClipForge transforma seu conteúdo longo em viralização automática.
+              Não importa seu nicho, ClipsForge transforma seu conteúdo longo em viralização automática.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -387,7 +387,7 @@ const Index = () => {
               Criadores Que Viralizaram
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Centenas de criadores já multiplicaram seu alcance com ClipForge AI.
+              Centenas de criadores já multiplicaram seu alcance com ClipsForge.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -450,7 +450,7 @@ const Index = () => {
                   <Video className="h-5 w-5 text-white" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  ClipForge AI
+                  ClipsForge
                 </span>
               </div>
               <p className="text-muted-foreground">
@@ -486,7 +486,7 @@ const Index = () => {
             </div>
           </div>
           <div className="border-t border-border/40 mt-12 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2024 ClipForge AI. Todos os direitos reservados.</p>
+            <p>&copy; 2024 ClipsForge. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
