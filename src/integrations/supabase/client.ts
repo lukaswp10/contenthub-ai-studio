@@ -2,14 +2,25 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://rgwbtdzdeibobuveegfp.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd2J0ZHpkZWlib2J1dmVlZ2ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNjczNDIsImV4cCI6MjA2NTY0MzM0Mn0.f3ZdePT5fk6EuO-eP4fu4EBCN97V3mNxYAKU39sduGw";
+// Configuração para desenvolvimento local
+const isDevelopment = import.meta.env.DEV;
+
+const SUPABASE_URL = isDevelopment 
+  ? "http://127.0.0.1:54321" 
+  : "https://rgwbtdzdeibobuveegfp.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY = isDevelopment
+  ? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+  : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd2J0ZHpkZWlib2J1dmVlZ2ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNjczNDIsImV4cCI6MjA2NTY0MzM0Mn0.f3ZdePT5fk6EuO-eP4fu4EBCN97V3mNxYAKU39sduGw";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 const globalAny = globalThis as any;
 if (!globalAny.__supabase) {
+  console.log('🔗 Supabase Client: Conectando em', isDevelopment ? 'LOCAL' : 'PRODUÇÃO');
+  console.log('🔗 URL:', SUPABASE_URL);
+  
   globalAny.__supabase = createClient<Database>(
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY,
@@ -18,17 +29,14 @@ if (!globalAny.__supabase) {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-        storageKey: 'contenthub-ai-auth',
+        storageKey: 'clipsforge-auth',
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       }
     }
   );
 }
+
 export const supabase = globalAny.__supabase;
 
-// Service client for Edge Functions (uses service role key)
-// This should only be used in Edge Functions, not in the frontend
-export const supabaseService = createClient<Database>(
-  SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_PUBLISHABLE_KEY
-);
+// Log para debug
+console.log('✅ Supabase Client: Inicializado com sucesso');

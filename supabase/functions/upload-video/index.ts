@@ -160,7 +160,7 @@ serve(async (req) => {
       .eq('id', video.id)
 
     // Serializar context como string para Cloudinary
-    const contextString = `user_id=${user.id}|original_filename=${fileName}|upload_source=contenthub-ai`
+    const contextString = `user_id=${user.id}|original_filename=${fileName}|upload_source=clipsforge`
 
     // Simplified Cloudinary upload parameters
     const uploadParams = {

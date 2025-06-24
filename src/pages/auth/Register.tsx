@@ -1,134 +1,186 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { LoaderCircle, Mail, User, Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Video, Mail, Eye, EyeOff, Loader2, Chrome, User, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import toast from 'react-hot-toast';
 
-const registerSchema = z.object({
-  fullName: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-  email: z.string().email('Email inválido'),
-  password: z.string()
-    .min(8, 'Senha deve ter no mínimo 8 caracteres')
-    .regex(/[A-Z]/, 'Senha deve conter pelo menos uma letra maiúscula')
-    .regex(/[a-z]/, 'Senha deve conter pelo menos uma letra minúscula')
-    .regex(/[0-9]/, 'Senha deve conter pelo menos um número'),
-  confirmPassword: z.string(),
-  terms: z.boolean().refine((val) => val === true, {
-    message: 'Você deve aceitar os termos de uso',
-  }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'As senhas não coincidem',
-  path: ['confirmPassword'],
-})
+const Register = () => {
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
 
-type RegisterFormData = z.infer<typeof registerSchema>
-
-export function RegisterPage() {
-  const { signUp } = useAuth()
-  const navigate = useNavigate()
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setError,
-    watch,
-    setValue,
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      terms: false,
-    },
-  })
-
-  const password = watch('password', '')
-
-  // Password strength indicator
-  const getPasswordStrength = () => {
-    if (!password) return 0
-    let strength = 0
-    if (password.length >= 8) strength++
-    if (password.match(/[a-z]/)) strength++
-    if (password.match(/[A-Z]/)) strength++
-    if (password.match(/[0-9]/)) strength++
-    if (password.match(/[^a-zA-Z0-9]/)) strength++
-    return strength
-  }
-
-  const passwordStrength = getPasswordStrength()
-  const strengthLabels = ['Muito fraca', 'Fraca', 'Razoável', 'Boa', 'Excelente']
-  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500']
-
-  const onSubmit = async (data: RegisterFormData) => {
-    try {
-      setIsLoading(true)
-      await signUp(data.email, data.password, data.fullName)
-      // Redirecionar direto para dashboard
-      navigate('/dashboard', { replace: true })
-    } catch (error: any) {
-      setError('root', {
-        message: error.message || 'Erro ao criar conta',
-      })
-    } finally {
-      setIsLoading(false)
+  const validateForm = () => {
+    if (!formData.fullName.trim()) {
+      setError('Nome completo é obrigatório');
+      return false;
     }
-  }
+    if (!formData.email.trim()) {
+      setError('Email é obrigatório');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('As senhas não coincidem');
+      return false;
+    }
+    if (!acceptTerms) {
+      setError('Você deve aceitar os Termos de Serviço');
+      return false;
+    }
+    return true;
+  };
+
+  const handleEmailRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+
+    try {
+      await signUp(formData.email, formData.password, formData.fullName);
+      toast.success('Conta criada! Verifique seu email para confirmar.');
+      navigate('/auth/confirm-email', { 
+        state: { email: formData.email } 
+      });
+    } catch (err: any) {
+      console.error('Erro no registro:', err);
+      setError(err.message || 'Erro ao criar conta. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    setIsGoogleLoading(true);
+    setError('');
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success('Redirecionando para o Google...');
+    } catch (err: any) {
+      console.error('Erro no registro com Google:', err);
+      setError('Erro ao conectar com o Google. Tente novamente.');
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setError(''); // Clear error when user starts typing
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-sm border p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl font-bold">C</span>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <Link to="/" className="inline-flex items-center space-x-2 mb-8">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <Video className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              ClipsForge
+            </span>
+          </Link>
+          
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Crie sua conta
+          </h1>
+          <p className="text-gray-600">
+            Comece a transformar seus vídeos em clips virais
+          </p>
+        </div>
+
+        {/* Register Card */}
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-6">
+            <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
+            <CardDescription className="text-center">
+              Escolha como deseja criar sua conta gratuita
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            {/* Google Register */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12 text-base border-2 hover:bg-gray-50"
+              onClick={handleGoogleRegister}
+              disabled={isGoogleLoading}
+            >
+              {isGoogleLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Chrome className="mr-2 h-5 w-5 text-blue-600" />
+              )}
+              Continuar com Google
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
               </div>
-              <span className="text-2xl font-bold">ClipsForge</span>
-            </Link>
-            <h2 className="text-3xl font-bold">Criar conta grátis</h2>
-            <p className="mt-2 text-gray-600">
-              Comece a transformar seus vídeos em conteúdo viral
-            </p>
-          </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Ou crie com email</span>
+              </div>
+            </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {errors.root && (
-              <Alert variant="destructive">
-                <AlertDescription>{errors.root.message}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-4">
-              {/* Full Name */}
+            {/* Email Register Form */}
+            <form onSubmit={handleEmailRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nome completo</Label>
+                <Label htmlFor="fullName">Nome Completo</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <Input
                     id="fullName"
-                    placeholder="João Silva"
-                    className="pl-10"
-                    {...register('fullName')}
-                    disabled={isLoading}
+                    type="text"
+                    placeholder="Seu nome completo"
+                    value={formData.fullName}
+                    onChange={(e) => handleInputChange('fullName', e.target.value)}
+                    className="pl-10 h-12"
+                    required
                   />
                 </div>
-                {errors.fullName && (
-                  <p className="text-sm text-red-500">{errors.fullName.message}</p>
-                )}
               </div>
 
-              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -137,33 +189,30 @@ export function RegisterPage() {
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
-                    className="pl-10"
-                    {...register('email')}
-                    disabled={isLoading}
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="pl-10 h-12"
+                    required
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
-                )}
               </div>
 
-              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10"
-                    {...register('password')}
-                    disabled={isLoading}
+                    placeholder="Mínimo 6 caracteres"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className="pr-10 h-12"
+                    required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -172,122 +221,110 @@ export function RegisterPage() {
                     )}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-sm text-red-500">{errors.password.message}</p>
-                )}
-                
-                {/* Password strength */}
-                {password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full ${
-                            i < passwordStrength
-                              ? strengthColors[passwordStrength - 1]
-                              : 'bg-gray-200'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Força da senha: {strengthLabels[passwordStrength - 1] || 'Muito fraca'}
-                    </p>
-                  </div>
-                )}
               </div>
 
-              {/* Confirm Password */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <Input
                     id="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    className="pl-10"
-                    {...register('confirmPassword')}
-                    disabled={isLoading}
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Digite a senha novamente"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                    className="pr-10 h-12"
+                    required
                   />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
-                {errors.confirmPassword && (
-                  <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
-                )}
               </div>
 
-              {/* Terms - Corrigido para usar boolean corretamente */}
+              {/* Terms Checkbox */}
               <div className="flex items-start space-x-2">
                 <Checkbox
                   id="terms"
-                  onCheckedChange={(checked) => setValue('terms', !!checked)}
-                  disabled={isLoading}
+                  checked={acceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
                 />
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="terms"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Eu concordo com os{' '}
-                    <Link
-                      to="/terms"
-                      className="text-primary hover:underline"
-                      target="_blank"
-                    >
-                      Termos de Uso
-                    </Link>{' '}
-                    e{' '}
-                    <Link
-                      to="/privacy"
-                      className="text-primary hover:underline"
-                      target="_blank"
-                    >
-                      Política de Privacidade
-                    </Link>
-                  </Label>
-                  {errors.terms && (
-                    <p className="text-sm text-red-500">{errors.terms.message}</p>
-                  )}
-                </div>
+                <label htmlFor="terms" className="text-sm text-gray-600 leading-5">
+                  Eu aceito os{' '}
+                  <Link to="/terms" className="text-purple-600 hover:underline">
+                    Termos de Serviço
+                  </Link>{' '}
+                  e{' '}
+                  <Link to="/privacy" className="text-purple-600 hover:underline">
+                    Política de Privacidade
+                  </Link>
+                </label>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                  Criando conta...
-                </>
-              ) : (
-                'Criar conta grátis'
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
-            </Button>
 
-            <p className="text-center text-sm text-gray-600">
-              Já tem uma conta?{' '}
-              <Link to="/login" className="font-medium text-primary hover:underline">
-                Fazer login
-              </Link>
-            </p>
-          </form>
-        </div>
+              <Button
+                type="submit"
+                className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-base"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Criando conta...
+                  </>
+                ) : (
+                  'Criar conta grátis'
+                )}
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Já tem uma conta?{' '}
+                <Link
+                  to="/auth/login"
+                  className="text-purple-600 hover:text-purple-700 font-medium hover:underline"
+                >
+                  Fazer login
+                </Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Benefits */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          <p className="font-medium mb-2">Incluso no plano grátis:</p>
-          <ul className="space-y-1">
-            <li>✓ 1 vídeo por mês</li>
-            <li>✓ 3 clips por vídeo</li>
-            <li>✓ 1 conta social</li>
-          </ul>
+        <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold text-gray-900 text-sm">✨ O que você ganha:</h3>
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span>Upload ilimitado de vídeos</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span>IA para análise de conteúdo</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span>Clips otimizados para todas as plataformas</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default Register; 

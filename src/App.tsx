@@ -2,31 +2,32 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Toaster } from 'react-hot-toast'
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Pages
 import Index from './pages/Index'
-import { LoginPage } from './pages/auth/Login'
-import { RegisterPage } from './pages/auth/Register'
-import { ConfirmEmailPage } from './pages/auth/ConfirmEmail'
-import { AuthCallbackPage } from './pages/auth/AuthCallback'
-import { OAuthCallbackPage } from './pages/auth/OAuthCallback'
+
+// Auth Pages
+import Login from './pages/auth/Login'
+import Register from './pages/auth/Register'
+import ConfirmEmail from './pages/auth/ConfirmEmail'
+import AuthCallback from './pages/auth/AuthCallback'
+import ForgotPassword from './pages/auth/ForgotPassword'
+
+// App Pages
 import OnboardingPage from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
-import Workspace from './pages/Workspace'
-import AutomationPage from './pages/Automation'
 import Upload from './pages/Upload'
 import Clips from './pages/Clips'
 import Schedule from './pages/Schedule'
 import NotFound from './pages/NotFound'
 
-// Debug component
-import { AuthDebugger } from './components/debug/AuthDebugger'
-
-const queryClient = new QueryClient();
+const queryClient = new QueryClient()
 
 export default function App() {
+  console.log('🚀 ClipsForge: Inicializando aplicação...')
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -35,13 +36,18 @@ export default function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Index />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/auth/confirm-email" element={<ConfirmEmailPage />} />
-
-              {/* Auth callbacks */}
-              <Route path="/auth/callback" element={<AuthCallbackPage />} />
-              <Route path="/auth/oauth-callback" element={<OAuthCallbackPage />} />
+              
+              {/* Auth routes */}
+              <Route path="/auth/login" element={<Login />} />
+              <Route path="/auth/register" element={<Register />} />
+              <Route path="/auth/confirm-email" element={<ConfirmEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+              
+              {/* Legacy redirects */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/confirm-email" element={<ConfirmEmail />} />
 
               {/* Onboarding route */}
               <Route
@@ -59,24 +65,6 @@ export default function App() {
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/workspace"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Workspace />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/automation"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <AutomationPage />
                   </ProtectedRoute>
                 }
               />
@@ -108,9 +96,9 @@ export default function App() {
                 }
               />
               
-              {/* Redirect non-existent routes to dashboard */}
+              {/* Redirect old routes to dashboard */}
               <Route
-                path="/projects"
+                path="/workspace"
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Dashboard />
@@ -119,7 +107,7 @@ export default function App() {
               />
               
               <Route
-                path="/analytics"
+                path="/automation"
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Dashboard />
@@ -127,51 +115,7 @@ export default function App() {
                 }
               />
               
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/billing"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/help"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/privacy"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              
+              {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             
@@ -197,9 +141,6 @@ export default function App() {
                 },
               }}
             />
-            
-            {/* Debug component - only in development */}
-            {process.env.NODE_ENV === 'development' && <AuthDebugger />}
           </AuthProvider>
         </Router>
       </TooltipProvider>
