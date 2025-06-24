@@ -29,10 +29,16 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  Star
+  Star,
+  Video,
+  Home,
+  Upload,
+  Scissors,
+  User,
+  ArrowLeft,
+  X
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -209,18 +215,15 @@ const Schedule = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      scheduled: { label: 'Agendado', color: 'bg-blue-100 text-blue-800', icon: Clock },
-      published: { label: 'Publicado', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      failed: { label: 'Falhou', color: 'bg-red-100 text-red-800', icon: AlertCircle },
-      cancelled: { label: 'Cancelado', color: 'bg-gray-100 text-gray-800', icon: AlertCircle }
+      scheduled: { label: 'Agendado', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+      published: { label: 'Publicado', color: 'bg-green-100 text-green-800 border-green-200' },
+      failed: { label: 'Falhou', color: 'bg-red-100 text-red-800 border-red-200' },
+      cancelled: { label: 'Cancelado', color: 'bg-gray-100 text-gray-800 border-gray-200' }
     };
-
+    
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.scheduled;
-    const Icon = config.icon;
-
     return (
-      <Badge className={`${config.color} flex items-center gap-1`}>
-        <Icon className="h-3 w-3" />
+      <Badge className={`${config.color} border`}>
         {config.label}
       </Badge>
     );
@@ -239,108 +242,159 @@ const Schedule = () => {
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return format(date, "dd 'de' MMMM 'às' HH:mm", { locale: ptBR });
+    return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
-
-  const upcomingPosts = scheduledPosts.filter(post => 
-    post.status === 'scheduled' && new Date(post.scheduled_time) > new Date()
-  );
-
-  const publishedPosts = scheduledPosts.filter(post => post.status === 'published');
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+        <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-slate-600">Carregando agendamentos...</p>
+            <RefreshCw className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+            <p className="text-gray-600">Carregando agendamentos...</p>
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-8 w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Agendamento</h1>
-            <p className="text-slate-600 mt-1">
-              Programe suas publicações nas redes sociais
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-purple-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo e Navegação */}
+            <div className="flex items-center space-x-8">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <Video className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  ClipsForge
+                </span>
+              </Link>
+              
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link to="/dashboard" className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+                  <Home className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <Link to="/upload" className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+                  <Upload className="h-4 w-4" />
+                  <span>Upload</span>
+                </Link>
+                <Link to="/clips" className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+                  <Scissors className="h-4 w-4" />
+                  <span>Meus Clips</span>
+                </Link>
+                <div className="flex items-center space-x-2 text-purple-600 font-medium">
+                  <CalendarIcon className="h-4 w-4" />
+                  <span>Agendamento</span>
+                </div>
+              </nav>
+            </div>
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm">
+                <User className="h-4 w-4 mr-2" />
+                {user?.email?.split('@')[0]}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={loadScheduledPosts}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
-            </Button>
-            <Button onClick={() => setShowScheduleForm(true)}>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+            <Link to="/dashboard" className="hover:text-purple-600">Dashboard</Link>
+            <span>/</span>
+            <span>Agendamento</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Agendamento</h1>
+              <p className="text-gray-600">
+                Programe suas publicações nas redes sociais
+              </p>
+            </div>
+            <Button 
+              onClick={() => setShowScheduleForm(true)}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Agendar Post
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-lg">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-blue-100 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Agendados</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {scheduledPosts.filter(p => p.status === 'scheduled').length}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Clock className="h-6 w-6 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{upcomingPosts.length}</p>
-                  <p className="text-sm text-slate-600">Agendados</p>
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-green-100 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Publicados</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {scheduledPosts.filter(p => p.status === 'published').length}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{publishedPosts.length}</p>
-                  <p className="text-sm text-slate-600">Publicados</p>
+                  <p className="text-sm font-medium text-gray-600">Plataformas</p>
+                  <p className="text-2xl font-bold text-gray-900">6</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Share2 className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <Target className="h-6 w-6 text-purple-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{platforms.length}</p>
-                  <p className="text-sm text-slate-600">Plataformas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <TrendingUp className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {scheduledPosts.length > 0 ? 
-                      (scheduledPosts.reduce((acc, post) => acc + (post.clip?.ai_viral_score || 0), 0) / scheduledPosts.length).toFixed(1) : '0'
-                    }
+                  <p className="text-sm font-medium text-gray-600">Este Mês</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {scheduledPosts.filter(p => {
+                      const postDate = new Date(p.scheduled_time);
+                      const now = new Date();
+                      return postDate.getMonth() === now.getMonth() && postDate.getFullYear() === now.getFullYear();
+                    }).length}
                   </p>
-                  <p className="text-sm text-slate-600">Score Médio</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <CalendarIcon className="h-6 w-6 text-yellow-600" />
                 </div>
               </div>
             </CardContent>
@@ -349,34 +403,31 @@ const Schedule = () => {
 
         {/* Schedule Form Modal */}
         {showScheduleForm && (
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Agendar Novo Post
+              <CardTitle className="flex items-center justify-between">
+                <span>Agendar Novo Post</span>
+                <Button variant="ghost" size="sm" onClick={() => setShowScheduleForm(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </CardTitle>
               <CardDescription>
-                Configure quando e onde publicar seu clip
+                Selecione um clip e configure quando e onde publicar
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Clip Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Selecionar Clip</label>
+                  <label className="text-sm font-medium">Clip *</label>
                   <Select value={selectedClip} onValueChange={setSelectedClip}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Escolha um clip" />
+                      <SelectValue placeholder="Selecione um clip" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableClips.map((clip: any) => (
                         <SelectItem key={clip.id} value={clip.id}>
-                          <div className="flex items-center space-x-2">
-                            <span>{clip.title}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {clip.ai_viral_score?.toFixed(1) || 'N/A'}
-                            </Badge>
-                          </div>
+                          {clip.title}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -385,35 +436,32 @@ const Schedule = () => {
 
                 {/* Platform Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Plataforma</label>
+                  <label className="text-sm font-medium">Plataforma *</label>
                   <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Escolha uma plataforma" />
+                      <SelectValue placeholder="Selecione uma plataforma" />
                     </SelectTrigger>
                     <SelectContent>
-                      {platforms.map(platform => {
-                        const Icon = platform.icon;
-                        return (
-                          <SelectItem key={platform.id} value={platform.id}>
-                            <div className="flex items-center space-x-2">
-                              <Icon className="h-4 w-4" />
-                              <span>{platform.name}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
+                      {platforms.map((platform) => (
+                        <SelectItem key={platform.id} value={platform.id}>
+                          <div className="flex items-center space-x-2">
+                            <platform.icon className="h-4 w-4" />
+                            <span>{platform.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Date Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Data</label>
+                  <label className="text-sm font-medium">Data *</label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <Button variant="outline" className="w-full justify-start">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : "Escolha uma data"}
+                        {selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione uma data"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -421,8 +469,8 @@ const Schedule = () => {
                         mode="single"
                         selected={selectedDate}
                         onSelect={setSelectedDate}
-                        initialFocus
                         disabled={(date) => date < new Date()}
+                        initialFocus
                       />
                     </PopoverContent>
                   </Popover>
@@ -430,12 +478,11 @@ const Schedule = () => {
 
                 {/* Time Selection */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Horário</label>
+                  <label className="text-sm font-medium">Horário *</label>
                   <Input
                     type="time"
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
-                    className="w-full"
                   />
                 </div>
               </div>
@@ -444,20 +491,22 @@ const Schedule = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Legenda</label>
                 <Textarea
-                  placeholder="Escreva uma legenda atrativa para seu post..."
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Escreva uma legenda envolvente para seu post..."
                   rows={3}
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end space-x-3">
+              <div className="flex items-center justify-end space-x-4">
                 <Button variant="outline" onClick={() => setShowScheduleForm(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSchedulePost}>
-                  <Sparkles className="h-4 w-4 mr-2" />
+                <Button 
+                  onClick={handleSchedulePost}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
                   Agendar Post
                 </Button>
               </div>
@@ -466,89 +515,97 @@ const Schedule = () => {
         )}
 
         {/* Scheduled Posts */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-slate-900">Posts Agendados</h2>
-          
-          {scheduledPosts.length === 0 ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-12 text-center">
-                <CalendarIcon className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhum post agendado</h3>
-                <p className="text-slate-600 mb-6">
-                  Comece agendando seus primeiros posts para automatizar suas publicações.
+        <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Posts Agendados</CardTitle>
+                <CardDescription>Gerencie suas publicações programadas</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadScheduledPosts}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {scheduledPosts.length === 0 ? (
+              <div className="text-center py-12">
+                <CalendarIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum post agendado</h3>
+                <p className="text-gray-600 mb-6">
+                  Comece agendando seu primeiro post para as redes sociais
                 </p>
-                <Button onClick={() => setShowScheduleForm(true)}>
+                <Button 
+                  onClick={() => setShowScheduleForm(true)}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Agendar Primeiro Post
                 </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {scheduledPosts.map((post) => {
-                const PlatformIcon = getPlatformIcon(post.platform);
-                return (
-                  <Card key={post.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg bg-gradient-to-r ${getPlatformColor(post.platform)}`}>
-                            <PlatformIcon className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900">
-                              {post.clip?.title || 'Clip'}
-                            </h3>
-                            <p className="text-sm text-slate-500">
-                              {formatDateTime(post.scheduled_time)}
-                            </p>
-                          </div>
-                        </div>
-                        {getStatusBadge(post.status)}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {scheduledPosts.map((post) => {
+                  const PlatformIcon = getPlatformIcon(post.platform);
+                  return (
+                    <div key={post.id} className="flex items-center space-x-4 p-4 bg-white rounded-lg border border-gray-200">
+                      {/* Platform Icon */}
+                      <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${getPlatformColor(post.platform)} flex items-center justify-center flex-shrink-0`}>
+                        <PlatformIcon className="h-6 w-6 text-white" />
                       </div>
 
-                      {post.caption && (
-                        <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                          {post.caption}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          {post.clip?.ai_viral_score && (
-                            <Badge variant="outline" className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              {post.clip.ai_viral_score.toFixed(1)}
-                            </Badge>
-                          )}
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="font-semibold text-gray-900 truncate">
+                            {post.clip?.title || 'Clip sem título'}
+                          </h3>
+                          {getStatusBadge(post.status)}
                         </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          {post.status === 'scheduled' && (
-                            <Button
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                          {post.caption || 'Sem legenda'}
+                        </p>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span className="flex items-center">
+                            <CalendarIcon className="h-4 w-4 mr-1" />
+                            {formatDateTime(post.scheduled_time)}
+                          </span>
+                          <span className="flex items-center">
+                            <Target className="h-4 w-4 mr-1" />
+                            {platforms.find(p => p.id === post.platform)?.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {post.status === 'scheduled' && (
+                          <>
+                            <Button variant="ghost" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
                               size="sm"
-                              variant="outline"
                               onClick={() => handleCancelPost(post.id)}
                             >
-                              <Pause className="h-3 w-3 mr-1" />
-                              Cancelar
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-3 w-3 mr-1" />
-                            Editar
-                          </Button>
-                        </div>
+                          </>
+                        )}
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 

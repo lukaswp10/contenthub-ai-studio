@@ -22,10 +22,14 @@ import {
   Plus,
   Sparkles,
   Target,
-  Zap
+  Zap,
+  Video,
+  ArrowLeft,
+  Home,
+  Upload,
+  User
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -56,7 +60,6 @@ const Clips = () => {
   const [filterPlatform, setFilterPlatform] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadClips();
@@ -186,123 +189,158 @@ const Clips = () => {
   };
 
   const getViralScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-600 bg-green-100';
-    if (score >= 6) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+    if (score >= 8) return 'text-green-600 bg-green-50 border-green-200';
+    if (score >= 6) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
   };
 
   const getCategoryColor = (category: string) => {
     const colors = {
-      'news': 'bg-blue-100 text-blue-800',
-      'educational': 'bg-green-100 text-green-800',
-      'entertainment': 'bg-purple-100 text-purple-800',
-      'lifestyle': 'bg-pink-100 text-pink-800',
-      'gaming': 'bg-orange-100 text-orange-800',
-      'music': 'bg-indigo-100 text-indigo-800'
+      'news': 'bg-blue-50 text-blue-700 border-blue-200',
+      'educational': 'bg-green-50 text-green-700 border-green-200',
+      'entertainment': 'bg-purple-50 text-purple-700 border-purple-200',
+      'lifestyle': 'bg-pink-50 text-pink-700 border-pink-200',
+      'gaming': 'bg-orange-50 text-orange-700 border-orange-200',
+      'default': 'bg-gray-50 text-gray-700 border-gray-200'
     };
-    return colors[category as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[category as keyof typeof colors] || colors.default;
   };
-
-  const categories = ['all', 'news', 'educational', 'entertainment', 'lifestyle', 'gaming', 'music'];
-  const platforms = ['all', 'youtube', 'instagram', 'tiktok', 'twitter', 'linkedin'];
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+        <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-slate-600">Carregando seus clips...</p>
+            <RefreshCw className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+            <p className="text-gray-600">Carregando seus clips...</p>
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-8 w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Meus Clips</h1>
-            <p className="text-slate-600 mt-1">
-              Gerencie e organize seus clips criados com IA
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={loadClips}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
-            </Button>
-            <Button asChild>
-              <Link to="/upload">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Vídeo
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-purple-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo e Navegação */}
+            <div className="flex items-center space-x-8">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <Video className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  ClipsForge
+                </span>
               </Link>
-            </Button>
+              
+              <nav className="hidden md:flex items-center space-x-6">
+                <Link to="/dashboard" className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+                  <Home className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <Link to="/upload" className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+                  <Upload className="h-4 w-4" />
+                  <span>Upload</span>
+                </Link>
+                <div className="flex items-center space-x-2 text-purple-600 font-medium">
+                  <Scissors className="h-4 w-4" />
+                  <span>Meus Clips</span>
+                </div>
+              </nav>
+            </div>
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm">
+                <User className="h-4 w-4 mr-2" />
+                {user?.email?.split('@')[0]}
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-lg">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+            <Link to="/dashboard" className="hover:text-purple-600">Dashboard</Link>
+            <span>/</span>
+            <span>Meus Clips</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Meus Clips</h1>
+          <p className="text-gray-600">
+            Gerencie e compartilhe seus clips criados pela IA
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <Scissors className="h-6 w-6 text-blue-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{clips.length}</p>
-                  <p className="text-sm text-slate-600">Total de Clips</p>
+                  <p className="text-sm font-medium text-gray-600">Total de Clips</p>
+                  <p className="text-2xl font-bold text-gray-900">{clips.length}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Scissors className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-green-100 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Score Médio</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {clips.length > 0 ? (clips.reduce((acc, clip) => acc + (clip.ai_viral_score || 0), 0) / clips.length).toFixed(1) : '0.0'}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <TrendingUp className="h-6 w-6 text-green-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {clips.length > 0 ? (clips.reduce((acc, clip) => acc + (clip.ai_viral_score || 0), 0) / clips.length).toFixed(1) : '0'}
-                  </p>
-                  <p className="text-sm text-slate-600">Score Médio</p>
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <Target className="h-6 w-6 text-purple-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">
+                  <p className="text-sm font-medium text-gray-600">Clips Virais</p>
+                  <p className="text-2xl font-bold text-gray-900">
                     {clips.filter(clip => (clip.ai_viral_score || 0) >= 8).length}
                   </p>
-                  <p className="text-sm text-slate-600">Alto Potencial</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-yellow-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <Zap className="h-6 w-6 text-orange-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {clips.filter(clip => (clip.ai_hook_strength || 0) >= 8).length}
+                  <p className="text-sm font-medium text-gray-600">Este Mês</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {clips.filter(clip => {
+                      const clipDate = new Date(clip.created_at);
+                      const now = new Date();
+                      return clipDate.getMonth() === now.getMonth() && clipDate.getFullYear() === now.getFullYear();
+                    }).length}
                   </p>
-                  <p className="text-sm text-slate-600">Hooks Fortes</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -310,57 +348,43 @@ const Clips = () => {
         </div>
 
         {/* Filters and Search */}
-        <Card className="border-0 shadow-lg">
+        <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm mb-8">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-1 items-center space-x-4 w-full lg:w-auto">
-                <div className="relative flex-1 lg:flex-initial">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Buscar clips..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 w-full sm:w-64"
                   />
                 </div>
                 
                 <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas Categorias</SelectItem>
-                    {categories.slice(1).map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Plataforma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas Plataformas</SelectItem>
-                    {platforms.slice(1).map(platform => (
-                      <SelectItem key={platform} value={platform}>
-                        {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="news">Notícias</SelectItem>
+                    <SelectItem value="educational">Educacional</SelectItem>
+                    <SelectItem value="entertainment">Entretenimento</SelectItem>
+                    <SelectItem value="lifestyle">Lifestyle</SelectItem>
+                    <SelectItem value="gaming">Gaming</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Ordenar" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="recent">Mais Recentes</SelectItem>
                     <SelectItem value="oldest">Mais Antigos</SelectItem>
                     <SelectItem value="viral">Score Viral</SelectItem>
-                    <SelectItem value="hook">Hook Strength</SelectItem>
+                    <SelectItem value="hook">Força do Hook</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -380,6 +404,9 @@ const Clips = () => {
                 >
                   <List className="h-4 w-4" />
                 </Button>
+                <Button onClick={loadClips} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -387,144 +414,181 @@ const Clips = () => {
 
         {/* Clips Grid/List */}
         {sortedClips.length === 0 ? (
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-sm bg-white/60 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
-              <Scissors className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Nenhum clip encontrado</h3>
-              <p className="text-slate-600 mb-6">
-                {searchTerm || filterCategory !== 'all' || filterPlatform !== 'all' 
-                  ? 'Tente ajustar os filtros de busca.'
-                  : 'Comece fazendo upload de um vídeo para gerar clips com IA.'
+              <Scissors className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum clip encontrado</h3>
+              <p className="text-gray-600 mb-6">
+                {clips.length === 0 
+                  ? "Você ainda não criou nenhum clip. Faça upload de um vídeo para começar!"
+                  : "Nenhum clip corresponde aos filtros selecionados."
                 }
               </p>
-              <Button asChild>
+              {clips.length === 0 && (
                 <Link to="/upload">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Fazer Upload
+                  <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Fazer Upload
+                  </Button>
                 </Link>
-              </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+          <div className={viewMode === 'grid' 
+            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" 
+            : "space-y-4"
+          }>
             {sortedClips.map((clip) => (
-              <Card key={clip.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
-                <CardContent className="p-0">
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video bg-slate-100 rounded-t-lg overflow-hidden">
-                    {clip.thumbnail_url ? (
-                      <img 
-                        src={clip.thumbnail_url} 
-                        alt={clip.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Scissors className="h-12 w-12 text-slate-300" />
-                      </div>
-                    )}
-                    
-                    {/* Overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
-                        <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+              <Card key={clip.id} className="border-0 shadow-sm bg-white/60 backdrop-blur-sm hover:shadow-md transition-all duration-200 group">
+                {viewMode === 'grid' ? (
+                  <div className="relative">
+                    {/* Thumbnail */}
+                    <div className="relative aspect-video bg-gray-100 rounded-t-lg overflow-hidden">
+                      {clip.thumbnail_url ? (
+                        <img 
+                          src={clip.thumbnail_url} 
+                          alt={clip.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-indigo-100">
+                          <Video className="h-12 w-12 text-purple-400" />
+                        </div>
+                      )}
+                      
+                      {/* Play Button Overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" className="bg-white/90 text-gray-900 hover:bg-white">
                           <Play className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white" onClick={() => handleDownload(clip)}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white" onClick={() => handleShare(clip)}>
-                          <Share2 className="h-4 w-4" />
-                        </Button>
+                      </div>
+
+                      {/* Duration */}
+                      <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                        {formatDuration(clip.start_time_seconds, clip.end_time_seconds)}
                       </div>
                     </div>
 
-                    {/* Duration Badge */}
-                    <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                      {formatDuration(clip.start_time_seconds, clip.end_time_seconds)}
-                    </div>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 line-clamp-2 mb-1">
+                            {clip.title}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(clip.created_at)}
+                          </p>
+                        </div>
+
+                        {/* Scores */}
+                        <div className="flex items-center space-x-2">
+                          <Badge className={`text-xs border ${getViralScoreColor(clip.ai_viral_score || 0)}`}>
+                            <Zap className="h-3 w-3 mr-1" />
+                            {clip.ai_viral_score || 0}/10
+                          </Badge>
+                          {clip.ai_content_category && (
+                            <Badge variant="outline" className={`text-xs ${getCategoryColor(clip.ai_content_category)}`}>
+                              {clip.ai_content_category}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex items-center space-x-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDownload(clip)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleShare(clip)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <Button size="sm" variant="outline">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
                   </div>
-
-                  {/* Content */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-slate-900 line-clamp-2 flex-1">
-                        {clip.title}
-                      </h3>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center space-x-4 mb-3">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        <span className={`text-sm font-medium px-2 py-1 rounded ${getViralScoreColor(clip.ai_viral_score || 0)}`}>
-                          {clip.ai_viral_score?.toFixed(1) || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Target className="h-4 w-4 text-purple-500" />
-                        <span className="text-sm text-slate-600">
-                          {clip.ai_hook_strength?.toFixed(1) || 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <Badge className={getCategoryColor(clip.ai_content_category)}>
-                        {clip.ai_content_category}
-                      </Badge>
-                      {clip.ai_best_platform?.slice(0, 2).map(platform => (
-                        <Badge key={platform} variant="outline" className="text-xs">
-                          {platform}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {/* Hashtags */}
-                    {clip.hashtags && clip.hashtags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {clip.hashtags.slice(0, 3).map(hashtag => (
-                          <span key={hashtag} className="text-xs text-slate-500">
-                            {hashtag}
-                          </span>
-                        ))}
-                        {clip.hashtags.length > 3 && (
-                          <span className="text-xs text-slate-400">
-                            +{clip.hashtags.length - 3}
-                          </span>
+                ) : (
+                  // List View
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-24 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                        {clip.thumbnail_url ? (
+                          <img 
+                            src={clip.thumbnail_url} 
+                            alt={clip.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-indigo-100">
+                            <Video className="h-6 w-6 text-purple-400" />
+                          </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                      <div className="flex items-center space-x-2 text-sm text-slate-500">
-                        <Calendar className="h-4 w-4" />
-                        <span>{formatDate(clip.created_at)}</span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {clip.title}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(clip.created_at)} • {formatDuration(clip.start_time_seconds, clip.end_time_seconds)}
+                        </p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Badge className={`text-xs border ${getViralScoreColor(clip.ai_viral_score || 0)}`}>
+                            {clip.ai_viral_score || 0}/10
+                          </Badge>
+                          {clip.ai_content_category && (
+                            <Badge variant="outline" className={`text-xs ${getCategoryColor(clip.ai_content_category)}`}>
+                              {clip.ai_content_category}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleDownload(clip)}>
-                          <Download className="h-3 w-3 mr-1" />
-                          Baixar
+                      
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDownload(clip)}
+                        >
+                          <Download className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleShare(clip)}>
-                          <Share2 className="h-3 w-3 mr-1" />
-                          Compartilhar
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleShare(clip)}
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
+                  </CardContent>
+                )}
               </Card>
             ))}
           </div>
         )}
       </div>
-    </AppLayout>
+    </div>
   );
 };
 
