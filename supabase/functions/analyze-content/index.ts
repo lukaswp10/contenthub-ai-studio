@@ -179,21 +179,42 @@ serve(async (req) => {
       score: c.viral_score
     }))
 
+    // Save analysis to content_analysis table
+    const { error: analysisError } = await supabase
+      .from('content_analysis')
+      .upsert({
+        video_id,
+        user_id: user.id,
+        clips_suggestions: validatedClips,
+        main_topics: mainTopics,
+        key_moments: keyMoments,
+        content_type: contentAnalysis.content_type || detectContentType(transcriptionText),
+        analysis_completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+    if (analysisError) {
+      console.error('Error saving analysis:', analysisError)
+      throw analysisError
+    }
+
     // Update video with analysis
     const { error: updateError } = await supabase
       .from('videos')
       .update({
-        processing_status: 'generating_clips',
+        status: 'analyzed',
         ai_content_type: contentAnalysis.content_type || detectContentType(transcriptionText),
         ai_main_topics: mainTopics,
         ai_key_moments: keyMoments,
-        ai_suggested_clips: validatedClips.length
+        ai_suggested_clips: validatedClips.length,
+        updated_at: new Date().toISOString()
       })
       .eq('id', video_id)
 
     if (updateError) throw updateError
 
-    // Trigger clip generation
+    // Trigger clip generation with new function
     const generateResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-clips`, {
       method: 'POST',
       headers: {
@@ -201,10 +222,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        video_id,
-        clip_suggestions: validatedClips,
-        cloudinary_public_id: videoData.cloudinary_public_id,
-        preferences
+        video_id
       })
     })
 
@@ -264,10 +282,10 @@ function createAnalysisPrompt(
   language: string
 ): string {
   const clipDuration = preferences.clip_duration || 30
-  const clipCount = preferences.clip_count === 'auto' ? 10 : (preferences.clip_count || 5)
+  const clipCount = preferences.clip_count === 'auto' ? 15 : (preferences.clip_count || 8)
   
   return `
-Analyze this ${language} video transcript and identify the ${clipCount} most viral-worthy moments for social media clips.
+You are a TikTok viral content expert. Analyze this ${language} video transcript and identify the ${clipCount} most viral-worthy moments for TikTok/Reels clips.
 
 TRANSCRIPT: """
 ${text.slice(0, 15000)} ${text.length > 15000 ? '... (truncated)' : ''}
@@ -280,50 +298,56 @@ ${JSON.stringify(segments.slice(0, 100).map(s => ({
   text: s.text
 })))}
 
-REQUIREMENTS:
-- Each clip should be ${clipDuration} seconds (with flexibility of ±15 seconds for better content)
-- Focus on complete thoughts, stories, or insights
-- Prioritize moments with high emotional impact, surprising facts, or actionable advice
-- Consider platform-specific preferences (TikTok likes quick hooks, YouTube allows longer build-up)
+TIKTOK VIRAL REQUIREMENTS:
+- Each clip should be 15-60 seconds (TikTok's sweet spot)
+- Focus on COMPLETE thoughts, shocking facts, or emotional moments
+- Prioritize moments with:
+  * Strong opening hooks (first 3 seconds must grab attention)
+  * Emotional impact (surprise, anger, joy, curiosity)
+  * Relatable content or universal truths
+  * Controversial or debatable statements
+  * Actionable advice or tips
+  * Storytelling elements with clear beginning/middle/end
 
-For each clip, analyze:
-1. Viral potential (1-10 score based on emotional impact, relatability, shareability)
+TIKTOK-SPECIFIC ANALYSIS:
+1. Viral potential (1-10 score based on TikTok trends)
 2. Hook strength (how compelling the first 3 seconds are)
-3. Best platforms (tiktok, instagram, youtube, twitter, linkedin)
-4. Relevant hashtags (5-10 trending and niche tags)
-5. Content category (educational, entertainment, motivational, etc.)
-6. Detected emotions (joy, surprise, insight, etc.)
+3. Best platforms (prioritize tiktok, instagram, youtube)
+4. Trending hashtags (5-10 viral and niche tags)
+5. Content category (educational, entertainment, news, lifestyle, etc.)
+6. Detected emotions (shock, curiosity, anger, joy, etc.)
 
 Return ONLY a valid JSON object in this exact format:
 {
   "analysis": {
-    "content_type": "podcast|tutorial|interview|presentation|vlog|other",
+    "content_type": "news|educational|entertainment|lifestyle|business|other",
     "overall_theme": "brief description of main theme",
-    "target_audience": "description of ideal viewer"
+    "target_audience": "description of ideal TikTok viewer"
   },
   "clips": [
     {
-      "start_time": 125.5,
-      "end_time": 155.5,
-      "title": "How to 10x Your Productivity",
-      "viral_score": 8.5,
+      "start_time": 45.5,
+      "end_time": 75.5,
+      "title": "Shocking Truth About [Topic]",
+      "viral_score": 9.5,
       "hook_strength": 9.0,
-      "hashtags": ["#productivity", "#lifehacks", "#success", "#motivation", "#tips"],
-      "reason": "Strong opening question followed by surprising statistics and actionable advice",
-      "topic": "productivity",
-      "emotions": ["curiosity", "excitement", "empowerment"],
+      "hashtags": ["#viral", "#shocking", "#truth", "#trending", "#fyp"],
+      "reason": "Strong opening with shocking revelation followed by emotional impact",
+      "topic": "main topic",
+      "emotions": ["shock", "curiosity", "anger"],
       "best_platforms": ["tiktok", "instagram"],
-      "content_category": "educational"
+      "content_category": "news"
     }
   ]
 }
 
-IMPORTANT:
+IMPORTANT TIKTOK RULES:
 - start_time and end_time must be numbers (seconds with decimals)
 - viral_score and hook_strength between 1.0 and 10.0
 - Ensure times are within video duration
-- Focus on authentic, engaging moments
+- Focus on authentic, engaging moments that work on TikTok
 - Consider cultural context for ${language} content
+- Prioritize clips that can go viral with proper hashtags
 `
 }
 
@@ -333,9 +357,9 @@ function validateAndEnhanceClips(
   segments: any[],
   preferences: any
 ): ClipSuggestion[] {
-  const minDuration = 10
-  const maxDuration = 90
-  const defaultDuration = preferences.clip_duration || 30
+  const minDuration = 15
+  const maxDuration = 60
+  const defaultDuration = preferences.clip_duration || 45
   
   return suggestions
     .filter(clip => {

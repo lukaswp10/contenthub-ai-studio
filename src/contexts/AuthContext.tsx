@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
 
   // Fetch user profile
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       debugAuth.log('Fetching profile for user:', userId)
       
@@ -64,7 +64,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       debugAuth.error('Error fetching profile:', error)
       return null
     }
-  }
+  }, [])
+
+  // Force refresh session
+  const forceRefreshSession = useCallback(async () => {
+    try {
+      console.log('🔄 Forçando refresh da sessão...')
+      const { data, error } = await supabase.auth.refreshSession()
+      
+      if (error) {
+        console.error('❌ Erro ao renovar sessão:', error)
+        // Se o refresh falhar, fazer logout
+        await signOut()
+        return false
+      }
+      
+      if (data.session) {
+        console.log('✅ Sessão renovada com sucesso')
+        setSession(data.session)
+        setUser(data.session.user)
+        return true
+      }
+      
+      return false
+    } catch (err) {
+      console.error('❌ Erro inesperado ao renovar sessão:', err)
+      await signOut()
+      return false
+    }
+  }, [])
 
   // Initialize auth state
   useEffect(() => {
@@ -72,18 +100,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        console.log('🚀 Inicializando autenticação...')
+        
         // Get initial session
-        const { data: { session: initialSession } } = await supabase.auth.getSession()
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('❌ Erro ao obter sessão inicial:', error)
+          setLoading(false)
+          return
+        }
         
         if (mounted && initialSession) {
+          console.log('✅ Sessão inicial encontrada:', initialSession.user?.email)
           setSession(initialSession)
           setUser(initialSession.user)
           await fetchProfile(initialSession.user.id)
+        } else {
+          console.log('ℹ️ Nenhuma sessão inicial encontrada')
         }
       } catch (error) {
-        console.error('Error initializing auth:', error)
+        console.error('❌ Erro ao inicializar autenticação:', error)
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted) {
+          setLoading(false)
+          console.log('✅ Inicialização da autenticação concluída')
+        }
       }
     }
 
@@ -94,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, currentSession) => {
         if (!mounted) return
 
-        console.log('Auth event:', event, currentSession?.user?.email)
+        console.log('🔔 Auth event:', event, currentSession?.user?.email)
         
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
@@ -108,14 +150,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
         }
 
-        // Handle auth events - ONLY show toasts, no navigation here
+        // Handle auth events
         switch (event) {
           case 'SIGNED_IN':
-            console.log('User signed in successfully')
+            console.log('✅ Usuário logado com sucesso')
             break
           case 'SIGNED_OUT':
+            console.log('👋 Usuário deslogado')
             toast.success('Logout realizado com sucesso!')
             navigate('/')
+            break
+          case 'TOKEN_REFRESHED':
+            console.log('🔄 Token renovado automaticamente')
             break
           case 'PASSWORD_RECOVERY':
             toast.success('Verifique seu email para redefinir a senha')
@@ -131,11 +177,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [navigate])
+  }, [navigate, fetchProfile])
+
+  // Refresh session periodically (every 5 minutes)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (session && user) {
+        console.log('⏰ Verificando necessidade de refresh da sessão...')
+        
+        // Check if token is close to expiring (within 10 minutes)
+        const expiresAt = session.expires_at
+        const now = Math.floor(Date.now() / 1000)
+        const timeUntilExpiry = expiresAt ? expiresAt - now : 0
+        
+        if (timeUntilExpiry < 600) { // Less than 10 minutes
+          console.log('⚠️ Token próximo do vencimento, renovando...')
+          await forceRefreshSession()
+        }
+      }
+    }, 5 * 60 * 1000) // Check every 5 minutes
+    
+    return () => clearInterval(interval)
+  }, [session, user, forceRefreshSession])
+
+  const signOut = useCallback(async () => {
+    try {
+      console.log('👋 Fazendo logout...')
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      
+      // Clear state
+      setUser(null)
+      setSession(null)
+      setProfile(null)
+      
+      console.log('✅ Logout realizado com sucesso')
+    } catch (error: any) {
+      console.error('❌ Erro ao fazer logout:', error)
+      // Force clear state even if logout fails
+      setUser(null)
+      setSession(null)
+      setProfile(null)
+      throw new Error(error.message || 'Erro ao fazer logout')
+    }
+  }, [])
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('Attempting to sign in with:', email)
+      console.log('🔐 Tentando fazer login com:', email)
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -143,11 +232,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (error) {
-        console.error('Sign in error:', error)
+        console.error('❌ Erro no login:', error)
         throw error
       }
 
-      console.log('Sign in successful, user:', data.user?.email)
+      console.log('✅ Login realizado com sucesso:', data.user?.email)
 
       // Update last login - use setTimeout to prevent blocking
       if (data.user) {
@@ -161,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return
     } catch (error: any) {
-      console.error('Sign in error:', error)
+      console.error('❌ Erro no login:', error)
       
       // Handle specific errors
       if (error.message.includes('Invalid login credentials')) {
@@ -176,6 +265,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
+      console.log('📝 Criando conta para:', email)
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -193,12 +284,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Este email já está cadastrado')
       }
 
+      console.log('✅ Conta criada com sucesso')
       toast.success('Conta criada! Verifique seu email para confirmar.')
       return
     } catch (error: any) {
-      console.error('Sign up error:', error)
+      console.error('❌ Erro ao criar conta:', error)
       
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('User already registered')) {
         throw new Error('Este email já está cadastrado')
       } else {
         throw new Error(error.message || 'Erro ao criar conta')
@@ -206,42 +298,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-    } catch (error: any) {
-      console.error('Sign out error:', error)
-      throw new Error('Erro ao fazer logout')
-    }
-  }
-
   const resetPassword = async (email: string) => {
     try {
+      console.log('🔑 Solicitando reset de senha para:', email)
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
       })
 
       if (error) throw error
-      
-      toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.')
+
+      console.log('✅ Email de reset enviado')
+      toast.success('Email de recuperação enviado!')
+      return
     } catch (error: any) {
-      console.error('Reset password error:', error)
+      console.error('❌ Erro ao solicitar reset:', error)
       throw new Error(error.message || 'Erro ao enviar email de recuperação')
     }
   }
 
   const updatePassword = async (newPassword: string) => {
     try {
+      console.log('🔐 Atualizando senha...')
+      
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       })
 
       if (error) throw error
-      
+
+      console.log('✅ Senha atualizada')
       toast.success('Senha atualizada com sucesso!')
+      return
     } catch (error: any) {
-      console.error('Update password error:', error)
+      console.error('❌ Erro ao atualizar senha:', error)
       throw new Error(error.message || 'Erro ao atualizar senha')
     }
   }
@@ -250,64 +340,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (!user) throw new Error('Usuário não autenticado')
 
-      const { data, error } = await supabase
+      console.log('👤 Atualizando perfil...')
+      
+      const { error } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user.id)
-        .select()
-        .single()
 
       if (error) throw error
 
-      setProfile(data as Profile)
-      toast.success('Perfil atualizado com sucesso!')
+      // Refresh profile
+      await fetchProfile(user.id)
+      
+      console.log('✅ Perfil atualizado')
+      return
     } catch (error: any) {
-      console.error('Update profile error:', error)
+      console.error('❌ Erro ao atualizar perfil:', error)
       throw new Error(error.message || 'Erro ao atualizar perfil')
     }
   }
 
-  const refreshSession = async () => {
-    try {
-      const { data, error } = await supabase.auth.refreshSession()
-      if (error) throw error
-      
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-    } catch (error) {
-      console.error('Refresh session error:', error)
-    }
+  const refreshSession = async (): Promise<void> => {
+    await forceRefreshSession()
   }
 
-  // Expor função para forçar refresh do profile
   const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id)
-    }
+    if (!user) throw new Error('Usuário não autenticado')
+    return await fetchProfile(user.id)
   }
 
-  const value = {
-    user,
-    session,
-    profile,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-    updatePassword,
-    updateProfile,
-    refreshSession,
-    refreshProfile,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        resetPassword,
+        updatePassword,
+        updateProfile,
+        refreshSession,
+        refreshProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider')
   }
   return context
 }
