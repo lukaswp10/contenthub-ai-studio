@@ -126,7 +126,7 @@ export default function Dashboard() {
       console.log('📊 Dashboard: Carregando dados...')
       setLoading(true)
 
-      // Carregar vídeos recentes
+      // Carregar vídeos recentes com status atualizado
       const { data: videos, error: videosError } = await supabase
         .from('videos')
         .select(`
@@ -134,7 +134,8 @@ export default function Dashboard() {
           title,
           processing_status,
           created_at,
-          cloudinary_secure_url
+          cloudinary_secure_url,
+          clips_generated
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
@@ -143,17 +144,25 @@ export default function Dashboard() {
       if (videosError) {
         console.error('Erro ao carregar vídeos:', videosError)
       } else {
-        // Carregar contagem de clips separadamente
+        // Atualizar status dos vídeos baseado nos clips existentes
         const videosWithClips = await Promise.all(
           (videos || []).map(async (video) => {
+            // Verificar clips reais no banco
             const { count } = await supabase
               .from('clips')
               .select('*', { count: 'exact', head: true })
               .eq('video_id', video.id)
             
+            // Determinar status correto baseado nos clips
+            let updatedStatus = video.processing_status
+            if (count && count > 0) {
+              updatedStatus = 'ready' // Se tem clips, está pronto
+            }
+            
             return {
               ...video,
-              clips_count: count || 0
+              clips_count: count || 0,
+              processing_status: updatedStatus
             }
           })
         )
@@ -1040,13 +1049,25 @@ export default function Dashboard() {
           <TabsContent value="videos" className="space-y-6">
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Video className="h-5 w-5 text-purple-600" />
-                  Vídeos Recentes
-                </CardTitle>
-                <CardDescription>
-                  Seus vídeos enviados e status de processamento
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Video className="h-5 w-5 text-purple-600" />
+                      Vídeos Recentes
+                    </CardTitle>
+                    <CardDescription>
+                      Seus vídeos enviados e status de processamento
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={loadDashboardData}
+                    disabled={loading}
+                  >
+                    {loading ? 'Atualizando...' : 'Atualizar'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {recentVideos.length === 0 ? (
@@ -1072,11 +1093,17 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge className={getStatusColor(video.processing_status)}>
-                            {video.processing_status === 'ready' ? 'Concluído' : 
-                             video.processing_status === 'failed' || video.processing_status === 'cancelled' ? 'Erro' : 'Processando'}
+                            {video.processing_status === 'ready' ? 'Pronto' : 
+                             video.processing_status === 'failed' || video.processing_status === 'cancelled' ? 'Erro' : 
+                             video.clips_count && video.clips_count > 0 ? 'Clips Criados' : 'Processando'}
                           </Badge>
-                          <Button variant="outline" size="sm">
-                            Ver Clips
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.location.href = `/gallery?video=${video.id}`}
+                            disabled={!video.clips_count || video.clips_count === 0}
+                          >
+                            Ver Clips ({video.clips_count || 0})
                           </Button>
                           
                           {/* Menu de opções */}
