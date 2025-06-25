@@ -140,7 +140,6 @@ export default function Dashboard() {
           processing_status,
           created_at,
           cloudinary_secure_url,
-          thumbnail_url,
           duration_seconds,
           clips_generated
         `)
@@ -299,15 +298,17 @@ export default function Dashboard() {
   }
 
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+    const safeSeconds = seconds || 0
+    const mins = Math.floor(safeSeconds / 60)
+    const secs = safeSeconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   const getViralScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-600 bg-green-100'
-    if (score >= 6) return 'text-yellow-600 bg-yellow-100'
-    if (score >= 4) return 'text-orange-600 bg-orange-100'
+    const safeScore = score || 0
+    if (safeScore >= 8) return 'text-green-600 bg-green-100'
+    if (safeScore >= 6) return 'text-yellow-600 bg-yellow-100'
+    if (safeScore >= 4) return 'text-orange-600 bg-orange-100'
     return 'text-red-600 bg-red-100'
   }
 
@@ -324,7 +325,7 @@ export default function Dashboard() {
         .eq('user_id', user?.id)
 
       if (error) throw error
-
+      
       toast({
         title: "Vídeo removido",
         description: "O vídeo foi removido com sucesso.",
@@ -426,141 +427,141 @@ export default function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Upload Section */}
+              
+              {/* Upload Section */}
           <div className="lg:col-span-1">
             <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
-              <CardHeader>
+                <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <CloudUpload className="h-6 w-6 text-purple-600" />
-                  Upload de Vídeo
-                </CardTitle>
+                    Upload de Vídeo
+                  </CardTitle>
                 <CardDescription className="text-gray-600">
-                  Envie seu vídeo e nossa IA criará clips virais automaticamente
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {!file ? (
-                  <div
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    className={`
+                    Envie seu vídeo e nossa IA criará clips virais automaticamente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!file ? (
+                    <div
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      className={`
                       border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer
-                      ${dragOver 
-                        ? 'border-purple-500 bg-purple-50' 
-                        : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
-                      }
-                    `}
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                  >
-                    <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <div className="space-y-2">
-                      <p className="text-lg font-medium text-gray-900">
-                        Arraste seu vídeo aqui
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        ou clique para selecionar
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        MP4, MOV, AVI até 500MB
-                      </p>
+                        ${dragOver 
+                          ? 'border-purple-500 bg-purple-50' 
+                          : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
+                        }
+                      `}
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <div className="space-y-2">
+                        <p className="text-lg font-medium text-gray-900">
+                          Arraste seu vídeo aqui
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          ou clique para selecionar
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          MP4, MOV, AVI até 500MB
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <FileVideo className="h-8 w-8 text-purple-600" />
-                        <div>
-                          <p className="font-medium text-gray-900">{file.name}</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileVideo className="h-8 w-8 text-purple-600" />
+                          <div>
+                            <p className="font-medium text-gray-900">{file.name}</p>
                           <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFile(null)
+                            setTitle('')
+                            setDescription('')
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                        <Label htmlFor="title" className="text-sm font-medium">Título do Vídeo *</Label>
+                          <Input
+                            id="title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Digite um título atrativo..."
+                            className="mt-1"
+                          />
+                        </div>
+
+                        <div>
+                        <Label htmlFor="description" className="text-sm font-medium">Descrição (Opcional)</Label>
+                          <Textarea
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Descreva o conteúdo do seu vídeo..."
+                            className="mt-1"
+                            rows={3}
+                          />
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setFile(null)
-                          setTitle('')
-                          setDescription('')
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
                     </div>
+                  )}
 
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="title" className="text-sm font-medium">Título do Vídeo *</Label>
-                        <Input
-                          id="title"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Digite um título atrativo..."
-                          className="mt-1"
-                        />
-                      </div>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
 
-                      <div>
-                        <Label htmlFor="description" className="text-sm font-medium">Descrição (Opcional)</Label>
-                        <Textarea
-                          id="description"
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Descreva o conteúdo do seu vídeo..."
-                          className="mt-1"
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileInputChange}
-                  className="hidden"
-                />
-
-                {isUploading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
+                  {isUploading && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Enviando vídeo...</span>
-                      <span className="font-medium">{uploadProgress}%</span>
+                        <span className="font-medium">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2" />
                     </div>
-                    <Progress value={uploadProgress} className="h-2" />
-                  </div>
-                )}
+                  )}
 
-                {uploadError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600">{uploadError}</p>
-                  </div>
-                )}
+                  {uploadError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600">{uploadError}</p>
+                    </div>
+                  )}
 
-                <Button 
-                  onClick={handleUpload}
-                  disabled={!file || !title.trim() || isUploading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  <Button 
+                    onClick={handleUpload}
+                    disabled={!file || !title.trim() || isUploading}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                   size="lg"
-                >
-                  {isUploading ? (
-                    <>
+                  >
+                    {isUploading ? (
+                      <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Processando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Gerar Clips com IA
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Gerar Clips com IA
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
           </div>
 
           {/* Videos and Clips Section */}
@@ -568,21 +569,21 @@ export default function Dashboard() {
             
             {/* Recent Clips */}
             <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
-              <CardHeader>
+                <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-xl">
                       <Scissors className="h-6 w-6 text-indigo-600" />
                       Clips Recentes
-                    </CardTitle>
-                    <CardDescription>
+                  </CardTitle>
+                  <CardDescription>
                       Seus clips gerados pela IA prontos para usar
-                    </CardDescription>
+                  </CardDescription>
                   </div>
                   <Button variant="outline" size="sm" asChild>
                     <a href="/gallery">Ver Todos</a>
-                  </Button>
-                </div>
+                          </Button>
+                        </div>
               </CardHeader>
               <CardContent>
                 {recentClips.length === 0 ? (
@@ -592,7 +593,7 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-500 mt-1">
                       Faça upload de um vídeo para gerar clips automaticamente
                     </p>
-                  </div>
+                      </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {recentClips.slice(0, 6).map((clip) => (
@@ -601,24 +602,24 @@ export default function Dashboard() {
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900 mb-1 line-clamp-2">{clip.title}</h4>
                             <p className="text-sm text-gray-600 line-clamp-2">{clip.description}</p>
-                          </div>
-                          <Badge className={`ml-2 ${getViralScoreColor(clip.ai_viral_score)}`}>
-                            {clip.ai_viral_score.toFixed(1)}
+                                </div>
+                                                    <Badge className={`ml-2 ${getViralScoreColor(clip.ai_viral_score || 0)}`}>
+                            {(clip.ai_viral_score || 0).toFixed(1)}
                           </Badge>
-                        </div>
+                                </div>
                         
                         <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
                           <span>{formatDuration(clip.duration_seconds)}</span>
                           <span>{formatDate(clip.created_at)}</span>
-                        </div>
+                                </div>
 
                         <div className="flex flex-wrap gap-1 mb-3">
-                          {clip.hashtags.slice(0, 3).map((tag, idx) => (
+                          {(clip.hashtags || []).slice(0, 3).map((tag, idx) => (
                             <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
                               {tag}
                             </span>
-                          ))}
-                        </div>
+                        ))}
+                      </div>
 
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="outline" className="flex-1">
@@ -631,13 +632,13 @@ export default function Dashboard() {
                           <Button size="sm" variant="outline">
                             <Share2 className="h-3 w-3" />
                           </Button>
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                  ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
             {/* Recent Videos */}
             <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
@@ -675,8 +676,8 @@ export default function Dashboard() {
                                 <span>{formatDuration(video.duration_seconds)}</span>
                               )}
                               <span>{video.clips_count || 0} clips</span>
-                            </div>
                           </div>
+                        </div>
                         </div>
                         <div className="flex items-center space-x-3">
                           <Badge 
@@ -701,7 +702,7 @@ export default function Dashboard() {
                               <a href={`/gallery?video=${video.id}`}>
                                 Ver Clips ({video.clips_count})
                               </a>
-                            </Button>
+                          </Button>
                           )}
                           
                           <DropdownMenu>

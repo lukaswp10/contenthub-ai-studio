@@ -244,8 +244,8 @@ export default function Gallery() {
 
       if (error) throw error
 
-      toast({
-        title: "Vídeo removido",
+    toast({
+      title: "Vídeo removido",
         description: "O vídeo e seus clips foram removidos com sucesso.",
       })
 
@@ -274,9 +274,9 @@ export default function Gallery() {
 
       if (error) throw error
 
-      toast({
-        title: "Clip removido",
-        description: "O clip foi removido com sucesso.",
+    toast({
+      title: "Clip removido",
+      description: "O clip foi removido com sucesso.",
       })
 
       loadGalleryData()
@@ -348,7 +348,7 @@ export default function Gallery() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
       <div className="max-w-7xl mx-auto p-6">
         
-        {/* Header */}
+      {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             {selectedVideo && (
@@ -364,7 +364,7 @@ export default function Gallery() {
                 Voltar
               </Button>
             )}
-            <div>
+          <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 {selectedVideo ? 'Clips do Vídeo' : 'Galeria de Conteúdo'}
               </h1>
@@ -385,25 +385,25 @@ export default function Gallery() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-        </div>
-
+          </div>
+          
         {/* Search and Filters */}
         <Card className="mb-8 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
                   placeholder="Buscar por título, descrição..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
-                />
-              </div>
-              
+              />
+            </div>
+
               <div className="flex items-center gap-3">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-40">
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent>
@@ -417,34 +417,34 @@ export default function Gallery() {
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
+              </SelectTrigger>
+              <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="completed">Concluídos</SelectItem>
                     <SelectItem value="processing">Processando</SelectItem>
-                  </SelectContent>
-                </Select>
+              </SelectContent>
+            </Select>
 
                 <div className="flex border rounded-lg">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
                     className="rounded-r-none"
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
                     className="rounded-l-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              >
+                <List className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
+        </div>
           </CardContent>
         </Card>
 
@@ -455,12 +455,12 @@ export default function Gallery() {
               <TabsTrigger value="videos" className="flex items-center gap-2">
                 <Video className="h-4 w-4" />
                 Vídeos ({videos.length})
-              </TabsTrigger>
+            </TabsTrigger>
               <TabsTrigger value="clips" className="flex items-center gap-2">
                 <Scissors className="h-4 w-4" />
                 Clips ({clips.length})
-              </TabsTrigger>
-            </TabsList>
+            </TabsTrigger>
+          </TabsList>
           )}
 
           {/* Videos Tab */}
@@ -483,19 +483,19 @@ export default function Gallery() {
                 </Card>
               ) : (
                 <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-                  {filteredVideos.map((video) => (
+                {filteredVideos.map((video) => (
                     <Card key={video.id} className="border-0 shadow-lg bg-white/90 backdrop-blur-sm hover:shadow-xl transition-all duration-200">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                              {video.title}
-                            </h3>
+                        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                          {video.title}
+                        </h3>
                             <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                {formatDate(video.created_at)}
-                              </span>
+                            {formatDate(video.created_at)}
+                          </span>
                               {video.duration_seconds && (
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
@@ -506,13 +506,13 @@ export default function Gallery() {
                                 <Scissors className="h-3 w-3" />
                                 {video.clips_count} clips
                               </span>
-                            </div>
+              </div>
                           </div>
                           <Badge className={getStatusColor(video.processing_status)}>
                             {video.clips_count > 0 ? 'Pronto' : 'Processando'}
                           </Badge>
                         </div>
-
+                        
                         <div className="flex items-center gap-2">
                           {video.clips_count > 0 && (
                             <Button 
@@ -545,13 +545,13 @@ export default function Gallery() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
           )}
 
           {/* Clips Tab */}
@@ -574,7 +574,7 @@ export default function Gallery() {
                   {!selectedVideo && (
                     <Button asChild>
                       <a href="/dashboard">Fazer Upload</a>
-                    </Button>
+                          </Button>
                   )}
                 </CardContent>
               </Card>
@@ -595,7 +595,7 @@ export default function Gallery() {
                                                   <Badge className={getViralScoreColor(clip.ai_viral_score || 0)}>
                             {(clip.ai_viral_score || 0).toFixed(1)}
                           </Badge>
-                      </div>
+                        </div>
 
                       <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                         <span className="flex items-center gap-1">
@@ -611,7 +611,7 @@ export default function Gallery() {
                           {formatNumber(clip.total_views || 0)}
                         </span>
                       </div>
-
+                      
                       <div className="flex flex-wrap gap-1 mb-4">
                         {(clip.hashtags || []).slice(0, 3).map((tag, idx) => (
                           <span key={idx} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
@@ -621,7 +621,7 @@ export default function Gallery() {
                         {(clip.hashtags || []).length > 3 && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
                             +{(clip.hashtags || []).length - 3}
-                          </span>
+                              </span>
                         )}
                       </div>
 
@@ -687,8 +687,8 @@ export default function Gallery() {
                                     </span>
                                   ))}
                                 </div>
-                              </div>
-
+                          </div>
+                          
                               {/* Actions */}
                               <div className="flex gap-3">
                                 <Button className="flex-1">
@@ -702,33 +702,33 @@ export default function Gallery() {
                                 <Button variant="outline">
                                   <Copy className="h-4 w-4" />
                                 </Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem 
+                              <DropdownMenuItem 
                                       onClick={() => handleDeleteClip(clip.id, clip.title)}
                                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
                                       Excluir clip
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
                           </DialogContent>
                         </Dialog>
                         
-                        <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm">
                           <Download className="h-3 w-3" />
-                        </Button>
+                          </Button>
                         <Button variant="outline" size="sm">
                           <Share2 className="h-3 w-3" />
-                        </Button>
+                              </Button>
                       </div>
                     </CardContent>
                   </Card>

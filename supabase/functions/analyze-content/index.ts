@@ -148,18 +148,18 @@ serve(async (req) => {
     const groqResult = await groqResponse.json()
     console.log('Groq analysis completed')
 
-      // Parse AI response
-      try {
-        const aiResponse = JSON.parse(groqResult.choices[0].message.content)
-        clipSuggestions = aiResponse.clips || []
-        contentAnalysis = aiResponse.analysis || {}
-        
-        if (!Array.isArray(clipSuggestions)) {
+    // Parse AI response
+    try {
+      const aiResponse = JSON.parse(groqResult.choices[0].message.content)
+      clipSuggestions = aiResponse.clips || []
+      contentAnalysis = aiResponse.analysis || {}
+      
+      if (!Array.isArray(clipSuggestions)) {
           throw new Error('Formato de resposta da IA inválido')
-        }
-      } catch (parseError) {
+      }
+    } catch (parseError) {
         console.error('Error parsing AI response:', parseError)
-        // Fallback to automatic clip generation
+      // Fallback to automatic clip generation
         clipSuggestions = generateFallbackClips(video.duration_seconds || 300, preferences)
         contentAnalysis = { type: 'auto-generated', error: 'AI parse error' }
       }
