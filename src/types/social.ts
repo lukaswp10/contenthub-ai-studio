@@ -20,48 +20,55 @@ export interface SocialPlatform {
 export interface SocialAccount {
   id: string
   user_id: string
-  platform: string
-  platform_user_id: string
+  platform: 'instagram' | 'facebook' | 'twitter' | 'youtube' | 'tiktok' | 'linkedin'
+  account_id: string
   username: string
-  display_name: string
-  bio?: string
   avatar_url?: string
-  profile_url?: string
-  verified: boolean
-  account_type: 'personal' | 'business' | 'creator'
-  
-  // Connection
-  is_active: boolean
-  connection_status: 'connected' | 'expired' | 'error' | 'disconnected' | 'rate_limited'
-  last_error_message?: string
+  followers_count?: number
+  is_connected: boolean
   connected_at: string
-  last_refreshed_at?: string
-  
-  // Ayrshare
-  ayrshare_profile_key?: string
-  
-  // Stats
-  total_followers: number
-  total_following: number
-  engagement_rate: number
-  posts_today: number
-  posts_this_week: number
-  last_posted_at?: string
-  
-  // Schedule
-  posting_schedule: PostingSchedule
-  default_hashtags: string[]
-  auto_posting_enabled: boolean
 }
 
-export interface PostingSchedule {
-  enabled: boolean
-  times: string[]
-  timezone: string
-  days: number[]
-  max_posts_per_day: number
-  min_interval_minutes: number
-  randomize_minutes: number
+export interface ScheduledPost {
+  id: string
+  user_id: string
+  clip_id: string
+  platforms: string[]
+  content: {
+    caption: string
+    hashtags: string[]
+    media_url: string
+  }
+  scheduled_for: string
+  status: 'scheduled' | 'published' | 'failed'
+  ayrshare_post_id?: string
+  created_at: string
+}
+
+export interface PostTemplate {
+  id: string
+  user_id: string
+  name: string
+  caption_template: string
+  hashtags: string[]
+  platforms: string[]
+  is_default: boolean
+}
+
+export interface AyrshareResponse {
+  status: 'success' | 'error'
+  id?: string
+  postIds?: { [platform: string]: string }
+  errors?: { [platform: string]: string }
+}
+
+export interface SocialMetrics {
+  platform: string
+  followers: number
+  following: number
+  posts: number
+  engagement_rate: number
+  last_updated: string
 }
 
 export const PLATFORMS: Record<string, SocialPlatform> = {

@@ -2,130 +2,235 @@
 
 > **Transforme seus vídeos em clips virais automaticamente com IA**
 
-ClipsForge é uma plataforma revolucionária que utiliza inteligência artificial para analisar seus vídeos longos e gerar clips curtos otimizados para redes sociais, maximizando o engajamento e alcance.
+ClipsForge é uma plataforma completa que utiliza inteligência artificial para analisar seus vídeos e gerar clips otimizados para redes sociais, com publicação automática e analytics detalhado.
 
-## ✨ Principais Funcionalidades
+![ClipsForge Banner](https://via.placeholder.com/1200x400/7C3AED/FFFFFF?text=ClipsForge+-+AI+Video+Clips)
 
-- 🤖 **IA Avançada**: Análise inteligente de conteúdo para identificar os melhores momentos
-- ⚡ **Geração Automática**: Criação de clips otimizados para cada plataforma social
-- 🎯 **Multi-Plataforma**: Suporte para TikTok, Instagram Reels, YouTube Shorts e mais
-- 📊 **Analytics Inteligente**: Insights sobre performance e engajamento
-- 🔄 **Automação Completa**: Agendamento e publicação automática
-- 🎨 **Customização Avançada**: Templates e estilos personalizáveis
+## ✨ Funcionalidades
+
+### 🏠 **Landing Page Moderna**
+- Hero section conversivo com gradientes
+- Demonstração das funcionalidades
+- Call-to-action otimizado
+- Design responsivo e profissional
+
+### 🔐 **Sistema de Autenticação**
+- Login e registro seguros
+- Confirmação por email
+- Google OAuth integrado
+- Sessões persistentes
+
+### 📊 **Dashboard Central**
+- Upload rápido de vídeos
+- Estatísticas em tempo real
+- Monitoramento de processamento
+- Visão geral dos clips
+
+### ✂️ **Editor de Vídeo Avançado**
+- Player integrado com controles
+- Timeline visual interativa
+- Edição de propriedades
+- Geração de novos clips
+- Preview em tempo real
+
+### 🖼️ **Galeria Completa**
+- Visualização em grid/lista
+- Filtros avançados e busca
+- Métricas de performance
+- Ações em lote
+- Organização por data/tipo
+
+### 📱 **Redes Sociais (Ayrshare)**
+- Conexão com múltiplas plataformas
+- Agendamento inteligente
+- Publicação automática
+- Analytics por rede social
+- Templates de conteúdo
+
+### 📈 **Analytics Detalhado**
+- Dashboard com métricas gerais
+- Gráficos interativos
+- Performance por plataforma
+- Top clips com viral score
+- Exportação de dados
 
 ## 🚀 Tecnologias
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **UI/UX**: Tailwind CSS + Shadcn/ui + Lucide Icons
-- **Backend**: Supabase (Database + Auth + Storage + Edge Functions)
-- **IA**: Análise de conteúdo e geração automática de clips
-- **Processamento**: Cloudinary para otimização de vídeos
-- **Testes**: Vitest + Testing Library
+### **Frontend**
+- **React 18** + TypeScript
+- **Tailwind CSS** para styling
+- **Radix UI** para componentes
+- **React Router** para navegação
+- **React Query** para data fetching
+- **Recharts** para gráficos
 
-## 📁 Estrutura do Projeto
+### **Backend**
+- **Supabase** (PostgreSQL + Auth + Storage)
+- **Edge Functions** para processamento
+- **Ayrshare API** para redes sociais
+
+### **IA & Processamento**
+- **Whisper API** para transcrição
+- **Groq AI** para análise de conteúdo
+- **FFmpeg** para processamento de vídeo
+
+## 🏗️ Estrutura do Projeto
 
 ```
-clipsforge/
-├── 📂 src/                     # Código fonte principal
-│   ├── 📂 components/          # Componentes React reutilizáveis
-│   ├── 📂 pages/              # Páginas da aplicação
-│   ├── 📂 hooks/              # Custom hooks
-│   ├── 📂 contexts/           # Context providers
-│   └── 📂 lib/                # Utilitários e configurações
-├── 📂 supabase/               # Backend e banco de dados
-│   ├── 📂 functions/          # Edge Functions (IA e processamento)
-│   └── 📂 migrations/         # Migrações do banco
-├── 📂 docs/                   # Documentação completa
-├── 📂 scripts/                # Scripts de automação
-└── 📂 tests/                  # Testes automatizados
+src/
+├── components/
+│   ├── ui/                 # Componentes UI (shadcn/ui)
+│   ├── auth/              # Componentes de autenticação
+│   ├── upload/            # Componentes de upload
+│   ├── editor/            # Componentes de edição
+│   ├── gallery/           # Componentes de galeria
+│   ├── social/            # Componentes sociais
+│   └── analytics/         # Componentes de analytics
+├── pages/
+│   ├── Landing.tsx        # Landing page
+│   ├── Dashboard.tsx      # Dashboard principal
+│   ├── Editor.tsx         # Editor de vídeo
+│   ├── Gallery.tsx        # Galeria de conteúdo
+│   ├── Social.tsx         # Redes sociais
+│   ├── Analytics.tsx      # Analytics
+│   └── auth/              # Páginas de autenticação
+├── hooks/                 # Hooks customizados
+├── contexts/              # React contexts
+├── lib/                   # Utilitários e integrações
+├── types/                 # Definições de tipos
+└── integrations/
+    └── supabase/          # Cliente Supabase
 ```
 
-## 🛠️ Instalação e Desenvolvimento
+## 🛠️ Instalação e Configuração
 
-### Pré-requisitos
+### **Pré-requisitos**
 - Node.js 18+
 - npm ou yarn
-- Supabase CLI
+- Conta Supabase
+- Conta Ayrshare (para redes sociais)
 
-### Configuração Inicial
-
-1. **Clone o repositório**
+### **1. Clone o repositório**
 ```bash
 git clone https://github.com/clipsforge/clipsforge.git
 cd clipsforge
 ```
 
-2. **Instale as dependências**
+### **2. Instale as dependências**
 ```bash
 npm install
 ```
 
-3. **Configure o ambiente**
+### **3. Configure as variáveis de ambiente**
 ```bash
 cp .env.example .env.local
-# Configure suas variáveis de ambiente
 ```
 
-4. **Inicie o Supabase local**
+Edite `.env.local` com suas credenciais:
+```env
+VITE_SUPABASE_URL=sua_url_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_supabase
+VITE_AYRSHARE_API_KEY=sua_chave_ayrshare
+```
+
+### **4. Configure o Supabase**
 ```bash
-npx supabase start
+# Instale a CLI do Supabase
+npm install -g supabase
+
+# Faça login
+supabase login
+
+# Inicie o projeto local
+supabase start
+
+# Execute as migrações
+supabase db push
 ```
 
-5. **Execute o projeto**
+### **5. Inicie o desenvolvimento**
 ```bash
 npm run dev
 ```
 
-### Scripts Disponíveis
+## 📝 Scripts Disponíveis
 
-- `npm run dev` - Inicia o servidor de desenvolvimento
-- `npm run build` - Build para produção
-- `npm test` - Executa os testes
-- `npm run lint` - Verificação de código
-
-## 🔧 Configuração
-
-### Variáveis de Ambiente
-
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-CLOUDINARY_CLOUD_NAME=your_cloudinary_name
-CLOUDINARY_API_KEY=your_cloudinary_key
-CLOUDINARY_API_SECRET=your_cloudinary_secret
+```bash
+npm run dev          # Inicia servidor de desenvolvimento
+npm run build        # Constrói para produção
+npm run preview      # Preview da build
+npm run lint         # Executa linting
+npm test             # Executa testes
+./scripts/deploy.sh  # Deploy para produção
 ```
 
-## 📖 Documentação
+## 🌐 Deploy
 
-- [📋 Estrutura do Projeto](docs/PROJECT_STRUCTURE.md)
-- [🔄 Fluxo de Trabalho](docs/NOVO_FLUXO.md)
-- [🐛 Troubleshooting](docs/TROUBLESHOOTING.md)
-- [📊 Resumo da Organização](docs/ORGANIZATION_SUMMARY.md)
+### **Vercel (Recomendado)**
+```bash
+# Instale a CLI do Vercel
+npm i -g vercel
 
-## 🤝 Contribuindo
+# Execute o deploy
+./scripts/deploy.sh
+```
+
+### **Outras Plataformas**
+O projeto é compatível com:
+- Netlify
+- AWS Amplify
+- Railway
+- Render
+
+## 🔧 Edge Functions
+
+O projeto utiliza 6 Edge Functions essenciais:
+
+1. **upload-video** - Upload e validação
+2. **transcribe-video** - Transcrição com Whisper
+3. **analyze-content** - Análise com Groq AI
+4. **generate-clips** - Geração de clips
+5. **connect-social-account** - Integração Ayrshare
+6. **schedule-post** - Publicação automática
+
+## 🎯 Fluxo de Uso
+
+1. **📤 Upload** - Usuário faz upload do vídeo
+2. **🎧 Transcrição** - IA transcreve o áudio
+3. **🧠 Análise** - IA analisa conteúdo e identifica momentos virais
+4. **✂️ Geração** - Sistema gera 3 clips automaticamente
+5. **✏️ Edição** - Usuário pode editar clips no editor
+6. **📱 Publicação** - Clips são publicados nas redes sociais
+7. **📊 Analytics** - Acompanhamento de performance
+
+## 🤝 Contribuição
 
 1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
 5. Abra um Pull Request
 
 ## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-## 🌟 Suporte
+## 🆘 Suporte
 
-- 📧 Email: support@clipsforge.com
+- 📧 Email: suporte@clipsforge.com
 - 💬 Discord: [ClipsForge Community](https://discord.gg/clipsforge)
-- 🐛 Issues: [GitHub Issues](https://github.com/clipsforge/clipsforge/issues)
+- 📚 Documentação: [docs.clipsforge.com](https://docs.clipsforge.com)
+
+## 🎉 Status do Projeto
+
+- ✅ **Estrutura base** - Completa
+- ✅ **Interface UI** - Completa
+- ✅ **Autenticação** - Completa
+- ✅ **Upload de vídeos** - Completa
+- 🔄 **Processamento IA** - Em desenvolvimento
+- 🔄 **Integração Ayrshare** - Em desenvolvimento
+- 📋 **Testes** - Planejado
 
 ---
 
-<div align="center">
-  <strong>Feito com ❤️ pela equipe ClipsForge</strong>
-  <br>
-  <a href="https://clipsforge.com">🌐 Website</a> •
-  <a href="https://twitter.com/clipsforge">🐦 Twitter</a> •
-  <a href="https://linkedin.com/company/clipsforge">💼 LinkedIn</a>
-</div>
+**🚀 Transforme seus vídeos em clips virais com ClipsForge!**

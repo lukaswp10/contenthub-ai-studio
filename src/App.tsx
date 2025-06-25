@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 
 // Pages
-import Index from './pages/Index'
+import Landing from './pages/Landing'
 
 // Auth Pages
 import AuthCallback from './pages/auth/AuthCallback'
@@ -16,13 +16,12 @@ import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 
 // App Pages
-import Clips from './pages/Clips'
 import Dashboard from './pages/Dashboard'
+import Editor from './pages/Editor'
+import Gallery from './pages/Gallery'
+import Social from './pages/Social'
+import Analytics from './pages/Analytics'
 import NotFound from './pages/NotFound'
-import OnboardingPage from './pages/Onboarding'
-import Schedule from './pages/Schedule'
-import Upload from './pages/Upload'
-import VideoStudio from './pages/VideoStudio'
 
 const queryClient = new QueryClient()
 
@@ -36,7 +35,7 @@ export default function App() {
           <AuthProvider>
             <Routes>
               {/* Public routes */}
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Landing />} />
               
               {/* Auth routes */}
               <Route path="/auth/login" element={<Login />} />
@@ -50,77 +49,48 @@ export default function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/confirm-email" element={<ConfirmEmail />} />
 
-              {/* Onboarding route */}
-              <Route
-                path="/onboarding"
-                element={
-                  <ProtectedRoute>
-                    <OnboardingPage />
-                  </ProtectedRoute>
-                }
-              />
-
               {/* Protected routes */}
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute requireOnboarding>
+                  <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
                 }
               />
               
               <Route
-                path="/upload"
+                path="/editor/:videoId"
                 element={
-                  <ProtectedRoute requireOnboarding>
-                    <Upload />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/clips"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Clips />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/studio/:videoId"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <VideoStudio />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/schedule"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Schedule />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Redirect old routes to dashboard */}
-              <Route
-                path="/workspace"
-                element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
+                  <ProtectedRoute>
+                    <Editor />
                   </ProtectedRoute>
                 }
               />
               
               <Route
-                path="/automation"
+                path="/gallery"
                 element={
-                  <ProtectedRoute requireOnboarding>
-                    <Dashboard />
+                  <ProtectedRoute>
+                    <Gallery />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/social"
+                element={
+                  <ProtectedRoute>
+                    <Social />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <Analytics />
                   </ProtectedRoute>
                 }
               />
