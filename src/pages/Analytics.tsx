@@ -614,7 +614,7 @@ export default function Analytics() {
                         <Target className="h-6 w-6 text-purple-600" />
                         <div>
                           <p className="font-medium text-gray-900">Taxa de Viralização</p>
-                          <p className="text-sm text-gray-500">Clips com score > 80%</p>
+                                                      <p className="text-sm text-gray-500">Clips com score &gt; 80%</p>
                         </div>
                       </div>
                       <p className="text-xl font-bold text-purple-600">67%</p>

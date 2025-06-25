@@ -1,4 +1,4 @@
-import AutoPostSettings from '@/components/automation/AutoPostSettings'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -588,7 +588,27 @@ export default function Dashboard() {
 
           {/* Automation Tab */}
           <TabsContent value="automation" className="space-y-6">
-            <AutoPostSettings />
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-purple-600" />
+                  Automação de Redes Sociais
+                </CardTitle>
+                <CardDescription>
+                  Configure publicações automáticas dos seus clips
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center py-8">
+                <Bot className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-2">Funcionalidade em desenvolvimento</p>
+                <p className="text-sm text-gray-500">
+                  Em breve você poderá conectar suas redes sociais e automatizar publicações
+                </p>
+                <Button className="mt-4" variant="outline" disabled>
+                  Configurar Automação
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Videos Tab */}
