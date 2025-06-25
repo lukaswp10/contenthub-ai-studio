@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -49,7 +49,10 @@ import {
   ArrowLeft,
   ExternalLink,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Home,
+  CalendarPlus,
+  Link as LinkIcon
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
@@ -89,6 +92,7 @@ interface Clip {
 export default function Gallery() {
   const { toast } = useToast()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -333,6 +337,89 @@ export default function Gallery() {
     }
   })
 
+  // New functions for clip actions
+  const handleViewClip = (clip: Clip) => {
+    if (clip.cloudinary_secure_url) {
+      window.open(clip.cloudinary_secure_url, '_blank')
+    } else {
+      toast({
+        title: "Vídeo não disponível",
+        description: "O vídeo ainda está sendo processado.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDownloadClip = async (clip: Clip) => {
+    if (!clip.cloudinary_secure_url) {
+      toast({
+        title: "Download não disponível",
+        description: "O vídeo ainda está sendo processado.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(clip.cloudinary_secure_url)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${clip.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast({
+        title: "Download iniciado",
+        description: "O download do clip foi iniciado.",
+      })
+    } catch (error) {
+      console.error('Erro no download:', error)
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível baixar o clip.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleShareClip = (clip: Clip) => {
+    const shareData = {
+      title: clip.title,
+      text: clip.description,
+      url: clip.cloudinary_secure_url || window.location.href
+    }
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData)
+    } else {
+      // Fallback: copy link to clipboard
+      const shareText = `${clip.title}\n\n${clip.description}\n\n${shareData.url}`
+      navigator.clipboard.writeText(shareText)
+      toast({
+        title: "Link copiado!",
+        description: "O link do clip foi copiado para a área de transferência.",
+      })
+    }
+  }
+
+  const handleScheduleClip = (clip: Clip) => {
+    // Navigate to social page with clip data
+    navigate('/social', { 
+      state: { 
+        clipId: clip.id,
+        clipTitle: clip.title,
+        clipDescription: clip.description,
+        clipUrl: clip.cloudinary_secure_url,
+        hashtags: clip.hashtags,
+        platforms: clip.ai_best_platform
+      } 
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center">
@@ -348,9 +435,20 @@ export default function Gallery() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
       <div className="max-w-7xl mx-auto p-6">
         
-      {/* Header */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
+            {/* Always show back to dashboard button */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2"
+            >
+              <Home className="h-4 w-4" />
+              Dashboard
+            </Button>
+            
             {selectedVideo && (
               <Button 
                 variant="outline" 
@@ -361,10 +459,10 @@ export default function Gallery() {
                 }}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
+                Todos os Clips
               </Button>
             )}
-          <div>
+            <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 {selectedVideo ? 'Clips do Vídeo' : 'Galeria de Conteúdo'}
               </h1>
@@ -385,8 +483,8 @@ export default function Gallery() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-          </div>
-          
+        </div>
+        
         {/* Search and Filters */}
         <Card className="mb-8 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
           <CardContent className="p-6">
@@ -455,12 +553,12 @@ export default function Gallery() {
               <TabsTrigger value="videos" className="flex items-center gap-2">
                 <Video className="h-4 w-4" />
                 Vídeos ({videos.length})
-            </TabsTrigger>
+              </TabsTrigger>
               <TabsTrigger value="clips" className="flex items-center gap-2">
                 <Scissors className="h-4 w-4" />
                 Clips ({clips.length})
-            </TabsTrigger>
-          </TabsList>
+              </TabsTrigger>
+            </TabsList>
           )}
 
           {/* Videos Tab */}
@@ -574,7 +672,7 @@ export default function Gallery() {
                   {!selectedVideo && (
                     <Button asChild>
                       <a href="/dashboard">Fazer Upload</a>
-                          </Button>
+                    </Button>
                   )}
                 </CardContent>
               </Card>
@@ -592,10 +690,10 @@ export default function Gallery() {
                             {clip.description}
                           </p>
                         </div>
-                                                  <Badge className={getViralScoreColor(clip.ai_viral_score || 0)}>
-                            {(clip.ai_viral_score || 0).toFixed(1)}
-                          </Badge>
-                        </div>
+                        <Badge className={getViralScoreColor(clip.ai_viral_score || 0)}>
+                          {(clip.ai_viral_score || 0).toFixed(1)}
+                        </Badge>
+                      </div>
 
                       <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                         <span className="flex items-center gap-1">
@@ -611,7 +709,7 @@ export default function Gallery() {
                           {formatNumber(clip.total_views || 0)}
                         </span>
                       </div>
-                      
+
                       <div className="flex flex-wrap gap-1 mb-4">
                         {(clip.hashtags || []).slice(0, 3).map((tag, idx) => (
                           <span key={idx} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
@@ -621,115 +719,170 @@ export default function Gallery() {
                         {(clip.hashtags || []).length > 3 && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
                             +{(clip.hashtags || []).length - 3}
-                              </span>
+                          </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="default" size="sm" className="flex-1">
-                              <Play className="h-3 w-3 mr-1" />
-                              Visualizar
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl">
-                            <DialogHeader>
-                              <DialogTitle>{clip.title}</DialogTitle>
-                              <DialogDescription>
-                                {clip.description}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-6">
-                              {/* Clip Details */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                                                  <div className="text-2xl font-bold text-purple-600">{(clip.ai_viral_score || 0).toFixed(1)}</div>
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="flex-1"
+                          onClick={() => handleViewClip(clip)}
+                        >
+                          <Play className="h-3 w-3 mr-1" />
+                          Visualizar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDownloadClip(clip)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Baixar
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleShareClip(clip)}
+                        >
+                          <Share2 className="h-3 w-3 mr-1" />
+                          Compartilhar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                          onClick={() => handleScheduleClip(clip)}
+                        >
+                          <CalendarPlus className="h-3 w-3 mr-1" />
+                          Agendar
+                        </Button>
+                      </div>
+
+                      {/* Detailed Modal */}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="w-full mt-2 text-xs">
+                            Ver Detalhes
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl">
+                          <DialogHeader>
+                            <DialogTitle>{clip.title}</DialogTitle>
+                            <DialogDescription>
+                              {clip.description}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-6">
+                            {/* Clip Details */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-2xl font-bold text-purple-600">{(clip.ai_viral_score || 0).toFixed(1)}</div>
                                 <div className="text-xs text-gray-600">Score Viral</div>
                               </div>
                               <div className="text-center p-3 bg-gray-50 rounded-lg">
                                 <div className="text-2xl font-bold text-indigo-600">{(clip.ai_hook_strength || 0).toFixed(1)}</div>
-                                  <div className="text-xs text-gray-600">Hook Strength</div>
-                                </div>
-                                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                  <div className="text-2xl font-bold text-green-600">{formatDuration(clip.duration_seconds)}</div>
-                                  <div className="text-xs text-gray-600">Duração</div>
-                                </div>
-                                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                  <div className="text-2xl font-bold text-orange-600">{formatNumber(clip.total_views || 0)}</div>
-                                  <div className="text-xs text-gray-600">Visualizações</div>
-                                </div>
+                                <div className="text-xs text-gray-600">Hook Strength</div>
                               </div>
-
-                              {/* Platforms */}
-                              <div>
-                                <h4 className="font-medium mb-2">Plataformas Recomendadas:</h4>
-                                <div className="flex gap-2">
-                                  {(clip.ai_best_platform || []).map((platform, idx) => (
-                                    <Badge key={idx} variant="outline">
-                                      {platform}
-                                    </Badge>
-                                  ))}
-                                </div>
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-2xl font-bold text-green-600">{formatDuration(clip.duration_seconds)}</div>
+                                <div className="text-xs text-gray-600">Duração</div>
                               </div>
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-2xl font-bold text-orange-600">{formatNumber(clip.total_views || 0)}</div>
+                                <div className="text-xs text-gray-600">Visualizações</div>
+                              </div>
+                            </div>
 
-                              {/* Hashtags */}
-                              <div>
-                                <h4 className="font-medium mb-2">Hashtags:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {(clip.hashtags || []).map((tag, idx) => (
-                                    <span 
-                                      key={idx} 
-                                      className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-full cursor-pointer hover:bg-purple-200 transition-colors"
-                                      onClick={() => copyToClipboard(tag, 'Hashtag')}
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                          </div>
-                          
-                              {/* Actions */}
-                              <div className="flex gap-3">
-                                <Button className="flex-1">
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </Button>
-                                <Button variant="outline" className="flex-1">
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Compartilhar
-                                </Button>
-                                <Button variant="outline">
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                              <DropdownMenuItem 
-                                      onClick={() => handleDeleteClip(clip.id, clip.title)}
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            {/* Platforms */}
+                            <div>
+                              <h4 className="font-medium mb-2">Plataformas Recomendadas:</h4>
+                              <div className="flex gap-2">
+                                {(clip.ai_best_platform || []).map((platform, idx) => (
+                                  <Badge key={idx} variant="outline">
+                                    {platform}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Hashtags */}
+                            <div>
+                              <h4 className="font-medium mb-2">Hashtags:</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {(clip.hashtags || []).map((tag, idx) => (
+                                  <span 
+                                    key={idx} 
+                                    className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-full cursor-pointer hover:bg-purple-200 transition-colors"
+                                    onClick={() => copyToClipboard(tag, 'Hashtag')}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <Button 
+                                className="flex-1"
+                                onClick={() => handleViewClip(clip)}
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                      Excluir clip
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                          </DialogContent>
-                        </Dialog>
-                        
-                          <Button variant="outline" size="sm">
-                          <Download className="h-3 w-3" />
-                          </Button>
-                        <Button variant="outline" size="sm">
-                          <Share2 className="h-3 w-3" />
+                                <Play className="h-4 w-4 mr-2" />
+                                Visualizar
                               </Button>
-                      </div>
+                              <Button 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => handleDownloadClip(clip)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Baixar
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => handleShareClip(clip)}
+                              >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Compartilhar
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                                onClick={() => handleScheduleClip(clip)}
+                              >
+                                <CalendarPlus className="h-4 w-4 mr-2" />
+                                Agendar
+                              </Button>
+                            </div>
+                            
+                            <div className="flex justify-end">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteClip(clip.id, clip.title)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir clip
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </CardContent>
                   </Card>
                 ))}

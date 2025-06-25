@@ -38,9 +38,11 @@ import {
   Eye,
   TrendingUp,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  CalendarPlus
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface DashboardStats {
   videosUploaded: number
@@ -79,6 +81,7 @@ interface Clip {
 export default function Dashboard() {
   const { user, profile, loading: authLoading } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats>({
     videosUploaded: 0,
     clipsGenerated: 0,
@@ -340,6 +343,89 @@ export default function Dashboard() {
         variant: "destructive"
       })
     }
+  }
+
+  // New functions for clip actions
+  const handleViewClip = (clip: Clip) => {
+    if (clip.cloudinary_secure_url) {
+      window.open(clip.cloudinary_secure_url, '_blank')
+    } else {
+      toast({
+        title: "Vídeo não disponível",
+        description: "O vídeo ainda está sendo processado.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDownloadClip = async (clip: Clip) => {
+    if (!clip.cloudinary_secure_url) {
+      toast({
+        title: "Download não disponível",
+        description: "O vídeo ainda está sendo processado.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(clip.cloudinary_secure_url)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${clip.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast({
+        title: "Download iniciado",
+        description: "O download do clip foi iniciado.",
+      })
+    } catch (error) {
+      console.error('Erro no download:', error)
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível baixar o clip.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleShareClip = (clip: Clip) => {
+    const shareData = {
+      title: clip.title,
+      text: clip.description,
+      url: clip.cloudinary_secure_url || window.location.href
+    }
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData)
+    } else {
+      // Fallback: copy link to clipboard
+      const shareText = `${clip.title}\n\n${clip.description}\n\n${shareData.url}`
+      navigator.clipboard.writeText(shareText)
+      toast({
+        title: "Link copiado!",
+        description: "O link do clip foi copiado para a área de transferência.",
+      })
+    }
+  }
+
+  const handleScheduleClip = (clip: Clip) => {
+    // Navigate to social page with clip data
+    navigate('/social', { 
+      state: { 
+        clipId: clip.id,
+        clipTitle: clip.title,
+        clipDescription: clip.description,
+        clipUrl: clip.cloudinary_secure_url,
+        hashtags: clip.hashtags,
+        platforms: clip.ai_best_platform
+      } 
+    })
   }
 
   if (authLoading || loading) {
@@ -621,18 +707,45 @@ export default function Dashboard() {
                         ))}
                       </div>
 
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="flex-1">
+                                                <div className="grid grid-cols-2 gap-2 mb-3">
+                          <Button 
+                            size="sm" 
+                            variant="default" 
+                            className="flex-1"
+                            onClick={() => handleViewClip(clip)}
+                          >
                             <Play className="h-3 w-3 mr-1" />
                             Visualizar
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Download className="h-3 w-3" />
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDownloadClip(clip)}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Baixar
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Share2 className="h-3 w-3" />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleShareClip(clip)}
+                          >
+                            <Share2 className="h-3 w-3 mr-1" />
+                            Compartilhar
                           </Button>
-                      </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                            onClick={() => handleScheduleClip(clip)}
+                          >
+                            <CalendarPlus className="h-3 w-3 mr-1" />
+                            Agendar
+                          </Button>
+                        </div>
                     </div>
                   ))}
                     </div>
