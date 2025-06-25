@@ -1,4 +1,3 @@
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,7 +51,23 @@ interface RecentVideo {
   cloudinary_secure_url?: string
 }
 
+interface ProcessingStep {
+  id: string
+  name: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  startedAt?: string
+  completedAt?: string
+  error?: any
+  details?: string
+}
 
+interface VideoProcessingStatus {
+  videoId: string
+  currentStep: string
+  steps: ProcessingStep[]
+  error?: any
+  lastUpdated: string
+}
 
 export default function Dashboard() {
   const { user, profile, loading: authLoading } = useAuth()
@@ -81,6 +96,9 @@ export default function Dashboard() {
     uploadVideo,
     resetUpload
   } = useVideoUpload()
+
+  const [processingVideos, setProcessingVideos] = useState<VideoProcessingStatus[]>([])
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
 
   // Prevent auth issues on refresh
   useEffect(() => {
@@ -261,7 +279,7 @@ export default function Dashboard() {
     }
 
     try {
-      await uploadVideo()
+      const result = await uploadVideo()
       toast({
         title: "Upload concluído!",
         description: "Seu vídeo está sendo processado. Os clips serão gerados automaticamente.",
@@ -271,12 +289,150 @@ export default function Dashboard() {
       setTimeout(() => {
         loadDashboardData()
       }, 2000)
+
+      // Após o upload bem-sucedido, inicializar o monitor
+      if (result) {
+        initializeProcessingMonitor(result)
+      }
+      
     } catch (error) {
       console.error('Upload error:', error)
     }
   }
 
+  // Função para inicializar o monitoramento de processamento
+  const initializeProcessingMonitor = (videoId: string) => {
+    const initialSteps: ProcessingStep[] = [
+      { id: 'upload', name: 'Upload do Vídeo', status: 'completed', details: 'Arquivo enviado com sucesso' },
+      { id: 'transcribe', name: 'Transcrição Automática', status: 'pending', details: 'Aguardando início da transcrição' },
+      { id: 'analyze', name: 'Análise de Conteúdo', status: 'pending', details: 'Aguardando análise do conteúdo' },
+      { id: 'generate', name: 'Geração de Clips', status: 'pending', details: 'Aguardando geração dos clips' },
+      { id: 'finalize', name: 'Finalização', status: 'pending', details: 'Aguardando finalização do processo' }
+    ]
 
+    const processingStatus: VideoProcessingStatus = {
+      videoId,
+      currentStep: 'transcribe',
+      steps: initialSteps,
+      lastUpdated: new Date().toISOString()
+    }
+
+    setProcessingVideos(prev => [...prev.filter(p => p.videoId !== videoId), processingStatus])
+    startPolling()
+  }
+
+  // Função para atualizar status do processamento
+  const updateProcessingStatus = async (videoId: string) => {
+    try {
+      const { data: video, error } = await supabase
+        .from('videos')
+        .select('id, processing_status, error_log, updated_at')
+        .eq('id', videoId)
+        .single()
+
+      if (error) throw error
+
+      setProcessingVideos(prev => prev.map(processing => {
+        if (processing.videoId !== videoId) return processing
+
+        const updatedSteps = [...processing.steps]
+        const currentStatus = video.processing_status
+
+        // Atualizar status dos steps baseado no processing_status
+        switch (currentStatus) {
+          case 'transcribing':
+            updatedSteps[1] = { ...updatedSteps[1], status: 'processing', startedAt: video.updated_at, details: 'Convertendo áudio em texto...' }
+            break
+          case 'analyzing':
+            updatedSteps[1] = { ...updatedSteps[1], status: 'completed', completedAt: video.updated_at, details: 'Transcrição concluída' }
+            updatedSteps[2] = { ...updatedSteps[2], status: 'processing', startedAt: video.updated_at, details: 'Analisando momentos importantes...' }
+            break
+          case 'generating_clips':
+            updatedSteps[2] = { ...updatedSteps[2], status: 'completed', completedAt: video.updated_at, details: 'Análise concluída' }
+            updatedSteps[3] = { ...updatedSteps[3], status: 'processing', startedAt: video.updated_at, details: 'Criando clips inteligentes...' }
+            break
+          case 'ready':
+            updatedSteps[3] = { ...updatedSteps[3], status: 'completed', completedAt: video.updated_at, details: 'Clips gerados com sucesso' }
+            updatedSteps[4] = { ...updatedSteps[4], status: 'completed', completedAt: video.updated_at, details: 'Processamento finalizado' }
+            // Remove do monitoramento após conclusão
+            setTimeout(() => {
+              setProcessingVideos(prev => prev.filter(p => p.videoId !== videoId))
+            }, 5000)
+            break
+          case 'failed':
+            const failedStepIndex = updatedSteps.findIndex(step => step.status === 'processing')
+            if (failedStepIndex !== -1) {
+              updatedSteps[failedStepIndex] = { 
+                ...updatedSteps[failedStepIndex], 
+                status: 'failed', 
+                error: video.error_log,
+                details: 'Erro durante o processamento' 
+              }
+            }
+            break
+        }
+
+        return {
+          ...processing,
+          currentStep: currentStatus,
+          steps: updatedSteps,
+          error: currentStatus === 'failed' ? video.error_log : undefined,
+          lastUpdated: video.updated_at
+        }
+      }))
+
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+    }
+  }
+
+  // Polling para atualizar status
+  const startPolling = () => {
+    if (pollingInterval) clearInterval(pollingInterval)
+    
+    const interval = setInterval(() => {
+      processingVideos.forEach(processing => {
+        if (!['ready', 'failed'].includes(processing.currentStep)) {
+          updateProcessingStatus(processing.videoId)
+        }
+      })
+    }, 3000) // Atualiza a cada 3 segundos
+
+    setPollingInterval(interval)
+  }
+
+  // Limpar polling ao desmontar
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval)
+    }
+  }, [pollingInterval])
+
+  // Função para forçar atualização
+  const forceRefreshProcessing = (videoId: string) => {
+    updateProcessingStatus(videoId)
+    toast({
+      title: "Status atualizado",
+      description: "Verificando o progresso do processamento...",
+    })
+  }
+
+  // Função para copiar log de erro
+  const copyErrorLog = (error: any, videoId: string) => {
+    const errorLog = {
+      videoId,
+      timestamp: new Date().toISOString(),
+      error: error,
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    }
+    
+    navigator.clipboard.writeText(JSON.stringify(errorLog, null, 2))
+    toast({
+      title: "Log copiado",
+      description: "Log de erro copiado para a área de transferência. Cole em seu chamado de suporte.",
+    })
+  }
 
   const getStatusIcon = (processing_status: string) => {
     switch (processing_status) {
@@ -590,59 +746,180 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* AI Features */}
+              {/* AI Features - Atualizado com monitoramento */}
               <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-indigo-600" />
                     Recursos de IA
+                    {processingVideos.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">
+                        {processingVideos.length} processando
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription>
-                    Nossa inteligência artificial fará tudo automaticamente
+                    {processingVideos.length > 0 
+                      ? "Acompanhe o processamento em tempo real"
+                      : "Nossa inteligência artificial fará tudo automaticamente"
+                    }
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
-                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Zap className="h-4 w-4 text-purple-600" />
+                  
+                  {/* Monitor de Processamento em Tempo Real */}
+                  {processingVideos.map((processing) => (
+                    <div key={processing.videoId} className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium text-gray-900">Processamento em Andamento</h4>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => forceRefreshProcessing(processing.videoId)}
+                            className="h-7"
+                          >
+                            <Clock className="h-3 w-3 mr-1" />
+                            Atualizar
+                          </Button>
+                          {processing.error && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyErrorLog(processing.error, processing.videoId)}
+                              className="h-7 text-red-600 hover:text-red-700"
+                            >
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Copiar Log
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Transcrição Automática</p>
-                        <p className="text-sm text-gray-600">Converte áudio em texto com precisão</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <Target className="h-4 w-4 text-indigo-600" />
+                      <div className="space-y-3">
+                        {processing.steps.map((step, index) => (
+                          <div key={step.id} className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                              {step.status === 'completed' && (
+                                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </div>
+                              )}
+                              {step.status === 'processing' && (
+                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                                </div>
+                              )}
+                              {step.status === 'failed' && (
+                                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                                  <X className="h-4 w-4 text-red-600" />
+                                </div>
+                              )}
+                              {step.status === 'pending' && (
+                                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                                  <Clock className="h-4 w-4 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <p className={`font-medium ${
+                                  step.status === 'completed' ? 'text-green-900' :
+                                  step.status === 'processing' ? 'text-blue-900' :
+                                  step.status === 'failed' ? 'text-red-900' :
+                                  'text-gray-700'
+                                }`}>
+                                  {step.name}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  {step.startedAt && (
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(step.startedAt).toLocaleTimeString('pt-BR')}
+                                    </span>
+                                  )}
+                                  <Badge 
+                                    variant={
+                                      step.status === 'completed' ? 'default' :
+                                      step.status === 'processing' ? 'secondary' :
+                                      step.status === 'failed' ? 'destructive' :
+                                      'outline'
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {step.status === 'completed' ? 'Concluído' :
+                                     step.status === 'processing' ? 'Processando' :
+                                     step.status === 'failed' ? 'Erro' :
+                                     'Pendente'}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{step.details}</p>
+                              
+                              {step.error && (
+                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                                  <p className="text-red-700 font-medium">Erro:</p>
+                                  <p className="text-red-600">{JSON.stringify(step.error)}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Análise de Conteúdo</p>
-                        <p className="text-sm text-gray-600">Identifica os melhores momentos</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <Scissors className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Clips Inteligentes</p>
-                        <p className="text-sm text-gray-600">Cria clips otimizados para cada plataforma</p>
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>Última atualização: {new Date(processing.lastUpdated).toLocaleTimeString('pt-BR')}</span>
+                          <span>ID: {processing.videoId.slice(0, 8)}...</span>
+                        </div>
                       </div>
                     </div>
+                  ))}
 
-                    <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
-                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                        <BarChart3 className="h-4 w-4 text-orange-600" />
+                  {/* Recursos estáticos quando não há processamento */}
+                  {processingVideos.length === 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Transcrição Automática</p>
+                          <p className="text-sm text-gray-600">Converte áudio em texto com precisão</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Score Viral</p>
-                        <p className="text-sm text-gray-600">Calcula potencial de viralização</p>
+
+                      <div className="flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg">
+                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <Target className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Análise de Conteúdo</p>
+                          <p className="text-sm text-gray-600">Identifica os melhores momentos</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Scissors className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Clips Inteligentes</p>
+                          <p className="text-sm text-gray-600">Cria clips otimizados para cada plataforma</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
+                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                          <BarChart3 className="h-4 w-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Score Viral</p>
+                          <p className="text-sm text-gray-600">Calcula potencial de viralização</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border">
                     <div className="flex items-center gap-2 mb-2">
