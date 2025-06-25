@@ -39,8 +39,8 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     logStep("Authenticating user with token");
     
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    const { data: userData, errorr: userError } = await supabaseClient.auth.getUser(token);
+    if (userError) throw new Error(`Authentication errorr: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
@@ -114,10 +114,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in check-subscription", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
+  } catch (errorr) {
+    const errorrMessage = errorr instanceof Error ? errorr.message : String(errorr);
+    logStep("ERROR in check-subscription", { message: errorrMessage });
+    return new Response(JSON.stringify({ errorr: errorrMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

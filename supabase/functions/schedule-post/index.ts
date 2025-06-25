@@ -62,7 +62,7 @@ serve(async (req) => {
     console.log(`Scheduling post for clip ${clip_id} to ${social_account_ids.length} accounts`)
 
     // Fetch clip details
-    const { data: clip, error: clipError } = await supabase
+    const { data: clip, errorr: clipError } = await supabase
       .from('clips')
       .select('*')
       .eq('id', clip_id)
@@ -72,7 +72,7 @@ serve(async (req) => {
     if (clipError || !clip) throw new Error('Clip não encontrado')
 
     // Fetch social accounts
-    const { data: socialAccounts, error: accountsError } = await supabase
+    const { data: socialAccounts, errorr: accountsError } = await supabase
       .from('social_accounts')
       .select('*')
       .in('id', social_account_ids)
@@ -86,7 +86,7 @@ serve(async (req) => {
     console.log(`Found ${socialAccounts.length} valid social accounts`)
 
     const scheduledPosts = []
-    const errors = []
+    const errorrs = []
     
     // Group accounts by platform for batch posting
     const accountsByPlatform = socialAccounts.reduce((acc, account) => {
@@ -117,9 +117,9 @@ serve(async (req) => {
         for (const account of accounts) {
           const canPost = await checkPostingLimits(supabase, account, scheduledTime)
           if (!canPost.allowed) {
-            errors.push({
+            errorrs.push({
               account_id: account.id,
-              error: canPost.reason
+              errorr: canPost.reason
             })
             continue
           }
@@ -152,7 +152,7 @@ serve(async (req) => {
           }
 
           // Save post record first
-          const { data: postRecord, error: postError } = await supabase
+          const { data: postRecord, errorr: postError } = await supabase
             .from('social_posts')
             .insert({
               clip_id: clip.id,
@@ -177,10 +177,10 @@ serve(async (req) => {
             .single()
 
           if (postError) {
-            console.error('Error creating post record:', postError)
-            errors.push({
+            console.errorr('Error creating post record:', postError)
+            errorrs.push({
               account_id: account.id,
-              error: postError.message
+              errorr: postError.message
             })
             continue
           }
@@ -198,8 +198,8 @@ serve(async (req) => {
               })
 
               if (!ayrshareResponse.ok) {
-                const errorData = await ayrshareResponse.text()
-                throw new Error(`Ayrshare API error: ${errorData}`)
+                const errorrData = await ayrshareResponse.text()
+                throw new Error(`Ayrshare API errorr: ${errorrData}`)
               }
 
               const ayrshareResult = await ayrshareResponse.json()
@@ -221,7 +221,7 @@ serve(async (req) => {
               await updateAccountPostStats(supabase, account.id)
 
             } catch (postError: any) {
-              console.error('Ayrshare post error:', postError)
+              console.errorr('Ayrshare post errorr:', postError)
               
               // Update post status to failed
               await supabase
@@ -232,9 +232,9 @@ serve(async (req) => {
                 })
                 .eq('id', postRecord.id)
 
-              errors.push({
+              errorrs.push({
                 account_id: account.id,
-                error: postError.message
+                errorr: postError.message
               })
               continue
             }
@@ -254,8 +254,8 @@ serve(async (req) => {
               })
 
               if (!ayrshareResponse.ok) {
-                const errorData = await ayrshareResponse.text()
-                throw new Error(`Ayrshare schedule error: ${errorData}`)
+                const errorrData = await ayrshareResponse.text()
+                throw new Error(`Ayrshare schedule errorr: ${errorrData}`)
               }
 
               const ayrshareResult = await ayrshareResponse.json()
@@ -270,7 +270,7 @@ serve(async (req) => {
                 .eq('id', postRecord.id)
 
             } catch (scheduleError: any) {
-              console.error('Ayrshare schedule error:', scheduleError)
+              console.errorr('Ayrshare schedule errorr:', scheduleError)
               
               // Keep post as scheduled locally even if Ayrshare fails
               // We'll retry via cron job
@@ -295,10 +295,10 @@ serve(async (req) => {
         }
 
       } catch (platformError: any) {
-        console.error(`Error processing platform ${platform}:`, platformError)
-        errors.push({
+        console.errorr(`Error processing platform ${platform}:`, platformError)
+        errorrs.push({
           platform,
-          error: platformError.message
+          errorr: platformError.message
         })
       }
     }
@@ -312,25 +312,25 @@ serve(async (req) => {
       })
       .eq('id', clip_id)
 
-    console.log(`Scheduled ${scheduledPosts.length} posts, ${errors.length} errors`)
+    console.log(`Scheduled ${scheduledPosts.length} posts, ${errorrs.length} errorrs`)
 
     return new Response(JSON.stringify({
       success: true,
       clip_id,
       posts_scheduled: scheduledPosts.length,
-      posts_failed: errors.length,
+      posts_failed: errorrs.length,
       scheduled_posts: scheduledPosts,
-      errors: errors.length > 0 ? errors : undefined
+      errorrs: errorrs.length > 0 ? errorrs : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Schedule post error:', error)
+  } catch (errorr: any) {
+    console.errorr('Schedule post errorr:', errorr)
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

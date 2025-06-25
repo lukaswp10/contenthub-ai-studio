@@ -64,7 +64,7 @@ serve(async (req) => {
     console.log(`Starting transcription for video ${video_id}`)
 
     // Verify video ownership
-    const { data: video, error: videoError } = await supabase
+    const { data: video, errorr: videoError } = await supabase
       .from('videos')
       .select('*')
       .eq('id', video_id)
@@ -100,9 +100,9 @@ serve(async (req) => {
     })
 
     if (!huggingFaceResponse.ok) {
-      const errorText = await huggingFaceResponse.text()
-      console.error('Hugging Face API error:', errorText)
-      throw new Error(`Hugging Face API error: ${errorText}`)
+      const errorrText = await huggingFaceResponse.text()
+      console.errorr('Hugging Face API errorr:', errorrText)
+      throw new Error(`Hugging Face API errorr: ${errorrText}`)
     }
 
     const whisperOutput = await huggingFaceResponse.json() as WhisperResponse
@@ -130,7 +130,7 @@ serve(async (req) => {
     console.log(`Transcription completed: ${transcriptionData.text.length} characters, ${transcriptionData.segments.length} segments`)
 
     // Save transcription
-    const { error: updateError } = await supabase
+    const { errorr: updateError } = await supabase
       .from('videos')
       .update({
         transcription: transcriptionData,
@@ -157,7 +157,7 @@ serve(async (req) => {
     })
 
     if (!analyzeResponse.ok) {
-      console.error('Failed to trigger content analysis')
+      console.errorr('Failed to trigger content analysis')
     }
 
     return new Response(JSON.stringify({
@@ -174,59 +174,59 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Transcription error:', error)
+  } catch (errorr: any) {
+    console.errorr('Transcription errorr:', errorr)
     
-    // Capturar detalhes do erro para melhor diagnóstico
-    let errorMessage = 'Erro na transcrição do vídeo'
-    let errorDetails = ''
-    let errorCode = 'UNKNOWN_ERROR'
+    // Capturar detalhes do error para melhor diagnóstico
+    let errorrMessage = 'Erro na transcrição do vídeo'
+    let errorrDetails = ''
+    let errorrCode = 'UNKNOWN_ERROR'
     
-    if (error.message) {
-      errorMessage = error.message
+    if (errorr.message) {
+      errorrMessage = errorr.message
     }
     
-    // Identificar tipos específicos de erro
-    if (error.message?.includes('Hugging Face API error')) {
-      errorCode = 'HUGGINGFACE_API_ERROR'
-      if (error.message.includes('402')) {
-        errorMessage = 'Erro de cobrança na API de transcrição'
-        errorDetails = 'É necessário configurar um método de pagamento na conta Hugging Face'
-      } else if (error.message.includes('401')) {
-        errorMessage = 'Erro de autenticação na API de transcrição'
-        errorDetails = 'Token de API inválido ou expirado'
-      } else if (error.message.includes('429')) {
-        errorMessage = 'Limite de requisições excedido'
-        errorDetails = 'Muitas requisições simultâneas. Tente novamente em alguns minutos'
-      } else if (error.message.includes('500')) {
-        errorMessage = 'Erro interno do servidor de transcrição'
-        errorDetails = 'Problema temporário no serviço. Tente novamente'
+    // Identificar tipos específicos de error
+    if (errorr.message?.includes('Hugging Face API errorr')) {
+      errorrCode = 'HUGGINGFACE_API_ERROR'
+      if (errorr.message.includes('402')) {
+        errorrMessage = 'Erro de cobrança na API de transcrição'
+        errorrDetails = 'É necessário configurar um método de pagamento na conta Hugging Face'
+      } else if (errorr.message.includes('401')) {
+        errorrMessage = 'Erro de autenticação na API de transcrição'
+        errorrDetails = 'Token de API inválido ou expirado'
+      } else if (errorr.message.includes('429')) {
+        errorrMessage = 'Limite de requisições excedido'
+        errorrDetails = 'Muitas requisições simultâneas. Tente novamente em alguns minutos'
+      } else if (errorr.message.includes('500')) {
+        errorrMessage = 'Erro interno do servidor de transcrição'
+        errorrDetails = 'Problema temporário no serviço. Tente novamente'
       }
-    } else if (error.message?.includes('Timeout')) {
-      errorCode = 'TIMEOUT_ERROR'
-      errorMessage = 'Transcrição demorou muito tempo'
-      errorDetails = 'O processo de transcrição excedeu o tempo limite'
-    } else if (error.message?.includes('Vídeo não encontrado')) {
-      errorCode = 'VIDEO_NOT_FOUND'
-      errorMessage = 'Vídeo não encontrado no banco de dados'
-      errorDetails = 'O vídeo pode ter sido removido ou não existe'
-    } else if (error.message?.includes('Não autenticado')) {
-      errorCode = 'AUTH_ERROR'
-      errorMessage = 'Usuário não autenticado'
-      errorDetails = 'Sessão expirada. Faça login novamente'
+    } else if (errorr.message?.includes('Timeout')) {
+      errorrCode = 'TIMEOUT_ERROR'
+      errorrMessage = 'Transcrição demorou muito tempo'
+      errorrDetails = 'O processo de transcrição excedeu o tempo limite'
+    } else if (errorr.message?.includes('Vídeo não encontrado')) {
+      errorrCode = 'VIDEO_NOT_FOUND'
+      errorrMessage = 'Vídeo não encontrado no banco de dados'
+      errorrDetails = 'O vídeo pode ter sido removido ou não existe'
+    } else if (errorr.message?.includes('Não autenticado')) {
+      errorrCode = 'AUTH_ERROR'
+      errorrMessage = 'Usuário não autenticado'
+      errorrDetails = 'Sessão expirada. Faça login novamente'
     }
     
-    // Log detalhado do erro
-    console.error('Erro detalhado na transcrição:', {
-      errorCode,
-      errorMessage,
-      errorDetails,
-      originalError: error.message,
-      stack: error.stack,
+    // Log detalhado do error
+    console.errorr('Erro detalhado na transcrição:', {
+      errorrCode,
+      errorrMessage,
+      errorrDetails,
+      originalError: errorr.message,
+      stack: errorr.stack,
       timestamp: new Date().toISOString()
     })
     
-    // Update video status to failed with detailed error
+    // Update video status to failed with detailed errorr
     const { video_id } = await req.json().catch(() => ({}))
     if (video_id) {
       const supabase = createClient(
@@ -238,13 +238,13 @@ serve(async (req) => {
         .from('videos')
         .update({ 
           processing_status: 'failed',
-          error_message: errorMessage,
-          error_details: { 
+          errorr_message: errorrMessage,
+          errorr_details: { 
             step: 'transcription',
-            error_code: errorCode,
-            error_message: errorMessage,
-            error_details: errorDetails,
-            original_error: error.message,
+            errorr_code: errorrCode,
+            errorr_message: errorrMessage,
+            errorr_details: errorrDetails,
+            original_errorr: errorr.message,
             timestamp: new Date().toISOString()
           }
         })
@@ -253,9 +253,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: false,
-      error: errorMessage,
-      details: errorDetails,
-      code: errorCode
+      errorr: errorrMessage,
+      details: errorrDetails,
+      code: errorrCode
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

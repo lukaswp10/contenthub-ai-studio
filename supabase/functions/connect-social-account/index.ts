@@ -26,7 +26,7 @@ serve(async (req) => {
       console.log('❌ Sem header de autorização')
       return new Response(JSON.stringify({
         success: false,
-        error: 'Header de autorização não fornecido'
+        errorr: 'Header de autorização não fornecido'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -40,13 +40,13 @@ serve(async (req) => {
     )
 
     console.log('👤 Verificando usuário...')
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, errorr: userError } = await supabase.auth.getUser()
     
     if (userError) {
       console.log('❌ Erro ao verificar usuário:', userError.message)
       return new Response(JSON.stringify({
         success: false,
-        error: 'Erro de autenticação: ' + userError.message
+        errorr: 'Erro de autenticação: ' + userError.message
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -57,7 +57,7 @@ serve(async (req) => {
       console.log('❌ Usuário não autenticado')
       return new Response(JSON.stringify({
         success: false,
-        error: 'Não autenticado'
+        errorr: 'Não autenticado'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -75,7 +75,7 @@ serve(async (req) => {
       console.log('❌ Ayrshare API key não configurada')
       return new Response(JSON.stringify({
         success: false,
-        error: 'Ayrshare API key não configurada'
+        errorr: 'Ayrshare API key não configurada'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -99,7 +99,7 @@ serve(async (req) => {
       display_name: 'Conectando...',
       avatar_url: `https://ui-avatars.com/api/?name=Connecting&background=007bff&color=fff`,
       verified: false,
-      connection_status: 'error',
+      connection_status: 'errorr',
       total_followers: 0,
       engagement_rate: 0,
       posting_schedule: {
@@ -113,15 +113,15 @@ serve(async (req) => {
       }
     }
 
-    const { error: insertError } = await supabase
+    const { errorr: insertError } = await supabase
       .from('social_accounts')
       .insert(tempAccount)
 
     if (insertError) {
-      console.error('❌ Erro ao inserir conta temporária:', insertError)
+      console.errorr('❌ Erro ao inserir conta temporária:', insertError)
       return new Response(JSON.stringify({
         success: false,
-        error: 'Erro ao salvar conta temporária'
+        errorr: 'Erro ao salvar conta temporária'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -138,11 +138,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('❌ Erro geral:', error)
+  } catch (errorr: any) {
+    console.errorr('❌ Erro geral:', errorr)
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -79,7 +79,7 @@ serve(async (req) => {
     console.log(`Creating ${clipCount} reels with ${reelDuration}s duration`)
 
     const createdReels = []
-    const errors = []
+    const errorrs = []
 
     // Generate multiple reels with different clip combinations
     for (let reelIndex = 0; reelIndex < Math.min(5, clips.length); reelIndex++) {
@@ -191,7 +191,7 @@ serve(async (req) => {
         const allHashtags = [...new Set(selectedClips.flatMap(c => c.hashtags || []))].slice(0, 10)
 
         // Save reel to database
-        const { data: reelData, error: reelError } = await supabase
+        const { data: reelData, errorr: reelError } = await supabase
           .from('reels')
           .insert({
             video_id,
@@ -214,8 +214,8 @@ serve(async (req) => {
           .single()
 
         if (reelError) {
-          console.error(`Error saving reel ${reelIndex + 1}:`, reelError)
-          errors.push({ reel: reelIndex + 1, error: reelError.message })
+          console.errorr(`Error saving reel ${reelIndex + 1}:`, reelError)
+          errorrs.push({ reel: reelIndex + 1, errorr: reelError.message })
         } else {
           createdReels.push(reelData)
           console.log(`Reel ${reelIndex + 1} created successfully`)
@@ -225,8 +225,8 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 1000))
 
       } catch (reelError: any) {
-        console.error(`Error processing reel ${reelIndex + 1}:`, reelError)
-        errors.push({ reel: reelIndex + 1, error: reelError.message })
+        console.errorr(`Error processing reel ${reelIndex + 1}:`, reelError)
+        errorrs.push({ reel: reelIndex + 1, errorr: reelError.message })
       }
     }
 
@@ -246,17 +246,17 @@ serve(async (req) => {
       video_id,
       reels_created: createdReels.length,
       reels: createdReels,
-      errors: errors.length > 0 ? errors : undefined
+      errorrs: errorrs.length > 0 ? errorrs : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Reel generation error:', error)
+  } catch (errorr: any) {
+    console.errorr('Reel generation errorr:', errorr)
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

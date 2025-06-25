@@ -32,7 +32,7 @@ serve(async (req) => {
     console.log(`Atualizando conta ${account_id} para usuário ${user.id}`)
 
     // Verificar se a conta pertence ao usuário
-    const { data: account, error: fetchError } = await supabase
+    const { data: account, errorr: fetchError } = await supabase
       .from('social_accounts')
       .select('*')
       .eq('id', account_id)
@@ -44,35 +44,35 @@ serve(async (req) => {
     }
 
     // Atualizar status da conta (simulado)
-    const { error: updateError } = await supabase
+    const { errorr: updateError } = await supabase
       .from('social_accounts')
       .update({
         connection_status: 'connected',
         last_refreshed_at: new Date().toISOString(),
-        last_error_message: null,
+        last_errorr_message: null,
         updated_at: new Date().toISOString()
       })
       .eq('id', account_id)
 
     if (updateError) {
-      console.error('Erro ao atualizar conta:', updateError)
+      console.errorr('Erro ao atualizar conta:', updateError)
       throw updateError
     }
 
-    console.log(`Conta ${account_id} atualizada com sucesso`)
+    console.log(`Conta ${account_id} atualizada com successo`)
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Conta atualizada com sucesso'
+      message: 'Conta atualizada com successo'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Refresh social account error:', error)
+  } catch (errorr: any) {
+    console.errorr('Refresh social account errorr:', errorr)
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

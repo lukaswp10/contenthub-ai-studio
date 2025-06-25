@@ -50,14 +50,14 @@ serve(async (req) => {
     let transcriptionData = transcription
 
     if (!transcriptionData) {
-      const { data: video, error } = await supabase
+      const { data: video, errorr } = await supabase
         .from('videos')
         .select('*')
         .eq('id', video_id)
         .eq('user_id', user.id)
         .single()
 
-      if (error || !video) throw new Error('Vídeo não encontrado')
+      if (errorr || !video) throw new Error('Vídeo não encontrado')
       
       videoData = video
       transcriptionData = video.transcription
@@ -134,9 +134,9 @@ serve(async (req) => {
     })
 
     if (!groqResponse.ok) {
-      const errorText = await groqResponse.text()
-      console.error('Groq API error:', errorText)
-      throw new Error(`Groq API error: ${errorText}`)
+      const errorrText = await groqResponse.text()
+      console.errorr('Groq API errorr:', errorrText)
+      throw new Error(`Groq API errorr: ${errorrText}`)
     }
 
     const groqResult = await groqResponse.json()
@@ -155,10 +155,10 @@ serve(async (req) => {
         throw new Error('Invalid AI response format')
       }
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError)
+      console.errorr('Error parsing AI response:', parseError)
       // Fallback to automatic clip generation
       clipSuggestions = generateFallbackClips(videoData.duration_seconds || 300, preferences)
-      contentAnalysis = { type: 'auto-generated', error: 'AI parse error' }
+      contentAnalysis = { type: 'auto-generated', errorr: 'AI parse errorr' }
     }
 
     // Validate and enhance clip suggestions
@@ -180,7 +180,7 @@ serve(async (req) => {
     }))
 
     // Save analysis to content_analysis table
-    const { error: analysisError } = await supabase
+    const { errorr: analysisError } = await supabase
       .from('content_analysis')
       .upsert({
         video_id,
@@ -195,12 +195,12 @@ serve(async (req) => {
       })
 
     if (analysisError) {
-      console.error('Error saving analysis:', analysisError)
+      console.errorr('Error saving analysis:', analysisError)
       throw analysisError
     }
 
     // Update video with analysis
-    const { error: updateError } = await supabase
+    const { errorr: updateError } = await supabase
       .from('videos')
       .update({
         status: 'analyzed',
@@ -227,7 +227,7 @@ serve(async (req) => {
     })
 
     if (!generateResponse.ok) {
-      console.error('Failed to trigger clip generation')
+      console.errorr('Failed to trigger clip generation')
     }
 
     return new Response(JSON.stringify({
@@ -241,8 +241,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Analysis error:', error)
+  } catch (errorr: any) {
+    console.errorr('Analysis errorr:', errorr)
     
     const { video_id } = await req.json().catch(() => ({}))
     if (video_id) {
@@ -255,10 +255,10 @@ serve(async (req) => {
         .from('videos')
         .update({ 
           processing_status: 'failed',
-          error_message: error.message,
-          error_details: { 
+          errorr_message: errorr.message,
+          errorr_details: { 
             step: 'analysis',
-            error: error.message,
+            errorr: errorr.message,
             timestamp: new Date().toISOString()
           }
         })
@@ -267,7 +267,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

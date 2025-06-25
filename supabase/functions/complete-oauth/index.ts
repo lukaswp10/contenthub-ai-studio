@@ -57,7 +57,7 @@ serve(async (req) => {
     const socialData = profileData.socialNetworks[platform]
 
     // Atualizar conta na base de dados com dados reais
-    const { error: updateError } = await supabase
+    const { errorr: updateError } = await supabase
       .from('social_accounts')
       .update({
         platform_user_id: socialData.id || socialData.username,
@@ -74,25 +74,25 @@ serve(async (req) => {
       .eq('ayrshare_profile_key', profile_key)
 
     if (updateError) {
-      console.error('Erro ao atualizar conta:', updateError)
+      console.errorr('Erro ao atualizar conta:', updateError)
       throw updateError
     }
 
-    console.log(`Conta ${platform} conectada com sucesso para usuário ${user.id}`)
+    console.log(`Conta ${platform} conectada com successo para usuário ${user.id}`)
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Conta ${platform} conectada com sucesso!`,
+      message: `Conta ${platform} conectada com successo!`,
       account_data: socialData
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Complete OAuth error:', error)
+  } catch (errorr: any) {
+    console.errorr('Complete OAuth errorr:', errorr)
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

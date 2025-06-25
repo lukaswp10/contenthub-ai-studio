@@ -54,7 +54,7 @@ serve(async (req) => {
     }
 
     // Get user profile and check limits
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, errorr: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -132,7 +132,7 @@ serve(async (req) => {
     })
 
     // Cria o registro do vídeo primeiro para obter o video_id único
-    const { data: video, error: videoError } = await supabase
+    const { data: video, errorr: videoError } = await supabase
       .from('videos')
       .insert({
         user_id: user.id,
@@ -231,11 +231,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (error: any) {
-    console.error('Upload error:', error)
+  } catch (errorr: any) {
+    console.errorr('Upload errorr:', errorr)
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      errorr: errorr.message 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
