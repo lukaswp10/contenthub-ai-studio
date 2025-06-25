@@ -180,8 +180,9 @@ export default function Gallery() {
   }
 
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+    const safeSeconds = seconds || 0
+    const mins = Math.floor(safeSeconds / 60)
+    const secs = safeSeconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
@@ -202,9 +203,10 @@ export default function Gallery() {
   }
 
   const getViralScoreColor = (score: number) => {
-    if (score >= 8) return 'bg-green-500 text-white'
-    if (score >= 6) return 'bg-yellow-500 text-white'
-    if (score >= 4) return 'bg-orange-500 text-white'
+    const safeScore = score || 0
+    if (safeScore >= 8) return 'bg-green-500 text-white'
+    if (safeScore >= 6) return 'bg-yellow-500 text-white'
+    if (safeScore >= 4) return 'bg-orange-500 text-white'
     return 'bg-red-500 text-white'
   }
 
@@ -298,8 +300,8 @@ export default function Gallery() {
   }
 
   const filteredVideos = videos.filter(video => {
-    const matchesSearch = video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         video.original_filename.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (video.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (video.original_filename || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesFilter = filterStatus === 'all' || 
                          (filterStatus === 'completed' && video.clips_count > 0) ||
@@ -309,8 +311,8 @@ export default function Gallery() {
   })
 
   const filteredClips = clips.filter(clip => {
-    const matchesSearch = clip.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         clip.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (clip.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (clip.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesVideo = !selectedVideo || clip.video_id === selectedVideo
     
@@ -320,9 +322,9 @@ export default function Gallery() {
   const sortedClips = [...filteredClips].sort((a, b) => {
     switch (sortBy) {
       case 'viral_score':
-        return b.ai_viral_score - a.ai_viral_score
+        return (b.ai_viral_score || 0) - (a.ai_viral_score || 0)
       case 'duration':
-        return b.duration_seconds - a.duration_seconds
+        return (b.duration_seconds || 0) - (a.duration_seconds || 0)
       case 'views':
         return (b.total_views || 0) - (a.total_views || 0)
       case 'recent':
@@ -590,9 +592,9 @@ export default function Gallery() {
                             {clip.description}
                           </p>
                         </div>
-                        <Badge className={getViralScoreColor(clip.ai_viral_score)}>
-                          {clip.ai_viral_score.toFixed(1)}
-                        </Badge>
+                                                  <Badge className={getViralScoreColor(clip.ai_viral_score || 0)}>
+                            {(clip.ai_viral_score || 0).toFixed(1)}
+                          </Badge>
                       </div>
 
                       <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
@@ -611,14 +613,14 @@ export default function Gallery() {
                       </div>
 
                       <div className="flex flex-wrap gap-1 mb-4">
-                        {clip.hashtags.slice(0, 3).map((tag, idx) => (
+                        {(clip.hashtags || []).slice(0, 3).map((tag, idx) => (
                           <span key={idx} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
                             {tag}
                           </span>
                         ))}
-                        {clip.hashtags.length > 3 && (
+                        {(clip.hashtags || []).length > 3 && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                            +{clip.hashtags.length - 3}
+                            +{(clip.hashtags || []).length - 3}
                           </span>
                         )}
                       </div>
@@ -642,11 +644,11 @@ export default function Gallery() {
                               {/* Clip Details */}
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                  <div className="text-2xl font-bold text-purple-600">{clip.ai_viral_score.toFixed(1)}</div>
-                                  <div className="text-xs text-gray-600">Score Viral</div>
-                                </div>
-                                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                  <div className="text-2xl font-bold text-indigo-600">{clip.ai_hook_strength.toFixed(1)}</div>
+                                                                  <div className="text-2xl font-bold text-purple-600">{(clip.ai_viral_score || 0).toFixed(1)}</div>
+                                <div className="text-xs text-gray-600">Score Viral</div>
+                              </div>
+                              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="text-2xl font-bold text-indigo-600">{(clip.ai_hook_strength || 0).toFixed(1)}</div>
                                   <div className="text-xs text-gray-600">Hook Strength</div>
                                 </div>
                                 <div className="text-center p-3 bg-gray-50 rounded-lg">
@@ -663,7 +665,7 @@ export default function Gallery() {
                               <div>
                                 <h4 className="font-medium mb-2">Plataformas Recomendadas:</h4>
                                 <div className="flex gap-2">
-                                  {clip.ai_best_platform.map((platform, idx) => (
+                                  {(clip.ai_best_platform || []).map((platform, idx) => (
                                     <Badge key={idx} variant="outline">
                                       {platform}
                                     </Badge>
@@ -675,7 +677,7 @@ export default function Gallery() {
                               <div>
                                 <h4 className="font-medium mb-2">Hashtags:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                  {clip.hashtags.map((tag, idx) => (
+                                  {(clip.hashtags || []).map((tag, idx) => (
                                     <span 
                                       key={idx} 
                                       className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-full cursor-pointer hover:bg-purple-200 transition-colors"
