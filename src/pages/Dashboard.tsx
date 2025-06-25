@@ -7,6 +7,12 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { useVideoUpload } from '@/hooks/useVideoUpload'
@@ -24,7 +30,9 @@ import {
   Target,
   Video,
   X,
-  Zap
+  Zap,
+  Trash2,
+  MoreVertical
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -41,7 +49,7 @@ interface RecentVideo {
   processing_status: 'uploading' | 'queued' | 'transcribing' | 'analyzing' | 'generating_clips' | 'ready' | 'failed' | 'cancelled'
   created_at: string
   clips_count?: number
-  thumbnail_url?: string
+  cloudinary_secure_url?: string
 }
 
 
@@ -108,7 +116,7 @@ export default function Dashboard() {
           title,
           processing_status,
           created_at,
-          thumbnail_url
+          cloudinary_secure_url
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
@@ -321,6 +329,36 @@ export default function Dashboard() {
     if (progress < 90) return 'Processando'
     if (progress < 100) return 'Finalizando'
     return 'Concluído'
+  }
+
+  const handleDeleteVideo = async (videoId: string, videoTitle: string) => {
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .eq('id', videoId)
+        .eq('user_id', user?.id) // Segurança extra
+
+      if (error) throw error
+
+      // Atualizar a lista local
+      setRecentVideos(recentVideos.filter(v => v.id !== videoId))
+      
+      toast({
+        title: "Vídeo excluído",
+        description: `"${videoTitle}" foi removido com sucesso.`,
+      })
+
+      // Recarregar estatísticas
+      loadDashboardData()
+    } catch (error: any) {
+      console.error('Erro ao excluir vídeo:', error)
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível remover o vídeo. Tente novamente.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Show loading while auth is settling
@@ -677,7 +715,7 @@ export default function Dashboard() {
                           <div>
                             <p className="font-medium text-gray-900">{video.title}</p>
                             <p className="text-sm text-gray-600">
-                              {new Date(video.created_at).toLocaleDateString('pt-BR')} • {video.clips_count} clips
+                              {new Date(video.created_at).toLocaleDateString('pt-BR')} • {video.clips_count || 0} clips
                             </p>
                           </div>
                         </div>
@@ -689,6 +727,24 @@ export default function Dashboard() {
                           <Button variant="outline" size="sm">
                             Ver Clips
                           </Button>
+                          
+                          {/* Menu de opções */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteVideo(video.id, video.title)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir vídeo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     ))}
