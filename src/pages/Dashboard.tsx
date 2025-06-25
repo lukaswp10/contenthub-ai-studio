@@ -143,8 +143,7 @@ export default function Dashboard() {
           processing_status,
           created_at,
           cloudinary_secure_url,
-          duration_seconds,
-          clips_generated
+          duration_seconds
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
