@@ -148,11 +148,12 @@ serve(async (req) => {
 
     if (videoError) throw videoError
 
-    // Agora gera o public_id usando o video_id + timestamp único para evitar duplicatas
-    const timestamp = Math.round(Date.now() / 1000)
-    const randomSuffix = Math.random().toString(36).substring(2, 8)
+    // Agora gera o public_id usando o video_id + timestamp único + mais aleatoriedade para evitar duplicatas
+    const timestamp = Date.now() // Usar timestamp completo em milissegundos
+    const randomSuffix = Math.random().toString(36).substring(2, 12) // Mais caracteres aleatórios
+    const microTime = performance.now().toString().replace('.', '') // Adicionar microtempo
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-    const publicId = `videos/${user.id}/${video.id}_${timestamp}_${randomSuffix}_${sanitizedFileName}`
+    const publicId = `videos/${user.id}/${video.id}_${timestamp}_${microTime}_${randomSuffix}_${sanitizedFileName}`
 
     // Atualiza o registro com o public_id
     await supabase
@@ -169,7 +170,7 @@ serve(async (req) => {
       folder: `videos/${user.id}`,
       resource_type: 'video' as const,
       type: 'upload' as const,
-      timestamp: String(timestamp),
+      timestamp: String(Math.round(timestamp / 1000)),
       video_codec: 'auto',
       audio_codec: 'auto',
       context: contextString,
