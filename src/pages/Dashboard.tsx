@@ -1,22 +1,32 @@
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import AutoPostSettings from '@/components/automation/AutoPostSettings'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { 
-  Upload, 
-  Video, 
-  Scissors, 
-  Calendar, 
-  BarChart3,
-  PlayCircle,
-  Clock,
-  CheckCircle,
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/hooks/use-toast'
+import { useVideoUpload } from '@/hooks/useVideoUpload'
+import { supabase } from '@/integrations/supabase/client'
+import {
   AlertCircle,
-  Plus
+  BarChart3,
+  Bot,
+  CheckCircle,
+  Clock,
+  CloudUpload,
+  FileVideo,
+  Scissors,
+  Sparkles,
+  Target,
+  Video,
+  X,
+  Zap
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 
 interface DashboardStats {
   videosUploaded: number
@@ -25,48 +35,121 @@ interface DashboardStats {
   totalViews: number
 }
 
-interface RecentActivity {
+interface RecentVideo {
   id: string
-  type: 'upload' | 'analysis' | 'clips' | 'schedule'
   title: string
   status: 'processing' | 'completed' | 'failed'
-  timestamp: string
+  created_at: string
+  clips_count?: number
+  thumbnail_url?: string
 }
 
+
+
 export default function Dashboard() {
-  const { user, profile } = useAuth()
-  const navigate = useNavigate()
+  const { user, profile, loading: authLoading } = useAuth()
+  const { toast } = useToast()
   const [stats, setStats] = useState<DashboardStats>({
     videosUploaded: 0,
     clipsGenerated: 0,
     postsScheduled: 0,
     totalViews: 0
   })
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([])
   const [loading, setLoading] = useState(true)
+  const [dragOver, setDragOver] = useState(false)
+  
+  // Upload states
+  const {
+    file,
+    setFile,
+    title,
+    setTitle,
+    description,
+    setDescription,
+    isUploading,
+    uploadProgress,
+    uploadError,
+    uploadVideo,
+    resetUpload
+  } = useVideoUpload()
+
+  // Prevent auth issues on refresh
+  useEffect(() => {
+    if (!authLoading && !user) {
+      // Don't redirect immediately, wait a bit for auth to settle
+      const timer = setTimeout(() => {
+        if (!user) {
+          window.location.href = '/login'
+        }
+      }, 2000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [user, authLoading])
 
   useEffect(() => {
-    console.log('🏠 Dashboard: Inicializando para usuário:', user?.email)
-    loadDashboardData()
-  }, [user])
+    if (user && !authLoading) {
+      console.log('🏠 Dashboard: Inicializando para usuário:', user?.email)
+      loadDashboardData()
+    }
+  }, [user, authLoading])
 
   const loadDashboardData = async () => {
     try {
       console.log('📊 Dashboard: Carregando dados...')
       setLoading(true)
 
-      // Simular carregamento de dados (será substituído por chamadas reais à API)
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Carregar vídeos recentes
+      const { data: videos, error: videosError } = await supabase
+        .from('videos')
+        .select(`
+          id,
+          title,
+          status,
+          created_at,
+          thumbnail_url,
+          clips (count)
+        `)
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
 
-      // Mock data - será substituído por dados reais
-      setStats({
-        videosUploaded: profile?.usage_videos_current_month || 0,
-        clipsGenerated: 0, // Será implementado
-        postsScheduled: 0, // Será implementado
-        totalViews: 0
-      })
+      if (videosError) {
+        console.error('Erro ao carregar vídeos:', videosError)
+      } else {
+        setRecentVideos(videos?.map(video => ({
+          ...video,
+          clips_count: video.clips?.[0]?.count || 0
+        })) || [])
+      }
 
-      setRecentActivity([])
+      // Carregar estatísticas
+      const { data: statsData, error: statsError } = await supabase
+        .from('videos')
+        .select(`
+          id,
+          status,
+          clips (id, views)
+        `)
+        .eq('user_id', user?.id)
+
+      if (!statsError && statsData) {
+        const totalVideos = statsData.length
+        const totalClips = statsData.reduce((acc, video) => acc + (video.clips?.length || 0), 0)
+        const totalViews = statsData.reduce((acc, video) => 
+          acc + (video.clips?.reduce((clipAcc: number, clip: any) => clipAcc + (clip.views || 0), 0) || 0), 0
+        )
+
+        setStats({
+          videosUploaded: totalVideos,
+          clipsGenerated: totalClips,
+          postsScheduled: 0, // Será implementado
+          totalViews
+        })
+      }
+
+
       
       console.log('✅ Dashboard: Dados carregados com sucesso')
     } catch (error) {
@@ -75,6 +158,92 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+
+  // Upload handlers
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile && droppedFile.type.startsWith('video/')) {
+      handleFileSelect(droppedFile)
+    } else {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione apenas arquivos de vídeo.",
+        variant: "destructive",
+      })
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+  }, [])
+
+  const handleFileSelect = (selectedFile: File) => {
+    if (!selectedFile.type.startsWith('video/')) {
+      toast({
+        title: "Tipo de arquivo inválido",
+        description: "Por favor, selecione um arquivo de vídeo válido.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const maxSize = 500 * 1024 * 1024 // 500MB
+    if (selectedFile.size > maxSize) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O arquivo deve ter no máximo 500MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setFile(selectedFile)
+    setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""))
+  }
+
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0]
+    if (selectedFile) {
+      handleFileSelect(selectedFile)
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file || !title.trim()) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, selecione um arquivo e adicione um título.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await uploadVideo()
+      toast({
+        title: "Upload concluído!",
+        description: "Seu vídeo está sendo processado. Os clips serão gerados automaticamente.",
+      })
+      
+      // Recarregar dados após upload
+      setTimeout(() => {
+        loadDashboardData()
+      }, 2000)
+    } catch (error) {
+      console.error('Upload error:', error)
+    }
+  }
+
+
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -102,16 +271,29 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
+  const formatFileSize = (bytes: number) => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  const getUploadStepName = (progress: number) => {
+    if (progress < 10) return 'Validando arquivo'
+    if (progress < 20) return 'Criando registro'
+    if (progress < 30) return 'Preparando upload'
+    if (progress < 80) return 'Enviando vídeo'
+    if (progress < 90) return 'Processando'
+    if (progress < 100) return 'Finalizando'
+    return 'Concluído'
+  }
+
+  // Show loading while auth is settling
+  if (authLoading || (loading && !user)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Carregando dashboard...</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dashboard...</p>
         </div>
       </div>
     )
@@ -125,19 +307,12 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Olá, {profile?.full_name || user?.email} 👋
+              Olá, {profile?.full_name || user?.email?.split('@')[0]} 👋
             </h1>
             <p className="text-gray-600 mt-1">
-              Transforme seus vídeos em clips virais automaticamente
+              Transforme seus vídeos em clips virais e poste automaticamente
             </p>
           </div>
-          <Button 
-            onClick={() => navigate('/upload')}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Vídeo
-          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -149,7 +324,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.videosUploaded}</div>
-              <p className="text-xs text-muted-foreground">Este mês</p>
+              <p className="text-xs text-muted-foreground">Total</p>
             </CardContent>
           </Card>
 
@@ -166,8 +341,8 @@ export default function Dashboard() {
 
           <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Posts Agendados</CardTitle>
-              <Calendar className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Posts Automáticos</CardTitle>
+              <Bot className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.postsScheduled}</div>
@@ -187,122 +362,286 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Quick Actions */}
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PlayCircle className="h-5 w-5 text-purple-600" />
-                Ações Rápidas
-              </CardTitle>
-              <CardDescription>
-                Comece seu fluxo de criação de conteúdo
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                onClick={() => navigate('/upload')}
-                className="w-full justify-start bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Enviar Novo Vídeo
-              </Button>
-              
-              <Button 
-                onClick={() => navigate('/clips')}
-                variant="outline" 
-                className="w-full justify-start border-purple-200 hover:bg-purple-50"
-              >
-                <Scissors className="h-4 w-4 mr-2" />
-                Ver Meus Clips
-              </Button>
-              
-              <Button 
-                onClick={() => navigate('/schedule')}
-                variant="outline" 
-                className="w-full justify-start border-indigo-200 hover:bg-indigo-50"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Agendar Posts
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Main Tabs */}
+        <Tabs defaultValue="upload" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm">
+            <TabsTrigger value="upload" className="flex items-center gap-2">
+              <CloudUpload className="h-4 w-4" />
+              Upload & IA
+            </TabsTrigger>
+            <TabsTrigger value="automation" className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
+              Automação
+            </TabsTrigger>
+            <TabsTrigger value="videos" className="flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Meus Vídeos
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Recent Activity */}
-          <Card className="lg:col-span-2 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-indigo-600" />
-                Atividade Recente
-              </CardTitle>
-              <CardDescription>
-                Acompanhe o progresso dos seus vídeos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentActivity.length === 0 ? (
-                <div className="text-center py-8">
-                  <Video className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Nenhuma atividade ainda
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Envie seu primeiro vídeo para começar a gerar clips virais
-                  </p>
-                  <Button 
-                    onClick={() => navigate('/upload')}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Enviar Vídeo
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        {getStatusIcon(activity.status)}
+          {/* Upload Tab */}
+          <TabsContent value="upload" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Upload Section */}
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CloudUpload className="h-5 w-5 text-purple-600" />
+                    Upload de Vídeo
+                  </CardTitle>
+                  <CardDescription>
+                    Envie seu vídeo e nossa IA criará clips virais automaticamente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!file ? (
+                    <div
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      className={`
+                        border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer
+                        ${dragOver 
+                          ? 'border-purple-500 bg-purple-50' 
+                          : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
+                        }
+                      `}
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <div className="space-y-2">
+                        <p className="text-lg font-medium text-gray-900">
+                          Arraste seu vídeo aqui
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          ou clique para selecionar
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          MP4, MOV, AVI até 500MB
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileVideo className="h-8 w-8 text-purple-600" />
+                          <div>
+                            <p className="font-medium text-gray-900">{file.name}</p>
+                            <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFile(null)
+                            setTitle('')
+                            setDescription('')
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-4">
                         <div>
-                          <p className="font-medium text-gray-900">{activity.title}</p>
-                          <p className="text-sm text-gray-500">{activity.timestamp}</p>
+                          <Label htmlFor="title">Título do Vídeo *</Label>
+                          <Input
+                            id="title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Digite um título atrativo..."
+                            className="mt-1"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="description">Descrição (Opcional)</Label>
+                          <Textarea
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Descreva o conteúdo do seu vídeo..."
+                            className="mt-1"
+                            rows={3}
+                          />
                         </div>
                       </div>
-                      <Badge className={getStatusColor(activity.status)}>
-                        {activity.status}
-                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  )}
 
-        {/* Progress Section */}
-        {stats.videosUploaded > 0 && (
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Progresso do Plano</CardTitle>
-              <CardDescription>
-                Acompanhe o uso do seu plano {profile?.plan_type || 'free'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Vídeos este mês</span>
-                    <span>{stats.videosUploaded}/10</span>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+
+                  {isUploading && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{getUploadStepName(uploadProgress)}</span>
+                        <span className="font-medium">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2" />
+                    </div>
+                  )}
+
+                  {uploadError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600">{uploadError}</p>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handleUpload}
+                    disabled={!file || !title.trim() || isUploading}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  >
+                    {isUploading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Gerar Clips com IA
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* AI Features */}
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-indigo-600" />
+                    Recursos de IA
+                  </CardTitle>
+                  <CardDescription>
+                    Nossa inteligência artificial fará tudo automaticamente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <Zap className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Transcrição Automática</p>
+                        <p className="text-sm text-gray-600">Converte áudio em texto com precisão</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <Target className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Análise de Conteúdo</p>
+                        <p className="text-sm text-gray-600">Identifica os melhores momentos</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <Scissors className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Clips Inteligentes</p>
+                        <p className="text-sm text-gray-600">Cria clips otimizados para cada plataforma</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <BarChart3 className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Score Viral</p>
+                        <p className="text-sm text-gray-600">Calcula potencial de viralização</p>
+                      </div>
+                    </div>
                   </div>
-                  <Progress value={(stats.videosUploaded / 10) * 100} className="h-2" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-purple-600" />
+                      <span className="font-medium text-purple-900">Tempo de Processamento</span>
+                    </div>
+                    <p className="text-sm text-purple-700">
+                      • Upload: 5-10 segundos<br/>
+                      • Processamento completo: 1-2 minutos<br/>
+                      • Clips prontos para download e postagem
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Automation Tab */}
+          <TabsContent value="automation" className="space-y-6">
+            <AutoPostSettings />
+          </TabsContent>
+
+          {/* Videos Tab */}
+          <TabsContent value="videos" className="space-y-6">
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="h-5 w-5 text-purple-600" />
+                  Vídeos Recentes
+                </CardTitle>
+                <CardDescription>
+                  Seus vídeos enviados e status de processamento
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recentVideos.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Video className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <p className="text-gray-600">Nenhum vídeo enviado ainda</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Faça upload do seu primeiro vídeo na aba "Upload & IA"
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentVideos.map((video) => (
+                      <div key={video.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          {getStatusIcon(video.status)}
+                          <div>
+                            <p className="font-medium text-gray-900">{video.title}</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(video.created_at).toLocaleDateString('pt-BR')} • {video.clips_count} clips
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getStatusColor(video.status)}>
+                            {video.status === 'processing' ? 'Processando' : 
+                             video.status === 'completed' ? 'Concluído' : 'Erro'}
+                          </Badge>
+                          <Button variant="outline" size="sm">
+                            Ver Clips
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

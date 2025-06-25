@@ -78,22 +78,24 @@ Parâmetros do Cloudinary:
 3. **APIs configuradas**: Groq, Hugging Face
 4. **Node.js 18+** e **Supabase CLI**
 
-### Deploy Automático
+### Deploy Automático (Recomendado) ✨
 
 ```bash
-# 1. Tornar script executável
-chmod +x scripts/deploy-production.sh
+# 1. Configurar variáveis no Vercel Dashboard uma vez
+# 2. Push para produção = Deploy automático!
+git add .
+git commit -m "feat: nova funcionalidade"
+git push origin main
+# 🚀 Vercel faz deploy automático do frontend
 
-# 2. Configurar variáveis de ambiente
-export VITE_SUPABASE_URL="https://seu-projeto.supabase.co"
-export VITE_SUPABASE_ANON_KEY="sua-anon-key"
-export VITE_CLOUDINARY_CLOUD_NAME="seu-cloud-name"
-export CLOUDINARY_API_KEY="sua-api-key"
-export CLOUDINARY_API_SECRET="seu-api-secret"
-export GROQ_API_KEY="sua-groq-key"
-export HUGGINGFACE_API_KEY="sua-hf-key"
+# 3. Deploy do backend (quando necessário)
+./scripts/deploy-production.sh
+```
 
-# 3. Executar deploy
+### Deploy Completo (Manual)
+
+```bash
+# Para deploy completo incluindo frontend
 ./scripts/deploy-production.sh --deploy-frontend
 ```
 

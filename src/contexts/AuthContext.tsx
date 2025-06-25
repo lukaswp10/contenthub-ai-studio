@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
-import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import { debugAuth } from '@/utils/debug'
+import { Session, User } from '@supabase/supabase-js'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 interface Profile {
   id: string
@@ -102,12 +102,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('🚀 Inicializando autenticação...')
         
-        // Get initial session
+        // First check if we have a stored session
+        const storedSession = localStorage.getItem('supabase.auth.token')
+        if (storedSession) {
+          try {
+            const sessionData = JSON.parse(storedSession)
+            console.log('📱 Sessão encontrada no localStorage')
+            
+            // Check if stored session is still valid
+            if (sessionData.expires_at && sessionData.expires_at > Math.floor(Date.now() / 1000)) {
+              console.log('✅ Sessão armazenada ainda válida')
+            }
+          } catch (e) {
+            console.log('❌ Erro ao parsear sessão armazenada, removendo...')
+            localStorage.removeItem('supabase.auth.token')
+          }
+        }
+        
+        // Get initial session from Supabase
         const { data: { session: initialSession }, error } = await supabase.auth.getSession()
         
         if (error) {
           console.error('❌ Erro ao obter sessão inicial:', error)
-          setLoading(false)
+          // Don't set loading to false immediately on error, give it time
+          setTimeout(() => {
+            if (mounted) setLoading(false)
+          }, 1000)
           return
         }
         
@@ -118,13 +138,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await fetchProfile(initialSession.user.id)
         } else {
           console.log('ℹ️ Nenhuma sessão inicial encontrada')
+          // Clear any stale localStorage data
+          localStorage.removeItem('supabase.auth.token')
         }
       } catch (error) {
         console.error('❌ Erro ao inicializar autenticação:', error)
       } finally {
         if (mounted) {
-          setLoading(false)
-          console.log('✅ Inicialização da autenticação concluída')
+          // Add a small delay to prevent premature loading false
+          setTimeout(() => {
+            setLoading(false)
+            console.log('✅ Inicialização da autenticação concluída')
+          }, 500)
         }
       }
     }
@@ -138,15 +163,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('🔔 Auth event:', event, currentSession?.user?.email)
         
+        // Update state
         setSession(currentSession)
         setUser(currentSession?.user ?? null)
 
         if (currentSession?.user) {
+          // Store session info in localStorage for persistence
+          localStorage.setItem('supabase.auth.token', JSON.stringify({
+            access_token: currentSession.access_token,
+            refresh_token: currentSession.refresh_token,
+            expires_at: currentSession.expires_at,
+            user_id: currentSession.user.id
+          }))
+          
           // Use setTimeout to prevent infinite loops
           setTimeout(async () => {
             await fetchProfile(currentSession.user.id)
           }, 0)
         } else {
+          // Clear stored session on logout
+          localStorage.removeItem('supabase.auth.token')
           setProfile(null)
         }
 
@@ -157,8 +193,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             break
           case 'SIGNED_OUT':
             console.log('👋 Usuário deslogado')
-            toast.success('Logout realizado com sucesso!')
-            navigate('/')
+            // Only show toast and redirect if it's an intentional logout
+            if (event === 'SIGNED_OUT') {
+              toast.success('Logout realizado com sucesso!')
+              navigate('/')
+            }
             break
           case 'TOKEN_REFRESHED':
             console.log('🔄 Token renovado automaticamente')
