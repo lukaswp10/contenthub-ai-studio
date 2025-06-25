@@ -54,7 +54,7 @@ serve(async (req) => {
     }
 
     // Get user profile and check limits
-    const { data: profile, errorr: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -132,7 +132,7 @@ serve(async (req) => {
     })
 
     // Cria o registro do vídeo primeiro para obter o video_id único
-    const { data: video, errorr: videoError } = await supabase
+    const { data: video, error: videoError } = await supabase
       .from('videos')
       .insert({
         user_id: user.id,
@@ -148,10 +148,11 @@ serve(async (req) => {
 
     if (videoError) throw videoError
 
-    // Agora gera o public_id usando o video_id
+    // Agora gera o public_id usando o video_id + timestamp único para evitar duplicatas
     const timestamp = Math.round(Date.now() / 1000)
+    const randomSuffix = Math.random().toString(36).substring(2, 8)
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-    const publicId = `videos/${user.id}/${video.id}_${timestamp}_${sanitizedFileName}`
+    const publicId = `videos/${user.id}/${video.id}_${timestamp}_${randomSuffix}_${sanitizedFileName}`
 
     // Atualiza o registro com o public_id
     await supabase
@@ -231,11 +232,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (errorr: any) {
-    console.errorr('Upload errorr:', errorr)
+  } catch (error: any) {
+    console.error('Upload error:', error)
     return new Response(JSON.stringify({ 
       success: false,
-      errorr: errorr.message 
+      error: error.message 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

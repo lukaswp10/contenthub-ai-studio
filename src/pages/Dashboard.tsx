@@ -108,8 +108,7 @@ export default function Dashboard() {
           title,
           status,
           created_at,
-          thumbnail_url,
-          clips (count)
+          thumbnail_url
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
@@ -118,34 +117,60 @@ export default function Dashboard() {
       if (videosError) {
         console.error('Erro ao carregar vídeos:', videosError)
       } else {
-        setRecentVideos(videos?.map(video => ({
-          ...video,
-          clips_count: video.clips?.[0]?.count || 0
-        })) || [])
+        // Carregar contagem de clips separadamente
+        const videosWithClips = await Promise.all(
+          (videos || []).map(async (video) => {
+            const { count } = await supabase
+              .from('clips')
+              .select('*', { count: 'exact', head: true })
+              .eq('video_id', video.id)
+            
+            return {
+              ...video,
+              clips_count: count || 0
+            }
+          })
+        )
+        
+        setRecentVideos(videosWithClips)
       }
 
-      // Carregar estatísticas
-      const { data: statsData, error: statsError } = await supabase
-        .from('videos')
-        .select(`
-          id,
-          status,
-          clips (id, views)
-        `)
-        .eq('user_id', user?.id)
+      // Carregar estatísticas separadamente para evitar erros
+      try {
+        // Contar vídeos
+        const { count: videosCount } = await supabase
+          .from('videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user?.id)
 
-      if (!statsError && statsData) {
-        const totalVideos = statsData.length
-        const totalClips = statsData.reduce((acc, video) => acc + (video.clips?.length || 0), 0)
-        const totalViews = statsData.reduce((acc, video) => 
-          acc + (video.clips?.reduce((clipAcc: number, clip: any) => clipAcc + (clip.views || 0), 0) || 0), 0
-        )
+        // Contar clips do usuário
+        const { count: clipsCount } = await supabase
+          .from('clips')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user?.id)
+
+        // Somar views dos clips
+        const { data: clipsViews } = await supabase
+          .from('clips')
+          .select('total_views')
+          .eq('user_id', user?.id)
+
+        const totalViews = clipsViews?.reduce((acc, clip) => acc + (clip.total_views || 0), 0) || 0
 
         setStats({
-          videosUploaded: totalVideos,
-          clipsGenerated: totalClips,
+          videosUploaded: videosCount || 0,
+          clipsGenerated: clipsCount || 0,
           postsScheduled: 0, // Será implementado
           totalViews
+        })
+      } catch (statsError) {
+        console.error('Erro ao carregar estatísticas:', statsError)
+        // Definir valores padrão se houver erro
+        setStats({
+          videosUploaded: 0,
+          clipsGenerated: 0,
+          postsScheduled: 0,
+          totalViews: 0
         })
       }
 
