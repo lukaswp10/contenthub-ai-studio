@@ -1,27 +1,28 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { Toaster } from 'react-hot-toast'
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AuthProvider } from '@/contexts/AuthContext'
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { Toaster } from 'react-hot-toast'
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 
 // Pages
 import Index from './pages/Index'
 
 // Auth Pages
+import AuthCallback from './pages/auth/AuthCallback'
+import ConfirmEmail from './pages/auth/ConfirmEmail'
+import ForgotPassword from './pages/auth/ForgotPassword'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
-import ConfirmEmail from './pages/auth/ConfirmEmail'
-import AuthCallback from './pages/auth/AuthCallback'
-import ForgotPassword from './pages/auth/ForgotPassword'
 
 // App Pages
-import OnboardingPage from './pages/Onboarding'
-import Dashboard from './pages/Dashboard'
-import Upload from './pages/Upload'
 import Clips from './pages/Clips'
-import Schedule from './pages/Schedule'
+import Dashboard from './pages/Dashboard'
 import NotFound from './pages/NotFound'
+import OnboardingPage from './pages/Onboarding'
+import Schedule from './pages/Schedule'
+import Upload from './pages/Upload'
+import VideoStudio from './pages/VideoStudio'
 
 const queryClient = new QueryClient()
 
@@ -83,6 +84,15 @@ export default function App() {
                 element={
                   <ProtectedRoute requireOnboarding>
                     <Clips />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/studio/:videoId"
+                element={
+                  <ProtectedRoute requireOnboarding>
+                    <VideoStudio />
                   </ProtectedRoute>
                 }
               />

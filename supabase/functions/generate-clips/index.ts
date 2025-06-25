@@ -45,6 +45,10 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🔧 DEBUG: Iniciando função generate-clips')
+    console.log('🔧 DEBUG: SUPABASE_URL:', Deno.env.get('SUPABASE_URL'))
+    console.log('🔧 DEBUG: SERVICE_ROLE_KEY presente:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -61,17 +65,55 @@ serve(async (req) => {
 
     console.log(`🎬 Iniciando geração de clips para video: ${video_id}`)
 
+    // DEBUG: Testar conexão com o banco
+    console.log('🔧 DEBUG: Testando conexão com banco...')
+    try {
+      const { data: testData, error: testError } = await supabaseClient
+        .from('videos')
+        .select('count')
+        .limit(1)
+      
+      console.log('🔧 DEBUG: Teste de conexão - data:', testData)
+      console.log('🔧 DEBUG: Teste de conexão - error:', testError)
+    } catch (testErr) {
+      console.log('🔧 DEBUG: Erro no teste de conexão:', testErr)
+    }
+
     // 1. Buscar dados do vídeo
+    console.log('🔧 DEBUG: Buscando vídeo com ID:', video_id)
     const { data: video, error: videoError } = await supabaseClient
       .from('videos')
       .select('*')
       .eq('id', video_id)
       .single()
 
+    console.log('🔧 DEBUG: Resultado da busca de vídeo:')
+    console.log('🔧 DEBUG: - data:', video)
+    console.log('🔧 DEBUG: - error:', videoError)
+
     if (videoError || !video) {
       console.error('❌ Erro ao buscar vídeo:', videoError)
+      
+      // DEBUG: Tentar buscar todos os vídeos para ver se existem dados
+      console.log('🔧 DEBUG: Tentando buscar todos os vídeos...')
+      const { data: allVideos, error: allVideosError } = await supabaseClient
+        .from('videos')
+        .select('id, title, user_id')
+        .limit(10)
+      
+      console.log('🔧 DEBUG: Todos os vídeos:', allVideos)
+      console.log('🔧 DEBUG: Erro ao buscar todos:', allVideosError)
+      
       return new Response(
-        JSON.stringify({ error: 'Vídeo não encontrado' }),
+        JSON.stringify({ 
+          error: 'Vídeo não encontrado',
+          debug: {
+            video_id,
+            videoError,
+            allVideos,
+            allVideosError
+          }
+        }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -79,16 +121,40 @@ serve(async (req) => {
     console.log(`📹 Vídeo encontrado: ${video.original_filename}`)
 
     // 2. Buscar sugestões de clips da análise
+    console.log('🔧 DEBUG: Buscando análise de conteúdo...')
     const { data: suggestions, error: suggestionsError } = await supabaseClient
       .from('content_analysis')
       .select('clips_suggestions')
       .eq('video_id', video_id)
       .single()
 
+    console.log('🔧 DEBUG: Resultado da busca de análise:')
+    console.log('🔧 DEBUG: - data:', suggestions)
+    console.log('🔧 DEBUG: - error:', suggestionsError)
+
     if (suggestionsError || !suggestions?.clips_suggestions) {
       console.error('❌ Erro ao buscar sugestões:', suggestionsError)
+      
+      // DEBUG: Tentar buscar todas as análises
+      console.log('🔧 DEBUG: Tentando buscar todas as análises...')
+      const { data: allAnalysis, error: allAnalysisError } = await supabaseClient
+        .from('content_analysis')
+        .select('id, video_id, analysis_completed')
+        .limit(10)
+      
+      console.log('🔧 DEBUG: Todas as análises:', allAnalysis)
+      console.log('🔧 DEBUG: Erro ao buscar todas:', allAnalysisError)
+      
       return new Response(
-        JSON.stringify({ error: 'Sugestões de clips não encontradas' }),
+        JSON.stringify({ 
+          error: 'Sugestões de clips não encontradas',
+          debug: {
+            video_id,
+            suggestionsError,
+            allAnalysis,
+            allAnalysisError
+          }
+        }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -202,16 +268,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('❌ Erro geral:', error)
+    console.error('❌ Erro geral na função:', error)
     return new Response(
       JSON.stringify({ 
-        error: 'Erro interno do servidor',
-        details: error.message 
+        error: error.message,
+        debug: {
+          stack: error.stack,
+          name: error.name
+        }
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 }) 
