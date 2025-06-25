@@ -7,8 +7,8 @@ set -e  # Parar em caso de erro
 
 # Configurações
 VIDEO_FILE="/home/lucasmartins/Downloads/videoplayback (1).mp4"
-SUPABASE_URL="https://rgwbtdzdeibobuveegfp.supabase.co"
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd2J0ZHpkZWlib2J1dmVlZ2ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NzU3NzMsImV4cCI6MjA1MDE1MTc3M30.NqGBkjQBOKJjKJlGXmQVYiRIVEVLnxdJUGbLJNKMtME"
+SUPABASE_URL="http://127.0.0.1:54321"
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
 
 # Cores para output
 RED='\033[0;31m'
@@ -52,10 +52,11 @@ echo -e "   Duração: ${DURATION}s"
 # Passo 1: Fazer login (simulando um usuário real)
 echo -e "\n${YELLOW}🔐 Passo 1: Fazendo login...${NC}"
 
-# Você precisa fornecer credenciais reais aqui
-read -p "Email: " USER_EMAIL
-read -s -p "Senha: " USER_PASSWORD
-echo
+# Credenciais de teste
+USER_EMAIL="test@example.com"
+USER_PASSWORD="123456"
+
+echo -e "   Email: $USER_EMAIL"
 
 LOGIN_RESPONSE=$(curl -s -X POST \
   "$SUPABASE_URL/auth/v1/token?grant_type=password" \
@@ -124,20 +125,33 @@ UPLOAD_PARAMS=$(echo "$UPLOAD_REQUEST" | jq -r '.upload_params')
 TEMP_PARAMS=$(mktemp)
 echo "$UPLOAD_PARAMS" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > "$TEMP_PARAMS"
 
+# Extrair parâmetros individuais
+PUBLIC_ID_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.public_id')
+FOLDER_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.folder')
+RESOURCE_TYPE_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.resource_type')
+TYPE_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.type')
+TIMESTAMP_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.timestamp')
+VIDEO_CODEC_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.video_codec')
+AUDIO_CODEC_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.audio_codec')
+CONTEXT_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.context')
+UPLOAD_PRESET_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.upload_preset')
+SIGNATURE_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.signature')
+API_KEY_PARAM=$(echo "$UPLOAD_PARAMS" | jq -r '.api_key')
+
 # Fazer upload usando curl
 CLOUDINARY_RESPONSE=$(curl -s -X POST \
   "$UPLOAD_URL" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^public_id=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^folder=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^resource_type=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^type=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^timestamp=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^video_codec=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^audio_codec=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^context=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^upload_preset=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^signature=' | cut -d'=' -f2-)" \
-  --form-string "$(cat "$TEMP_PARAMS" | grep '^api_key=' | cut -d'=' -f2-)" \
+  -F "public_id=$PUBLIC_ID_PARAM" \
+  -F "folder=$FOLDER_PARAM" \
+  -F "resource_type=$RESOURCE_TYPE_PARAM" \
+  -F "type=$TYPE_PARAM" \
+  -F "timestamp=$TIMESTAMP_PARAM" \
+  -F "video_codec=$VIDEO_CODEC_PARAM" \
+  -F "audio_codec=$AUDIO_CODEC_PARAM" \
+  -F "context=$CONTEXT_PARAM" \
+  -F "upload_preset=$UPLOAD_PRESET_PARAM" \
+  -F "signature=$SIGNATURE_PARAM" \
+  -F "api_key=$API_KEY_PARAM" \
   -F "file=@$VIDEO_FILE")
 
 # Limpar arquivo temporário

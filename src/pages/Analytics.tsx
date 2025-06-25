@@ -43,6 +43,8 @@ import {
   RefreshCw,
   Sparkles
 } from 'lucide-react'
+import { supabase } from '@/integrations/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 
 interface AnalyticsData {
   period: string
@@ -71,12 +73,73 @@ interface TopClip {
   thumbnail: string
 }
 
+interface RealAnalytics {
+  success: boolean
+  analytics: {
+    period: {
+      start: string
+      end: string
+      days: number
+    }
+    overview: {
+      total_videos: number
+      total_clips: number
+      total_posts: number
+      total_social_accounts: number
+      total_engagement: number
+      avg_video_duration: number
+      avg_clip_duration: number
+    }
+    videos: {
+      processed: number
+      processing: number
+      failed: number
+      success_rate: number
+    }
+    clips: {
+      high_score: number
+      medium_score: number
+      low_score: number
+      avg_score: number
+    }
+    posts: {
+      published: number
+      scheduled: number
+      failed: number
+      success_rate: number
+    }
+    platforms: {
+      recommendations: Record<string, number>
+      connected_accounts: Record<string, any>
+    }
+    charts: {
+      daily_activity: Array<{
+        date: string
+        videos: number
+        clips: number
+        posts: number
+      }>
+      platform_distribution: Array<{
+        platform: string
+        count: number
+      }>
+      score_distribution: Array<{
+        range: string
+        count: number
+        color: string
+      }>
+    }
+  }
+}
+
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState('30d')
   const [selectedMetric, setSelectedMetric] = useState('views')
   const [isLoading, setIsLoading] = useState(false)
+  const [realAnalytics, setRealAnalytics] = useState<RealAnalytics | null>(null)
+  const { toast } = useToast()
 
-  // Mock data - replace with real API calls
+  // Mock data - fallback when real data is not available
   const [overallStats] = useState({
     total_videos: 45,
     total_clips: 134,
@@ -87,6 +150,75 @@ export default function Analytics() {
     growth_rate: 15.8,
     avg_viral_score: 78
   })
+
+  // Load real analytics data
+  const loadAnalytics = async () => {
+    setIsLoading(true)
+    try {
+      const periodMap = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'custom',
+        '1y': 'year'
+      }
+
+      const { data, error } = await supabase.functions.invoke('get-analytics', {
+        body: { 
+          period: periodMap[timeRange as keyof typeof periodMap] || 'month'
+        }
+      })
+
+      if (error) {
+        console.error('Analytics error:', error)
+        toast({
+          title: "Erro ao carregar analytics",
+          description: "Usando dados de demonstração",
+          variant: "default"
+        })
+      } else if (data?.success) {
+        setRealAnalytics(data)
+        toast({
+          title: "Analytics atualizados",
+          description: "Dados carregados com sucesso",
+          variant: "default"
+        })
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error)
+      toast({
+        title: "Erro na conexão",
+        description: "Verifique sua conexão e tente novamente",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAnalytics()
+  }, [timeRange])
+
+  // Get current stats (real or mock)
+  const getCurrentStats = () => {
+    if (realAnalytics?.analytics) {
+      const { overview, clips, videos, posts } = realAnalytics.analytics
+      return {
+        total_videos: overview.total_videos,
+        total_clips: overview.total_clips,
+        total_views: overview.total_engagement * 10, // Estimate views from engagement
+        total_likes: overview.total_engagement,
+        total_shares: Math.floor(overview.total_engagement * 0.1),
+        total_followers: Object.values(realAnalytics.analytics.platforms.connected_accounts)
+          .reduce((acc: number, account: any) => acc + (account.followers || 0), 0),
+        growth_rate: videos.success_rate - 85, // Growth rate estimate
+        avg_viral_score: clips.avg_score * 10 // Convert to 0-100 scale
+      }
+    }
+    return overallStats
+  }
+
+  const currentStats = getCurrentStats()
 
   const [chartData] = useState<AnalyticsData[]>([
     { period: '1 Jan', views: 12000, likes: 450, shares: 89, comments: 156, followers: 42000 },
@@ -173,8 +305,7 @@ export default function Analytics() {
   }
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1500)
+    loadAnalytics()
   }
 
   const handleExport = () => {
@@ -513,7 +644,7 @@ export default function Analytics() {
                         <Video className="h-8 w-8 text-blue-600" />
                       </div>
                       <p className="text-2xl font-bold text-gray-900">
-                        {overallStats.total_videos}
+                        {currentStats.total_videos}
                       </p>
                       <p className="text-sm text-gray-500">Vídeos Processados</p>
                     </div>
@@ -523,7 +654,7 @@ export default function Analytics() {
                         <Award className="h-8 w-8 text-green-600" />
                       </div>
                       <p className="text-2xl font-bold text-gray-900">
-                        {overallStats.total_clips}
+                        {currentStats.total_clips}
                       </p>
                       <p className="text-sm text-gray-500">Clips Gerados</p>
                     </div>
@@ -533,7 +664,7 @@ export default function Analytics() {
                         <Sparkles className="h-8 w-8 text-purple-600" />
                       </div>
                       <p className="text-2xl font-bold text-gray-900">
-                        {overallStats.avg_viral_score}%
+                        {Math.round(currentStats.avg_viral_score)}%
                       </p>
                       <p className="text-sm text-gray-500">Score Viral Médio</p>
                     </div>

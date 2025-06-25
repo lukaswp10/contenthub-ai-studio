@@ -41,9 +41,12 @@ import {
   Video,
   Image,
   Hash,
-  Eye
+  Eye,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
 
 interface SocialAccount {
   id: string
@@ -52,6 +55,9 @@ interface SocialAccount {
   followers: number
   is_connected: boolean
   avatar_url?: string
+  connection_status?: string
+  total_followers?: number
+  engagement_rate?: number
 }
 
 interface ScheduledPost {
@@ -69,6 +75,15 @@ interface ScheduledPost {
   }
 }
 
+interface Clip {
+  id: string
+  title: string
+  cloudinary_secure_url: string
+  ai_viral_score: number
+  duration_seconds: number
+  created_at: string
+}
+
 export default function Social() {
   const { toast } = useToast()
   const [selectedClip, setSelectedClip] = useState('')
@@ -77,6 +92,109 @@ export default function Social() {
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [isScheduling, setIsScheduling] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [realClips, setRealClips] = useState<Clip[]>([])
+  const [realAccounts, setRealAccounts] = useState<SocialAccount[]>([])
+
+  // Load real data
+  const loadSocialAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('social_accounts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading social accounts:', error)
+        return
+      }
+
+      const mappedAccounts: SocialAccount[] = data?.map(account => ({
+        id: account.id,
+        platform: account.platform as any,
+        username: account.username || account.display_name,
+        followers: account.total_followers || 0,
+        is_connected: account.connection_status === 'connected',
+        avatar_url: account.avatar_url,
+        connection_status: account.connection_status,
+        total_followers: account.total_followers,
+        engagement_rate: account.engagement_rate
+      })) || []
+
+      setRealAccounts(mappedAccounts)
+    } catch (error) {
+      console.error('Error loading accounts:', error)
+    }
+  }
+
+  const loadClips = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clips')
+        .select('*')
+        .eq('status', 'ready')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (error) {
+        console.error('Error loading clips:', error)
+        return
+      }
+
+      setRealClips(data || [])
+    } catch (error) {
+      console.error('Error loading clips:', error)
+    }
+  }
+
+  const connectSocialAccount = async (platform: string) => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('connect-social-account', {
+        body: {
+          platform,
+          redirect_url: window.location.origin
+        }
+      })
+
+      if (error) {
+        toast({
+          title: "Erro na conexão",
+          description: error.message,
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data?.success && data?.oauth_url) {
+        toast({
+          title: "Redirecionando...",
+          description: `Conectando com ${platform}`,
+        })
+        // Open OAuth URL in new window
+        window.open(data.oauth_url, '_blank', 'width=600,height=600')
+        
+        // Refresh accounts after connection
+        setTimeout(() => {
+          loadSocialAccounts()
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('Error connecting account:', error)
+      toast({
+        title: "Erro na conexão",
+        description: "Tente novamente mais tarde",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSocialAccounts()
+    loadClips()
+  }, [])
 
   // Mock data - replace with real API calls
   const [accounts, setAccounts] = useState<SocialAccount[]>([
@@ -193,24 +311,7 @@ export default function Social() {
   }
 
   const handleConnectAccount = (platform: string) => {
-    // Simulate OAuth connection
-    toast({
-      title: "Conectando conta...",
-      description: `Redirecionando para ${platform}`,
-    })
-    
-    // In real app, this would redirect to OAuth flow
-    setTimeout(() => {
-      setAccounts(accounts.map(acc => 
-        acc.platform === platform 
-          ? { ...acc, is_connected: true }
-          : acc
-      ))
-      toast({
-        title: "Conta conectada!",
-        description: `Sua conta do ${platform} foi conectada com sucesso.`,
-      })
-    }, 2000)
+    connectSocialAccount(platform)
   }
 
   const handleSchedulePost = async () => {
@@ -308,7 +409,7 @@ export default function Social() {
                       <SelectValue placeholder="Escolha um clip..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableClips.map((clip) => (
+                      {(realClips.length > 0 ? realClips : availableClips).map((clip) => (
                         <SelectItem key={clip.id} value={clip.id}>
                           <div className="flex items-center space-x-2">
                             <Video className="h-4 w-4" />
@@ -342,7 +443,7 @@ export default function Social() {
                     Plataformas
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {accounts.filter(acc => acc.is_connected).map((account) => (
+                    {(realAccounts.length > 0 ? realAccounts : accounts).filter(acc => acc.is_connected).map((account) => (
                       <div
                         key={account.id}
                         className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${

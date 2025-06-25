@@ -62,7 +62,7 @@ serve(async (req) => {
     console.log(`Scheduling post for clip ${clip_id} to ${social_account_ids.length} accounts`)
 
     // Fetch clip details
-    const { data: clip, errorr: clipError } = await supabase
+    const { data: clip, error: clipError } = await supabase
       .from('clips')
       .select('*')
       .eq('id', clip_id)
@@ -72,7 +72,7 @@ serve(async (req) => {
     if (clipError || !clip) throw new Error('Clip não encontrado')
 
     // Fetch social accounts
-    const { data: socialAccounts, errorr: accountsError } = await supabase
+    const { data: socialAccounts, error: accountsError } = await supabase
       .from('social_accounts')
       .select('*')
       .in('id', social_account_ids)

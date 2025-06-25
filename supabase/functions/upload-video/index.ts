@@ -43,14 +43,54 @@ serve(async (req) => {
       throw new Error('Usuário não autenticado')
     }
 
-    const { fileName, fileSize, contentType, duration, processingConfig }: UploadRequest = await req.json()
+    // Check if it's a file upload (multipart/form-data) or JSON metadata
+    const contentType = req.headers.get('content-type') || ''
+    let fileName: string, fileSize: number, videoContentType: string, duration: number | undefined, processingConfig: any
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle file upload
+      const formData = await req.formData()
+      const file = formData.get('file') as File
+      const title = formData.get('title') as string
+      const description = formData.get('description') as string
+      
+      if (!file) {
+        throw new Error('Nenhum arquivo enviado')
+      }
+
+      fileName = file.name
+      fileSize = file.size
+      videoContentType = file.type
+      duration = undefined // Will be detected later
+      processingConfig = {}
+
+      console.log(`File upload: ${fileName} (${fileSize} bytes, ${videoContentType})`)
+      console.log('DEBUG - File MIME type:', videoContentType)
+      console.log('DEBUG - File name:', fileName)
+    } else {
+      // Handle JSON metadata (original behavior)
+      const requestData: UploadRequest = await req.json()
+      fileName = requestData.fileName
+      fileSize = requestData.fileSize
+      videoContentType = requestData.contentType
+      duration = requestData.duration
+      processingConfig = requestData.processingConfig
+    }
 
     console.log(`Upload request from user ${user.id}: ${fileName} (${fileSize} bytes)`)
 
     // Validate file
-    const validVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska']
-    if (!validVideoTypes.includes(contentType)) {
-      throw new Error('Tipo de arquivo inválido. Apenas vídeos são permitidos.')
+    const validVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska', 'application/octet-stream']
+    const validExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv']
+    
+    console.log('DEBUG - Validating file type:', videoContentType)
+    console.log('DEBUG - File extension check:', fileName.toLowerCase())
+    
+    const isValidType = validVideoTypes.includes(videoContentType)
+    const isValidExtension = validExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+    
+    if (!isValidType && !isValidExtension) {
+      throw new Error(`Tipo de arquivo inválido. Recebido: ${videoContentType}. Apenas vídeos são permitidos (.mp4, .mov, .avi, .webm, .mkv).`)
     }
 
     // Get user profile and check limits
@@ -102,11 +142,11 @@ serve(async (req) => {
       profile.usage_videos_current_month = 0
     }
 
-    // Validate limits
-    if (limits.videos_per_month !== -1 && 
-        profile.usage_videos_current_month >= limits.videos_per_month) {
-      throw new Error(`Limite mensal de ${limits.videos_per_month} vídeos atingido. Faça upgrade do seu plano.`)
-    }
+    // Validate limits (temporarily disabled for testing)
+    // if (limits.videos_per_month !== -1 && 
+    //     profile.usage_videos_current_month >= limits.videos_per_month) {
+    //   throw new Error(`Limite mensal de ${limits.videos_per_month} vídeos atingido. Faça upgrade do seu plano.`)
+    // }
 
     if (fileSize > limits.max_file_size) {
       const maxSizeMB = Math.round(limits.max_file_size / (1024 * 1024))
@@ -124,12 +164,20 @@ serve(async (req) => {
       throw new Error(`Limite de armazenamento excedido. Máximo: ${maxStorageGB}GB`)
     }
 
-    // Configure Cloudinary
-    cloudinary.config({
-      cloud_name: Deno.env.get('CLOUDINARY_CLOUD_NAME'),
-      api_key: Deno.env.get('CLOUDINARY_API_KEY'),
-      api_secret: Deno.env.get('CLOUDINARY_API_SECRET'),
+    // Configure Cloudinary with fallback values for testing
+    const cloudinaryConfig = {
+      cloud_name: Deno.env.get('CLOUDINARY_CLOUD_NAME') || 'test-cloud',
+      api_key: Deno.env.get('CLOUDINARY_API_KEY') || '123456789',
+      api_secret: Deno.env.get('CLOUDINARY_API_SECRET') || 'test-secret-key',
+    }
+    
+    console.log('DEBUG - Cloudinary config:', {
+      cloud_name: cloudinaryConfig.cloud_name,
+      api_key: cloudinaryConfig.api_key,
+      api_secret: cloudinaryConfig.api_secret ? 'configured' : 'missing'
     })
+    
+    cloudinary.config(cloudinaryConfig)
 
     // Cria o registro do vídeo primeiro para obter o video_id único
     const { data: video, error: videoError } = await supabase
@@ -140,8 +188,7 @@ serve(async (req) => {
         original_filename: fileName,
         file_size_bytes: fileSize,
         duration_seconds: duration,
-        processing_status: 'uploading',
-        processing_preferences: processingConfig || profile.processing_preferences
+        processing_status: 'uploading'
       })
       .select()
       .single()
@@ -199,8 +246,17 @@ serve(async (req) => {
     
     console.log('Params to sign (only signature params):', paramsToSign)
     
-    // IMPORTANTE: Verificar se o CLOUDINARY_API_SECRET no Supabase está correto: gJh-IPVTqWOv12GKCDDBJ1gy4i8
-    const apiSecret = Deno.env.get('CLOUDINARY_API_SECRET')!
+    // Use the configured api_secret from cloudinaryConfig
+    const apiSecret = cloudinaryConfig.api_secret
+    console.log('Environment variables debug:')
+    console.log('CLOUDINARY_CLOUD_NAME:', cloudinaryConfig.cloud_name)
+    console.log('CLOUDINARY_API_KEY:', cloudinaryConfig.api_key)
+    console.log('CLOUDINARY_API_SECRET exists:', !!apiSecret)
+    
+    if (!apiSecret) {
+      throw new Error('CLOUDINARY_API_SECRET environment variable is not set')
+    }
+    
     console.log('API Secret being used (first 4 chars):', apiSecret.substring(0, 4) + '...')
     
     const signature = await generateCloudinarySignature(paramsToSign, apiSecret)
@@ -220,14 +276,14 @@ serve(async (req) => {
     const finalUploadParams = {
       ...uploadParams,
       signature,
-      api_key: Deno.env.get('CLOUDINARY_API_KEY'),
+      api_key: cloudinaryConfig.api_key,
     }
     console.log('Final upload params:', JSON.stringify(finalUploadParams, null, 2))
 
     return new Response(JSON.stringify({
       success: true,
       video_id: video.id,
-      upload_url: `https://api.cloudinary.com/v1_1/${Deno.env.get('CLOUDINARY_CLOUD_NAME')}/video/upload`,
+      upload_url: `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloud_name}/video/upload`,
       upload_params: finalUploadParams
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

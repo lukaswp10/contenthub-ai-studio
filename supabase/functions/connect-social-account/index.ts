@@ -26,7 +26,7 @@ serve(async (req) => {
       console.log('❌ Sem header de autorização')
       return new Response(JSON.stringify({
         success: false,
-        errorr: 'Header de autorização não fornecido'
+        error: 'Header de autorização não fornecido'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -40,13 +40,13 @@ serve(async (req) => {
     )
 
     console.log('👤 Verificando usuário...')
-    const { data: { user }, errorr: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     
     if (userError) {
       console.log('❌ Erro ao verificar usuário:', userError.message)
       return new Response(JSON.stringify({
         success: false,
-        errorr: 'Erro de autenticação: ' + userError.message
+        error: 'Erro de autenticação: ' + userError.message
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -57,9 +57,9 @@ serve(async (req) => {
       console.log('❌ Usuário não autenticado')
       return new Response(JSON.stringify({
         success: false,
-        errorr: 'Não autenticado'
+        error: 'Usuário não autenticado'
       }), {
-        status: 400,
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -69,37 +69,66 @@ serve(async (req) => {
     const { platform, redirect_url }: ConnectRequest = await req.json()
     console.log('📋 Dados recebidos:', { platform, redirect_url })
 
-    // Verificar se Ayrshare API key está configurada
-    const ayrshareApiKey = Deno.env.get('AYRSHARE_API_KEY')
-    if (!ayrshareApiKey) {
-      console.log('❌ Ayrshare API key não configurada')
+    // Validar plataforma
+    const supportedPlatforms = ['instagram', 'tiktok', 'youtube', 'facebook', 'twitter', 'linkedin']
+    if (!supportedPlatforms.includes(platform.toLowerCase())) {
       return new Response(JSON.stringify({
         success: false,
-        errorr: 'Ayrshare API key não configurada'
+        error: `Plataforma não suportada: ${platform}`
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log('🔗 Gerando URL de OAuth direta...')
+    console.log('🔗 Gerando URL de OAuth...')
     
-    // Usar OAuth direto do Ayrshare sem criar perfil via API
-    // Isso funciona com planos gratuitos/Pro
-    const oauthUrl = `https://app.ayrshare.com/oauth?platform=${platform}&redirect=${encodeURIComponent(`${redirect_url}/auth/oauth-callback`)}`
+    // URL de OAuth personalizada para cada plataforma
+    let oauthUrl = ''
+    const baseRedirect = `${redirect_url}/auth/social-callback`
+    
+    switch (platform.toLowerCase()) {
+      case 'instagram':
+        oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${Deno.env.get('INSTAGRAM_CLIENT_ID')}&redirect_uri=${encodeURIComponent(baseRedirect)}&scope=user_profile,user_media&response_type=code&state=${platform}`
+        break
+      case 'tiktok':
+        oauthUrl = `https://www.tiktok.com/auth/authorize/?client_key=${Deno.env.get('TIKTOK_CLIENT_KEY')}&response_type=code&scope=user.info.basic,video.list&redirect_uri=${encodeURIComponent(baseRedirect)}&state=${platform}`
+        break
+      case 'youtube':
+        oauthUrl = `https://accounts.google.com/oauth2/auth?client_id=${Deno.env.get('YOUTUBE_CLIENT_ID')}&redirect_uri=${encodeURIComponent(baseRedirect)}&scope=https://www.googleapis.com/auth/youtube.upload&response_type=code&state=${platform}`
+        break
+      case 'facebook':
+        oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${Deno.env.get('FACEBOOK_CLIENT_ID')}&redirect_uri=${encodeURIComponent(baseRedirect)}&scope=pages_manage_posts,pages_read_engagement&response_type=code&state=${platform}`
+        break
+      case 'twitter':
+        // Twitter OAuth 2.0
+        oauthUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${Deno.env.get('TWITTER_CLIENT_ID')}&redirect_uri=${encodeURIComponent(baseRedirect)}&scope=tweet.read%20tweet.write%20users.read&state=${platform}&code_challenge=challenge&code_challenge_method=plain`
+        break
+      case 'linkedin':
+        oauthUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${Deno.env.get('LINKEDIN_CLIENT_ID')}&redirect_uri=${encodeURIComponent(baseRedirect)}&scope=r_liteprofile%20w_member_social&state=${platform}`
+        break
+      default:
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Plataforma não configurada'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+    }
 
-    console.log('✅ URL gerada:', oauthUrl)
+    console.log('✅ URL gerada para', platform)
 
     // Criar entrada temporária na base de dados
     const tempAccount = {
       user_id: user.id,
-      platform,
+      platform: platform.toLowerCase(),
       platform_user_id: `temp_${platform}_${Date.now()}`,
-      username: `connecting_${Math.floor(Math.random() * 1000)}`,
+      username: `conectando_${Math.floor(Math.random() * 1000)}`,
       display_name: 'Conectando...',
-      avatar_url: `https://ui-avatars.com/api/?name=Connecting&background=007bff&color=fff`,
+      avatar_url: `https://ui-avatars.com/api/?name=${platform}&background=007bff&color=fff`,
       verified: false,
-      connection_status: 'errorr',
+      connection_status: 'connecting',
       total_followers: 0,
       engagement_rate: 0,
       posting_schedule: {
@@ -113,17 +142,17 @@ serve(async (req) => {
       }
     }
 
-    const { errorr: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from('social_accounts')
       .insert(tempAccount)
 
     if (insertError) {
-      console.errorr('❌ Erro ao inserir conta temporária:', insertError)
+      console.error('❌ Erro ao inserir conta temporária:', insertError)
       return new Response(JSON.stringify({
         success: false,
-        errorr: 'Erro ao salvar conta temporária'
+        error: 'Erro ao salvar conta temporária'
       }), {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -133,18 +162,19 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       oauth_url: oauthUrl,
+      platform,
       message: `Redirecionando para ${platform}...`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (errorr: any) {
-    console.errorr('❌ Erro geral:', errorr)
+  } catch (error: any) {
+    console.error('❌ Erro geral:', error)
     return new Response(JSON.stringify({ 
       success: false,
-      errorr: errorr.message 
+      error: error.message 
     }), {
-      status: 400,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
