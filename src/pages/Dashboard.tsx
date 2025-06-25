@@ -278,6 +278,10 @@ export default function Dashboard() {
       return
     }
 
+    // Inicializar monitor ANTES do upload começar
+    const tempVideoId = `temp_${Date.now()}`
+    initializeUploadMonitor(tempVideoId)
+
     try {
       const result = await uploadVideo()
       toast({
@@ -290,17 +294,61 @@ export default function Dashboard() {
         loadDashboardData()
       }, 2000)
 
-      // Após o upload bem-sucedido, inicializar o monitor
+      // Atualizar o monitor com o videoId real
       if (result) {
-        initializeProcessingMonitor(result)
+        updateMonitorWithRealId(tempVideoId, result)
       }
       
     } catch (error) {
       console.error('Upload error:', error)
+      // Remover monitor em caso de erro
+      setProcessingVideos(prev => prev.filter(p => p.videoId !== tempVideoId))
     }
   }
 
-  // Função para inicializar o monitoramento de processamento
+  // Função para inicializar o monitoramento durante o upload
+  const initializeUploadMonitor = (tempVideoId: string) => {
+    const initialSteps: ProcessingStep[] = [
+      { id: 'upload', name: 'Upload do Vídeo', status: 'processing', details: 'Enviando arquivo...' },
+      { id: 'transcribe', name: 'Transcrição Automática', status: 'pending', details: 'Aguardando início da transcrição' },
+      { id: 'analyze', name: 'Análise de Conteúdo', status: 'pending', details: 'Aguardando análise do conteúdo' },
+      { id: 'generate', name: 'Geração de Clips', status: 'pending', details: 'Aguardando geração dos clips' },
+      { id: 'finalize', name: 'Finalização', status: 'pending', details: 'Aguardando finalização do processo' }
+    ]
+
+    const processingStatus: VideoProcessingStatus = {
+      videoId: tempVideoId,
+      currentStep: 'uploading',
+      steps: initialSteps,
+      lastUpdated: new Date().toISOString()
+    }
+
+    setProcessingVideos(prev => [...prev.filter(p => p.videoId !== tempVideoId), processingStatus])
+  }
+
+  // Função para atualizar o monitor com o ID real após upload
+  const updateMonitorWithRealId = (tempVideoId: string, realVideoId: string) => {
+    setProcessingVideos(prev => prev.map(processing => {
+      if (processing.videoId === tempVideoId) {
+        const updatedSteps = [...processing.steps]
+        updatedSteps[0] = { ...updatedSteps[0], status: 'completed', details: 'Arquivo enviado com sucesso' }
+        
+        return {
+          ...processing,
+          videoId: realVideoId,
+          currentStep: 'queued',
+          steps: updatedSteps,
+          lastUpdated: new Date().toISOString()
+        }
+      }
+      return processing
+    }))
+    
+    // Iniciar polling agora que temos o ID real
+    startPolling()
+  }
+
+  // Função para inicializar o monitoramento de processamento (para uso direto)
   const initializeProcessingMonitor = (videoId: string) => {
     const initialSteps: ProcessingStep[] = [
       { id: 'upload', name: 'Upload do Vídeo', status: 'completed', details: 'Arquivo enviado com sucesso' },
@@ -407,6 +455,32 @@ export default function Dashboard() {
       if (pollingInterval) clearInterval(pollingInterval)
     }
   }, [pollingInterval])
+
+  // Monitorar progresso do upload e atualizar o monitor
+  useEffect(() => {
+    if (isUploading && processingVideos.length > 0) {
+      const tempVideo = processingVideos.find(p => p.videoId.startsWith('temp_'))
+      if (tempVideo) {
+        setProcessingVideos(prev => prev.map(processing => {
+          if (processing.videoId === tempVideo.videoId) {
+            const updatedSteps = [...processing.steps]
+            updatedSteps[0] = { 
+              ...updatedSteps[0], 
+              status: 'processing', 
+              details: `Enviando arquivo... ${uploadProgress}%` 
+            }
+            
+            return {
+              ...processing,
+              steps: updatedSteps,
+              lastUpdated: new Date().toISOString()
+            }
+          }
+          return processing
+        }))
+      }
+    }
+  }, [uploadProgress, isUploading, processingVideos])
 
   // Função para forçar atualização
   const forceRefreshProcessing = (videoId: string) => {
