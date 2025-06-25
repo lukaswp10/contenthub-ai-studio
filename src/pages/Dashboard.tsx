@@ -38,7 +38,7 @@ interface DashboardStats {
 interface RecentVideo {
   id: string
   title: string
-  status: 'processing' | 'completed' | 'failed'
+  processing_status: 'uploading' | 'queued' | 'transcribing' | 'analyzing' | 'generating_clips' | 'ready' | 'failed' | 'cancelled'
   created_at: string
   clips_count?: number
   thumbnail_url?: string
@@ -106,7 +106,7 @@ export default function Dashboard() {
         .select(`
           id,
           title,
-          status,
+          processing_status,
           created_at,
           thumbnail_url
         `)
@@ -270,26 +270,37 @@ export default function Dashboard() {
 
 
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'processing':
+  const getStatusIcon = (processing_status: string) => {
+    switch (processing_status) {
+      case 'uploading':
+      case 'queued':
+      case 'transcribing':
+      case 'analyzing':
+      case 'generating_clips':
         return <Clock className="h-4 w-4 text-yellow-500" />
-      case 'completed':
+      case 'ready':
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'failed':
+      case 'cancelled':
         return <AlertCircle className="h-4 w-4 text-red-500" />
       default:
         return <Clock className="h-4 w-4 text-gray-500" />
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'processing':
+  const getStatusColor = (processing_status: string) => {
+    switch (processing_status) {
+      case 'uploading':
+      case 'queued':
+        return 'bg-blue-100 text-blue-800'
+      case 'transcribing':
+      case 'analyzing':
+      case 'generating_clips':
         return 'bg-yellow-100 text-yellow-800'
-      case 'completed':
+      case 'ready':
         return 'bg-green-100 text-green-800'
       case 'failed':
+      case 'cancelled':
         return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
@@ -662,7 +673,7 @@ export default function Dashboard() {
                     {recentVideos.map((video) => (
                       <div key={video.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                         <div className="flex items-center space-x-3">
-                          {getStatusIcon(video.status)}
+                          {getStatusIcon(video.processing_status)}
                           <div>
                             <p className="font-medium text-gray-900">{video.title}</p>
                             <p className="text-sm text-gray-600">
@@ -671,9 +682,9 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Badge className={getStatusColor(video.status)}>
-                            {video.status === 'processing' ? 'Processando' : 
-                             video.status === 'completed' ? 'Concluído' : 'Erro'}
+                          <Badge className={getStatusColor(video.processing_status)}>
+                            {video.processing_status === 'ready' ? 'Concluído' : 
+                             video.processing_status === 'failed' || video.processing_status === 'cancelled' ? 'Erro' : 'Processando'}
                           </Badge>
                           <Button variant="outline" size="sm">
                             Ver Clips
