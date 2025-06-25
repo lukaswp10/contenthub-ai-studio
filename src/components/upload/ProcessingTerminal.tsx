@@ -1,245 +1,47 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { useState, useEffect, useRef } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 import { 
-  Play, 
-  Pause, 
+  Terminal, 
+  ChevronDown, 
+  ChevronUp, 
   CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  FileVideo,
-  FileText,
-  Scissors,
-  Share2,
-  RefreshCw,
-  Terminal,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Upload,
-  Zap
-} from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
-import { cn } from '@/lib/utils';
-
-type Video = Tables<'videos'>;
-
-interface ProcessingVideo extends Video {
-  clips?: any[];
-  scheduled_posts?: any[];
-}
+  Loader2, 
+  AlertCircle,
+  Clock
+} from 'lucide-react'
 
 interface ProcessingStep {
-  id: string;
-  title: string;
-  status: 'pending' | 'running' | 'completed' | 'error';
-  message: string;
-  timestamp: string;
-  details?: string[];
-  progress?: number;
+  id: string
+  title: string
+  status: 'pending' | 'running' | 'completed' | 'error'
+  message: string
+  timestamp: string
+  details?: string[]
+  progress?: number
 }
 
-interface ProcessingViewerProps {
-  isVisible: boolean;
-  onToggle: () => void;
-  currentStep?: string;
-  progress: number;
-  videoId?: string;
+interface ProcessingTerminalProps {
+  isVisible: boolean
+  onToggle: () => void
+  currentStep?: string
+  progress: number
+  videoId?: string
 }
 
-const statusConfig = {
-  uploading: {
-    label: 'Fazendo upload',
-    icon: FileVideo,
-    color: 'bg-blue-500',
-    description: 'Enviando vídeo para processamento'
-  },
-  queued: {
-    label: 'Na fila',
-    icon: Clock,
-    color: 'bg-gray-500',
-    description: 'Aguardando processamento'
-  },
-  transcribing: {
-    label: 'Transcrevendo',
-    icon: FileText,
-    color: 'bg-yellow-500',
-    description: 'Convertendo áudio em texto'
-  },
-  analyzing: {
-    label: 'Analisando',
-    icon: FileText,
-    color: 'bg-purple-500',
-    description: 'Analisando conteúdo do vídeo'
-  },
-  generating_clips: {
-    label: 'Gerando clipes',
-    icon: Scissors,
-    color: 'bg-green-500',
-    description: 'Criando clipes automáticos'
-  },
-  ready: {
-    label: 'Pronto',
-    icon: CheckCircle,
-    color: 'bg-green-600',
-    description: 'Processamento finalizado'
-  },
-  failed: {
-    label: 'Falhou',
-    icon: AlertCircle,
-    color: 'bg-red-500',
-    description: 'Erro no processamento'
-  },
-  cancelled: {
-    label: 'Cancelado',
-    icon: AlertCircle,
-    color: 'bg-gray-400',
-    description: 'Processamento cancelado'
-  }
-};
-
-const statusSteps = [
-  { key: 'uploading', label: 'Upload', icon: FileVideo },
-  { key: 'queued', label: 'Fila', icon: Clock },
-  { key: 'transcribing', label: 'Transcrição', icon: FileText },
-  { key: 'analyzing', label: 'Análise', icon: FileText },
-  { key: 'generating_clips', label: 'Clips', icon: Scissors },
-  { key: 'ready', label: 'Pronto', icon: CheckCircle },
-];
-
-export default function ProcessingViewer({ 
+export default function ProcessingTerminal({ 
   isVisible, 
   onToggle, 
   currentStep, 
   progress,
   videoId 
-}: ProcessingViewerProps) {
-  const [videos, setVideos] = useState<ProcessingVideo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stepTimestamps, setStepTimestamps] = useState<Record<string, number>>({});
-  const [timeoutWarning, setTimeoutWarning] = useState(false);
-  const [steps, setSteps] = useState<ProcessingStep[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
-  const terminalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    loadProcessingVideos();
-    const interval = setInterval(loadProcessingVideos, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!videos.length) return;
-    const video = videos[0];
-    // Timeout: se etapa atual durar mais de 5 minutos, alerta
-    const now = Date.now();
-    const currentStep = video.processing_status;
-    setStepTimestamps((prev) => {
-      if (!prev[currentStep]) {
-        return { ...prev, [currentStep]: now };
-      }
-      return prev;
-    });
-    if (stepTimestamps[currentStep] && now - stepTimestamps[currentStep] > 5 * 60 * 1000) {
-      setTimeoutWarning(true);
-    } else {
-      setTimeoutWarning(false);
-    }
-  }, [videos, stepTimestamps]);
-
-  const loadProcessingVideos = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('videos')
-        .select(`
-          id,
-          title,
-          processing_status,
-          error_message,
-          created_at,
-          duration_seconds,
-          file_size_bytes,
-          transcription,
-          ai_main_topics,
-          ai_suggested_clips
-        `)
-        .eq('user_id', user.id)
-        .in('processing_status', ['uploading', 'queued', 'transcribing', 'analyzing', 'generating_clips', 'ready', 'failed', 'cancelled'])
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-
-      setVideos((data || []) as ProcessingVideo[]);
-      
-      // Check for completed videos
-      const completedVideos = data?.filter(v => v.processing_status === 'ready') || [];
-      completedVideos.forEach(video => {
-        onVideoComplete?.(video as ProcessingVideo);
-      });
-    } catch (error) {
-      console.error('Error loading processing videos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRetry = async (videoId: string) => {
-    try {
-      const { error } = await supabase
-        .from('videos')
-        .update({ 
-          processing_status: 'uploading', 
-          error_message: null 
-        })
-        .eq('id', videoId);
-
-      if (error) throw error;
-
-      // Trigger reprocessing
-      const { error: functionError } = await supabase.functions.invoke('upload-video', {
-        body: { video_id: videoId, retry: true }
-      });
-
-      if (functionError) throw functionError;
-
-      onRetry?.(videoId);
-      loadProcessingVideos();
-    } catch (error) {
-      console.error('Error retrying video:', error);
-    }
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'N/A';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return 'N/A';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const calculateProgress = (video: ProcessingVideo) => {
-    if (video.processing_status === 'ready') return 100;
-    if (video.processing_status === 'failed' || video.processing_status === 'cancelled') return 0;
-    
-    const statusOrder = ['uploading', 'queued', 'transcribing', 'analyzing', 'generating_clips', 'ready'];
-    const currentIndex = statusOrder.indexOf(video.processing_status || 'uploading');
-    return Math.round((currentIndex / (statusOrder.length - 1)) * 100);
-  };
+}: ProcessingTerminalProps) {
+  const [steps, setSteps] = useState<ProcessingStep[]>([])
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [logs, setLogs] = useState<string[]>([])
+  const terminalRef = useRef<HTMLDivElement>(null)
 
   // Initialize processing steps
   useEffect(() => {

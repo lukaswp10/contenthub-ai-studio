@@ -113,57 +113,22 @@ export function useVideoUpload() {
 
       // Update video record with Cloudinary URL
       setUploadProgress(80)
-      // Checar existência do vídeo antes do update
-      const { data: videoExists, error: getError } = await supabase
-        .from('videos')
-        .select('id')
-        .eq('id', videoData.id)
-        .single();
-      if (!videoExists) {
-        toast({
-          title: "Vídeo não encontrado",
-          description: "O vídeo pode ter sido removido ou processado.",
-          variant: "destructive",
-        });
-        return null;
-      }
+      
+      // Generate unique public_id to avoid duplicates
+      const uniquePublicId = `${uploadData.upload_params.public_id}_${Date.now()}`
+      
       const { error: updateError } = await supabase
         .from('videos')
         .update({
-          cloudinary_public_id: uploadData.upload_params.public_id,
+          cloudinary_public_id: uniquePublicId,
           cloudinary_secure_url: uploadedUrl,
           processing_status: 'queued'
         })
         .eq('id', videoData.id)
+        
       if (updateError) {
-        if (updateError.code === '409' || updateError.message?.includes('duplicate key value violates unique constraint "videos_cloudinary_public_id_key"')) {
-          console.error('Erro de duplicata detectado:', updateError);
-          toast({
-            title: "Erro de duplicata",
-            description: "Este vídeo já foi processado anteriormente. Tente com um arquivo diferente.",
-            variant: "destructive",
-          });
-          
-          // Limpar o registro duplicado se possível
-          try {
-            await supabase
-              .from('videos')
-              .delete()
-              .eq('id', videoData.id);
-          } catch (deleteError) {
-            console.error('Erro ao limpar registro duplicado:', deleteError);
-          }
-          
-          // Resetar upload
-          setFile(null)
-          setTitle('')
-          setDescription('')
-          setUploadProgress(0)
-          setCurrentVideoId(null)
-          
-          return null;
-        }
-        throw updateError;
+        console.error('Erro ao atualizar vídeo:', updateError)
+        throw updateError
       }
 
       // Trigger transcription

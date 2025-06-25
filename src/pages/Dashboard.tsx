@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ProcessingTerminal from '@/components/upload/ProcessingTerminal'
 
 interface DashboardStats {
   videosUploaded: number
@@ -92,6 +93,8 @@ export default function Dashboard() {
   const [recentClips, setRecentClips] = useState<Clip[]>([])
   const [loading, setLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
+  const [showTerminal, setShowTerminal] = useState(false)
+  const [currentStep, setCurrentStep] = useState<string>('')
   
   // Upload states
   const {
@@ -105,7 +108,8 @@ export default function Dashboard() {
     uploadProgress,
     uploadError,
     uploadVideo,
-    resetUpload
+    resetUpload,
+    currentVideoId
   } = useVideoUpload()
 
   // Prevent auth issues on refresh
@@ -273,7 +277,17 @@ export default function Dashboard() {
     }
 
     try {
+      // Mostrar terminal e iniciar com upload
+      setShowTerminal(true)
+      setCurrentStep('upload')
+      
       await uploadVideo()
+      
+      // Simular progressão dos passos
+      setTimeout(() => setCurrentStep('transcription'), 2000)
+      setTimeout(() => setCurrentStep('analysis'), 5000)
+      setTimeout(() => setCurrentStep('clips'), 8000)
+      
       toast({
         title: "Upload concluído!",
         description: "Seu vídeo está sendo processado. Os clips serão gerados automaticamente.",
@@ -286,6 +300,9 @@ export default function Dashboard() {
       
     } catch (error) {
       console.error('Erro no upload:', error)
+      // Esconder terminal em caso de erro
+      setShowTerminal(false)
+      setCurrentStep('')
     }
   }
 
@@ -880,6 +897,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Processing Terminal - Fixed Bottom */}
+      {showTerminal && (
+        <div className="fixed bottom-4 left-4 right-4 z-50 max-w-4xl mx-auto">
+          <ProcessingTerminal
+            isVisible={showTerminal}
+            onToggle={() => setShowTerminal(false)}
+            currentStep={currentStep}
+            progress={uploadProgress}
+            videoId={currentVideoId}
+          />
+        </div>
+      )}
     </div>
   )
 } 
