@@ -669,6 +669,79 @@ export default function Dashboard() {
           {/* Videos and Clips Section */}
           <div className="lg:col-span-2 space-y-6">
             
+            {/* Manual Clip Editor Highlight */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Scissors className="h-6 w-6 text-purple-600" />
+                  🎬 Editor Manual de Clips
+                </CardTitle>
+                <CardDescription>
+                  Crie clips personalizados com controle total sobre timing e conteúdo
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Corte preciso por segundo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span>Preview em tempo real</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span>Múltiplas plataformas</span>
+                    </div>
+                  </div>
+                  
+                  {recentVideos.filter(v => v.processing_status === 'ready').length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-gray-700">Vídeos prontos para edição:</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {recentVideos
+                          .filter(v => v.processing_status === 'ready')
+                          .slice(0, 4)
+                          .map((video) => (
+                            <div key={video.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-100 hover:border-purple-200 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 truncate">{video.title}</p>
+                                <p className="text-xs text-gray-500">{formatDuration(video.duration_seconds)} • {video.clips_count || 0} clips</p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                className="bg-purple-600 hover:bg-purple-700 text-white ml-2"
+                                asChild
+                              >
+                                <a href={`/editor/${video.id}`}>
+                                  <Scissors className="h-3 w-3 mr-1" />
+                                  Editar
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                      <div className="text-center pt-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href="/gallery">
+                            Ver todos os vídeos →
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Scissors className="h-12 w-12 mx-auto mb-3 text-purple-400" />
+                      <p className="text-gray-600 mb-2">Nenhum vídeo pronto para edição</p>
+                      <p className="text-sm text-gray-500">Faça upload de um vídeo para começar a criar clips manuais</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Recent Clips */}
             <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
                 <CardHeader>
@@ -822,17 +895,33 @@ export default function Dashboard() {
                              video.clips_count && video.clips_count > 0 ? 'Clips Criados' : 'Processando'}
                           </Badge>
                           
-                          {video.clips_count && video.clips_count > 0 && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              asChild
-                            >
-                              <a href={`/gallery?video=${video.id}`}>
-                                Ver Clips ({video.clips_count})
-                              </a>
-                          </Button>
-                          )}
+                          <div className="flex gap-2">
+                            {video.clips_count && video.clips_count > 0 && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                asChild
+                              >
+                                <a href={`/gallery?video=${video.id}`}>
+                                  Ver Clips ({video.clips_count})
+                                </a>
+                              </Button>
+                            )}
+                            
+                            {video.processing_status === 'ready' && (
+                              <Button 
+                                variant="default" 
+                                size="sm"
+                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                                asChild
+                              >
+                                <a href={`/editor/${video.id}`}>
+                                  <Scissors className="h-3 w-3 mr-1" />
+                                  Editar Clips
+                                </a>
+                              </Button>
+                            )}
+                          </div>
                           
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

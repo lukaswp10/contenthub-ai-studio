@@ -485,6 +485,55 @@ export default function Gallery() {
           </Button>
         </div>
         
+        {/* Editor Manual Banner */}
+        {!selectedVideo && videos.filter(v => v.processing_status === 'ready').length > 0 && (
+          <Card className="mb-6 border-0 shadow-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                    <Scissors className="h-6 w-6" />
+                    🎬 Crie Clips Personalizados
+                  </h3>
+                  <p className="text-purple-100 mb-3">
+                    Use nosso editor manual para criar clips com controle total sobre timing, cortes e conteúdo
+                  </p>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                      Corte preciso por segundo
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                      Preview em tempo real
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                      Múltiplas plataformas
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-6">
+                  <Select onValueChange={(videoId) => navigate(`/editor/${videoId}`)}>
+                    <SelectTrigger className="w-48 bg-white text-gray-900">
+                      <SelectValue placeholder="Escolher vídeo para editar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {videos
+                        .filter(v => v.processing_status === 'ready')
+                        .map((video) => (
+                          <SelectItem key={video.id} value={video.id}>
+                            {video.title}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Search and Filters */}
         <Card className="mb-8 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
           <CardContent className="p-6">
@@ -627,6 +676,20 @@ export default function Gallery() {
                             </Button>
                           )}
                           
+                          {video.processing_status === 'ready' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                              asChild
+                            >
+                              <a href={`/editor/${video.id}`}>
+                                <Scissors className="h-3 w-3 mr-1" />
+                                Editar
+                              </a>
+                            </Button>
+                          )}
+                          
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="sm">
@@ -634,6 +697,14 @@ export default function Gallery() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {video.processing_status === 'ready' && (
+                                <DropdownMenuItem asChild>
+                                  <a href={`/editor/${video.id}`} className="flex items-center">
+                                    <Scissors className="h-4 w-4 mr-2" />
+                                    Editar Clips
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteVideo(video.id, video.title)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"

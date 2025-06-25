@@ -141,32 +141,46 @@ export default function Editor() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => navigate('/dashboard')}
+              className="text-white hover:bg-white/20"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{video.title}</h1>
-              <p className="text-sm text-gray-500">Editor de Clips Manual</p>
+              <h1 className="text-2xl font-bold">{video.title}</h1>
+              <p className="text-purple-100 flex items-center gap-2">
+                <Scissors className="h-4 w-4" />
+                Editor de Clips Manual - Controle total sobre seus cortes
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Scissors className="h-3 w-3" />
-              {clips.length} clips
+          <div className="flex items-center space-x-3">
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+              <Scissors className="h-3 w-3 mr-1" />
+              {clips.length} clips criados
             </Badge>
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Sparkles className="h-3 w-3" />
-              {Math.round(video.duration_seconds)}s
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+              <Sparkles className="h-3 w-3 mr-1" />
+              {Math.round(video.duration_seconds)}s duração
             </Badge>
+            <Button 
+              variant="outline" 
+              size="sm"
+              asChild
+              className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+            >
+              <a href="/gallery">
+                Ver Gallery
+              </a>
+            </Button>
           </div>
         </div>
       </div>
