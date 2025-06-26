@@ -8,3 +8,4 @@ Plataforma de IA para gerar clips virais de vídeos
 - 🔄 Forçando novo deploy no Vercel - Build fix
 # Deploy Test - qui 26 jun 2025 11:48:28 -03
 # Test com usuário correto
+# Deploy com credenciais corretas
