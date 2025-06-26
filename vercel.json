@@ -59,6 +59,7 @@
   ],
   "env": {
     "VITE_APP_NAME": "ClipsForge Pro",
-    "VITE_APP_VERSION": "2.0.0"
+    "VITE_APP_VERSION": "2.0.0",
+    "NODE_ENV": "production"
   }
 } 
