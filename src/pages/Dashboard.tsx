@@ -39,7 +39,10 @@ import {
   TrendingUp,
   Calendar,
   RefreshCw,
-  CalendarPlus
+  CalendarPlus,
+  Palette,
+  Type,
+  Settings
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -723,147 +726,277 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Dois Fluxos Principais */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          
+          {/* FLUXO 1: IA AUTOMÁTICA */}
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <Bot className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-green-800">🤖 Fluxo Automático (IA)</CardTitle>
+                  <CardDescription className="text-green-600">
+                    Upload e nossa IA cria clips virais automaticamente
+                  </CardDescription>
+                </div>
+              </div>
+              
+              <div className="bg-green-100 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-green-700 mb-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="font-medium">Processo 100% Automatizado:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-green-600">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Upload → Cloudinary</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Transcrição (Whisper AI)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Análise de Conteúdo (Groq)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Clips Virais (Shotstack)</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!file ? (
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`
+                  border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer
+                    ${dragOver 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-green-300 hover:border-green-400 hover:bg-green-50/50'
+                    }
+                  `}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <CloudUpload className="mx-auto h-10 w-10 text-green-400 mb-3" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-green-800">
+                      Arraste seu vídeo aqui
+                    </p>
+                    <p className="text-sm text-green-600">
+                      ou clique para selecionar
+                    </p>
+                    <p className="text-xs text-green-500">
+                      MP4, MOV, AVI até 500MB
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center space-x-3">
+                      <FileVideo className="h-6 w-6 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-800">{file.name}</p>
+                        <p className="text-sm text-green-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFile(null)
+                        setTitle('')
+                        setDescription('')
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="title" className="text-sm font-medium text-green-800">Título do Vídeo *</Label>
+                      <Input
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Digite um título atrativo..."
+                        className="mt-1 border-green-300 focus:border-green-500"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="description" className="text-sm font-medium text-green-800">Descrição (Opcional)</Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Descreva o conteúdo do seu vídeo..."
+                        className="mt-1 border-green-300 focus:border-green-500"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <input
+                id="file-upload"
+                type="file"
+                accept="video/*"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+
+              {isUploading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-700">Processando com IA...</span>
+                    <span className="font-medium text-green-800">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2 bg-green-100" />
+                  <div className="text-xs text-green-600 text-center">
+                    {currentStep === 'upload' && '📤 Fazendo upload...'}
+                    {currentStep === 'transcription' && '🎤 Transcrevendo áudio...'}
+                    {currentStep === 'analysis' && '🧠 Analisando conteúdo...'}
+                    {currentStep === 'clips' && '🎬 Gerando clips virais...'}
+                  </div>
+                </div>
+              )}
+
+              {uploadError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{uploadError}</p>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleUpload}
+                disabled={!file || !title.trim() || isUploading}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                size="lg"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processando com IA...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="h-4 w-4 mr-2" />
+                    Gerar Clips Automáticos
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* FLUXO 2: EDITOR MANUAL */}
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <Palette className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-purple-800">🎨 Fluxo Manual (Editor)</CardTitle>
+                  <CardDescription className="text-purple-600">
+                    Controle total com editor visual estilo Canva
+                  </CardDescription>
+                </div>
+              </div>
+              
+              <div className="bg-purple-100 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-purple-700 mb-2">
+                  <Settings className="h-4 w-4" />
+                  <span className="font-medium">Processo Manual Profissional:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-purple-600">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Upload → Cloudinary</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Editor Visual (Timeline)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Textos e Efeitos</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Render (Shotstack)</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center py-6">
+                <Scissors className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+                <h3 className="text-lg font-semibold text-purple-800 mb-2">
+                  Editor Visual Profissional
+                </h3>
+                <p className="text-purple-600 mb-4">
+                  Interface moderna com timeline interativa, editor de texto e preview em tempo real
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <Clock className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                    <p className="text-xs text-purple-700 font-medium">Timeline Visual</p>
+                    <p className="text-xs text-purple-500">Corte preciso</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <Type className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                    <p className="text-xs text-purple-700 font-medium">Editor de Texto</p>
+                    <p className="text-xs text-purple-500">Posicionamento</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <Target className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                    <p className="text-xs text-purple-700 font-medium">Multi-Plataforma</p>
+                    <p className="text-xs text-purple-500">TikTok, IG, YT</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <Zap className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                    <p className="text-xs text-purple-700 font-medium">Render HD</p>
+                    <p className="text-xs text-purple-500">Shotstack API</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                asChild
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                size="lg"
+              >
+                <a href="/editor">
+                  <Palette className="h-4 w-4 mr-2" />
+                  Abrir Editor Visual
+                </a>
+              </Button>
+              
+              <div className="text-center">
+                <p className="text-xs text-purple-500">
+                  ✨ Novo! Interface estilo Canva com controle total
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
-              {/* Upload Section */}
-          <div className="lg:col-span-1">
-            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
-                <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <CloudUpload className="h-6 w-6 text-purple-600" />
-                    Upload de Vídeo
-                  </CardTitle>
-                <CardDescription className="text-gray-600">
-                    Envie seu vídeo e nossa IA criará clips virais automaticamente
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!file ? (
-                    <div
-                      onDrop={handleDrop}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      className={`
-                      border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer
-                        ${dragOver 
-                          ? 'border-purple-500 bg-purple-50' 
-                          : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50/50'
-                        }
-                      `}
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                    >
-                      <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <div className="space-y-2">
-                        <p className="text-lg font-medium text-gray-900">
-                          Arraste seu vídeo aqui
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          ou clique para selecionar
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          MP4, MOV, AVI até 500MB
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <FileVideo className="h-8 w-8 text-purple-600" />
-                          <div>
-                            <p className="font-medium text-gray-900">{file.name}</p>
-                          <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setFile(null)
-                            setTitle('')
-                            setDescription('')
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                        <Label htmlFor="title" className="text-sm font-medium">Título do Vídeo *</Label>
-                          <Input
-                            id="title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Digite um título atrativo..."
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div>
-                        <Label htmlFor="description" className="text-sm font-medium">Descrição (Opcional)</Label>
-                          <Textarea
-                            id="description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Descreva o conteúdo do seu vídeo..."
-                            className="mt-1"
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept="video/*"
-                    onChange={handleFileInputChange}
-                    className="hidden"
-                  />
-
-                  {isUploading && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Enviando vídeo...</span>
-                        <span className="font-medium">{uploadProgress}%</span>
-                      </div>
-                      <Progress value={uploadProgress} className="h-2" />
-                    </div>
-                  )}
-
-                  {uploadError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{uploadError}</p>
-                    </div>
-                  )}
-
-                  <Button 
-                    onClick={handleUpload}
-                    disabled={!file || !title.trim() || isUploading}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                  size="lg"
-                  >
-                    {isUploading ? (
-                      <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Processando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Gerar Clips com IA
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-          </div>
-
           {/* Videos and Clips Section */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             
             {/* Manual Clip Editor Highlight */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">

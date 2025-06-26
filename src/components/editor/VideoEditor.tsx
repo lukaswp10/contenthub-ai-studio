@@ -23,7 +23,8 @@ import {
   Zap,
   Palette,
   Clock,
-  Target
+  Target,
+  Video
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -168,10 +169,10 @@ export default function VideoEditor({ videoUrl, videoId, onClipCreated, uploaded
   }
 
   const createClip = async () => {
-    if (!videoId && !uploadedFile) {
+    if (!uploadedFile && !videoUrl) {
       toast({
         title: "Erro",
-        description: "Vídeo não encontrado.",
+        description: "Nenhum vídeo carregado.",
         variant: "destructive"
       })
       return
@@ -189,22 +190,78 @@ export default function VideoEditor({ videoUrl, videoId, onClipCreated, uploaded
     try {
       console.log('🎬 Criando clip com editor visual...')
       
-      // Se temos um arquivo local, precisamos fazer upload primeiro
       let finalVideoUrl = videoUrl
       let finalVideoId = videoId
       
+      // Se temos um arquivo local, fazer upload real para Cloudinary
       if (uploadedFile && !videoId) {
         toast({
           title: "Fazendo upload...",
-          description: "Enviando vídeo para processamento.",
+          description: "Enviando vídeo para o Cloudinary.",
         })
         
-        // Simular upload - em produção, integraria com supabase storage
-        console.log('📤 Upload do arquivo:', uploadedFile.name)
+        console.log('📤 Upload do arquivo para Cloudinary:', uploadedFile.name)
         
-        // Por enquanto, vamos usar o objeto URL local
-        finalVideoUrl = videoUrl
-        finalVideoId = `temp_${Date.now()}`
+        // Preparar dados para upload
+        const uploadData = {
+          fileName: uploadedFile.name,
+          fileSize: uploadedFile.size,
+          contentType: uploadedFile.type,
+          title: newClip.title || `Clip ${Date.now()}`
+        }
+        
+        // Chamar função de upload
+        const uploadResponse = await fetch('/api/supabase/functions/v1/upload-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`
+          },
+          body: JSON.stringify(uploadData)
+        })
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Erro no upload para Cloudinary')
+        }
+        
+        const uploadResult = await uploadResponse.json()
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Erro no upload')
+        }
+        
+        console.log('✅ Upload realizado:', uploadResult)
+        
+        // Agora fazer upload real do arquivo usando os parâmetros do Cloudinary
+        const formData = new FormData()
+        formData.append('file', uploadedFile)
+        formData.append('upload_preset', uploadResult.upload_preset || 'ml_default')
+        formData.append('public_id', uploadResult.public_id)
+        formData.append('folder', uploadResult.folder)
+        formData.append('resource_type', 'video')
+        formData.append('api_key', uploadResult.api_key)
+        formData.append('timestamp', uploadResult.timestamp)
+        formData.append('signature', uploadResult.signature)
+        
+        const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${uploadResult.cloud_name}/video/upload`, {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (!cloudinaryResponse.ok) {
+          throw new Error('Erro no upload para Cloudinary')
+        }
+        
+        const cloudinaryResult = await cloudinaryResponse.json()
+        console.log('✅ Arquivo enviado para Cloudinary:', cloudinaryResult.secure_url)
+        
+        finalVideoUrl = cloudinaryResult.secure_url
+        finalVideoId = uploadResult.video_id
+        
+        toast({
+          title: "Upload concluído!",
+          description: "Vídeo enviado com sucesso para o Cloudinary.",
+        })
       }
 
       // Preparar dados do clip com informações da timeline
@@ -214,66 +271,78 @@ export default function VideoEditor({ videoUrl, videoId, onClipCreated, uploaded
         end_time: newClip.endTime,
         title: newClip.title,
         platform: newClip.platform,
-        // Dados específicos do editor visual
-        editor_data: {
-          text_overlays: editorState.clips.filter(c => c.type === 'text').map(clip => ({
-            text: clip.content,
-            start_time: clip.startTime,
-            end_time: clip.endTime,
-            style: clip.style,
-            track: clip.track
-          })),
-          timeline_clips: editorState.clips,
-          video_url: finalVideoUrl,
-          // Configurações baseadas na documentação Shotstack
+        description: `Clip criado no Editor Visual - ${newClip.platform.toUpperCase()}`,
+        
+        // Dados avançados para Shotstack
+        timeline_data: {
+          clips: editorState.clips,
+          settings: {
+            platform: newClip.platform,
+            resolution: newClip.platform === 'tiktok' || newClip.platform === 'stories' ? '1080x1920' :
+                       newClip.platform === 'instagram' ? '1080x1080' : '1920x1080',
+            aspectRatio: newClip.platform === 'tiktok' || newClip.platform === 'stories' ? '9:16' :
+                        newClip.platform === 'instagram' ? '1:1' : '16:9',
+            fps: 30,
+            quality: 'high'
+          },
+          
+          // Configuração Shotstack estruturada
           shotstack_config: {
             timeline: {
               background: '#000000',
               tracks: [
                 // Track principal do vídeo
                 {
-                  clips: [{
-                    asset: {
-                      type: 'video',
-                      src: finalVideoUrl,
-                      trim: newClip.startTime,
-                      volume: editorState.volume
-                    },
-                    start: 0,
-                    length: newClip.endTime - newClip.startTime,
-                    fit: 'crop',
-                    position: 'center'
-                  }]
-                },
-                // Tracks de texto
-                ...editorState.clips.filter(c => c.type === 'text').map(clip => ({
-                  clips: [{
-                    asset: {
-                      type: 'title',
-                      text: clip.content,
-                      style: 'future',
-                      color: clip.style?.color || '#ffffff',
-                      size: clip.style?.fontSize > 40 ? 'large' : 'medium',
-                      position: clip.style?.position || 'center'
-                    },
-                    start: clip.startTime - newClip.startTime,
-                    length: clip.endTime - clip.startTime,
-                    transition: {
-                      in: 'slideUp',
-                      out: 'fade'
+                  clips: [
+                    {
+                      asset: {
+                        type: 'video',
+                        src: finalVideoUrl,
+                        trim: newClip.startTime,
+                        length: newClip.endTime - newClip.startTime
+                      },
+                      start: 0,
+                      length: newClip.endTime - newClip.startTime,
+                      effect: 'zoomIn'
                     }
-                  }]
-                }))
+                  ]
+                },
+                
+                // Tracks de texto (se houver)
+                ...editorState.clips
+                  .filter(clip => clip.type === 'text')
+                  .map((textClip, index) => ({
+                    clips: [
+                      {
+                        asset: {
+                          type: 'title',
+                          text: textClip.content,
+                          style: 'minimal',
+                          color: textClip.style?.color || '#ffffff',
+                          size: 'medium',
+                          background: 'transparent',
+                          position: textClip.style?.position || 'center'
+                        },
+                        start: textClip.startTime,
+                        length: textClip.endTime - textClip.startTime,
+                        transition: {
+                          in: 'fade',
+                          out: 'fade'
+                        }
+                      }
+                    ]
+                  }))
               ]
             },
+            
             output: {
               format: 'mp4',
-              resolution: newClip.platform === 'tiktok' ? '1080x1920' :
+              resolution: newClip.platform === 'tiktok' || newClip.platform === 'stories' ? '1080x1920' :
                          newClip.platform === 'instagram' ? '1080x1080' : '1920x1080',
-              aspectRatio: newClip.platform === 'tiktok' ? '9:16' :
+              aspectRatio: newClip.platform === 'tiktok' || newClip.platform === 'stories' ? '9:16' :
                           newClip.platform === 'instagram' ? '1:1' : '16:9',
               fps: 30,
-              quality: 'medium'
+              quality: 'high'
             }
           }
         }
@@ -281,12 +350,12 @@ export default function VideoEditor({ videoUrl, videoId, onClipCreated, uploaded
 
       console.log('📋 Dados do clip para API:', clipData)
 
-      // Chamar a função de criação de clips
+      // Chamar a função de criação de clips manual
       const response = await fetch('/api/supabase/functions/v1/create-manual-clip', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`
         },
         body: JSON.stringify(clipData)
       })
@@ -305,7 +374,7 @@ export default function VideoEditor({ videoUrl, videoId, onClipCreated, uploaded
       
       toast({
         title: "🎉 Clip criado com sucesso!",
-        description: `"${newClip.title}" está sendo processado com Shotstack.`,
+        description: `"${newClip.title}" está sendo renderizado com Shotstack em alta qualidade.`,
       })
 
       // Resetar formulário
