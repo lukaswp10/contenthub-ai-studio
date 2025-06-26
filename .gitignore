@@ -47,3 +47,4 @@ ehthumbs.db
 *.pid
 *.seed
 *.pid.lock
+.vercel
