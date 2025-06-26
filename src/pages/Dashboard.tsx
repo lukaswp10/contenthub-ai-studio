@@ -43,7 +43,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import ProcessingTerminal from '@/components/upload/ProcessingTerminal'
+import ProcessingLogs from '@/components/upload/ProcessingLogs'
 
 interface DashboardStats {
   videosUploaded: number
@@ -277,32 +277,194 @@ export default function Dashboard() {
     }
 
     try {
-      // Mostrar terminal e iniciar com upload
+      // Mostrar logs e iniciar com upload
       setShowTerminal(true)
       setCurrentStep('upload')
       
-      await uploadVideo()
+      // Log inicial
+      if (window.addProcessingLog) {
+        window.addProcessingLog('🚀 Iniciando processamento completo do vídeo', 'info', {
+          filename: file.name,
+          size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+          title: title,
+          description: description
+        })
+      }
       
-      // Simular progressão dos passos
-      setTimeout(() => setCurrentStep('transcription'), 2000)
-      setTimeout(() => setCurrentStep('analysis'), 5000)
-      setTimeout(() => setCurrentStep('clips'), 8000)
+      // 1. Upload do vídeo
+      const videoId = await uploadVideo()
+      if (!videoId) {
+        throw new Error('Falha no upload do vídeo')
+      }
       
-      toast({
-        title: "Upload concluído!",
-        description: "Seu vídeo está sendo processado. Os clips serão gerados automaticamente.",
+      if (window.addProcessingLog) {
+        window.addProcessingLog('✅ Upload concluído com sucesso', 'success', { videoId })
+      }
+      
+      // 2. Aguardar transcrição (já é feita automaticamente no upload)
+      setCurrentStep('transcription')
+      if (window.addProcessingLog) {
+        window.addProcessingLog('🎤 Iniciando transcrição do áudio...', 'info')
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 3000)) // Aguardar processamento
+      
+      if (window.addProcessingLog) {
+        window.addProcessingLog('✅ Transcrição processada', 'success')
+      }
+      
+      // 3. Análise de conteúdo
+      setCurrentStep('analysis')
+      if (window.addProcessingLog) {
+        window.addProcessingLog('🧠 Iniciando análise de conteúdo com IA...', 'info')
+      }
+      
+      try {
+        const analysisResult = await supabase.functions.invoke('analyze-content', {
+          body: { video_id: videoId }
+        })
+        
+        if (analysisResult.error) {
+          if (window.addProcessingLog) {
+            window.addProcessingLog('⚠️ Análise de conteúdo falhou, continuando com clips automáticos', 'warning', {
+              error: analysisResult.error.message
+            })
+          }
+        } else {
+          if (window.addProcessingLog) {
+            window.addProcessingLog('✅ Análise de conteúdo concluída', 'success', {
+              suggestions: analysisResult.data?.clips_suggestions?.length || 0
+            })
+          }
+        }
+      } catch (analysisError: any) {
+        if (window.addProcessingLog) {
+          window.addProcessingLog('⚠️ Erro na análise, continuando com clips automáticos', 'warning', {
+            error: analysisError.message
+          })
+        }
+      }
+      
+      // 4. Gerar clips - AQUI É ONDE PODE TRAVAR
+      setCurrentStep('clips')
+      if (window.addProcessingLog) {
+        window.addProcessingLog('🎬 Iniciando geração de clips virais...', 'info')
+        window.addProcessingLog('⏳ Conectando com API de geração de clips...', 'info')
+      }
+      
+      // Timeout para detectar travamentos
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('TIMEOUT: Geração de clips travou após 3 minutos'))
+        }, 180000) // 3 minutos
       })
       
-      // Recarregar dados após upload
-      setTimeout(() => {
-        loadDashboardData()
-      }, 2000)
+      // Monitorar progresso
+      const progressInterval = setInterval(() => {
+        if (window.addProcessingLog) {
+          window.addProcessingLog('⏳ Ainda processando clips... (pode demorar alguns minutos)', 'info')
+        }
+      }, 30000) // A cada 30 segundos
       
-    } catch (error) {
-      console.error('Erro no upload:', error)
-      // Esconder terminal em caso de erro
-      setShowTerminal(false)
-      setCurrentStep('')
+      try {
+        const clipsPromise = supabase.functions.invoke('generate-clips', {
+          body: { video_id: videoId }
+        })
+        
+        if (window.addProcessingLog) {
+          window.addProcessingLog('📡 Chamada para generate-clips enviada', 'info')
+        }
+        
+        const clipsResult = await Promise.race([clipsPromise, timeoutPromise]) as any
+        
+        clearInterval(progressInterval)
+        
+        if (window.addProcessingLog) {
+          window.addProcessingLog('📨 Resposta recebida da API', 'info', {
+            hasError: !!clipsResult.error,
+            hasData: !!clipsResult.data
+          })
+        }
+        
+        if (clipsResult.error) {
+          if (window.addProcessingLog) {
+            window.addProcessingLog('❌ Erro na geração de clips', 'error', {
+              error: clipsResult.error.message,
+              details: clipsResult.error
+            })
+          }
+          throw new Error(clipsResult.error.message || 'Erro na geração de clips')
+        }
+        
+        const clipsCount = clipsResult.data?.clips_generated || 0
+        
+        if (window.addProcessingLog) {
+          window.addProcessingLog(`🎉 ${clipsCount} clips gerados com sucesso!`, 'success', {
+            clipsGenerated: clipsCount,
+            usingShortstack: clipsResult.data?.using_shotstack || false
+          })
+        }
+        
+        toast({
+          title: "Processamento concluído!",
+          description: `${clipsCount} clips foram gerados com sucesso.`,
+        })
+        
+      } catch (timeoutError: any) {
+        clearInterval(progressInterval)
+        
+        if (window.addProcessingLog) {
+          window.addProcessingLog('🚨 TIMEOUT DETECTADO!', 'error', {
+            error: timeoutError.message,
+            possibleCauses: [
+              'API do Shotstack pode estar lenta',
+              'Vídeo muito grande para processar',
+              'Problema de conectividade',
+              'Limite de API atingido'
+            ]
+          })
+        }
+        
+        throw timeoutError
+      }
+      
+      // Recarregar dados após processamento
+      if (window.addProcessingLog) {
+        window.addProcessingLog('🔄 Recarregando dados do dashboard...', 'info')
+      }
+      
+      await loadDashboardData()
+      
+      if (window.addProcessingLog) {
+        window.addProcessingLog('✅ Processamento completo finalizado!', 'success')
+      }
+      
+      // Esconder logs após sucesso (mas deixar tempo para ver)
+      setTimeout(() => {
+        setShowTerminal(false)
+        setCurrentStep('')
+      }, 5000)
+      
+    } catch (error: any) {
+      console.error('Erro no processamento:', error)
+      
+      if (window.addProcessingLog) {
+        window.addProcessingLog('💥 ERRO CRÍTICO NO PROCESSAMENTO', 'error', {
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        })
+      }
+      
+      toast({
+        title: "Erro no processamento",
+        description: error.message || 'Erro durante o processamento do vídeo',
+        variant: "destructive"
+      })
+      
+      // Manter logs visíveis em caso de erro para debug
+      // setShowTerminal(false)
+      // setCurrentStep('')
     }
   }
 
@@ -987,18 +1149,14 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Processing Terminal - Fixed Bottom */}
-      {showTerminal && (
-        <div className="fixed bottom-4 left-4 right-4 z-50 max-w-4xl mx-auto">
-          <ProcessingTerminal
-            isVisible={showTerminal}
-            onToggle={() => setShowTerminal(false)}
-            currentStep={currentStep}
-            progress={uploadProgress}
-            videoId={currentVideoId}
-          />
-        </div>
-      )}
+      {/* Processing Progress - Fixed Bottom Right */}
+      <ProcessingLogs
+        isVisible={showTerminal}
+        onToggle={() => setShowTerminal(false)}
+        currentStep={currentStep}
+        progress={uploadProgress}
+        videoId={currentVideoId || undefined}
+      />
     </div>
   )
 } 

@@ -1,249 +1,470 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Scissors, Sparkles, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/integrations/supabase/client'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { 
+  Upload, 
+  Scissors, 
+  Wand2, 
+  Video, 
+  FileText, 
+  Play,
+  Palette,
+  Layers,
+  Sparkles
+} from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import ClipEditor from '@/components/editor/ClipEditor'
+import VideoEditor from '@/components/editor/VideoEditor'
 
-interface VideoData {
+interface Video {
   id: string
   title: string
-  cloudinary_secure_url: string
-  duration_seconds: number
-  processing_status: string
+  file_url: string
+  created_at: string
+  status: string
 }
 
-interface ClipData {
+interface Clip {
   id: string
   title: string
-  duration_seconds: number
-  ai_viral_score: number
+  start_time: number
+  end_time: number
+  platform: string
   status: string
   created_at: string
 }
 
 export default function Editor() {
-  const { videoId } = useParams()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const { toast } = useToast()
   
-  const [video, setVideo] = useState<VideoData | null>(null)
-  const [clips, setClips] = useState<ClipData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [videos, setVideos] = useState<Video[]>([])
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
+  const [clips, setClips] = useState<Clip[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editorMode, setEditorMode] = useState<'list' | 'visual' | 'manual'>('list')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string>('')
 
+  // Load user videos
   useEffect(() => {
-    if (videoId) {
-      loadVideoData()
+    if (user) {
+      loadVideos()
     }
-  }, [videoId])
+  }, [user])
 
-  const loadVideoData = async () => {
+  // Load clips when video is selected
+  useEffect(() => {
+    if (selectedVideo) {
+      loadClips(selectedVideo.id)
+    }
+  }, [selectedVideo])
+
+  const loadVideos = async () => {
     try {
-      setIsLoading(true)
-      setError(null)
-
-      // Carregar dados do vídeo
-      const { data: videoData, error: videoError } = await supabase
+      const { data, error } = await supabase
         .from('videos')
         .select('*')
-        .eq('id', videoId)
-        .single()
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
 
-      if (videoError) {
-        throw new Error('Vídeo não encontrado')
-      }
+      if (error) throw error
+      setVideos(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar vídeos:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os vídeos.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      if (!videoData.cloudinary_secure_url) {
-        throw new Error('Vídeo ainda não foi processado')
-      }
-
-      setVideo(videoData)
-
-      // Carregar clips existentes
-      const { data: clipsData, error: clipsError } = await supabase
+  const loadClips = async (videoId: string) => {
+    try {
+      const { data, error } = await supabase
         .from('clips')
         .select('*')
         .eq('video_id', videoId)
         .order('created_at', { ascending: false })
 
-      if (clipsError) {
-        console.error('Erro ao carregar clips:', clipsError)
-      } else {
-        setClips(clipsData || [])
-      }
+      if (error) throw error
+      setClips(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar clips:', error)
+    }
+  }
 
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err)
-      setError(err.message)
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setUploadedFile(file)
+      const url = URL.createObjectURL(file)
+      setUploadedVideoUrl(url)
+      setEditorMode('visual')
+      
       toast({
-        title: "Erro ao carregar vídeo",
-        description: err.message,
-        variant: "destructive"
+        title: "Vídeo carregado!",
+        description: "Agora você pode editar seu vídeo no editor visual.",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  const handleClipCreated = (newClip: any) => {
-    setClips(prev => [newClip, ...prev])
+  const handleClipCreated = (clipData: any) => {
+    console.log('Novo clip criado:', clipData)
     toast({
-      title: "Clip adicionado!",
-      description: "O clip foi criado e adicionado à lista",
+      title: "Clip criado com sucesso!",
+      description: "Seu clip foi processado e está sendo renderizado.",
     })
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ready': return 'bg-green-500'
-      case 'processing': return 'bg-yellow-500'
-      case 'failed': return 'bg-red-500'
-      default: return 'bg-gray-500'
+    
+    // Reload clips if we have a selected video
+    if (selectedVideo) {
+      loadClips(selectedVideo.id)
     }
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-600'
-    if (score >= 6) return 'text-yellow-600'
-    return 'text-red-600'
-  }
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Carregando vídeo...</p>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando editor...</p>
+          </div>
         </div>
       </div>
     )
   }
 
-  if (error || !video) {
+  // Visual Editor Mode (Canva-style)
+  if (editorMode === 'visual') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-red-600 mb-2">Erro</h2>
-          <p className="text-gray-600 mb-4">{error || 'Vídeo não encontrado'}</p>
-          <Button onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Dashboard
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="text-white hover:bg-white/20"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{video.title}</h1>
-              <p className="text-purple-100 flex items-center gap-2">
-                <Scissors className="h-4 w-4" />
-                Editor de Clips Manual - Controle total sobre seus cortes
-              </p>
+      <div className="h-screen bg-gray-900">
+        <div className="bg-gray-800 p-4 border-b border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={() => setEditorMode('list')}
+                className="text-white hover:bg-gray-700"
+              >
+                ← Voltar
+              </Button>
+              <div className="flex items-center gap-2">
+                <Palette className="h-5 w-5 text-purple-400" />
+                <span className="text-white font-semibold">Editor Visual</span>
+                <Badge className="bg-purple-600 text-white">Novo!</Badge>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-green-400 border-green-400">
+                Modo Pro
+              </Badge>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-              <Scissors className="h-3 w-3 mr-1" />
-              {clips.length} clips criados
-            </Badge>
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-              <Sparkles className="h-3 w-3 mr-1" />
-              {Math.round(video.duration_seconds)}s duração
-            </Badge>
-            <Button 
-              variant="outline" 
-              size="sm"
-              asChild
-              className="bg-white/10 text-white border-white/30 hover:bg-white/20"
-            >
-              <a href="/gallery">
-                Ver Gallery
-              </a>
-            </Button>
-          </div>
         </div>
+        
+        <VideoEditor
+          videoUrl={uploadedVideoUrl || selectedVideo?.file_url}
+          videoId={selectedVideo?.id}
+          uploadedFile={uploadedFile}
+          onClipCreated={handleClipCreated}
+        />
+      </div>
+    )
+  }
+
+  // Manual Editor Mode (existing)
+  if (editorMode === 'manual' && selectedVideo) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => setEditorMode('list')}
+            className="mb-4"
+          >
+            ← Voltar para lista
+          </Button>
+          <h1 className="text-2xl font-bold mb-2">Editor Manual</h1>
+          <p className="text-gray-600">Editando: {selectedVideo.title}</p>
+        </div>
+
+        <ClipEditor
+          video={{
+            id: selectedVideo.id,
+            cloudinary_secure_url: selectedVideo.file_url,
+            duration_seconds: 300, // Placeholder - seria melhor ter isso no banco
+            title: selectedVideo.title
+          }}
+          onClipCreated={handleClipCreated}
+        />
+      </div>
+    )
+  }
+
+  // Main Editor Page (List Mode)
+  return (
+    <div className="container mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+          <Scissors className="h-8 w-8 text-purple-600" />
+          Editor de Clips
+        </h1>
+        <p className="text-gray-600">
+          Crie clips virais dos seus vídeos com IA ou edite manualmente
+        </p>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Editor Principal */}
-          <div className="lg:col-span-2">
-            <ClipEditor 
-              video={video} 
-              onClipCreated={handleClipCreated}
-            />
-          </div>
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Upload & Editar
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Meus Vídeos
+          </TabsTrigger>
+          <TabsTrigger value="clips" className="flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            Meus Clips
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Sidebar com Clips Existentes */}
-          <div className="lg:col-span-1">
-            <Card>
+        {/* Upload & Edit Tab */}
+        <TabsContent value="upload" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                Novo Editor Visual
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Upload um vídeo e edite diretamente no navegador com nossa interface estilo Canva
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-purple-300 rounded-lg p-8 text-center">
+                  <Upload className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    Faça upload do seu vídeo
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Arraste e solte ou clique para selecionar
+                  </p>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="video-upload"
+                  />
+                  <Label htmlFor="video-upload">
+                    <Button className="bg-purple-600 hover:bg-purple-700">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Selecionar Vídeo
+                    </Button>
+                  </Label>
+                </div>
+
+                {uploadedFile && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <Video className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium text-green-800">
+                          {uploadedFile.name}
+                        </p>
+                        <p className="text-sm text-green-600">
+                          Pronto para edição visual
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Editor Mode Selection */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="border-purple-200 hover:border-purple-400 transition-colors cursor-pointer"
+                  onClick={() => uploadedVideoUrl && setEditorMode('visual')}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Scissors className="h-5 w-5" />
-                  Clips Criados ({clips.length})
+                  <Palette className="h-5 w-5 text-purple-600" />
+                  Editor Visual
+                  <Badge className="bg-purple-100 text-purple-800">Novo!</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {clips.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Scissors className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Nenhum clip criado ainda</p>
-                    <p className="text-sm">Use o editor ao lado para criar seu primeiro clip</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {clips.map((clip) => (
-                      <div key={clip.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-sm">{clip.title}</h4>
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${getStatusColor(clip.status)} text-white`}
-                          >
-                            {clip.status}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{Math.round(clip.duration_seconds)}s</span>
-                          <span className={`font-medium ${getScoreColor(clip.ai_viral_score)}`}>
-                            Score: {clip.ai_viral_score?.toFixed(1) || 'N/A'}
-                          </span>
-                        </div>
-                        
-                        <div className="text-xs text-gray-400 mt-1">
-                          {new Date(clip.created_at).toLocaleString('pt-BR')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-gray-600 mb-4">
+                  Interface moderna estilo Canva com timeline visual, editor de texto e efeitos em tempo real.
+                </p>
+                <ul className="text-sm text-gray-500 space-y-1">
+                  <li>• Timeline interativa</li>
+                  <li>• Editor de texto visual</li>
+                  <li>• Preview em tempo real</li>
+                  <li>• Múltiplos formatos (TikTok, Instagram, YouTube)</li>
+                </ul>
+                <Button 
+                  className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
+                  disabled={!uploadedVideoUrl}
+                >
+                  <Layers className="h-4 w-4 mr-2" />
+                  Abrir Editor Visual
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 hover:border-gray-400 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-gray-600" />
+                  Editor Manual
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 mb-4">
+                  Controle preciso com configurações manuais para usuários avançados.
+                </p>
+                <ul className="text-sm text-gray-500 space-y-1">
+                  <li>• Configuração manual de tempos</li>
+                  <li>• Controles avançados</li>
+                  <li>• Máxima precisão</li>
+                  <li>• Ideal para profissionais</li>
+                </ul>
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-4"
+                  disabled
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Em breve
+                </Button>
               </CardContent>
             </Card>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+
+        {/* Videos Tab */}
+        <TabsContent value="videos" className="space-y-6">
+          <div className="grid gap-4">
+            {videos.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum vídeo encontrado</h3>
+                  <p className="text-gray-600">
+                    Faça upload de um vídeo na aba "Upload & Editar" para começar
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              videos.map((video) => (
+                <Card key={video.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <Video className="h-6 w-6 text-gray-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{video.title}</h3>
+                          <p className="text-sm text-gray-600">
+                            {new Date(video.created_at).toLocaleDateString()}
+                          </p>
+                          <Badge variant={video.status === 'processed' ? 'default' : 'secondary'}>
+                            {video.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            setSelectedVideo(video)
+                            setUploadedVideoUrl(video.file_url)
+                            setEditorMode('visual')
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          <Palette className="h-4 w-4 mr-2" />
+                          Editor Visual
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedVideo(video)
+                            setEditorMode('manual')
+                          }}
+                        >
+                          <Scissors className="h-4 w-4 mr-2" />
+                          Editor Manual
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Clips Tab */}
+        <TabsContent value="clips" className="space-y-6">
+          <div className="grid gap-4">
+            {clips.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Play className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum clip encontrado</h3>
+                  <p className="text-gray-600">
+                    Selecione um vídeo e crie clips usando nossos editores
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              clips.map((clip) => (
+                <Card key={clip.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">{clip.title}</h3>
+                        <p className="text-sm text-gray-600">
+                          {clip.start_time}s - {clip.end_time}s • {clip.platform}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(clip.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={clip.status === 'ready' ? 'default' : 'secondary'}>
+                          {clip.status}
+                        </Badge>
+                        <Button size="sm" variant="outline">
+                          <Play className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 } 

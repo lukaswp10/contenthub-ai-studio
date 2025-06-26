@@ -6,6 +6,7 @@ import { createHash } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 interface UploadRequest {
@@ -24,24 +25,38 @@ interface UploadRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { 
+      headers: corsHeaders,
+      status: 200
+    })
   }
 
   try {
+    console.log('🚀 Upload video function called')
+    console.log('📋 Request method:', req.method)
+    console.log('📋 Request headers:', Object.fromEntries(req.headers.entries()))
+
     // Authenticate user
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Authorization header missing')
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     )
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      console.error('❌ Auth error:', authError)
       throw new Error('Usuário não autenticado')
     }
+
+    console.log('✅ User authenticated:', user.email)
 
     // Check if it's a file upload (multipart/form-data) or JSON metadata
     const contentType = req.headers.get('content-type') || ''
@@ -64,9 +79,7 @@ serve(async (req) => {
       duration = undefined // Will be detected later
       processingConfig = {}
 
-      console.log(`File upload: ${fileName} (${fileSize} bytes, ${videoContentType})`)
-      console.log('DEBUG - File MIME type:', videoContentType)
-      console.log('DEBUG - File name:', fileName)
+      console.log(`📁 File upload: ${fileName} (${fileSize} bytes, ${videoContentType})`)
     } else {
       // Handle JSON metadata (original behavior)
       const requestData: UploadRequest = await req.json()
@@ -75,22 +88,19 @@ serve(async (req) => {
       videoContentType = requestData.contentType
       duration = requestData.duration
       processingConfig = requestData.processingConfig
+      
+      console.log(`📋 JSON upload: ${fileName} (${fileSize} bytes, ${videoContentType})`)
     }
-
-    console.log(`Upload request from user ${user.id}: ${fileName} (${fileSize} bytes)`)
 
     // Validate file
     const validVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska', 'application/octet-stream']
     const validExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv']
     
-    console.log('DEBUG - Validating file type:', videoContentType)
-    console.log('DEBUG - File extension check:', fileName.toLowerCase())
-    
     const isValidType = validVideoTypes.includes(videoContentType)
     const isValidExtension = validExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
     
     if (!isValidType && !isValidExtension) {
-      throw new Error(`Tipo de arquivo inválido. Recebido: ${videoContentType}. Apenas vídeos são permitidos (.mp4, .mov, .avi, .webm, .mkv).`)
+      throw new Error(`Tipo de arquivo inválido. Recebido: ${videoContentType}. Apenas vídeos são permitidos.`)
     }
 
     // Get user profile and check limits
@@ -100,7 +110,75 @@ serve(async (req) => {
       .eq('id', user.id)
       .single()
 
-    if (profileError) throw profileError
+    if (profileError) {
+      console.error('❌ Profile error:', profileError)
+      throw new Error('Erro ao carregar perfil do usuário')
+    }
+
+    console.log('👤 User profile loaded:', profile.email)
+
+    // Check Cloudinary credentials
+    const cloudinaryConfig = {
+      cloud_name: Deno.env.get('CLOUDINARY_CLOUD_NAME'),
+      api_key: Deno.env.get('CLOUDINARY_API_KEY'),
+      api_secret: Deno.env.get('CLOUDINARY_API_SECRET'),
+    }
+    
+    const hasCloudinaryCredentials = cloudinaryConfig.cloud_name && 
+                                   cloudinaryConfig.api_key && 
+                                   cloudinaryConfig.api_secret
+
+    console.log('☁️ Cloudinary credentials:', hasCloudinaryCredentials ? 'Available' : 'Missing')
+
+    if (!hasCloudinaryCredentials) {
+      console.log('⚠️ Cloudinary not configured, creating video record for demo')
+      
+      // Create video record without actual upload for demo purposes
+      const { data: video, error: videoError } = await supabase
+        .from('videos')
+        .insert({
+          user_id: user.id,
+          title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+          original_filename: fileName,
+          file_size_bytes: fileSize,
+          duration_seconds: duration || 60, // Default duration for demo
+          processing_status: 'demo_mode',
+          file_url: `https://demo.example.com/video_${Date.now()}.mp4`, // Demo URL
+          cloudinary_public_id: `demo_${Date.now()}`,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (videoError) {
+        console.error('❌ Video insert error:', videoError)
+        throw videoError
+      }
+
+      console.log('✅ Demo video record created:', video.id)
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Modo demo: Vídeo registrado com sucesso',
+        video: {
+          id: video.id,
+          title: video.title,
+          status: 'demo_mode',
+          file_url: video.file_url,
+          demo_mode: true
+        },
+        upload_info: {
+          demo_mode: true,
+          message: 'Em produção, o vídeo seria enviado para Cloudinary'
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      })
+    }
+
+    // Configure Cloudinary for real upload
+    cloudinary.config(cloudinaryConfig)
 
     // Plan limits
     const planLimits = {
@@ -163,21 +241,6 @@ serve(async (req) => {
       const maxStorageGB = Math.round(limits.max_storage / (1024 * 1024 * 1024))
       throw new Error(`Limite de armazenamento excedido. Máximo: ${maxStorageGB}GB`)
     }
-
-    // Configure Cloudinary with fallback values for testing
-    const cloudinaryConfig = {
-      cloud_name: Deno.env.get('CLOUDINARY_CLOUD_NAME') || 'test-cloud',
-      api_key: Deno.env.get('CLOUDINARY_API_KEY') || '123456789',
-      api_secret: Deno.env.get('CLOUDINARY_API_SECRET') || 'test-secret-key',
-    }
-    
-    console.log('DEBUG - Cloudinary config:', {
-      cloud_name: cloudinaryConfig.cloud_name,
-      api_key: cloudinaryConfig.api_key,
-      api_secret: cloudinaryConfig.api_secret ? 'configured' : 'missing'
-    })
-    
-    cloudinary.config(cloudinaryConfig)
 
     // Cria o registro do vídeo primeiro para obter o video_id único
     const { data: video, error: videoError } = await supabase
@@ -290,12 +353,49 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Upload error:', error)
+    console.error('❌ Upload error:', error)
+    console.error('❌ Error stack:', error.stack)
+    
+    // Diferentes tipos de erro com mensagens mais específicas
+    let errorMessage = error.message || 'Erro desconhecido'
+    let statusCode = 400
+    
+    if (error.message?.includes('Usuário não autenticado')) {
+      statusCode = 401
+      errorMessage = 'Usuário não autenticado. Faça login novamente.'
+    } else if (error.message?.includes('Authorization header missing')) {
+      statusCode = 401
+      errorMessage = 'Token de autorização não encontrado.'
+    } else if (error.message?.includes('Tipo de arquivo inválido')) {
+      statusCode = 400
+      errorMessage = 'Formato de arquivo não suportado. Use MP4, MOV, AVI, WEBM ou MKV.'
+    } else if (error.message?.includes('muito grande')) {
+      statusCode = 413
+      errorMessage = error.message
+    } else if (error.message?.includes('Limite')) {
+      statusCode = 429
+      errorMessage = error.message
+    } else if (error.message?.includes('CLOUDINARY')) {
+      statusCode = 500
+      errorMessage = 'Erro no serviço de upload. Tente novamente em alguns minutos.'
+    } else if (error.code === '23505') { // Duplicate key error
+      statusCode = 409
+      errorMessage = 'Erro de duplicação. Tente novamente.'
+    } else if (error.code?.startsWith('23')) { // Database constraint errors
+      statusCode = 400
+      errorMessage = 'Erro de validação dos dados.'
+    }
+    
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message 
+      error: errorMessage,
+      debug_info: {
+        original_error: error.message,
+        error_code: error.code,
+        timestamp: new Date().toISOString()
+      }
     }), {
-      status: 400,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }

@@ -114,41 +114,45 @@ serve(async (req) => {
         })
       }
     } else {
-      console.log('Calling Hugging Face Whisper API...')
+      console.log('🎤 Chamando a API Whisper do Hugging Face...')
+      console.log(`Baixando áudio de: ${cloudinary_url}`)
 
-      // Call Hugging Face Whisper API
+      // Passo 1: Fazer o download do arquivo de áudio/vídeo da URL fornecida.
+      const audioResponse = await fetch(cloudinary_url)
+      if (!audioResponse.ok) {
+        throw new Error(`Falha ao baixar o arquivo de áudio: ${audioResponse.statusText}`)
+      }
+      // Converter a resposta para um Blob, que contém os dados brutos do arquivo.
+      const audioBlob = await audioResponse.blob()
+      console.log(`Áudio baixado com sucesso. Tamanho: ${(audioBlob.size / 1024 / 1024).toFixed(2)} MB`)
+
+      // Passo 2: Chamar a API do Hugging Face, enviando os dados brutos do arquivo no corpo da requisição.
       const response = await fetch('https://api-inference.huggingface.co/models/openai/whisper-large-v3', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${hfApiKey}`,
-          'Content-Type': 'application/json',
+          'Content-Type': audioBlob.type, // É crucial usar o Content-Type correto do arquivo.
         },
-        body: JSON.stringify({
-          inputs: cloudinary_url,
-          parameters: {
-            return_timestamps: true
-          }
-        })
+        body: audioBlob, // O corpo da requisição agora contém os bytes do arquivo.
       })
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Hugging Face API error:', response.status, errorText)
+        console.error('Erro na API do Hugging Face:', response.status, errorText)
         
-        // Check if it's a model loading error
         if (response.status === 503 || errorText.includes('loading')) {
-          console.log('Model is loading, will retry...')
-          throw new Error('Modelo de transcrição está carregando. Tente novamente em alguns segundos.')
+          console.log('Modelo está carregando, tentando novamente...')
+          throw new Error('O modelo de transcrição está carregando. Por favor, tente novamente em alguns segundos.')
         }
         
         throw new Error(`Erro na API do Hugging Face: ${response.status} - ${errorText}`)
       }
 
+      // Passo 3: Processar o resultado da transcrição.
       const transcriptionResult = await response.json()
-      console.log('Hugging Face API response:', JSON.stringify(transcriptionResult, null, 2))
+      console.log('✅ Resposta da API Hugging Face:', JSON.stringify(transcriptionResult, null, 2))
 
-      // Extract text and segments from response
-      if (transcriptionResult.text) {
+      if (typeof transcriptionResult.text === 'string') {
         transcript = transcriptionResult.text
       } else if (Array.isArray(transcriptionResult) && transcriptionResult.length > 0) {
         // Sometimes HF returns an array
