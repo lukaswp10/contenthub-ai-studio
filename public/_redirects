@@ -1,1 +1,12 @@
-/*    /index.html   200 
+# Redirects para SPA (Single Page Application)
+/*    /index.html   200
+
+# Redirects específicos
+/dashboard/*  /index.html  200
+/auth/*       /index.html  200
+/editor/*     /index.html  200
+/analytics/*  /index.html  200
+/social/*     /index.html  200
+
+# API redirects (para futuras implementações)
+/api/*  /api/:splat  200 

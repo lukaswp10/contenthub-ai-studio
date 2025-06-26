@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 8080",
     "build": "tsc && vite build",
+    "build:vercel": "npm run type-check && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
@@ -15,7 +16,9 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
-    "supabase:gen-types": "supabase gen types typescript --local > src/types/supabase.ts"
+    "supabase:gen-types": "supabase gen types typescript --local > src/types/supabase.ts",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.1.2",
@@ -89,6 +92,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/clipsforge-pro.git"
+    "url": "https://github.com/lukaswp10/contenthub-ai-studio.git"
+  },
+  "homepage": "https://contenthub-ai-studio.vercel.app",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 } 

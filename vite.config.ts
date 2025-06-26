@@ -24,15 +24,28 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
-    sourcemap: true,
+    sourcemap: false,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
           supabase: ['@supabase/supabase-js'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          ui: [
+            '@radix-ui/react-dialog', 
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tabs'
+          ],
+          utils: ['clsx', 'tailwind-merge', 'class-variance-authority'],
         },
       },
     },
+    chunkSizeWarningLimit: 1000,
+  },
+  preview: {
+    port: 4173,
+    host: true,
   },
 }) 
