@@ -60,6 +60,15 @@ export default function App() {
               />
               
               <Route
+                path="/editor"
+                element={
+                  <ProtectedRoute>
+                    <Editor />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
                 path="/editor/:videoId"
                 element={
                   <ProtectedRoute>

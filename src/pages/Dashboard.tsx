@@ -689,6 +689,40 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Editor Visual Highlight */}
+        <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Scissors className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-1">🎬 Editor Visual - Estilo Canva</h3>
+                  <p className="text-purple-100">
+                    Crie clips profissionais com nossa interface moderna e intuitiva
+                  </p>
+                  <div className="flex items-center gap-4 mt-2 text-sm text-purple-100">
+                    <span>• Timeline interativa</span>
+                    <span>• Editor de texto visual</span>
+                    <span>• Preview em tempo real</span>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                size="lg" 
+                className="bg-white text-purple-600 hover:bg-purple-50 font-semibold"
+                asChild
+              >
+                <a href="/editor">
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Abrir Editor
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
