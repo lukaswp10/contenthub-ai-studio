@@ -1,11 +1,9 @@
 {
   "version": 2,
-  "name": "clipsforge-pro",
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "public": true,
   "rewrites": [
     {
       "source": "/(.*)",
