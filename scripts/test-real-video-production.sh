@@ -83,8 +83,7 @@ echo "✅ Video ID obtido: $VIDEO_ID"
 
 # URL de vídeo pública para teste
 # Usaremos esta URL fixa para garantir que a transcrição funcione.
-# Em um cenário real, esta URL viria do processo de upload do Cloudinary.
-DEMO_VIDEO_URL="https://res.cloudinary.com/dyqjxsnjp/video/upload/v1750937537/samples/elephants.mp4"
+DEMO_VIDEO_URL="https://res.cloudinary.com/demo/video/upload/dog.mp4"
 echo "🐘 Usando URL de vídeo de demonstração para transcrição: $DEMO_VIDEO_URL"
 
 echo ""
