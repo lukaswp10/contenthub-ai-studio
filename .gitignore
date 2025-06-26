@@ -22,3 +22,28 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Performance optimizations
+.vite/
+.cache/
+coverage/
+.nyc_output/
+.vercel/
+.next/
+
+# Cursor cache
+.cursor/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS files
+Thumbs.db
+ehthumbs.db
+
+# Runtime
+*.pid
+*.seed
+*.pid.lock
