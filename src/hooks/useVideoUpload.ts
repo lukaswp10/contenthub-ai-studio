@@ -102,25 +102,31 @@ export function useVideoUpload() {
       setUploadProgress(30)
       console.log('Upload params:', uploadData.upload_url, uploadData.upload_params)
       console.log('uploadData.upload_params:', JSON.stringify(uploadData.upload_params, null, 2))
-      const uploadedUrl = await uploadToCloudinary(
-        file,
-        uploadData.upload_url,
-        uploadData.upload_params,
-        (progress) => {
-          setUploadProgress(30 + (progress * 50)) // 30-80%
-        }
-      )
+      
+      let uploadedUrl: string
+      try {
+        uploadedUrl = await uploadToCloudinary(
+          file,
+          uploadData.upload_url,
+          uploadData.upload_params,
+          (progress) => {
+            setUploadProgress(30 + (progress * 50)) // 30-80%
+          }
+        )
+        console.log('✅ Upload para Cloudinary concluído:', uploadedUrl)
+      } catch (uploadError) {
+        console.error('❌ Erro no upload para Cloudinary:', uploadError)
+        throw new Error('Falha no upload do vídeo')
+      }
 
       // Update video record with Cloudinary URL
       setUploadProgress(80)
       
-      // Generate unique public_id to avoid duplicates
-      const uniquePublicId = `${uploadData.upload_params.public_id}_${Date.now()}`
-      
+      // Use the original public_id from upload params (not generating a new one)
       const { error: updateError } = await supabase
         .from('videos')
         .update({
-          cloudinary_public_id: uniquePublicId,
+          cloudinary_public_id: uploadData.upload_params.public_id,
           cloudinary_secure_url: uploadedUrl,
           processing_status: 'queued'
         })
@@ -131,7 +137,7 @@ export function useVideoUpload() {
         throw updateError
       }
 
-      // Trigger transcription
+      // Trigger transcription only after successful upload
       setUploadProgress(85)
       const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke('transcribe-video', {
         body: {
@@ -321,6 +327,7 @@ async function uploadToCloudinary(
     
     // Log FormData enviado
     console.log('FormData enviado para Cloudinary:', Object.fromEntries(formData.entries()))
+    console.log('Upload URL:', uploadUrl)
     
     const xhr = new XMLHttpRequest()
     
@@ -333,23 +340,57 @@ async function uploadToCloudinary(
     })
     
     xhr.addEventListener('load', () => {
+      console.log('Cloudinary response status:', xhr.status)
+      console.log('Cloudinary response text:', xhr.responseText)
+      
       if (xhr.status === 200) {
         try {
           const response = JSON.parse(xhr.responseText)
-          resolve(response.secure_url)
+          console.log('Cloudinary response parsed:', response)
+          
+          if (response.secure_url) {
+            resolve(response.secure_url)
+          } else {
+            console.error('No secure_url in response:', response)
+            reject(new Error('Resposta do Cloudinary inválida: secure_url não encontrada'))
+          }
         } catch (error) {
-          reject(new Error('Invalid response from Cloudinary'))
+          console.error('Error parsing Cloudinary response:', error)
+          console.error('Raw response:', xhr.responseText)
+          reject(new Error('Resposta inválida do Cloudinary'))
         }
       } else {
-        reject(new Error(`Upload failed: ${xhr.statusText}`))
+        console.error('Cloudinary upload failed with status:', xhr.status)
+        console.error('Response text:', xhr.responseText)
+        
+        // Try to parse error response
+        try {
+          const errorResponse = JSON.parse(xhr.responseText)
+          console.error('Cloudinary error details:', errorResponse)
+          
+          if (errorResponse.error && errorResponse.error.message) {
+            reject(new Error(`Erro do Cloudinary: ${errorResponse.error.message}`))
+          } else {
+            reject(new Error(`Upload falhou: ${xhr.status} ${xhr.statusText}`))
+          }
+        } catch (parseError) {
+          reject(new Error(`Upload falhou: ${xhr.status} ${xhr.statusText} - ${xhr.responseText}`))
+        }
       }
     })
     
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error during upload'))
+    xhr.addEventListener('error', (e) => {
+      console.error('Network error during upload:', e)
+      reject(new Error('Erro de rede durante o upload'))
+    })
+    
+    xhr.addEventListener('timeout', () => {
+      console.error('Upload timeout')
+      reject(new Error('Timeout no upload'))
     })
     
     xhr.open('POST', uploadUrl)
+    xhr.timeout = 300000 // 5 minutes timeout
     xhr.send(formData)
   })
 } 

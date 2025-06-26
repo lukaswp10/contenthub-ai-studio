@@ -332,10 +332,11 @@ serve(async (req) => {
       .eq('id', user.id)
 
     // Log final params enviados para o frontend
-    // Importante: não incluir upload_preset quando usando assinatura
+    // Importante: incluir resource_type no FormData mas não na assinatura
     const finalUploadParams = {
       folder: uploadParams.folder,
       public_id: uploadParams.public_id,
+      resource_type: 'video',
       timestamp: uploadParams.timestamp,
       signature,
       api_key: cloudinaryConfig.api_key
