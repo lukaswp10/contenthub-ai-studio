@@ -280,26 +280,22 @@ serve(async (req) => {
       folder: `videos/${user.id}`,
       resource_type: 'video' as const,
       type: 'upload' as const,
-      timestamp: String(Math.round(timestamp / 1000)),
-      video_codec: 'auto',
-      audio_codec: 'auto',
-      context: contextString,
-      upload_preset: 'ml_default'
+      timestamp: String(Math.round(timestamp / 1000))
     }
 
     // Log todos os parâmetros antes de assinar
     console.log('Upload params before signing:', JSON.stringify(uploadParams, null, 2))
 
     // Generate signature for secure upload
-    // IMPORTANTE: Incluir apenas os parâmetros que o Cloudinary espera na assinatura
+    // Segundo a documentação do Cloudinary, a assinatura deve incluir apenas parâmetros específicos
+    // e NÃO deve incluir upload_preset, api_key, signature, file, ou cloud_name
+    // Baseado no erro, o Cloudinary espera: folder, public_id, timestamp, type
     const signatureParams = {
-      context: uploadParams.context,
       folder: uploadParams.folder,
       public_id: uploadParams.public_id,
       timestamp: uploadParams.timestamp,
-      type: uploadParams.type,
-      upload_preset: uploadParams.upload_preset
-    };
+      type: uploadParams.type
+    }
 
     const paramsToSign = Object.keys(signatureParams)
       .sort()
@@ -307,7 +303,7 @@ serve(async (req) => {
       .map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
       .join('&')
     
-    console.log('Params to sign (only signature params):', paramsToSign)
+    console.log('Params to sign (correct format):', paramsToSign)
     
     // Use the configured api_secret from cloudinaryConfig
     const apiSecret = cloudinaryConfig.api_secret
@@ -340,6 +336,10 @@ serve(async (req) => {
       ...uploadParams,
       signature,
       api_key: cloudinaryConfig.api_key,
+      // Adicionar parâmetros que não fazem parte da assinatura mas são necessários para o upload
+      upload_preset: 'ml_default',
+      video_codec: 'auto',
+      audio_codec: 'auto'
     }
     console.log('Final upload params:', JSON.stringify(finalUploadParams, null, 2))
 

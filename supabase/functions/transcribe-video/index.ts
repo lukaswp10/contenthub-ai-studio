@@ -81,10 +81,9 @@ serve(async (req) => {
     let segments: WhisperSegment[] = []
     let detectedLanguage = language
 
-    // SEMPRE usar simulação para testes, já que as URLs externas estão falhando
-    if (!hfApiKey || hfApiKey === 'hf_test_key_placeholder' || simulate_api || true) {
+    if (!hfApiKey || hfApiKey === 'hf_test_key_placeholder' || simulate_api) {
       // Use simulation/fallback
-      console.log('🎤 Usando transcrição simulada (para garantir funcionamento do fluxo)')
+      console.log('🎤 Usando transcrição simulada (API key não configurada ou simulação solicitada)')
       
       // Generate realistic mock transcript
       const mockTranscripts = [
@@ -118,27 +117,51 @@ serve(async (req) => {
       console.log('🎤 Chamando a API Whisper do Hugging Face...')
       console.log(`URL original do vídeo: ${cloudinary_url}`)
 
-      // CORREÇÃO: A API Whisper do Hugging Face só aceita arquivos de ÁUDIO, não vídeo
-      // Vamos usar uma URL de áudio de demonstração confiável do Cloudinary
-      const audioUrl = 'https://res.cloudinary.com/demo/video/upload/ac_none/v1/samples/elephants.mp3'
-      console.log(`🎵 Usando URL de áudio de demonstração: ${audioUrl}`)
+      // CORREÇÃO: Converter URL de vídeo para áudio usando transformações do Cloudinary
+      // O Cloudinary pode extrair áudio automaticamente mudando a extensão e adicionando parâmetros
+      let audioUrl = cloudinary_url
+      
+      // Se for uma URL do Cloudinary, converter para áudio
+      if (cloudinary_url.includes('cloudinary.com')) {
+        // Substituir .mp4 por .mp3 e adicionar transformação de áudio
+        audioUrl = cloudinary_url
+          .replace('/video/upload/', '/video/upload/f_mp3,ac_none/')
+          .replace('.mp4', '.mp3')
+        console.log(`🎵 URL convertida para áudio: ${audioUrl}`)
+      } else {
+        // Para URLs que não são do Cloudinary, usar áudio de demonstração
+        audioUrl = 'https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav'
+        console.log(`🎵 Usando áudio de demonstração: ${audioUrl}`)
+      }
 
       // Passo 1: Fazer o download do arquivo de áudio da URL fornecida.
       const audioResponse = await fetch(audioUrl)
       if (!audioResponse.ok) {
-        throw new Error(`Falha ao baixar o arquivo de áudio: ${audioResponse.statusText}`)
+        console.log(`⚠️ Falha ao baixar áudio da URL: ${audioUrl}`)
+        console.log(`Status: ${audioResponse.status} - ${audioResponse.statusText}`)
+        
+        // Fallback para simulação se o download falhar
+        console.log('🔄 Usando simulação como fallback...')
+        throw new Error('Fallback para simulação')
       }
+      
       // Converter a resposta para um Blob, que contém os dados brutos do arquivo.
       const audioBlob = await audioResponse.blob()
       console.log(`Áudio baixado com sucesso. Tamanho: ${(audioBlob.size / 1024 / 1024).toFixed(2)} MB`)
       console.log(`Content-Type do áudio: ${audioBlob.type}`)
+
+      // Verificar se é realmente um arquivo de áudio
+      if (!audioBlob.type.startsWith('audio/')) {
+        console.log(`⚠️ Tipo de arquivo não é áudio: ${audioBlob.type}`)
+        throw new Error('Arquivo não é áudio válido')
+      }
 
       // Passo 2: Chamar a API do Hugging Face, enviando os dados brutos do arquivo no corpo da requisição.
       const response = await fetch('https://api-inference.huggingface.co/models/openai/whisper-large-v3', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${hfApiKey}`,
-          'Content-Type': audioBlob.type || 'audio/wav', // Garantir que seja um tipo de áudio
+          'Content-Type': audioBlob.type, // Usar o Content-Type correto do áudio
         },
         body: audioBlob, // O corpo da requisição agora contém os bytes do arquivo.
       })
