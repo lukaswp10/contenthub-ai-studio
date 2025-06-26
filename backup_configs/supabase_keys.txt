@@ -1,0 +1,20 @@
+# CHAVES IMPORTANTES - ClipsForge
+# ================================
+
+# Supabase
+SUPABASE_URL="https://rgwbtdzdeibobuveegfp.supabase.co"
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnd2J0ZHpkZWlib2J1dmVlZ2ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNjczNDIsImV4cCI6MjA2NTY0MzM0Mn0.f3ZdePT5fk6EuO-eP4fu4EBCN97V3mNxYAKU39sduGw"
+PROJECT_ID="rgwbtdzdeibobuveegfp"
+
+# Variáveis de ambiente que devem estar configuradas no Supabase:
+# - CLOUDINARY_CLOUD_NAME
+# - CLOUDINARY_API_KEY  
+# - CLOUDINARY_API_SECRET
+# - SHOTSTACK_PRODUCTION_API_KEY (opcional)
+# - SHOTSTACK_SANDBOX_API_KEY (opcional)
+# - OPENAI_API_KEY (para implementar)
+# - GROQ_API_KEY (para implementar)
+
+# Domínios
+PRODUCTION_URL="https://clipbursts.lovable.app"
+DEV_URL="http://localhost:8080" 
