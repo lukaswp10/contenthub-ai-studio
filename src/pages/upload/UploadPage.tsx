@@ -36,11 +36,20 @@ export const UploadPage: React.FC = () => {
     }
   }
 
+  const resetUpload = () => {
+    setUploadedVideo(null)
+    setProcessing(false)
+    setProcessingStep('')
+    setProcessingProgress(0)
+    console.log('Estado do upload resetado')
+  }
+
   const handleUploadComplete = (videoUrl: string, videoData: any) => {
     const video: UploadedVideo = {
       ...videoData,
       url: videoUrl
     }
+    console.log('Upload completed:', video)
     setUploadedVideo(video)
   }
 
@@ -139,15 +148,47 @@ export const UploadPage: React.FC = () => {
         {!uploadedVideo && (
           <VideoUpload 
             onUploadComplete={handleUploadComplete}
+            onReset={resetUpload}
           />
         )}
 
         {/* Video Uploaded - Processing Options */}
         {uploadedVideo && !processing && uploadedVideo.status === 'uploaded' && (
           <div className="space-y-6">
+            {/* Preview do vídeo carregado - Movido para CIMA */}
+            {uploadedVideo.url && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Preview do Vídeo
+                </h3>
+                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+                  <video 
+                    src={uploadedVideo.url}
+                    controls
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                    onLoadedData={() => {
+                      console.log('Vídeo carregado com sucesso')
+                    }}
+                    onError={(e) => {
+                      console.error('Erro ao carregar vídeo:', e)
+                    }}
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-2">
+                    ✅ Vídeo carregado e pronto para processamento
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Clique em "Processar com IA" abaixo para continuar
+                  </p>
+                </div>
+              </Card>
+            )}
+
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                ✅ Vídeo Carregado com Sucesso!
+                ✅ Upload Concluído!
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -156,7 +197,7 @@ export const UploadPage: React.FC = () => {
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Nome:</dt>
-                      <dd className="text-gray-900">{uploadedVideo.filename}</dd>
+                      <dd className="text-gray-900 font-medium">{uploadedVideo.filename}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Tamanho:</dt>
@@ -164,41 +205,43 @@ export const UploadPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Duração:</dt>
-                      <dd className="text-gray-900">{Math.round(uploadedVideo.duration)}s</dd>
+                      <dd className="text-gray-900">{uploadedVideo.duration > 0 ? `${Math.round(uploadedVideo.duration)}s` : 'Detectando...'}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Status:</dt>
+                      <dd className="text-green-600 font-medium">✅ Pronto</dd>
                     </div>
                   </dl>
                 </div>
 
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Próximos Passos</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Nossa IA irá analisar seu vídeo e criar clips otimizados para TikTok, Instagram Reels e YouTube Shorts.
-                  </p>
+                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <p className="text-sm text-blue-800 mb-2">
+                      🤖 <strong>Processamento com IA</strong>
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      Nossa IA irá analisar seu vídeo e criar clips otimizados para TikTok, Instagram Reels e YouTube Shorts.
+                    </p>
+                  </div>
                   <Button 
                     onClick={startProcessing}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
                   >
-                    🤖 Processar com IA
+                    🚀 Processar com IA
+                  </Button>
+                  <Button 
+                    onClick={resetUpload}
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                  >
+                    🔄 Fazer Novo Upload
                   </Button>
                 </div>
               </div>
             </Card>
-
-            {/* Preview do vídeo carregado */}
-            {uploadedVideo.url && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Preview do Vídeo
-                </h3>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                  <video 
-                    src={uploadedVideo.url}
-                    controls
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </Card>
-            )}
           </div>
         )}
 

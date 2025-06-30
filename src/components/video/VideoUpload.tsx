@@ -7,12 +7,14 @@ interface VideoUploadProps {
   onUploadComplete?: (videoUrl: string, videoData: any) => void
   onUploadStart?: () => void
   onUploadProgress?: (progress: number) => void
+  onReset?: () => void
 }
 
 export const VideoUpload: React.FC<VideoUploadProps> = ({
   onUploadComplete,
   onUploadStart,
-  onUploadProgress
+  onUploadProgress,
+  onReset
 }) => {
   const { user } = useAuth()
   const [isDragging, setIsDragging] = useState(false)
@@ -51,10 +53,15 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     setSelectedFile(file)
     setError(null)
     
+    // Limpar preview anterior se existir
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+    
     // Criar preview
     const url = URL.createObjectURL(file)
     setPreviewUrl(url)
-  }, [])
+  }, [previewUrl])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -91,32 +98,46 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     onUploadStart?.()
 
     try {
-      // Simular processo de upload com progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        await new Promise(resolve => setTimeout(resolve, 200))
+      // Simular processo de upload mais realista
+      const totalSteps = 20 // Mais steps para suavidade
+      const baseDelay = 150 // Delay base
+      
+      for (let step = 0; step <= totalSteps; step++) {
+        // Simular velocidade variável - mais lento no início e fim
+        let delay = baseDelay
+        if (step < 3) delay = 800 // Início mais lento
+        else if (step > totalSteps - 3) delay = 600 // Final mais lento
+        else delay = 300 + Math.random() * 200 // Meio com variação
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+        
+        const progress = (step / totalSteps) * 100
         setUploadProgress(progress)
         onUploadProgress?.(progress)
       }
+
+      // Aguardar um pouco para garantir que o vídeo carregou completamente
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       // Simular resposta do servidor
       const videoData = {
         id: Date.now().toString(),
         filename: selectedFile.name,
         size: selectedFile.size,
-        duration: videoRef.current?.duration || 0,
+        duration: videoRef.current?.duration || Math.floor(Math.random() * 300) + 30, // 30-330s se não detectar
         uploadedAt: new Date().toISOString(),
         userId: user.id,
         status: 'uploaded'
       }
 
+      console.log('Upload concluído:', videoData)
       onUploadComplete?.(previewUrl!, videoData)
       
-      // Reset form
-      setSelectedFile(null)
-      setPreviewUrl(null)
+      // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)
       
     } catch (err) {
+      console.error('Erro no upload:', err)
       setError('Erro no upload. Tente novamente.')
     } finally {
       setUploading(false)
@@ -124,13 +145,27 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   }
 
   const clearSelection = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
     setSelectedFile(null)
     setPreviewUrl(null)
     setError(null)
+    setUploadProgress(0)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+    onReset?.()
   }
+
+  // Limpar recursos quando component é desmontado
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   return (
     <div className="space-y-6">
@@ -233,16 +268,42 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Preview do Vídeo
           </h3>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+          <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
             <video 
               ref={videoRef}
               src={previewUrl}
               controls
+              preload="metadata"
               className="w-full h-full object-contain"
               onLoadedMetadata={() => {
-                // Video metadata loaded
+                console.log('Metadata carregada:', {
+                  duration: videoRef.current?.duration,
+                  videoWidth: videoRef.current?.videoWidth,
+                  videoHeight: videoRef.current?.videoHeight
+                })
+              }}
+              onLoadedData={() => {
+                console.log('Dados do vídeo carregados')
+              }}
+              onError={(e) => {
+                console.error('Erro ao carregar vídeo:', e)
+                setError('Erro ao carregar preview do vídeo')
               }}
             />
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">
+              📹 <strong>{selectedFile?.name}</strong>
+            </p>
+            {selectedFile && (
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>Tamanho: {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB</p>
+                <p>Tipo: {selectedFile.type}</p>
+                {videoRef.current?.duration && (
+                  <p>Duração: {Math.round(videoRef.current.duration)}s</p>
+                )}
+              </div>
+            )}
           </div>
         </Card>
       )}
