@@ -207,10 +207,16 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
 
       console.log('Upload concluído:', videoData)
       
-      // Para o caso onde o preview não funciona, ainda passa uma URL válida
-      const urlToPass = previewUrl && !videoError ? previewUrl : `data:video/mp4;base64,${selectedFile.name}`
+      // Em vez de passar apenas a URL, vamos preservar o arquivo
+      // A Blob URL expira entre navegações, então vamos usar uma estratégia diferente
+      const videoDataWithFile = {
+        ...videoData,
+        file: selectedFile, // Preservar o arquivo original
+        blobUrl: previewUrl // Para preview se ainda estiver disponível
+      }
       
-      onUploadComplete?.(urlToPass, videoData)
+      // Para compatibilidade, ainda passar a URL como primeiro parâmetro
+      onUploadComplete?.(previewUrl || 'file-preserved', videoDataWithFile)
       
       // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)

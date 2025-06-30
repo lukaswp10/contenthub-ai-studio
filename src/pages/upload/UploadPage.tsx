@@ -16,6 +16,8 @@ interface UploadedVideo {
   userId: string
   status: 'uploaded' | 'processing' | 'completed'
   url?: string
+  file?: File // Arquivo original preservado
+  blobUrl?: string // Blob URL se disponível
 }
 
 export const UploadPage: React.FC = () => {
@@ -47,7 +49,9 @@ export const UploadPage: React.FC = () => {
   const handleUploadComplete = (videoUrl: string, videoData: any) => {
     const video: UploadedVideo = {
       ...videoData,
-      url: videoUrl
+      url: videoUrl,
+      file: videoData.file, // Preservar o arquivo original
+      blobUrl: videoData.blobUrl // Preservar blob URL se disponível
     }
     console.log('Upload completed:', video)
     setUploadedVideo(video)
@@ -253,14 +257,26 @@ export const UploadPage: React.FC = () => {
                   {/* Editor Manual */}
                   <div 
                     className="group border-2 border-blue-200 rounded-xl p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
-                    onClick={() => navigate('/editor', { 
-                      state: {
-                        url: uploadedVideo.url,
-                        name: uploadedVideo.filename,
-                        size: uploadedVideo.size,
-                        id: uploadedVideo.id
+                    onClick={() => {
+                      // Criar nova Blob URL se temos o arquivo
+                      let videoUrl = uploadedVideo.url
+                      if (uploadedVideo.file) {
+                        videoUrl = URL.createObjectURL(uploadedVideo.file)
+                        console.log('Nova Blob URL criada para o editor:', videoUrl)
                       }
-                    })}
+                      
+                      navigate('/editor', { 
+                        state: {
+                          url: videoUrl,
+                          name: uploadedVideo.filename,
+                          size: uploadedVideo.size,
+                          duration: uploadedVideo.duration || 0,
+                          file: uploadedVideo.file, // Passar o arquivo original
+                          id: uploadedVideo.id,
+                          videoData: uploadedVideo // Passando dados completos
+                        }
+                      })
+                    }}
                   >
                     <div className="text-center">
                       <div className="text-4xl mb-3">🎬</div>
@@ -316,60 +332,27 @@ export const UploadPage: React.FC = () => {
               </Card>
             )}
 
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                ✅ Upload Concluído!
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Detalhes do Vídeo</h4>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500">Nome:</dt>
-                      <dd className="text-gray-900 font-medium">{uploadedVideo.filename}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500">Tamanho:</dt>
-                      <dd className="text-gray-900">{(uploadedVideo.size / (1024 * 1024)).toFixed(1)} MB</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500">Duração:</dt>
-                      <dd className="text-gray-900">{uploadedVideo.duration > 0 ? `${Math.round(uploadedVideo.duration)}s` : 'Detectando...'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500">Status:</dt>
-                      <dd className="text-green-600 font-medium">✅ Pronto para IA</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Próximos Passos</h4>
-                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                    <p className="text-sm text-blue-800 mb-2">
-                      🤖 <strong>Processamento com IA</strong>
-                    </p>
-                    <p className="text-xs text-blue-700">
-                      Nossa IA irá analisar seu vídeo e criar clips otimizados para TikTok, Instagram Reels e YouTube Shorts.
+            {/* Detalhes do vídeo em formato compacto */}
+            <Card className="p-4 bg-green-50 border-green-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">✅</span>
+                  <div>
+                    <h4 className="font-medium text-green-800">Upload Concluído!</h4>
+                    <p className="text-sm text-green-600">
+                      {uploadedVideo.filename} • {(uploadedVideo.size / (1024 * 1024)).toFixed(1)} MB • 
+                      {uploadedVideo.duration > 0 ? ` ${Math.round(uploadedVideo.duration)}s` : ' Detectando...'}
                     </p>
                   </div>
-                  <Button 
-                    onClick={startAIProcessing}
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
-                  >
-                    🚀 Processar com IA
-                  </Button>
-                  <Button 
-                    onClick={resetUpload}
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                  >
-                    🔄 Fazer Novo Upload
-                  </Button>
                 </div>
+                <Button 
+                  onClick={resetUpload}
+                  variant="outline"
+                  size="sm"
+                  className="text-green-600 border-green-300 hover:bg-green-100"
+                >
+                  🔄 Novo Upload
+                </Button>
               </div>
             </Card>
           </div>

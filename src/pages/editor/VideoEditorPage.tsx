@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button'
 import { useClips } from '@/contexts/ClipsContext'
 
 interface VideoData {
-  file: File
-  url: string
+  file?: File | null
+  url?: string
   name: string
   size: number
   duration?: number
+  id?: string
+  videoData?: any
 }
 
 interface ClipSegment {
@@ -133,8 +135,38 @@ export function VideoEditorPage() {
 
   useEffect(() => {
     if (!videoData) {
+      console.log('Nenhum vídeo encontrado, redirecionando para upload')
       navigate('/upload')
       return
+    }
+    
+    // Se não temos URL mas temos arquivo, criar nova Blob URL
+    if (!videoData.url && videoData.file) {
+      console.log('Criando nova Blob URL a partir do arquivo')
+      const newUrl = URL.createObjectURL(videoData.file)
+      videoData.url = newUrl
+      console.log('Nova URL criada:', newUrl)
+    }
+    
+    if (!videoData.url) {
+      console.log('Nenhuma URL ou arquivo encontrado, redirecionando para upload')
+      navigate('/upload')
+      return
+    }
+    
+    console.log('Dados do vídeo recebidos:', {
+      name: videoData.name,
+      hasUrl: !!videoData.url,
+      hasFile: !!videoData.file,
+      url: videoData.url?.substring(0, 50) + '...'
+    })
+    
+    // Cleanup da Blob URL quando component é desmontado
+    return () => {
+      if (videoData?.url && videoData.url.startsWith('blob:')) {
+        URL.revokeObjectURL(videoData.url)
+        console.log('Blob URL revogada no cleanup')
+      }
     }
   }, [videoData, navigate])
 
@@ -266,7 +298,7 @@ export function VideoEditorPage() {
                 🎬 Editor Profissional Ultra
               </h1>
               <p className="text-gray-600 mt-2">
-                Recursos de última geração para clips virais • {videoData.name}
+                Recursos de última geração para clips virais • {videoData?.name || 'Vídeo não carregado'}
               </p>
             </div>
             
@@ -327,14 +359,32 @@ export function VideoEditorPage() {
           <div className="lg:col-span-2">
             <Card className="p-6">
               <div className="relative bg-black rounded-lg overflow-hidden mb-6">
-                <video
-                  ref={videoRef}
-                  src={videoData.url}
-                  className="w-full h-auto max-h-96"
-                  onLoadedMetadata={handleVideoLoad}
-                  onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-                  controls
-                />
+                {videoData?.url ? (
+                  <video
+                    ref={videoRef}
+                    src={videoData.url}
+                    className="w-full h-auto max-h-96"
+                    onLoadedMetadata={handleVideoLoad}
+                    onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+                    onError={(e) => {
+                      console.error('Erro ao carregar vídeo no editor:', e)
+                    }}
+                    controls
+                  />
+                ) : (
+                  <div className="w-full h-96 flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="text-center text-gray-500">
+                      <svg className="h-16 w-16 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-lg font-medium mb-2">Nenhum vídeo carregado</p>
+                      <p className="text-sm mb-4">Faça upload de um vídeo primeiro</p>
+                      <Button onClick={() => navigate('/upload')}>
+                        📤 Fazer Upload
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Overlay de Preview dos Efeitos */}
                 {selectedEffect && (
