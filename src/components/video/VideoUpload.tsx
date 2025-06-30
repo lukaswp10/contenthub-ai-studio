@@ -62,11 +62,46 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       URL.revokeObjectURL(previewUrl)
     }
     
-    // Criar preview
+    // Tentar criar preview com blob URL primeiro
     try {
       const url = URL.createObjectURL(file)
       console.log('Blob URL criado:', url)
       setPreviewUrl(url)
+      
+      // Testar se o blob URL funciona
+      const testVideo = document.createElement('video')
+      testVideo.src = url
+      testVideo.onloadeddata = () => {
+        console.log('Blob URL testado e funcionando')
+        setVideoError(false)
+      }
+      testVideo.onerror = () => {
+        console.log('Blob URL bloqueado pelo CSP, usando fallback')
+        setVideoError(true)
+        URL.revokeObjectURL(url)
+        setPreviewUrl(null)
+        
+        // Fallback: usar File Reader para data URL (mais lento mas funciona)
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            console.log('Data URL criado como fallback')
+            setPreviewUrl(e.target.result as string)
+            setVideoError(false)
+          }
+        }
+        reader.onerror = () => {
+          console.log('Erro ao criar data URL, mantendo sem preview')
+          setVideoError(true)
+        }
+        // Para vídeos grandes, não usar data URL (limite ~50MB)
+        if (file.size < 50 * 1024 * 1024) {
+          reader.readAsDataURL(file)
+        } else {
+          console.log('Arquivo muito grande para data URL fallback')
+          setVideoError(true)
+        }
+      }
     } catch (err) {
       console.error('Erro ao criar blob URL:', err)
       setError('Erro ao criar preview do vídeo. O upload ainda pode funcionar.')
@@ -263,18 +298,30 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         {uploading && (
           <div className="mt-4">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Enviando vídeo...</span>
+              <span>🚀 Enviando vídeo...</span>
               <span>{Math.round(uploadProgress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-3">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-600 to-green-600 h-3 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
                 style={{ width: `${uploadProgress}%` }}
-              />
+              >
+                {uploadProgress > 10 && (
+                  <span className="text-xs text-white font-medium">
+                    {Math.round(uploadProgress)}%
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="text-center mt-2">
+            <div className="text-center mt-3">
+              <p className="text-sm text-gray-700 font-medium">
+                📤 {selectedFile?.name}
+              </p>
               <p className="text-xs text-gray-500">
-                📤 Fazendo upload de {selectedFile?.name}...
+                {uploadProgress < 30 ? '⚡ Iniciando upload...' : 
+                 uploadProgress < 70 ? '📡 Enviando dados...' : 
+                 uploadProgress < 95 ? '✅ Quase concluído...' : 
+                 '🎉 Finalizando...'}
               </p>
             </div>
           </div>
@@ -282,8 +329,22 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
 
         {/* Error Message */}
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <p className="text-sm text-red-700 font-medium">
+                  {error}
+                </p>
+                {error.includes('preview') && (
+                  <p className="text-xs text-red-600 mt-1">
+                    ⚠️ Problema de segurança do navegador, mas o upload pode funcionar normalmente.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </Card>

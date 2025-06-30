@@ -161,7 +161,7 @@ export const UploadPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Preview do Vídeo
                 </h3>
-                {uploadedVideo.url.startsWith('blob:') ? (
+                {uploadedVideo.url.startsWith('blob:') || uploadedVideo.url.startsWith('data:') ? (
                   <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
                     <video 
                       src={uploadedVideo.url}
@@ -169,22 +169,25 @@ export const UploadPage: React.FC = () => {
                       preload="metadata"
                       className="w-full h-full object-contain"
                       onLoadedData={() => {
-                        console.log('Vídeo carregado com sucesso')
+                        console.log('Vídeo carregado com sucesso na página de upload')
                       }}
                       onError={(e) => {
-                        console.error('Erro ao carregar vídeo:', e)
+                        console.error('Erro ao carregar vídeo na página:', e)
                       }}
                     />
                   </div>
                 ) : (
                   <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
                     <div className="text-center text-gray-500">
-                      <svg className="h-16 w-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-16 w-16 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-sm font-medium mb-1">Preview não disponível</p>
-                      <p className="text-xs">Problema de segurança do navegador</p>
-                      <p className="text-xs text-blue-600">O processamento funcionará normalmente ✅</p>
+                      <p className="text-sm font-medium mb-1">🔒 Preview bloqueado</p>
+                      <p className="text-xs mb-2">Restrições de segurança do navegador</p>
+                      <div className="bg-green-100 text-green-800 p-2 rounded text-xs">
+                        <p className="font-medium">✅ Upload realizado com sucesso!</p>
+                        <p>O processamento funcionará normalmente</p>
+                      </div>
                     </div>
                   </div>
                 )}
