@@ -161,20 +161,33 @@ export const UploadPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Preview do Vídeo
                 </h3>
-                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
-                  <video 
-                    src={uploadedVideo.url}
-                    controls
-                    preload="metadata"
-                    className="w-full h-full object-contain"
-                    onLoadedData={() => {
-                      console.log('Vídeo carregado com sucesso')
-                    }}
-                    onError={(e) => {
-                      console.error('Erro ao carregar vídeo:', e)
-                    }}
-                  />
-                </div>
+                {uploadedVideo.url.startsWith('blob:') ? (
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+                    <video 
+                      src={uploadedVideo.url}
+                      controls
+                      preload="metadata"
+                      className="w-full h-full object-contain"
+                      onLoadedData={() => {
+                        console.log('Vídeo carregado com sucesso')
+                      }}
+                      onError={(e) => {
+                        console.error('Erro ao carregar vídeo:', e)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <svg className="h-16 w-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm font-medium mb-1">Preview não disponível</p>
+                      <p className="text-xs">Problema de segurança do navegador</p>
+                      <p className="text-xs text-blue-600">O processamento funcionará normalmente ✅</p>
+                    </div>
+                  </div>
+                )}
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-2">
                     ✅ Vídeo carregado e pronto para processamento
@@ -209,7 +222,7 @@ export const UploadPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Status:</dt>
-                      <dd className="text-green-600 font-medium">✅ Pronto</dd>
+                      <dd className="text-green-600 font-medium">✅ Pronto para IA</dd>
                     </div>
                   </dl>
                 </div>

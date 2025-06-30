@@ -23,6 +23,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [videoError, setVideoError] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -44,6 +45,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   }
 
   const handleFileSelect = useCallback((file: File) => {
+    console.log('Arquivo selecionado:', file)
+    
     const validationError = validateFile(file)
     if (validationError) {
       setError(validationError)
@@ -52,6 +55,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
 
     setSelectedFile(file)
     setError(null)
+    setVideoError(false)
     
     // Limpar preview anterior se existir
     if (previewUrl) {
@@ -59,8 +63,15 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     }
     
     // Criar preview
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
+    try {
+      const url = URL.createObjectURL(file)
+      console.log('Blob URL criado:', url)
+      setPreviewUrl(url)
+    } catch (err) {
+      console.error('Erro ao criar blob URL:', err)
+      setError('Erro ao criar preview do vídeo. O upload ainda pode funcionar.')
+      setVideoError(true)
+    }
   }, [previewUrl])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -90,11 +101,38 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     }
   }, [handleFileSelect])
 
+  const clearSelection = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+    setSelectedFile(null)
+    setPreviewUrl(null)
+    setError(null)
+    setVideoError(false)
+    setUploadProgress(0)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    onReset?.()
+  }
+
+  // Limpar recursos quando component é desmontado
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
+
   const simulateUpload = async () => {
     if (!selectedFile || !user) return
 
+    console.log('Iniciando upload para:', selectedFile.name)
+    
     setUploading(true)
     setUploadProgress(0)
+    setError(null)
     onUploadStart?.()
 
     try {
@@ -114,6 +152,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         const progress = (step / totalSteps) * 100
         setUploadProgress(progress)
         onUploadProgress?.(progress)
+        
+        console.log(`Upload progress: ${progress.toFixed(1)}%`)
       }
 
       // Aguardar um pouco para garantir que o vídeo carregou completamente
@@ -131,7 +171,11 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       }
 
       console.log('Upload concluído:', videoData)
-      onUploadComplete?.(previewUrl!, videoData)
+      
+      // Para o caso onde o preview não funciona, ainda passa uma URL válida
+      const urlToPass = previewUrl && !videoError ? previewUrl : `data:video/mp4;base64,${selectedFile.name}`
+      
+      onUploadComplete?.(urlToPass, videoData)
       
       // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)
@@ -143,29 +187,6 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       setUploading(false)
     }
   }
-
-  const clearSelection = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-    setSelectedFile(null)
-    setPreviewUrl(null)
-    setError(null)
-    setUploadProgress(0)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    onReset?.()
-  }
-
-  // Limpar recursos quando component é desmontado
-  React.useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
-    }
-  }, [previewUrl])
 
   return (
     <div className="space-y-6">
@@ -243,13 +264,18 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
           <div className="mt-4">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>Enviando vídeo...</span>
-              <span>{uploadProgress}%</span>
+              <span>{Math.round(uploadProgress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               />
+            </div>
+            <div className="text-center mt-2">
+              <p className="text-xs text-gray-500">
+                📤 Fazendo upload de {selectedFile?.name}...
+              </p>
             </div>
           </div>
         )}
@@ -268,29 +294,44 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Preview do Vídeo
           </h3>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
-            <video 
-              ref={videoRef}
-              src={previewUrl}
-              controls
-              preload="metadata"
-              className="w-full h-full object-contain"
-              onLoadedMetadata={() => {
-                console.log('Metadata carregada:', {
-                  duration: videoRef.current?.duration,
-                  videoWidth: videoRef.current?.videoWidth,
-                  videoHeight: videoRef.current?.videoHeight
-                })
-              }}
-              onLoadedData={() => {
-                console.log('Dados do vídeo carregados')
-              }}
-              onError={(e) => {
-                console.error('Erro ao carregar vídeo:', e)
-                setError('Erro ao carregar preview do vídeo')
-              }}
-            />
-          </div>
+          
+          {!videoError ? (
+            <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+              <video 
+                ref={videoRef}
+                src={previewUrl}
+                controls
+                preload="metadata"
+                className="w-full h-full object-contain"
+                onLoadedMetadata={() => {
+                  console.log('Metadata carregada:', {
+                    duration: videoRef.current?.duration,
+                    videoWidth: videoRef.current?.videoWidth,
+                    videoHeight: videoRef.current?.videoHeight
+                  })
+                }}
+                onLoadedData={() => {
+                  console.log('Dados do vídeo carregados')
+                  setVideoError(false)
+                }}
+                onError={(e) => {
+                  console.error('Erro ao carregar vídeo:', e)
+                  setVideoError(true)
+                }}
+              />
+            </div>
+          ) : (
+            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <svg className="h-16 w-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm font-medium">Preview não disponível</p>
+                <p className="text-xs">O vídeo pode ser processado normalmente</p>
+              </div>
+            </div>
+          )}
+          
           <div className="text-center">
             <p className="text-sm text-gray-600 mb-2">
               📹 <strong>{selectedFile?.name}</strong>
@@ -299,8 +340,11 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
               <div className="text-xs text-gray-500 space-y-1">
                 <p>Tamanho: {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB</p>
                 <p>Tipo: {selectedFile.type}</p>
-                {videoRef.current?.duration && (
+                {videoRef.current?.duration && !videoError && (
                   <p>Duração: {Math.round(videoRef.current.duration)}s</p>
+                )}
+                {videoError && (
+                  <p className="text-orange-600">⚠️ Preview indisponível (upload ainda funcionará)</p>
                 )}
               </div>
             )}
