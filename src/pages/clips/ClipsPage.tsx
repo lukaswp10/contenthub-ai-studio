@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useClips } from '@/contexts/ClipsContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,6 +10,10 @@ export const ClipsPage: React.FC = () => {
   const { user, signOut } = useAuth()
   const { clips, loading, deleteClip } = useClips()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Mensagem especial do processamento
+  const successMessage = location.state?.message
 
   const handleLogout = async () => {
     try {
@@ -101,9 +105,24 @@ export const ClipsPage: React.FC = () => {
             Meus Clips 🎬
           </h1>
           <p className="text-gray-600 text-sm sm:text-base">
-            Visualize, gerencie e compartilhe todos os seus clips criados.
+            Gerencie seus clips criados e acompanhe as métricas de performance.
           </p>
         </div>
+
+        {/* Mensagem de sucesso */}
+        {successMessage && (
+          <Card className="p-4 mb-6 bg-green-50 border-green-200">
+            <div className="flex items-center">
+              <div className="text-green-600 text-2xl mr-3">🎉</div>
+              <div>
+                <p className="text-green-800 font-medium">{successMessage}</p>
+                <p className="text-green-600 text-sm mt-1">
+                  Seus novos clips estão prontos para compartilhar!
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Stats Summary */}
         {clips.length > 0 && (

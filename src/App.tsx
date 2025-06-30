@@ -7,6 +7,7 @@ import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { UploadPage } from '@/pages/upload/UploadPage'
+import { VideoEditorPage } from '@/pages/editor/VideoEditorPage'
 import { ClipsPage } from '@/pages/clips/ClipsPage'
 import { AnalyticsPage } from '@/pages/analytics/AnalyticsPage'
 import './styles/globals.css'
@@ -37,6 +38,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <UploadPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/editor"
+              element={
+                <ProtectedRoute>
+                  <VideoEditorPage />
                 </ProtectedRoute>
               }
             />
