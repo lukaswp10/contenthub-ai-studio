@@ -78,8 +78,7 @@ describe('LandingPage', () => {
 
     test('renderiza seção hero com call-to-action', () => {
       renderWithRouter(<LandingPage />)
-      expect(screen.getByText(/Transforme Vídeos em/i)).toBeInTheDocument()
-      expect(screen.getByText(/Clips Virais/i)).toBeInTheDocument()
+      expect(screen.getByText(/Transforme seus vídeos em clips virais/i)).toBeInTheDocument()
     })
 
     test('renderiza botões de autenticação quando não logado', () => {
@@ -108,23 +107,22 @@ describe('LandingPage', () => {
   describe('Seção de Features', () => {
     test('renderiza cards de features', () => {
       renderWithRouter(<LandingPage />)
-      const iaElements = screen.getAllByText(/IA Avançada/i)
-      expect(iaElements.length).toBeGreaterThan(0)
-      expect(screen.getByText(/Processamento Rápido/i)).toBeInTheDocument()
-      expect(screen.getByText(/Multi-Plataforma/i)).toBeInTheDocument()
+      expect(screen.getByText(/IA Avançada/i)).toBeInTheDocument()
+      expect(screen.getByText(/Editor Intuitivo/i)).toBeInTheDocument()
+      expect(screen.getByText(/Analytics/i)).toBeInTheDocument()
     })
 
     test('mostra descrições das features', () => {
       renderWithRouter(<LandingPage />)
-      expect(screen.getByText(/identifica os melhores momentos/i)).toBeInTheDocument()
-      expect(screen.getByText(/Transforme horas de vídeo/i)).toBeInTheDocument()
-      expect(screen.getByText(/otimizados automaticamente para/i)).toBeInTheDocument()
+      expect(screen.getByText(/Nossa IA identifica automaticamente/i)).toBeInTheDocument()
+      expect(screen.getByText(/Editor profissional com/i)).toBeInTheDocument()
+      expect(screen.getByText(/Acompanhe o desempenho/i)).toBeInTheDocument()
     })
 
     test('features são visualmente organizadas', () => {
       renderWithRouter(<LandingPage />)
-      const featureCards = screen.getAllByText(/IA Avançada|Processamento Rápido|Multi-Plataforma/)
-      expect(featureCards.length).toBeGreaterThan(0)
+      const featureCards = screen.getAllByText(/IA Avançada|Editor Intuitivo|Analytics/)
+      expect(featureCards.length).toBe(3)
     })
   })
 
@@ -239,21 +237,19 @@ describe('LandingPage', () => {
   describe('Qualidade do Conteúdo', () => {
     test('textos são claros e informativos', () => {
       renderWithRouter(<LandingPage />)
-      expect(screen.getByText(/Nossa IA avançada identifica/i)).toBeInTheDocument()
+      expect(screen.getByText(/Nossa IA identifica automaticamente/i)).toBeInTheDocument()
     })
 
     test('proposta de valor é evidente', () => {
       renderWithRouter(<LandingPage />)
-      expect(screen.getByText(/Transforme Vídeos em/i)).toBeInTheDocument()
-      expect(screen.getByText(/Clips Virais/i)).toBeInTheDocument()
+      expect(screen.getByText(/Transforme seus vídeos em clips virais/i)).toBeInTheDocument()
     })
 
     test('benefícios são destacados', () => {
       renderWithRouter(<LandingPage />)
-      const iaElements = screen.getAllByText(/IA Avançada/i)
-      expect(iaElements.length).toBeGreaterThan(0)
-      expect(screen.getByText(/Processamento Rápido/i)).toBeInTheDocument()
-      expect(screen.getByText(/Multi-Plataforma/i)).toBeInTheDocument()
+      expect(screen.getByText(/IA Avançada/i)).toBeInTheDocument()
+      expect(screen.getByText(/Editor Intuitivo/i)).toBeInTheDocument()
+      expect(screen.getByText(/Analytics/i)).toBeInTheDocument()
     })
   })
 }) 

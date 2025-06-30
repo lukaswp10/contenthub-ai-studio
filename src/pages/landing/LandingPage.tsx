@@ -28,7 +28,7 @@ export const LandingPage: React.FC = () => {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <span className="text-sm font-medium">
-                Bem-vindo de volta, {user.email}! 👋
+                Bem-vindo de volta, <span>{user.email}</span>! 👋
               </span>
             </div>
             <Button
@@ -84,29 +84,24 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl lg:text-7xl font-bold text-gray-900 mb-8">
-              Transforme Vídeos em{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Clips Virais
-              </span>
+              <span>Transforme seus vídeos em clips virais</span>
             </h1>
-            
             <p className="text-xl lg:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto">
-              Plataforma revolucionária que utiliza IA para transformar seus vídeos longos 
-              em clips curtos otimizados para redes sociais. Maximize seu engajamento automaticamente.
+              Plataforma revolucionária que utiliza IA para transformar seus vídeos longos em clips curtos otimizados para redes sociais. Maximize seu engajamento automaticamente.
             </p>
-
+            
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-              <Link to="/register">
-                <Button size="lg" className="text-lg px-8 py-4">
-                  🚀 Começar Grátis
-                </Button>
-              </Link>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-4">
+              <a href="/register">
+                <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md text-lg px-8 py-4">
+                  🚀 Criar Conta Grátis
+                </button>
+              </a>
+              <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md text-lg px-8 py-4">
                 🎥 Ver Demo
-              </Button>
+              </button>
             </div>
 
-            {/* Stats */}
+            {/* Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">30+</div>
@@ -133,14 +128,13 @@ export const LandingPage: React.FC = () => {
               Por que escolher o ClipsForge Pro?
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Nossa IA avançada identifica os melhores momentos do seu vídeo e cria clips 
-              otimizados para cada plataforma social.
+              Nossa IA identifica automaticamente os melhores momentos do seu vídeo e cria clips otimizados para cada plataforma social.
             </p>
           </div>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+            {/* Feature 1 - IA */}
+            <div className="rounded-xl border bg-card text-card-foreground shadow p-8 text-center hover:shadow-lg transition-shadow">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-2xl">🤖</span>
               </div>
@@ -148,56 +142,53 @@ export const LandingPage: React.FC = () => {
                 IA Avançada
               </h3>
               <p className="text-gray-600">
-                Algoritmos de última geração que identificam automaticamente os momentos 
-                mais envolventes do seu conteúdo.
+                Algoritmos de última geração que detectam automaticamente os momentos mais envolventes do seu conteúdo para criar clips virais.
               </p>
-            </Card>
+            </div>
 
-            {/* Feature 2 */}
-            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+            {/* Feature 2 - Editor */}
+            <div className="rounded-xl border bg-card text-card-foreground shadow p-8 text-center hover:shadow-lg transition-shadow">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl">⚡</span>
+                <span className="text-2xl">✂️</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Processamento Rápido
+                Editor Intuitivo
               </h3>
               <p className="text-gray-600">
-                Transforme horas de vídeo em clips prontos para publicar em questão de minutos, 
-                não de horas.
+                Editor profissional com ferramentas avançadas para personalizar seus clips, adicionar legendas e efeitos especiais.
               </p>
-            </Card>
+            </div>
 
-            {/* Feature 3 */}
-            <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+            {/* Feature 3 - Analytics */}
+            <div className="rounded-xl border bg-card text-card-foreground shadow p-8 text-center hover:shadow-lg transition-shadow">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl">📱</span>
+                <span className="text-2xl">📊</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Multi-Plataforma
+                Analytics
               </h3>
               <p className="text-gray-600">
-                Clips otimizados automaticamente para TikTok, Instagram Reels, YouTube Shorts 
-                e outras plataformas.
+                Acompanhe o desempenho dos seus clips com métricas detalhadas e insights para otimizar sua estratégia de conteúdo.
               </p>
-            </Card>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA Final */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Pronto para criar clips virais?
+            Pronto para começar?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
             Junte-se a milhares de criadores que já estão maximizando seu alcance com o ClipsForge Pro
           </p>
-          <Link to="/register">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-4">
+          <a href="/register">
+            <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-blue-600 hover:bg-gray-100 h-11 rounded-md text-lg px-8 py-4">
               🚀 Começar Agora - É Grátis!
-            </Button>
-          </Link>
+            </button>
+          </a>
         </div>
       </section>
 
