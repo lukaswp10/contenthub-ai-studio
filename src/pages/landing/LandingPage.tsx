@@ -8,13 +8,6 @@ export const LandingPage: React.FC = () => {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
 
-  // Redirecionar usuários logados para o dashboard
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/dashboard', { replace: true })
-    }
-  }, [user, loading, navigate])
-
   // Mostrar loading enquanto verifica autenticação
   if (loading) {
     return (
@@ -27,13 +20,29 @@ export const LandingPage: React.FC = () => {
     )
   }
 
-  // Se usuário logado, não renderizar (será redirecionado)
-  if (user) {
-    return null
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Banner para usuários logados */}
+      {user && (
+        <div className="bg-blue-600 text-white py-3 px-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-sm font-medium">
+                Bem-vindo de volta, {user.email}! 👋
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-blue-600 bg-white hover:bg-gray-100"
+              onClick={() => navigate('/dashboard')}
+            >
+              Ir para Dashboard
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -45,16 +54,26 @@ export const LandingPage: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <Button variant="outline" size="sm">
-                  Entrar
+              {user ? (
+                <Button
+                  onClick={() => navigate('/dashboard')}
+                >
+                  Dashboard
                 </Button>
-              </Link>
-              <Link to="/register">
-                <Button size="sm">
-                  Começar Grátis
-                </Button>
-              </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">
+                      Entrar
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button size="sm">
+                      Começar Grátis
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
