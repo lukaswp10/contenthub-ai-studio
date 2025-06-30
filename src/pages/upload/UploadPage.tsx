@@ -49,11 +49,12 @@ export const UploadPage: React.FC = () => {
   const handleUploadComplete = (videoUrl: string, videoData: any) => {
     const video: UploadedVideo = {
       ...videoData,
-      url: videoUrl,
+      url: videoData.reliableUrl || videoUrl, // Usar URL confiável
       file: videoData.file, // Preservar o arquivo original
-      blobUrl: videoData.blobUrl // Preservar blob URL se disponível
+      blobUrl: videoData.originalPreviewUrl // URL original para referência
     }
     console.log('Upload completed:', video)
+    console.log('URL confiável definida:', video.url?.substring(0, 50) + '...')
     setUploadedVideo(video)
   }
 

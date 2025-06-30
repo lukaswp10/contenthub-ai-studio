@@ -59,16 +59,42 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     
     // Limpar preview anterior se existir
     if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
+      if (previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl)
+      }
     }
     
-    // Tentar criar preview com blob URL primeiro
+    // Estratégia mais robusta: usar data URL para arquivos pequenos, blob para grandes
+    if (file.size < 100 * 1024 * 1024) { // < 100MB usa data URL
+      console.log('Arquivo pequeno, usando data URL para máxima compatibilidade')
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          console.log('Data URL criado com sucesso')
+          setPreviewUrl(e.target.result as string)
+          setVideoError(false)
+        }
+      }
+      reader.onerror = () => {
+        console.log('Erro ao criar data URL, tentando blob URL')
+        setVideoError(true)
+        tryBlobUrl(file)
+      }
+      reader.readAsDataURL(file)
+    } else {
+      // Para arquivos grandes, usar blob URL
+      console.log('Arquivo grande, usando blob URL')
+      tryBlobUrl(file)
+    }
+  }, [previewUrl])
+
+  const tryBlobUrl = (file: File) => {
     try {
       const url = URL.createObjectURL(file)
       console.log('Blob URL criado:', url)
       setPreviewUrl(url)
       
-      // Testar se o blob URL funciona
+      // Testar se funciona
       const testVideo = document.createElement('video')
       testVideo.src = url
       testVideo.onloadeddata = () => {
@@ -76,38 +102,14 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         setVideoError(false)
       }
       testVideo.onerror = () => {
-        console.log('Blob URL bloqueado pelo CSP, usando fallback')
+        console.log('Blob URL falhou, sem preview mas upload funcionará')
         setVideoError(true)
-        URL.revokeObjectURL(url)
-        setPreviewUrl(null)
-        
-        // Fallback: usar File Reader para data URL (mais lento mas funciona)
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            console.log('Data URL criado como fallback')
-            setPreviewUrl(e.target.result as string)
-            setVideoError(false)
-          }
-        }
-        reader.onerror = () => {
-          console.log('Erro ao criar data URL, mantendo sem preview')
-          setVideoError(true)
-        }
-        // Para vídeos grandes, não usar data URL (limite ~50MB)
-        if (file.size < 50 * 1024 * 1024) {
-          reader.readAsDataURL(file)
-        } else {
-          console.log('Arquivo muito grande para data URL fallback')
-          setVideoError(true)
-        }
       }
     } catch (err) {
       console.error('Erro ao criar blob URL:', err)
-      setError('Erro ao criar preview do vídeo. O upload ainda pode funcionar.')
       setVideoError(true)
     }
-  }, [previewUrl])
+  }
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -207,16 +209,35 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
 
       console.log('Upload concluído:', videoData)
       
-      // Em vez de passar apenas a URL, vamos preservar o arquivo
-      // A Blob URL expira entre navegações, então vamos usar uma estratégia diferente
-      const videoDataWithFile = {
-        ...videoData,
-        file: selectedFile, // Preservar o arquivo original
-        blobUrl: previewUrl // Para preview se ainda estiver disponível
+      // Estratégia robusta: sempre preservar o arquivo + criar URL confiável
+      let reliableUrl: string = previewUrl || 'file-preserved'
+      
+      // Se não temos previewUrl ou é uma blob URL que pode expirar, criar data URL
+      if (!previewUrl || (previewUrl.startsWith('blob:') && selectedFile.size < 100 * 1024 * 1024)) {
+        console.log('Criando data URL confiável para navegação entre páginas')
+        try {
+          reliableUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = (e) => resolve(e.target?.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(selectedFile)
+          })
+          console.log('Data URL criado para preservação:', reliableUrl.substring(0, 50) + '...')
+        } catch (err) {
+          console.log('Fallback: preservando apenas o arquivo')
+          reliableUrl = 'file-preserved'
+        }
       }
       
-      // Para compatibilidade, ainda passar a URL como primeiro parâmetro
-      onUploadComplete?.(previewUrl || 'file-preserved', videoDataWithFile)
+      const videoDataWithFile = {
+        ...videoData,
+        file: selectedFile, // SEMPRE preservar o arquivo original
+        reliableUrl, // URL que funcionará entre páginas
+        originalPreviewUrl: previewUrl // URL original para referência
+      }
+      
+      // Passar a URL confiável
+      onUploadComplete?.(reliableUrl, videoDataWithFile)
       
       // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)
