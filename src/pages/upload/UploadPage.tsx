@@ -89,7 +89,6 @@ export const UploadPage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/clips')}
-              disabled
             >
               Ver Clips
             </Button>
@@ -106,7 +105,6 @@ export const UploadPage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/analytics')}
-              disabled
             >
               Ver Analytics
             </Button>

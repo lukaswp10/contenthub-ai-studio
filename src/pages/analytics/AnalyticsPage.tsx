@@ -201,7 +201,6 @@ export const AnalyticsPage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/clips')}
-              disabled
             >
               Ver Clips
             </Button>

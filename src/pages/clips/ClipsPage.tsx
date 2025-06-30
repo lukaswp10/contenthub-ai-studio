@@ -133,7 +133,6 @@ export const ClipsPage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/upload')}
-              disabled
             >
               Upload Vídeo
             </Button>
@@ -150,7 +149,6 @@ export const ClipsPage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/analytics')}
-              disabled
             >
               Ver Analytics
             </Button>
