@@ -1,0 +1,17 @@
+# COMANDOS PARA EXECUTAR NO TERMINAL (um por vez)
+
+# 1. Login no Vercel
+vercel login
+
+# 2. Adicionar URL do Supabase  
+vercel env add VITE_SUPABASE_URL
+# Quando perguntar o valor, cole: https://rgwbtdzdeibobuveegfp.supabase.co
+
+# 3. Adicionar chave do Supabase
+vercel env add VITE_SUPABASE_ANON_KEY  
+# Quando perguntar o valor, cole a chave que começa com: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# 4. Fazer deploy
+vercel --prod
+
+# ✅ PRONTO! O site vai funcionar! 
