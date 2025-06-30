@@ -1,13 +1,31 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useClips, Clip } from '@/contexts/ClipsContext'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { VideoUpload } from '@/components/video/VideoUpload'
+
+interface UploadedVideo {
+  id: string
+  filename: string
+  size: number
+  duration: number
+  uploadedAt: string
+  userId: string
+  status: 'uploaded' | 'processing' | 'completed'
+  url?: string
+}
 
 export const UploadPage: React.FC = () => {
   const { user, signOut } = useAuth()
+  const { addClips } = useClips()
   const navigate = useNavigate()
+  const [uploadedVideo, setUploadedVideo] = useState<UploadedVideo | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [processingStep, setProcessingStep] = useState('')
+  const [processingProgress, setProcessingProgress] = useState(0)
 
   const handleLogout = async () => {
     try {
@@ -16,6 +34,68 @@ export const UploadPage: React.FC = () => {
     } catch (error) {
       console.error('Error signing out:', error)
     }
+  }
+
+  const handleUploadComplete = (videoUrl: string, videoData: any) => {
+    const video: UploadedVideo = {
+      ...videoData,
+      url: videoUrl
+    }
+    setUploadedVideo(video)
+  }
+
+  const generateClips = (sourceVideo: UploadedVideo): Clip[] => {
+    const formats: Array<'TikTok' | 'Instagram Reels' | 'YouTube Shorts'> = ['TikTok', 'Instagram Reels', 'YouTube Shorts']
+    const baseTitle = sourceVideo.filename.replace(/\.[^/.]+$/, "") // Remove extensão
+    
+    return formats.map((format) => ({
+      id: `${sourceVideo.id}_${format.toLowerCase().replace(' ', '_')}_${Date.now()}`,
+      title: `${baseTitle} - ${format}`,
+      duration: format === 'TikTok' ? 30 : format === 'Instagram Reels' ? 60 : 15,
+      format,
+      createdAt: new Date().toISOString(),
+      thumbnail: sourceVideo.url, // Usar o vídeo original como thumbnail por agora
+      videoUrl: sourceVideo.url, // Simular URL do clip
+      sourceVideoId: sourceVideo.id,
+      views: Math.floor(Math.random() * 1000),
+      likes: Math.floor(Math.random() * 100),
+      shares: Math.floor(Math.random() * 50),
+      engagement: Math.floor(Math.random() * 20) + 5, // 5-25%
+      status: 'ready' as const
+    }))
+  }
+
+  const startProcessing = async () => {
+    if (!uploadedVideo) return
+
+    setProcessing(true)
+    setProcessingProgress(0)
+
+    const steps = [
+      { name: 'Analisando vídeo...', duration: 1000 },
+      { name: 'Detectando momentos virais...', duration: 2000 },
+      { name: 'Aplicando IA para segmentação...', duration: 1500 },
+      { name: 'Criando clips otimizados...', duration: 2000 },
+      { name: 'Finalizando processamento...', duration: 500 }
+    ]
+
+    for (let i = 0; i < steps.length; i++) {
+      setProcessingStep(steps[i].name)
+      await new Promise(resolve => setTimeout(resolve, steps[i].duration))
+      setProcessingProgress(((i + 1) / steps.length) * 100)
+    }
+
+    // Gerar clips simulados
+    const newClips = generateClips(uploadedVideo)
+    addClips(newClips)
+
+    setUploadedVideo(prev => ({ ...prev!, status: 'completed' }))
+    setProcessing(false)
+
+    // Redirecionar para clips após processamento
+    setTimeout(() => {
+      navigate('/clips')
+    }, 1000)
   }
 
   return (
@@ -55,77 +135,167 @@ export const UploadPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Upload Area */}
-        <Card className="p-6 sm:p-8 mb-6">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 sm:p-12 text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Upload do seu vídeo
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Arraste e solte ou clique para selecionar
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Formatos suportados: MP4, MOV, AVI (máx. 500MB)
-            </p>
-            <Button size="lg" disabled>
-              Em Breve - Fase 2
-            </Button>
+        {/* Upload Component */}
+        {!uploadedVideo && (
+          <VideoUpload 
+            onUploadComplete={handleUploadComplete}
+          />
+        )}
+
+        {/* Video Uploaded - Processing Options */}
+        {uploadedVideo && !processing && uploadedVideo.status === 'uploaded' && (
+          <div className="space-y-6">
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                ✅ Vídeo Carregado com Sucesso!
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Detalhes do Vídeo</h4>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Nome:</dt>
+                      <dd className="text-gray-900">{uploadedVideo.filename}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Tamanho:</dt>
+                      <dd className="text-gray-900">{(uploadedVideo.size / (1024 * 1024)).toFixed(1)} MB</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Duração:</dt>
+                      <dd className="text-gray-900">{Math.round(uploadedVideo.duration)}s</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Próximos Passos</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Nossa IA irá analisar seu vídeo e criar clips otimizados para TikTok, Instagram Reels e YouTube Shorts.
+                  </p>
+                  <Button 
+                    onClick={startProcessing}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    🤖 Processar com IA
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Preview do vídeo carregado */}
+            {uploadedVideo.url && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Preview do Vídeo
+                </h3>
+                <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                  <video 
+                    src={uploadedVideo.url}
+                    controls
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </Card>
+            )}
           </div>
-        </Card>
+        )}
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              📊 Meus Clips
+        {/* Processing State */}
+        {processing && (
+          <Card className="p-8 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Processando com IA 🤖
+              </h3>
+              <p className="text-gray-600 mb-4">{processingStep}</p>
+              
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${processingProgress}%` }}
+                />
+              </div>
+              
+              <p className="text-sm text-gray-500">
+                {Math.round(processingProgress)}% concluído • Criando 3 clips otimizados
+              </p>
+            </div>
+          </Card>
+        )}
+
+        {/* Processing Complete */}
+        {uploadedVideo && uploadedVideo.status === 'completed' && (
+          <Card className="p-8 text-center">
+            <svg className="mx-auto h-16 w-16 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              🎉 3 Clips Criados com Sucesso!
             </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Visualize todos os seus clips criados
+            <p className="text-gray-600 mb-6">
+              Seus clips otimizados para TikTok, Instagram Reels e YouTube Shorts estão prontos. Redirecionando...
             </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate('/clips')}
-            >
-              Ver Clips
+            <Button onClick={() => navigate('/clips')}>
+              Ver Meus Clips
             </Button>
           </Card>
+        )}
 
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              📈 Analytics
-            </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Acompanhe performance dos clips
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate('/analytics')}
-            >
-              Ver Analytics
-            </Button>
-          </Card>
+        {/* Quick Actions - Only show if no video uploaded */}
+        {!uploadedVideo && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-8">
+            <Card className="p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                📊 Meus Clips
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Visualize todos os seus clips criados
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/clips')}
+              >
+                Ver Clips
+              </Button>
+            </Card>
 
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              🏠 Dashboard
-            </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Voltar para página principal
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-            >
-              Ir para Dashboard
-            </Button>
-          </Card>
-        </div>
+            <Card className="p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                📈 Analytics
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Acompanhe performance dos clips
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/analytics')}
+              >
+                Ver Analytics
+              </Button>
+            </Card>
+
+            <Card className="p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                🏠 Dashboard
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Voltar para página principal
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/dashboard')}
+              >
+                Ir para Dashboard
+              </Button>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
   )
