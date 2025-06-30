@@ -33,6 +33,25 @@ interface EffectPreset {
   intensity: number
 }
 
+interface GeneratedClip {
+  id: string
+  name: string
+  thumbnail: string
+  duration: number
+  format: 'TikTok' | 'Instagram' | 'YouTube'
+  createdAt: Date
+  status: 'processing' | 'ready' | 'error'
+}
+
+interface UploadedVideo {
+  id: string
+  name: string
+  thumbnail: string
+  duration: number
+  size: string
+  uploadedAt: Date
+}
+
 export function VideoEditorPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -57,11 +76,74 @@ export function VideoEditorPage() {
   const [activeEffects, setActiveEffects] = useState<string[]>([])
   const [effectIntensity, setEffectIntensity] = useState<Record<string, number>>({})
   
-  // UI States
+  // UI States - Navegação responsiva
   const [activeTab, setActiveTab] = useState<'timeline' | 'effects' | 'color' | 'audio' | 'ai'>('timeline')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+  const [mobileView, setMobileView] = useState(false)
   
-  // Presets de efeitos profissionais (inspirado no CapCut)
+  // Galeria e Clips
+  const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
+  
+  // Mock data - Em produção viria do backend
+  const [uploadedVideos] = useState<UploadedVideo[]>([
+    {
+      id: '1',
+      name: 'Video Marketing.mp4',
+      thumbnail: '/placeholder.svg',
+      duration: 120,
+      size: '45 MB',
+      uploadedAt: new Date(Date.now() - 86400000)
+    },
+    {
+      id: '2', 
+      name: 'Apresentação.mov',
+      thumbnail: '/placeholder.svg',
+      duration: 85,
+      size: '32 MB',
+      uploadedAt: new Date(Date.now() - 172800000)
+    },
+    {
+      id: '3',
+      name: 'Tutorial.mp4',
+      thumbnail: '/placeholder.svg', 
+      duration: 200,
+      size: '78 MB',
+      uploadedAt: new Date(Date.now() - 259200000)
+    }
+  ])
+
+  const [generatedClips] = useState<GeneratedClip[]>([
+    {
+      id: '1',
+      name: 'Hook Viral - TikTok',
+      thumbnail: '/placeholder.svg',
+      duration: 15,
+      format: 'TikTok',
+      createdAt: new Date(Date.now() - 3600000),
+      status: 'ready'
+    },
+    {
+      id: '2',
+      name: 'Apresentação - Instagram',
+      thumbnail: '/placeholder.svg',
+      duration: 30,
+      format: 'Instagram',
+      createdAt: new Date(Date.now() - 7200000),
+      status: 'ready'
+    },
+    {
+      id: '3',
+      name: 'Tutorial Rápido - YouTube',
+      thumbnail: '/placeholder.svg',
+      duration: 60,
+      format: 'YouTube',
+      createdAt: new Date(Date.now() - 10800000),
+      status: 'processing'
+    }
+  ])
+
+  // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
     { id: 'cinematic', name: 'Cinematic', icon: '🎬', category: 'Color', preview: 'sepia(0.3) contrast(1.2)', intensity: 0.8 },
     { id: 'vintage', name: 'Vintage', icon: '📼', category: 'Color', preview: 'sepia(0.5) brightness(1.1)', intensity: 0.7 },
@@ -73,13 +155,28 @@ export function VideoEditorPage() {
     { id: 'chromatic', name: 'Chromatic', icon: '🌈', category: 'Digital', preview: 'hue-rotate(45deg)', intensity: 0.6 }
   ]
 
+  // Detectar mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setMobileView(window.innerWidth < 1024)
+      if (window.innerWidth < 1024) {
+        setLeftSidebarOpen(false)
+        setRightSidebarOpen(false)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   useEffect(() => {
     if (!videoData) {
       navigate('/upload')
       return
     }
     
-    // Lógica de carregamento de vídeo (mantendo a correção anterior)
+    // Lógica de carregamento de vídeo
     if (videoData.url && videoData.url.startsWith('data:')) {
       console.log('Usando data URL confiável')
     } else if (videoData.file) {
@@ -118,7 +215,6 @@ export function VideoEditorPage() {
       const videoDuration = videoRef.current.duration
       setDuration(videoDuration)
       
-      // Atualizar duração da camada principal
       setTimelineLayers(prev => prev.map(layer => 
         layer.id === 'main-video' 
           ? { ...layer, duration: videoDuration }
@@ -133,7 +229,6 @@ export function VideoEditorPage() {
       setCurrentTime(time)
       setPlayheadPosition((time / duration) * 100)
       
-      // Aplicar efeitos em tempo real
       applyRealTimeEffects()
     }
   }
@@ -144,7 +239,6 @@ export function VideoEditorPage() {
     const ctx = canvasRef.current.getContext('2d')
     if (!ctx) return
     
-    // Aplicar filtros CSS em tempo real
     let filters = ''
     activeEffects.forEach(effectId => {
       const effect = effectPresets.find(e => e.id === effectId)
@@ -210,45 +304,259 @@ export function VideoEditorPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return 'Agora há pouco'
+    if (diffInHours < 24) return `${diffInHours}h atrás`
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays}d atrás`
+  }
+
   const exportVideo = async () => {
     console.log('Exportando vídeo com efeitos:', activeEffects)
-    // Implementar lógica de export
     alert('🎬 Exportação em desenvolvimento! Em breve teremos renderização profissional.')
+  }
+
+  const loadVideo = (video: UploadedVideo) => {
+    // Simular carregamento de um vídeo da galeria
+    console.log('Carregando vídeo:', video.name)
+    // Em produção, isso faria a navegação com os dados do vídeo
+  }
+
+  const openClip = (clip: GeneratedClip) => {
+    console.log('Abrindo clip:', clip.name)
+    // Em produção, isso abriria o clip para visualização/edição
   }
 
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
-      {/* Header Toolbar */}
+      {/* Header Responsivo com Navegação */}
       <div className="toolbar p-3 flex items-center justify-between slide-in-left">
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/upload')}
-            className="text-gray-300 hover:text-white"
-          >
-            ← Voltar
-          </Button>
-          <h1 className="text-xl font-bold text-white">ClipsForge Pro Editor</h1>
+          {/* Navegação Breadcrumb */}
+          <div className="flex items-center space-x-2 text-sm">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/dashboard')}
+              className="text-gray-300 hover:text-white px-2 py-1"
+            >
+              🏠 Dashboard
+            </Button>
+            <span className="text-gray-500">/</span>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/upload')}
+              className="text-gray-300 hover:text-white px-2 py-1"
+            >
+              📁 Vídeos
+            </Button>
+            <span className="text-gray-500">/</span>
+            <span className="text-blue-400 font-medium">✨ Editor</span>
+          </div>
+          
+          {/* Nome do Projeto */}
+          <div className="hidden md:block">
+            <h1 className="text-lg font-bold text-white">
+              {videoData?.name || 'Projeto Sem Nome'}
+            </h1>
+            <p className="text-xs text-gray-400">
+              ClipsForge Pro Editor
+            </p>
+          </div>
         </div>
         
+        {/* Controles do Header */}
         <div className="flex items-center space-x-2">
+          {/* Toggle Sidebars - Desktop */}
+          {!mobileView && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+                className="text-gray-300 hover:text-white"
+                title="Toggle Galeria"
+              >
+                {leftSidebarOpen ? '◀️📁' : '📁▶️'}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+                className="text-gray-300 hover:text-white"
+                title="Toggle Efeitos"
+              >
+                {rightSidebarOpen ? '✨◀️' : '▶️✨'}
+              </Button>
+            </>
+          )}
+          
+          {/* Botão Export */}
           <Button 
             onClick={exportVideo}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+            className="primary-action-btn text-white px-4"
           >
             🚀 Exportar
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-gray-300 hover:text-white"
-          >
-            {sidebarOpen ? '▶️' : '◀️'}
-          </Button>
+          
+          {/* Menu Mobile */}
+          {mobileView && (
+            <Button
+              variant="ghost"
+              onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+              className="text-gray-300 hover:text-white"
+            >
+              ☰
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar - Galeria de Vídeos */}
+        {leftSidebarOpen && (
+          <div className={`${mobileView ? 'absolute top-0 left-0 h-full w-80 z-20' : 'w-80'} sidebar flex flex-col slide-in-left`}>
+            {/* Header da Galeria */}
+            <div className="p-4 border-b border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-white">📁 Galeria</h2>
+                {mobileView && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setLeftSidebarOpen(false)}
+                    className="text-gray-400 hover:text-white p-1"
+                  >
+                    ✕
+                  </Button>
+                )}
+              </div>
+              
+              {/* Tabs da Galeria */}
+              <div className="flex space-x-1 bg-gray-800 rounded-lg p-1">
+                <Button
+                  onClick={() => setActiveGalleryTab('videos')}
+                  className={`flex-1 py-2 px-3 rounded text-sm ${
+                    activeGalleryTab === 'videos'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                >
+                  📹 Vídeos ({uploadedVideos.length})
+                </Button>
+                <Button
+                  onClick={() => setActiveGalleryTab('clips')}
+                  className={`flex-1 py-2 px-3 rounded text-sm ${
+                    activeGalleryTab === 'clips'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                >
+                  ✂️ Clips ({generatedClips.length})
+                </Button>
+              </div>
+            </div>
+
+            {/* Conteúdo da Galeria */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {activeGalleryTab === 'videos' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-300">Meus Vídeos</h3>
+                    <Button
+                      onClick={() => navigate('/upload')}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1"
+                    >
+                      + Upload
+                    </Button>
+                  </div>
+                  
+                  {uploadedVideos.map(video => (
+                    <Card
+                      key={video.id}
+                      className="p-3 cursor-pointer hover:bg-gray-700/50 transition-all duration-200 border border-gray-600"
+                      onClick={() => loadVideo(video)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="w-16 h-12 bg-gray-600 rounded overflow-hidden flex-shrink-0">
+                          <img
+                            src={video.thumbnail}
+                            alt={video.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white truncate">
+                            {video.name}
+                          </h4>
+                          <div className="text-xs text-gray-400 mt-1">
+                            <div>{formatTime(video.duration)} • {video.size}</div>
+                            <div>{formatTimeAgo(video.uploadedAt)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {activeGalleryTab === 'clips' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-300">Clips Gerados</h3>
+                    <span className="text-xs text-gray-500">
+                      {generatedClips.filter(c => c.status === 'ready').length} prontos
+                    </span>
+                  </div>
+                  
+                  {generatedClips.map(clip => (
+                    <Card
+                      key={clip.id}
+                      className="p-3 cursor-pointer hover:bg-gray-700/50 transition-all duration-200 border border-gray-600"
+                      onClick={() => openClip(clip)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="relative w-16 h-12 bg-gray-600 rounded overflow-hidden flex-shrink-0">
+                          <img
+                            src={clip.thumbnail}
+                            alt={clip.name}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Status Badge */}
+                          <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
+                            clip.status === 'ready' ? 'bg-green-500' :
+                            clip.status === 'processing' ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white truncate">
+                            {clip.name}
+                          </h4>
+                          <div className="text-xs text-gray-400 mt-1">
+                            <div className="flex items-center space-x-2">
+                              <span>{formatTime(clip.duration)}</span>
+                              <span className={`px-2 py-0.5 rounded text-xs ${
+                                clip.format === 'TikTok' ? 'bg-pink-600' :
+                                clip.format === 'Instagram' ? 'bg-purple-600' :
+                                'bg-red-600'
+                              }`}>
+                                {clip.format}
+                              </span>
+                            </div>
+                            <div className="mt-1">
+                              {clip.status === 'processing' ? '⏳ Processando...' : formatTimeAgo(clip.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Video Preview */}
@@ -261,12 +569,11 @@ export function VideoEditorPage() {
                 onTimeUpdate={handleTimeUpdate}
                 className="max-w-full max-h-full"
                 style={{ 
-                  filter: 'none', // Filters aplicados via JavaScript
+                  filter: 'none',
                   transition: 'filter 0.3s ease'
                 }}
               />
               
-              {/* Canvas overlay para efeitos avançados */}
               <canvas
                 ref={canvasRef}
                 className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-0"
@@ -404,7 +711,7 @@ export function VideoEditorPage() {
                 onClick={(e) => {
                   const rect = timelineRef.current?.getBoundingClientRect()
                   if (rect) {
-                    const x = e.clientX - rect.left - 128 // Account for track headers
+                    const x = e.clientX - rect.left - 128
                     const percentage = (x / ((rect.width - 128) * zoom)) * 100
                     seekTo(Math.max(0, Math.min(100, percentage)))
                   }
@@ -415,9 +722,9 @@ export function VideoEditorPage() {
         </div>
 
         {/* Right Sidebar - Effects Panel */}
-        {sidebarOpen && (
-          <div className="sidebar w-80 flex flex-col slide-in-right">
-            {/* Tabs */}
+        {rightSidebarOpen && (
+          <div className={`${mobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-80'} sidebar flex flex-col slide-in-right`}>
+            {/* Header dos Efeitos */}
             <div className="flex border-b border-gray-700">
               {[
                 { id: 'effects', label: 'Efeitos', icon: '✨' },
@@ -425,19 +732,29 @@ export function VideoEditorPage() {
                 { id: 'audio', label: 'Áudio', icon: '🎵' },
                 { id: 'ai', label: 'IA', icon: '🤖' }
               ].map(tab => (
-                                  <Button
-                    key={tab.id}
-                    variant="ghost"
-                    className={`sidebar-tab flex-1 py-3 rounded-none ${
-                      activeTab === tab.id as any
-                        ? 'active bg-blue-600 text-white' 
-                        : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                    }`}
-                    onClick={() => setActiveTab(tab.id as any)}
-                  >
-                  {tab.icon} {tab.label}
+                <Button
+                  key={tab.id}
+                  variant="ghost"
+                  className={`sidebar-tab flex-1 py-3 rounded-none ${
+                    activeTab === tab.id as any
+                      ? 'active bg-blue-600 text-white' 
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                  onClick={() => setActiveTab(tab.id as any)}
+                >
+                  {mobileView ? tab.icon : `${tab.icon} ${tab.label}`}
                 </Button>
               ))}
+              
+              {mobileView && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setRightSidebarOpen(false)}
+                  className="text-gray-400 hover:text-white p-3"
+                >
+                  ✕
+                </Button>
+              )}
             </div>
 
             {/* Effects Content */}
@@ -527,7 +844,7 @@ export function VideoEditorPage() {
               </div>
             )}
 
-            {/* Color Tab */}
+            {/* Other tabs content */}
             {activeTab === 'color' && (
               <div className="flex-1 overflow-y-auto p-4">
                 <h3 className="text-lg font-semibold mb-4 text-white">Correção de Cor</h3>
@@ -538,7 +855,6 @@ export function VideoEditorPage() {
               </div>
             )}
 
-            {/* Audio Tab */}
             {activeTab === 'audio' && (
               <div className="flex-1 overflow-y-auto p-4">
                 <h3 className="text-lg font-semibold mb-4 text-white">Áudio Profissional</h3>
@@ -549,7 +865,6 @@ export function VideoEditorPage() {
               </div>
             )}
 
-            {/* AI Tab */}
             {activeTab === 'ai' && (
               <div className="flex-1 overflow-y-auto p-4">
                 <h3 className="text-lg font-semibold mb-4 text-white">IA Avançada</h3>
@@ -575,6 +890,17 @@ export function VideoEditorPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile Overlay */}
+      {mobileView && (leftSidebarOpen || rightSidebarOpen) && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-10"
+          onClick={() => {
+            setLeftSidebarOpen(false)
+            setRightSidebarOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 } 
