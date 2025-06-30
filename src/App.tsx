@@ -5,26 +5,10 @@ import { LandingPage } from '@/pages/landing/LandingPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import { UploadPage } from '@/pages/upload/UploadPage'
+import { ClipsPage } from '@/pages/clips/ClipsPage'
+import { AnalyticsPage } from '@/pages/analytics/AnalyticsPage'
 import './styles/globals.css'
-
-// Placeholder pages for future features
-const UploadPage = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <h1 className="text-2xl">Upload Page - Em breve</h1>
-  </div>
-)
-
-const ClipsPage = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <h1 className="text-2xl">Clips Page - Em breve</h1>
-  </div>
-)
-
-const AnalyticsPage = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <h1 className="text-2xl">Analytics Page - Em breve</h1>
-  </div>
-)
 
 function App() {
   return (

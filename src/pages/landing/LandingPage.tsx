@@ -1,9 +1,37 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 export const LandingPage: React.FC = () => {
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirecionar usuários logados para o dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, loading, navigate])
+
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Se usuário logado, não renderizar (será redirecionado)
+  if (user) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}

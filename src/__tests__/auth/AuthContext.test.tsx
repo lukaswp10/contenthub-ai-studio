@@ -1,4 +1,4 @@
-import React from 'react'
+// import React from 'react'
 import { render, screen, act, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
@@ -54,16 +54,16 @@ const TestComponent = () => {
   )
 }
 
-const mockUser = {
-  id: 'user-123',
-  email: 'test@example.com',
-  aud: 'authenticated',
-  role: 'authenticated',
-  created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
-  app_metadata: {},
-  user_metadata: { full_name: 'Test User' },
-}
+// const mockUser = {
+//   id: 'user-123',
+//   email: 'test@example.com',
+//   aud: 'authenticated',
+//   role: 'authenticated',
+//   created_at: '2023-01-01T00:00:00Z',
+//   updated_at: '2023-01-01T00:00:00Z',
+//   app_metadata: {},
+//   user_metadata: { full_name: 'Test User' },
+// }
 
 describe('AuthContext', () => {
   beforeEach(() => {
