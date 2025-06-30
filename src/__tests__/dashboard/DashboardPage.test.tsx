@@ -115,12 +115,12 @@ describe('DashboardPage', () => {
       expect(mockUseAuth.signOut).toHaveBeenCalled()
     })
 
-    it('should have home link in header', () => {
+    it('should have dashboard link in header', () => {
       renderWithRouter(<DashboardPage />)
       
-      const homeLink = screen.getByTitle('Voltar para página inicial')
-      expect(homeLink).toBeInTheDocument()
-      expect(homeLink).toHaveAttribute('href', '/')
+      const dashboardLink = screen.getByTitle('Ir para Dashboard')
+      expect(dashboardLink).toBeInTheDocument()
+      expect(dashboardLink).toHaveAttribute('href', '/dashboard')
     })
   })
 
