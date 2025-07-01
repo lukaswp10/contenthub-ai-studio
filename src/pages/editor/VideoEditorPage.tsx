@@ -98,35 +98,36 @@ export function VideoEditorPage() {
   // Galeria e Clips
   const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
   
-  // Mock data - Em produção viria do backend
-  const [uploadedVideos] = useState<UploadedVideo[]>([
+  // Mock de vídeos carregados (implementar persistência real)
+  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([
     {
       id: '1',
       name: 'Video Marketing.mp4',
       thumbnail: '/placeholder.svg',
       duration: 120,
       size: '45 MB',
-      uploadedAt: new Date(Date.now() - 86400000)
+      uploadedAt: new Date(Date.now() - 3600000)
     },
     {
-      id: '2', 
+      id: '2',
       name: 'Apresentação.mov',
       thumbnail: '/placeholder.svg',
-      duration: 85,
+      duration: 180,
       size: '32 MB',
-      uploadedAt: new Date(Date.now() - 172800000)
+      uploadedAt: new Date(Date.now() - 7200000)
     },
     {
       id: '3',
       name: 'Tutorial.mp4',
-      thumbnail: '/placeholder.svg', 
+      thumbnail: '/placeholder.svg',
       duration: 200,
       size: '78 MB',
-      uploadedAt: new Date(Date.now() - 259200000)
+      uploadedAt: new Date(Date.now() - 10800000)
     }
   ])
 
-  const [generatedClips] = useState<GeneratedClip[]>([
+  // Mock de clips gerados (implementar persistência real)  
+  const [generatedClips, setGeneratedClips] = useState<GeneratedClip[]>([
     {
       id: '1',
       name: 'Hook Viral - TikTok',
@@ -887,6 +888,26 @@ export function VideoEditorPage() {
     }, 3000)
   }
 
+  // NOVO: Estado para modal da galeria
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false)
+
+  // NOVAS FUNÇÕES: Exclusão de vídeos e clips
+  const deleteVideo = (videoId: string) => {
+    setUploadedVideos(prev => prev.filter(video => video.id !== videoId))
+    console.log(`🗑️ Vídeo ${videoId} excluído da galeria`)
+  }
+
+  const deleteClip = (clipId: string) => {
+    setGeneratedClips(prev => prev.filter(clip => clip.id !== clipId))
+    console.log(`🗑️ Clip ${clipId} excluído da galeria`)
+  }
+
+  // NOVA FUNÇÃO: Abrir editor sem vídeo (modo manual)
+  const openEditorManual = () => {
+    setGalleryModalOpen(true)
+    console.log('📁 Abrindo galeria para seleção manual')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
@@ -927,28 +948,6 @@ export function VideoEditorPage() {
         
         {/* Controles do Header */}
         <div className="flex items-center space-x-3">
-          {/* Toggle Sidebars - Desktop */}
-          {!mobileView && (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-                className="icon-btn w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300"
-                title="Toggle Galeria"
-              >
-                {leftSidebarOpen ? '◀️' : '📁'}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
-                className="icon-btn w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300"
-                title="Toggle Controles"
-              >
-                {rightSidebarOpen ? '▶️' : '⚙️'}
-              </Button>
-            </>
-          )}
-          
           {/* Botão Export Visionário */}
           <Button 
             onClick={exportVideo}
@@ -961,10 +960,10 @@ export function VideoEditorPage() {
           {mobileView && (
             <Button
               variant="ghost"
-              onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+              onClick={() => setGalleryModalOpen(true)}
               className="text-gray-300 hover:text-white"
             >
-              ☰
+              📁
             </Button>
           )}
         </div>
@@ -972,160 +971,216 @@ export function VideoEditorPage() {
 
       {/* LAYOUT PRINCIPAL - Grid 3 Colunas Visionário */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Galeria Visionária (280px) */}
-        {leftSidebarOpen && (
-          <div className={`${mobileView ? 'absolute top-0 left-0 h-full w-80 z-20' : 'w-[280px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-r border-white/10 flex flex-col shadow-2xl`}>
-            {/* Header da Galeria */}
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center">
-                  <span className="mr-2">📁</span>
-                  Galeria
+        {/* BOTÃO GALERIA - Substitui a sidebar */}
+        <div className="absolute top-20 left-4 z-30">
+          <Button
+            onClick={() => setGalleryModalOpen(true)}
+            className="gallery-btn-visionario bg-gradient-to-r from-blue-600/80 to-purple-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
+          >
+            📁 Galeria ({uploadedVideos.length + generatedClips.length})
+          </Button>
+        </div>
+
+        {/* MODAL DA GALERIA VISIONÁRIO */}
+        {galleryModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="gallery-modal-visionario bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] border border-white/20 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+              {/* Header do Modal */}
+              <div className="modal-header-visionario bg-black/20 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white flex items-center">
+                  <span className="mr-3">📁</span>
+                  Minha Galeria
                 </h2>
-                {mobileView && (
+                <Button
+                  onClick={() => setGalleryModalOpen(false)}
+                  className="close-btn-visionario bg-white/10 hover:bg-red-500/20 text-white rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300 hover:scale-110"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              {/* Tabs do Modal */}
+              <div className="modal-tabs-visionario p-6 pb-0">
+                <div className="flex bg-white/5 rounded-full p-1">
                   <Button
-                    variant="ghost"
-                    onClick={() => setLeftSidebarOpen(false)}
-                    className="text-gray-400 hover:text-white p-1"
+                    onClick={() => setActiveGalleryTab('videos')}
+                    className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
+                      activeGalleryTab === 'videos'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
                   >
-                    ✕
+                    🎬 Videos ({uploadedVideos.length})
                   </Button>
+                  <Button
+                    onClick={() => setActiveGalleryTab('clips')}
+                    className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
+                      activeGalleryTab === 'clips'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    ✂️ Clips ({generatedClips.length})
+                  </Button>
+                </div>
+              </div>
+
+              {/* Conteúdo do Modal */}
+              <div className="modal-content-visionario p-6 overflow-y-auto max-h-[50vh]">
+                {activeGalleryTab === 'videos' && (
+                  <div className="space-y-4">
+                    {/* Botão Upload Melhorado */}
+                    <div className="upload-section-visionario">
+                      <Button 
+                        onClick={() => {
+                          setGalleryModalOpen(false)
+                          navigate('/upload')
+                        }}
+                        className="upload-btn-improved w-full bg-gradient-to-r from-green-500/20 via-blue-500/20 to-purple-500/20 border-2 border-dashed border-green-400/50 hover:border-green-300 text-green-200 hover:text-green-100 py-6 rounded-2xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-500/30 hover:via-blue-500/30 hover:to-purple-500/30 hover:scale-[1.02] group"
+                      >
+                        <div className="flex items-center justify-center space-x-4">
+                          <div className="upload-icon-container bg-green-500/20 rounded-full p-3 group-hover:bg-green-500/30 transition-all duration-300">
+                            <span className="text-3xl">📤</span>
+                          </div>
+                          <div className="text-left">
+                            <div className="text-lg font-bold">Adicionar Novo Vídeo</div>
+                            <div className="text-sm text-gray-400">Clique para fazer upload</div>
+                          </div>
+                        </div>
+                      </Button>
+                    </div>
+                    
+                    {/* Grid de Vídeos */}
+                    <div className="videos-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {uploadedVideos.map(video => (
+                        <div
+                          key={video.id}
+                          className="video-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-blue-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-500/20 group relative"
+                        >
+                          {/* Botão Excluir */}
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteVideo(video.id)
+                            }}
+                            className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
+                          >
+                            🗑️
+                          </Button>
+
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => {
+                              loadVideo(video)
+                              setGalleryModalOpen(false)
+                            }}
+                          >
+                            <div className="flex items-start space-x-4">
+                              <div className="w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                                <img
+                                  src={video.thumbnail}
+                                  alt={video.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-lg font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
+                                  🎬 {video.name}
+                                </h4>
+                                <div className="text-sm text-gray-400 mt-2 space-y-1">
+                                  <div className="flex items-center space-x-3">
+                                    <span>⏱️ {formatTime(video.duration)}</span>
+                                    <span>📦 {video.size}</span>
+                                  </div>
+                                  <div className="text-gray-500">
+                                    📅 {formatTimeAgo(video.uploadedAt)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeGalleryTab === 'clips' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-300">Clips Gerados</h3>
+                      <span className="text-sm text-gray-500 bg-white/5 px-3 py-1 rounded-full">
+                        {generatedClips.filter(c => c.status === 'ready').length} prontos
+                      </span>
+                    </div>
+                    
+                    {/* Grid de Clips */}
+                    <div className="clips-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {generatedClips.map(clip => (
+                        <div
+                          key={clip.id}
+                          className="clip-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-purple-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20 group relative"
+                        >
+                          {/* Botão Excluir */}
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteClip(clip.id)
+                            }}
+                            className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
+                          >
+                            🗑️
+                          </Button>
+
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => {
+                              openClip(clip)
+                              setGalleryModalOpen(false)
+                            }}
+                          >
+                            <div className="flex items-start space-x-4">
+                              <div className="relative w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                                <img
+                                  src={clip.thumbnail}
+                                  alt={clip.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                {/* Status Badge */}
+                                <div className={`absolute top-1 right-1 w-3 h-3 rounded-full ${
+                                  clip.status === 'ready' ? 'bg-green-500' :
+                                  clip.status === 'processing' ? 'bg-yellow-500' :
+                                  'bg-red-500'
+                                }`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-lg font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
+                                  ✂️ {clip.name}
+                                </h4>
+                                <div className="text-sm text-gray-400 mt-2 space-y-1">
+                                  <div className="flex items-center space-x-3">
+                                    <span>⏱️ {formatTime(clip.duration)}</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      clip.format === 'TikTok' ? 'bg-pink-600/20 text-pink-300 border border-pink-500/30' :
+                                      clip.format === 'Instagram' ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30' :
+                                      'bg-red-600/20 text-red-300 border border-red-500/30'
+                                    }`}>
+                                      {clip.format}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-500">
+                                    {clip.status === 'processing' ? '⏳ Processando...' : `📅 ${formatTimeAgo(clip.createdAt)}`}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-              
-              {/* Tabs da Galeria estilo Apple */}
-              <div className="flex bg-white/5 rounded-full p-1">
-                <Button
-                  onClick={() => setActiveGalleryTab('videos')}
-                  className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all duration-300 ${
-                    activeGalleryTab === 'videos'
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  Videos ({uploadedVideos.length})
-                </Button>
-                <Button
-                  onClick={() => setActiveGalleryTab('clips')}
-                  className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all duration-300 ${
-                    activeGalleryTab === 'clips'
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  Clips ({generatedClips.length})
-                </Button>
-              </div>
-            </div>
-
-            {/* Conteúdo da Galeria Visionário */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {activeGalleryTab === 'videos' && (
-                <div className="space-y-4">
-                  {/* Botão Upload Visionário */}
-                  <Button 
-                    onClick={() => navigate('/upload')}
-                    className="upload-btn-visionario w-full bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-2 border-dashed border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-blue-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-600/30 hover:to-purple-600/30"
-                  >
-                    <div className="flex flex-col items-center space-y-2">
-                      <span className="text-2xl">📁</span>
-                      <span className="font-medium">+ Upload Novo</span>
-                    </div>
-                  </Button>
-                  
-                  {/* Lista de Vídeos com Cards Visionários */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Meus Vídeos</h3>
-                    {uploadedVideos.map(video => (
-                      <Card
-                        key={video.id}
-                        className="video-card-visionario bg-white/5 backdrop-blur-sm border border-white/10 hover:border-blue-500/50 p-4 cursor-pointer transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-500/20 rounded-xl group"
-                        onClick={() => loadVideo(video)}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className="w-16 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                            <img
-                              src={video.thumbnail}
-                              alt={video.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
-                              🎬 {video.name}
-                            </h4>
-                            <div className="text-xs text-gray-400 mt-1 space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <span>{formatTime(video.duration)}</span>
-                                <span>•</span>
-                                <span>{video.size}</span>
-                              </div>
-                              <div className="text-gray-500">
-                                {formatTimeAgo(video.uploadedAt)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activeGalleryTab === 'clips' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Clips Gerados</h3>
-                    <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-full">
-                      {generatedClips.filter(c => c.status === 'ready').length} prontos
-                    </span>
-                  </div>
-                  
-                  {generatedClips.map(clip => (
-                    <Card
-                      key={clip.id}
-                      className="clip-card-visionario bg-white/5 backdrop-blur-sm border border-white/10 hover:border-purple-500/50 p-4 cursor-pointer transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20 rounded-xl group"
-                      onClick={() => openClip(clip)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="relative w-16 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                          <img
-                            src={clip.thumbnail}
-                            alt={clip.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          {/* Status Badge */}
-                          <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${
-                            clip.status === 'ready' ? 'bg-green-500' :
-                            clip.status === 'processing' ? 'bg-yellow-500' :
-                            'bg-red-500'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
-                            ✂️ {clip.name}
-                          </h4>
-                          <div className="text-xs text-gray-400 mt-1 space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <span>{formatTime(clip.duration)}</span>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                clip.format === 'TikTok' ? 'bg-pink-600/20 text-pink-300 border border-pink-500/30' :
-                                clip.format === 'Instagram' ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30' :
-                                'bg-red-600/20 text-red-300 border border-red-500/30'
-                              }`}>
-                                {clip.format}
-                              </span>
-                            </div>
-                            <div className="text-gray-500">
-                              {clip.status === 'processing' ? '⏳ Processando...' : formatTimeAgo(clip.createdAt)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}

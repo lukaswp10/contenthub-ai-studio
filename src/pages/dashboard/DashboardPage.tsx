@@ -127,7 +127,7 @@ export const DashboardPage: React.FC = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4 sm:mb-6">
             Ações Rápidas
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <Button
               size="lg"
               className="h-20 sm:h-24 text-base sm:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex-col sm:flex-row"
@@ -137,6 +137,18 @@ export const DashboardPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="text-center">Upload de Vídeo</span>
+            </Button>
+
+            {/* NOVO: Botão Editor Manual */}
+            <Button
+              size="lg"
+              className="h-20 sm:h-24 text-base sm:text-lg bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 flex-col sm:flex-row"
+              onClick={() => navigate('/editor')}
+            >
+              <svg className="h-5 w-5 sm:h-6 sm:w-6 mb-1 sm:mb-0 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span className="text-center">Editor Manual</span>
             </Button>
             
             <Button
