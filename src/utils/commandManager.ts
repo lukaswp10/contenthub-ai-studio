@@ -12,13 +12,15 @@ export interface Command {
 
 export interface TimelineLayer {
   id: string;
-  type: 'video' | 'audio' | 'text' | 'effect';
   name: string;
-  start: number;
-  duration: number;
-  data: any;
+  type: 'video' | 'audio' | 'text' | 'effect';
+  visible: boolean;
   color: string;
   locked: boolean;
+  items: any[];
+  start?: number;
+  duration?: number;
+  data?: any;
 }
 
 export interface CutPoint {

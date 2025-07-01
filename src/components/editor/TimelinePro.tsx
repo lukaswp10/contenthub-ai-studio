@@ -2151,6 +2151,24 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       >
         ⌨️
       </Button>
+
+      {/* ➕ INSTRUÇÕES CLARAS DO SISTEMA DE CORTES */}
+      <div className="usage-instructions">
+        <h4>🎯 Como Funciona o Sistema de Otimização de Vídeo</h4>
+        <ul>
+          <li><strong>CONCEITO:</strong> Use cortes para marcar onde quer <strong>REMOVER</strong> partes do vídeo (não criar clips separados)</li>
+          <li><strong>OBJETIVO:</strong> Gerar <strong>UM ÚNICO vídeo final otimizado</strong> sem as partes cortadas</li>
+          <li><strong>PROCESSO:</strong></li>
+          <ul>
+            <li>1. Ative a ferramenta <code>Razor</code> (✂️)</li>
+            <li>2. Clique nos tempos onde quer fazer cortes (início e fim de seções a remover)</li>
+            <li>3. Os cortes dividem o vídeo em segmentos</li>
+            <li>4. Marque quais segmentos serão <strong>removidos</strong></li>
+            <li>5. Exporte o vídeo final <strong>sem as partes removidas</strong></li>
+          </ul>
+          <li><strong>RESULTADO:</strong> Um vídeo contínuo otimizado, não múltiplos clips</li>
+        </ul>
+      </div>
     </div>
   );
 };

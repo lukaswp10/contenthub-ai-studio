@@ -660,4 +660,724 @@
   50% {
     box-shadow: 0 0 16px rgba(239, 68, 68, 0.8);
   }
+}
+
+/* ➕ MELHORIAS VISUAIS PARA CORTES E REMOÇÕES */
+
+/* Marcadores de corte mais visíveis */
+.timeline-cut-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(45deg, #ff4444, #ff6666);
+  border: 1px solid #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.6), 0 0 4px rgba(255, 255, 255, 0.3);
+  z-index: 15;
+  cursor: pointer;
+  transform: translateX(-1.5px);
+}
+
+.timeline-cut-marker:hover {
+  width: 4px;
+  background: linear-gradient(45deg, #ff6666, #ff8888);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.8), 0 0 6px rgba(255, 255, 255, 0.5);
+  transform: translateX(-2px);
+}
+
+.timeline-cut-marker::before {
+  content: '✂️';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: white;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.timeline-cut-marker:hover::before {
+  opacity: 1;
+}
+
+/* Seções de remoção destacadas */
+.removal-section {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, 
+    rgba(255, 68, 68, 0.3), 
+    rgba(255, 68, 68, 0.1), 
+    rgba(255, 68, 68, 0.3)
+  );
+  border: 2px solid #ff4444;
+  border-radius: 4px;
+  z-index: 10;
+  backdrop-filter: blur(1px);
+  animation: pulseRemoval 2s infinite;
+  cursor: pointer;
+}
+
+@keyframes pulseRemoval {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.9; }
+}
+
+.removal-section::before {
+  content: '🗑️ REMOVER';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 68, 68, 0.9);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Seleção atual (IN-OUT) */
+.current-selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, 
+    rgba(68, 68, 255, 0.3), 
+    rgba(68, 68, 255, 0.1), 
+    rgba(68, 68, 255, 0.3)
+  );
+  border: 2px dashed #4444ff;
+  border-radius: 4px;
+  z-index: 12;
+  animation: pulseSelection 1s infinite;
+}
+
+@keyframes pulseSelection {
+  0%, 100% { border-color: #4444ff; }
+  50% { border-color: #6666ff; }
+}
+
+.current-selection::before {
+  content: 'SELECIONANDO...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(68, 68, 255, 0.9);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Timeline com altura maior para melhor visualização */
+.timeline-container {
+  min-height: 400px !important;
+  max-height: 500px !important;
+}
+
+.timeline-track {
+  min-height: 80px !important;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Régua de tempo mais visível */
+.timeline-ruler {
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 50%, 
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  height: 40px;
+}
+
+.timeline-time-marker {
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  font-size: 11px;
+}
+
+/* Indicador de posição atual mais visível */
+.timeline-playhead {
+  width: 3px !important;
+  background: linear-gradient(0deg, #00ff88, #00cc66) !important;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.8), 0 0 5px rgba(255, 255, 255, 0.3) !important;
+  z-index: 20 !important;
+}
+
+.timeline-playhead::before {
+  content: '▼';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #00ff88;
+  font-size: 14px;
+  text-shadow: 0 0 4px rgba(0, 255, 136, 0.8);
+}
+
+/* Botões de controle melhorados */
+.removal-controls {
+  background: linear-gradient(135deg, rgba(255, 68, 68, 0.1), rgba(255, 68, 68, 0.05));
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.in-out-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.in-button, .out-button {
+  background: linear-gradient(135deg, #4444ff, #6666ff);
+  border: 1px solid #6666ff;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.in-button:hover, .out-button:hover {
+  background: linear-gradient(135deg, #6666ff, #8888ff);
+  box-shadow: 0 4px 12px rgba(68, 68, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.in-button.active {
+  background: linear-gradient(135deg, #00ff88, #00cc66);
+  border-color: #00ff88;
+}
+
+.out-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.generate-button {
+  background: linear-gradient(135deg, #ff8800, #ffaa00);
+  border: 1px solid #ffaa00;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.generate-button:hover {
+  background: linear-gradient(135deg, #ffaa00, #ffcc00);
+  box-shadow: 0 4px 12px rgba(255, 136, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ➕ MELHORIAS VISUAIS PARA TIMELINE E CORTES */
+
+/* Timeline com altura maior para melhor visualização */
+.timeline-content {
+  min-height: 400px !important;
+  padding: 16px 0;
+}
+
+.timeline-track {
+  min-height: 90px !important;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7));
+}
+
+/* Marcadores de corte mais visíveis */
+.cut-point {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px !important;
+  background: linear-gradient(45deg, #ff4444, #ff6666) !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 4px;
+  box-shadow: 
+    0 0 12px rgba(255, 68, 68, 0.8), 
+    0 0 6px rgba(255, 255, 255, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  z-index: 20 !important;
+  cursor: pointer;
+  transform: translateX(-2px);
+  transition: all 0.2s ease;
+}
+
+.cut-point:hover {
+  width: 6px !important;
+  background: linear-gradient(45deg, #ff6666, #ff8888) !important;
+  box-shadow: 
+    0 0 16px rgba(255, 68, 68, 1), 
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 4px 12px rgba(0, 0, 0, 0.6) !important;
+  transform: translateX(-3px) scale(1.05);
+}
+
+.cut-point::before {
+  content: '✂️';
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: white;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 30;
+}
+
+.cut-point:hover::before {
+  opacity: 1;
+}
+
+/* Indicador de posição atual (playhead) mais visível */
+.playhead-indicator {
+  width: 4px !important;
+  background: linear-gradient(0deg, #00ff88, #00cc66) !important;
+  box-shadow: 
+    0 0 15px rgba(0, 255, 136, 0.9), 
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 2px 10px rgba(0, 0, 0, 0.5) !important;
+  z-index: 25 !important;
+  border-radius: 2px;
+}
+
+.playhead-indicator::before {
+  content: '▼';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #00ff88;
+  font-size: 16px;
+  text-shadow: 
+    0 0 6px rgba(0, 255, 136, 0.8),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+  z-index: 30;
+}
+
+/* Régua de tempo melhorada */
+.timeline-ruler {
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.12) 0%, 
+    rgba(255, 255, 255, 0.06) 50%, 
+    rgba(255, 255, 255, 0.12) 100%
+  ) !important;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25) !important;
+  height: 45px !important;
+  padding: 0 12px;
+}
+
+.timeline-time-marker {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
+  font-size: 12px !important;
+}
+
+/* Tracks com melhor visualização */
+.video-track {
+  background: linear-gradient(90deg, 
+    rgba(59, 130, 246, 0.15), 
+    rgba(59, 130, 246, 0.08),
+    rgba(59, 130, 246, 0.15)
+  ) !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.audio-track {
+  background: linear-gradient(90deg, 
+    rgba(168, 85, 247, 0.15), 
+    rgba(168, 85, 247, 0.08),
+    rgba(168, 85, 247, 0.15)
+  ) !important;
+  border-left: 4px solid #a855f7 !important;
+}
+
+/* Clips na timeline com melhor aparência */
+.timeline-clip {
+  border-radius: 6px !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.2s ease;
+}
+
+.timeline-clip:hover {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+  transform: translateY(-1px);
+}
+
+/* Zoom controls melhorados */
+.zoom-controls {
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+}
+
+/* Instruções de uso visíveis */
+.usage-instructions {
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.1), 
+    rgba(59, 130, 246, 0.05)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.usage-instructions h4 {
+  color: #60a5fa;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.usage-instructions ul {
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.usage-instructions li {
+  margin-bottom: 4px;
+}
+
+.usage-instructions code {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Tooltip para cortes */
+.cut-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Animação para novos cortes */
+@keyframes newCutPulse {
+  0% { 
+    transform: translateX(-2px) scale(1);
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);
+  }
+  50% { 
+    transform: translateX(-2px) scale(1.2);
+    box-shadow: 0 0 20px rgba(255, 68, 68, 1);
+  }
+  100% { 
+    transform: translateX(-2px) scale(1);
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);
+  }
+}
+
+.cut-point.new-cut {
+  animation: newCutPulse 0.6s ease-out;
+}
+
+/* ➕ MELHORIAS ESPECÍFICAS PARA CLIPS VISÍVEIS */
+
+/* Painel de clips disponíveis mais visível */
+.available-clips-panel {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.9)) !important;
+  border: 2px solid rgba(59, 130, 246, 0.3) !important;
+  border-radius: 12px !important;
+  margin-top: 24px !important;
+  padding: 20px !important;
+  min-height: 220px !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Cards de clips maiores e mais destacados */
+.clip-card {
+  min-height: 160px !important;
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.15), 
+    rgba(79, 70, 229, 0.1),
+    rgba(59, 130, 246, 0.15)
+  ) !important;
+  border: 2px solid rgba(59, 130, 246, 0.4) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  transition: all 0.3s ease !important;
+  backdrop-filter: blur(8px) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.clip-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
+  opacity: 0.8;
+}
+
+.clip-card:hover {
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.25), 
+    rgba(79, 70, 229, 0.2),
+    rgba(59, 130, 246, 0.25)
+  ) !important;
+  transform: translateY(-4px) scale(1.02) !important;
+  box-shadow: 
+    0 12px 30px rgba(59, 130, 246, 0.3),
+    0 6px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Título e informações dos clips melhorados */
+.clip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.clip-number {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.clip-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8) !important;
+  margin: 0 !important;
+  flex: 1;
+}
+
+/* Informações do tempo do clip */
+.clip-timing {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.clip-timing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #cbd5e1;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.clip-timing-row:last-child {
+  margin-bottom: 0;
+}
+
+.clip-time-value {
+  color: #60a5fa;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.clip-duration-highlight {
+  color: #10b981;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Botões de ação melhorados */
+.clip-actions {
+  display: flex;
+  gap: 8px !important;
+  margin-top: 16px !important;
+}
+
+.clip-action-btn {
+  flex: 1;
+  padding: 10px 16px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  transition: all 0.2s ease !important;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.clip-preview-btn {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.clip-preview-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+.clip-export-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.clip-export-btn:hover {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Header do painel melhorado */
+.clips-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: between;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15) !important;
+  padding-bottom: 16px !important;
+  margin-bottom: 20px !important;
+}
+
+.clips-panel-title {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8) !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clips-count-badge {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Grid responsivo de clips */
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Mensagem quando não há clips */
+.no-clips-message {
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(75, 85, 99, 0.2);
+  border: 2px dashed rgba(156, 163, 175, 0.4);
+  border-radius: 12px;
+  color: #9ca3af;
+}
+
+.no-clips-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #d1d5db;
+}
+
+.no-clips-instruction {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Indicador de progresso para cortes */
+.cutting-progress {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.cutting-progress-text {
+  color: #60a5fa;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .clips-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .clip-card {
+    min-height: 140px !important;
+    padding: 14px !important;
+  }
+  
+  .clips-panel-title {
+    font-size: 18px !important;
+  }
+  
+  .clip-title {
+    font-size: 14px !important;
+  }
+  
+  .clip-actions {
+    flex-direction: column;
+  }
 } 

@@ -1678,6 +1678,47 @@ export function VideoEditorPage() {
         />
       )}
 
+      {/* ➕ PAINEL DE STATUS MELHORADO */}
+      <div className="mb-4 p-4 bg-gray-900/80 border border-gray-700 rounded-lg">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-semibold flex items-center gap-2">
+            📊 Status do Editor
+          </h3>
+          <div className="text-sm text-gray-400">
+            Sistema de Otimização de Vídeo Ativo
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-4">
+          <div className="text-center">
+            <div className="text-lg font-bold text-blue-400">{formatTime(currentTime)}</div>
+            <div className="text-xs text-gray-400">Posição Atual</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-green-400">{formatTime(duration)}</div>
+            <div className="text-xs text-gray-400">Duração Total</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-yellow-400">{cutPoints.length}</div>
+            <div className="text-xs text-gray-400">Cortes Feitos</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-purple-400">{generatedClips.length}</div>
+            <div className="text-xs text-gray-400">Segmentos Criados</div>
+          </div>
+        </div>
+
+        {generatedClips.length > 1 && (
+          <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+            <div className="text-sm text-yellow-300 font-medium mb-1">
+              ⚠️ Atenção: Sistema de Segmentos Ativo
+            </div>
+            <div className="text-xs text-yellow-200">
+              Você criou {generatedClips.length} segmentos. Na próxima versão, poderá marcar quais segmentos remover para gerar um vídeo final otimizado.
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   )
