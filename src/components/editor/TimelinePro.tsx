@@ -96,6 +96,15 @@ interface Suggestion {
   impact: number; // +1 a +15 pontos
 }
 
+// ➕ INTERFACES para keyboard shortcuts
+interface KeyboardShortcut {
+  action: string;
+  description: string;
+  category: string;
+}
+
+type KeyboardShortcutsMap = Record<string, KeyboardShortcut>;
+
 const TimelinePro: React.FC<TimelineProProps> = ({
   videoData,
   currentTime,
@@ -1045,6 +1054,241 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     alert('🚀 Otimização automática concluída! Todos os clips foram melhorados.');
   }, [availableClips, optimizationSuggestions, applyOptimization]);
 
+  // ➕ NOVOS ESTADOS para FASE FINAL - Keyboard Shortcuts Avançado
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [activeShortcut, setActiveShortcut] = useState<string | null>(null);
+  const [keySequence, setKeySequence] = useState<string[]>([]);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  // ➕ MAPEAMENTO COMPLETO DE ATALHOS PROFISSIONAIS
+  const keyboardShortcuts: KeyboardShortcutsMap = {
+    // Timeline Navigation
+    'Space': { action: 'togglePlay', description: '▶️ Play/Pause', category: 'Playback' },
+    'Home': { action: 'goToStart', description: '⏮️ Ir para início', category: 'Navigation' },
+    'End': { action: 'goToEnd', description: '⏭️ Ir para final', category: 'Navigation' },
+    'ArrowLeft': { action: 'stepBackward', description: '⬅️ Voltar 1 frame', category: 'Navigation' },
+    'ArrowRight': { action: 'stepForward', description: '➡️ Avançar 1 frame', category: 'Navigation' },
+    'Shift+ArrowLeft': { action: 'jumpBackward', description: '⬅️ Voltar 10s', category: 'Navigation' },
+    'Shift+ArrowRight': { action: 'jumpForward', description: '➡️ Avançar 10s', category: 'Navigation' },
+    
+    // Editing Tools
+    'c': { action: 'activateRazor', description: '✂️ Ativar Razor Tool', category: 'Tools' },
+    'v': { action: 'activateSelect', description: '👆 Selection Tool', category: 'Tools' },
+    'Delete': { action: 'deleteSelected', description: '🗑️ Deletar selecionado', category: 'Edit' },
+    'Backspace': { action: 'deleteSelected', description: '🗑️ Deletar selecionado', category: 'Edit' },
+    
+    // Timeline Controls
+    '+': { action: 'zoomIn', description: '🔍 Zoom In Timeline', category: 'Timeline' },
+    '-': { action: 'zoomOut', description: '🔍 Zoom Out Timeline', category: 'Timeline' },
+    '0': { action: 'resetZoom', description: '🔄 Reset Zoom', category: 'Timeline' },
+    
+    // Playback Speed
+    'j': { action: 'slowDown', description: '🐌 Diminuir velocidade', category: 'Playback' },
+    'l': { action: 'speedUp', description: '🚀 Aumentar velocidade', category: 'Playback' },
+    'k': { action: 'normalSpeed', description: '⚡ Velocidade normal', category: 'Playback' },
+    
+    // Clips Management
+    'i': { action: 'setInPoint', description: '📍 Marcar ponto IN', category: 'Marks' },
+    'o': { action: 'setOutPoint', description: '📍 Marcar ponto OUT', category: 'Marks' },
+    'x': { action: 'cutSelection', description: '✂️ Cortar seleção', category: 'Edit' },
+    
+    // Advanced Features
+    'Alt+a': { action: 'analyzeViral', description: '🤖 Análise Viral IA', category: 'AI' },
+    'Alt+e': { action: 'batchExport', description: '📦 Exportação em Lote', category: 'Export' },
+    'Alt+l': { action: 'toggleCaptions', description: '📝 Toggle Legendas', category: 'Captions' },
+    
+    // Undo/Redo
+    'Ctrl+z': { action: 'undo', description: '↶ Desfazer', category: 'History' },
+    'Ctrl+y': { action: 'redo', description: '↷ Refazer', category: 'History' },
+    'Ctrl+Shift+z': { action: 'redo', description: '↷ Refazer (Alt)', category: 'History' },
+    
+    // Help
+    '?': { action: 'showHelp', description: '❓ Mostrar Ajuda', category: 'Help' },
+    'h': { action: 'showHelp', description: '❓ Mostrar Ajuda', category: 'Help' },
+    'Escape': { action: 'escape', description: '🚫 Cancelar/Fechar', category: 'General' }
+  };
+
+  // ➕ FUNÇÃO para executar ações via teclado
+  const executeKeyboardAction = useCallback((action: string) => {
+    setActiveShortcut(action);
+    setTimeout(() => setActiveShortcut(null), 1000);
+
+    switch (action) {
+      case 'togglePlay':
+        // Callback para play/pause
+        console.log('⌨️ Toggle Play/Pause');
+        break;
+        
+      case 'goToStart':
+        onSeek(0);
+        console.log('⌨️ Ir para início');
+        break;
+        
+      case 'goToEnd':
+        onSeek(duration);
+        console.log('⌨️ Ir para final');
+        break;
+        
+      case 'stepBackward':
+        onSeek(Math.max(0, currentTime - 0.033)); // 1 frame a 30fps
+        console.log('⌨️ Voltar 1 frame');
+        break;
+        
+      case 'stepForward':
+        onSeek(Math.min(duration, currentTime + 0.033));
+        console.log('⌨️ Avançar 1 frame');
+        break;
+        
+      case 'jumpBackward':
+        onSeek(Math.max(0, currentTime - 10));
+        console.log('⌨️ Voltar 10s');
+        break;
+        
+      case 'jumpForward':
+        onSeek(Math.min(duration, currentTime + 10));
+        console.log('⌨️ Avançar 10s');
+        break;
+        
+      case 'activateRazor':
+        setRazorToolActive(true);
+        console.log('⌨️ Razor Tool ativado');
+        break;
+        
+      case 'activateSelect':
+        setRazorToolActive(false);
+        console.log('⌨️ Selection Tool ativado');
+        break;
+        
+      case 'zoomIn':
+        setTimelineZoom(prev => Math.min(5, prev * 1.2));
+        console.log('⌨️ Zoom In timeline');
+        break;
+        
+      case 'zoomOut':
+        setTimelineZoom(prev => Math.max(0.1, prev / 1.2));
+        console.log('⌨️ Zoom Out timeline');
+        break;
+        
+      case 'resetZoom':
+        setTimelineZoom(1);
+        console.log('⌨️ Reset Zoom timeline');
+        break;
+        
+      case 'slowDown':
+        setPlaybackSpeed(prev => Math.max(0.25, prev - 0.25));
+        console.log(`⌨️ Velocidade: ${playbackSpeed - 0.25}x`);
+        break;
+        
+      case 'speedUp':
+        setPlaybackSpeed(prev => Math.min(4, prev + 0.25));
+        console.log(`⌨️ Velocidade: ${playbackSpeed + 0.25}x`);
+        break;
+        
+      case 'normalSpeed':
+        setPlaybackSpeed(1);
+        console.log('⌨️ Velocidade normal: 1x');
+        break;
+        
+      case 'cutSelection':
+        if (selectedLayerId) {
+          handleCut(currentTime);
+        }
+        console.log('⌨️ Cortar seleção');
+        break;
+        
+      case 'analyzeViral':
+        analyzeViralPotential();
+        console.log('⌨️ Iniciando análise viral IA');
+        break;
+        
+      case 'batchExport':
+        setBatchExportMode(!batchExportMode);
+        console.log('⌨️ Toggle exportação em lote');
+        break;
+        
+      case 'toggleCaptions':
+        setShowCaptionEditor(!showCaptionEditor);
+        console.log('⌨️ Toggle editor de legendas');
+        break;
+        
+      case 'undo':
+        commandManager.undo();
+        console.log('⌨️ Desfazer');
+        break;
+        
+      case 'redo':
+        commandManager.redo();
+        console.log('⌨️ Refazer');
+        break;
+        
+      case 'showHelp':
+        setShowShortcutsHelp(!showShortcutsHelp);
+        console.log('⌨️ Toggle ajuda de atalhos');
+        break;
+        
+      case 'escape':
+        setShowShortcutsHelp(false);
+        setShowCaptionEditor(false);
+        setBatchExportMode(false);
+        setRazorToolActive(false);
+        console.log('⌨️ Escape - cancelar ações');
+        break;
+        
+      default:
+        console.log(`⌨️ Ação não implementada: ${action}`);
+    }
+  }, [currentTime, duration, onSeek, setRazorToolActive, selectedLayerId, handleCut, 
+      analyzeViralPotential, batchExportMode, setBatchExportMode, showCaptionEditor, 
+      setShowCaptionEditor, showShortcutsHelp, playbackSpeed, commandManager]);
+
+  // ➕ LISTENER para capturar atalhos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar se estiver digitando em input/textarea
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT' || 
+          e.target && (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Construir string do atalho
+      let shortcutKey = '';
+      if (e.ctrlKey) shortcutKey += 'Ctrl+';
+      if (e.altKey) shortcutKey += 'Alt+';
+      if (e.shiftKey) shortcutKey += 'Shift+';
+      shortcutKey += e.key;
+
+      // Verificar se existe o atalho
+      const shortcut = keyboardShortcuts[shortcutKey];
+      if (shortcut) {
+        e.preventDefault();
+        executeKeyboardAction(shortcut.action);
+        
+        // Feedback visual
+        setKeySequence(prev => [...prev.slice(-2), shortcutKey]);
+        setTimeout(() => {
+          setKeySequence(prev => prev.slice(1));
+        }, 2000);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [executeKeyboardAction, keyboardShortcuts]);
+
+  // ➕ AGRUPAR ATALHOS POR CATEGORIA
+  const shortcutCategories = useMemo(() => {
+    const categories: Record<string, Array<{key: string, shortcut: any}>> = {};
+    
+    Object.entries(keyboardShortcuts).forEach(([key, shortcut]) => {
+      if (!categories[shortcut.category]) {
+        categories[shortcut.category] = [];
+      }
+      categories[shortcut.category].push({ key, shortcut });
+    });
+    
+    return categories;
+  }, [keyboardShortcuts]);
+
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
@@ -1798,6 +2042,115 @@ const TimelinePro: React.FC<TimelineProProps> = ({
           )}
         </div>
       )}
+
+      {/* ➕ INDICADORES DE KEYBOARD SHORTCUTS ATIVOS */}
+      {keySequence.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-white/20">
+          <div className="text-xs text-gray-400 mb-1">Atalhos Recentes:</div>
+          <div className="space-y-1">
+            {keySequence.map((key, index) => (
+              <div key={index} className={`text-sm font-mono px-2 py-1 rounded ${
+                index === keySequence.length - 1 
+                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30' 
+                  : 'bg-gray-600/20 text-gray-400'
+              }`}>
+                {key}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ➕ INDICADOR DE AÇÃO ATIVA */}
+      {activeShortcut && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-blue-600/90 backdrop-blur-md rounded-xl p-4 border border-blue-400/50">
+          <div className="text-center">
+            <div className="text-2xl text-white font-bold mb-2">
+              {(() => {
+                const shortcutKey = Object.keys(keyboardShortcuts).find(k => keyboardShortcuts[k].action === activeShortcut);
+                return shortcutKey ? keyboardShortcuts[shortcutKey].description : activeShortcut;
+              })()}
+            </div>
+            <div className="text-sm text-blue-200">Ação executada</div>
+          </div>
+        </div>
+      )}
+
+      {/* ➕ MODAL DE AJUDA DE ATALHOS */}
+      {showShortcutsHelp && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-xl p-6 border border-white/20 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <span className="mr-3">⌨️</span>
+                Atalhos de Teclado Profissionais
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowShortcutsHelp(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Object.entries(shortcutCategories).map(([category, shortcuts]) => (
+                <div key={category} className="space-y-3">
+                  <h4 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
+                    {category}
+                  </h4>
+                  <div className="space-y-2">
+                    {shortcuts.map(({ key, shortcut }) => (
+                      <div key={key} className="flex items-center justify-between p-2 bg-black/20 rounded border border-white/10">
+                        <span className="text-sm text-gray-300">{shortcut.description}</span>
+                        <kbd className="px-2 py-1 bg-gray-700 text-white text-xs rounded font-mono border border-gray-600">
+                          {key.replace('Ctrl+', '⌘').replace('Alt+', '⌥').replace('Shift+', '⇧')}
+                        </kbd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 p-4 bg-blue-600/10 rounded-lg border border-blue-500/20">
+              <h4 className="text-sm font-bold text-blue-300 mb-2 flex items-center">
+                <span className="mr-2">💡</span>
+                Dicas Profissionais:
+              </h4>
+              <ul className="text-sm text-blue-200 space-y-1">
+                <li>• Use <kbd className="bg-gray-700 px-1 rounded text-xs">C</kbd> para ativar Razor Tool e cortar rapidamente</li>
+                <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">Space</kbd> para play/pause durante edição</li>
+                <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">Shift + ←/→</kbd> para navegar rapidamente</li>
+                <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">Alt + A</kbd> para análise viral IA</li>
+                <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">J/K/L</kbd> para controle de velocidade como no Premiere</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ➕ INDICADOR DE VELOCIDADE DE PLAYBACK */}
+      {playbackSpeed !== 1 && (
+        <div className="fixed bottom-4 right-4 z-40 bg-black/80 backdrop-blur-md rounded-lg p-2 border border-white/20">
+          <div className="text-sm text-white font-bold">
+            Velocidade: {playbackSpeed}x
+          </div>
+        </div>
+      )}
+
+      {/* ➕ BOTÃO DE AJUDA FLUTUANTE */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowShortcutsHelp(true)}
+        className="fixed bottom-4 left-4 z-40 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-full w-12 h-12 flex items-center justify-center"
+        title="Atalhos de Teclado (H ou ?)"
+      >
+        ⌨️
+      </Button>
     </div>
   );
 };
