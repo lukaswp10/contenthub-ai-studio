@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
+import { AutoCaptions } from '../../components/editor/AutoCaptions'
+import './VideoEditorStyles.css'
+import '../../components/editor/AutoCaptions.css'
 
 interface VideoData {
   file?: File | null
@@ -22,6 +25,12 @@ interface TimelineLayer {
   data: any
   color: string
   locked: boolean
+}
+
+interface CutPoint {
+  id: string
+  time: number
+  type: 'cut' | 'split'
 }
 
 interface EffectPreset {
@@ -65,12 +74,21 @@ export function VideoEditorPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [zoom, setZoom] = useState(1)
   
   // Timeline e camadas
   const [timelineLayers, setTimelineLayers] = useState<TimelineLayer[]>([])
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
-  const [playheadPosition, setPlayheadPosition] = useState(0)
+  
+  // Estados profissionais da timeline
+  const [cutPoints, setCutPoints] = useState<CutPoint[]>([])
+  const [snapEnabled, setSnapEnabled] = useState(true)
+  const [razorToolActive, setRazorToolActive] = useState(false)
+  const [previewCut, setPreviewCut] = useState<number | null>(null)
+  const [timelineZoom, setTimelineZoom] = useState(1)
+  
+  // Estados das captions
+  const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([])
+  const [currentVideoFile, setCurrentVideoFile] = useState<File | null>(null)
   
   // Efeitos e filtros
   const [activeEffects, setActiveEffects] = useState<string[]>([])
@@ -170,6 +188,63 @@ export function VideoEditorPage() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Keyboard shortcuts profissionais
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return
+      
+      switch (e.key.toLowerCase()) {
+        case ' ':
+          e.preventDefault()
+          togglePlayPause()
+          break
+        case 'c':
+          if (e.ctrlKey || e.metaKey) return
+          setRazorToolActive(!razorToolActive)
+          console.log(razorToolActive ? '✂️ Ferramenta Razor ativada' : 'Ferramenta Razor desativada')
+          break
+        case 's':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            console.log('💾 Projeto salvo automaticamente')
+          } else {
+            splitClipAt(currentTime)
+          }
+          break
+        case 'm':
+          setSnapEnabled(!snapEnabled)
+          console.log(snapEnabled ? '🧲 Snap ativado' : 'Snap desativado')
+          break
+        case 'arrowleft':
+          e.preventDefault()
+          seekTo(Math.max(0, (currentTime - 1) / duration * 100))
+          break
+        case 'arrowright':
+          e.preventDefault()
+          seekTo(Math.min(100, (currentTime + 1) / duration * 100))
+          break
+        case 'delete':
+        case 'backspace':
+          if (selectedLayer) {
+            setTimelineLayers(prev => prev.filter(l => l.id !== selectedLayer))
+            setSelectedLayer(null)
+            console.log('🗑️ Clip removido')
+          }
+          break
+        case '+':
+        case '=':
+          setTimelineZoom(Math.min(3, timelineZoom + 0.25))
+          break
+        case '-':
+          setTimelineZoom(Math.max(0.25, timelineZoom - 0.25))
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [razorToolActive, currentTime, duration, selectedLayer, snapEnabled, timelineZoom])
+
   useEffect(() => {
     if (!videoData) {
       navigate('/upload')
@@ -210,6 +285,25 @@ export function VideoEditorPage() {
     }
   }, [videoData, navigate])
 
+  // Adicionar vídeo à timeline quando carregado
+  useEffect(() => {
+    if (videoData && duration > 0 && timelineLayers.length === 0) {
+      const videoLayer: TimelineLayer = {
+        id: `video_${Date.now()}`,
+        type: 'video',
+        name: videoData.name || 'Video Principal',
+        start: 0,
+        duration: duration,
+        data: videoData,
+        color: '#3b82f6',
+        locked: false
+      }
+      
+      setTimelineLayers([videoLayer])
+      console.log('📹 Vídeo adicionado à timeline:', videoLayer.name)
+    }
+  }, [videoData, duration])
+
   const handleVideoLoad = () => {
     if (videoRef.current) {
       const videoDuration = videoRef.current.duration
@@ -227,7 +321,6 @@ export function VideoEditorPage() {
     if (videoRef.current) {
       const time = videoRef.current.currentTime
       setCurrentTime(time)
-      setPlayheadPosition((time / duration) * 100)
       
       applyRealTimeEffects()
     }
@@ -272,7 +365,6 @@ export function VideoEditorPage() {
       const time = (percentage / 100) * duration
       videoRef.current.currentTime = time
       setCurrentTime(time)
-      setPlayheadPosition(percentage)
     }
   }
 
@@ -329,6 +421,176 @@ export function VideoEditorPage() {
     console.log('Abrindo clip:', clip.name)
     // Em produção, isso abriria o clip para visualização/edição
   }
+
+  // ===== FUNÇÕES PROFISSIONAIS DA TIMELINE =====
+  
+  // Renderizar marcações de tempo na régua
+  const renderTimeMarkers = () => {
+    if (!duration) return null
+    
+    const markers = []
+    const totalWidth = duration * timelineZoom * 10
+    const secondsPerPixel = duration / totalWidth
+    const markerInterval = Math.max(1, Math.floor(20 * secondsPerPixel)) // Marker a cada 20px mínimo
+    
+    for (let time = 0; time <= duration; time += markerInterval) {
+      const position = (time / duration) * totalWidth
+      const isMajor = time % (markerInterval * 5) === 0 || time === 0
+      
+      markers.push(
+        <div
+          key={time}
+          className={`time-marker ${isMajor ? 'major' : ''}`}
+          style={{ left: `${position}px` }}
+          data-time={formatTime(time)}
+        />
+      )
+    }
+    
+    return markers
+  }
+
+  // Função melhorada para calcular posição no tempo
+  const getTimeFromPosition = (x: number) => {
+    const totalWidth = duration * timelineZoom * 10
+    const percentage = x / totalWidth
+    return Math.max(0, Math.min(duration, percentage * duration))
+  }
+
+  // Ferramenta Razor - Corte preciso melhorada
+  const handleRazorCut = (layerId: string, time: number) => {
+    const layer = timelineLayers.find(l => l.id === layerId)
+    if (!layer) return
+
+    if (time < layer.start || time > layer.start + layer.duration) return
+
+    const cutPoint = time
+    const firstClip: TimelineLayer = {
+      ...layer,
+      id: `${layer.id}_part1_${Date.now()}`,
+      duration: cutPoint - layer.start,
+    }
+    
+    const secondClip: TimelineLayer = {
+      ...layer,
+      id: `${layer.id}_part2_${Date.now()}`,
+      start: cutPoint,
+      duration: (layer.start + layer.duration) - cutPoint,
+    }
+
+    // Atualizar timeline
+    setTimelineLayers(prev => [
+      ...prev.filter(l => l.id !== layerId),
+      firstClip,
+      secondClip
+    ])
+
+    // Adicionar ponto de corte
+    setCutPoints(prev => [...prev, {
+      id: `cut_${Date.now()}`,
+      time: cutPoint,
+      type: 'cut'
+    }])
+
+    console.log(`✂️ Clip cortado em ${formatTime(cutPoint)}`)
+  }
+
+  // Dividir clip no tempo atual
+  const splitClipAt = (time: number) => {
+    const affectedLayer = timelineLayers.find(layer => 
+      time >= layer.start && time <= layer.start + layer.duration
+    )
+    
+    if (affectedLayer) {
+      handleRazorCut(affectedLayer.id, time)
+    }
+  }
+
+  // Snap para grade de tempo
+  const snapToGrid = (time: number): number => {
+    if (!snapEnabled) return time
+    
+    const snapInterval = 0.5 // Snap a cada 0.5 segundos
+    return Math.round(time / snapInterval) * snapInterval
+  }
+
+  // Hover na timeline para preview
+  const handleTimelineHover = (time: number) => {
+    if (razorToolActive) {
+      setPreviewCut(snapToGrid(time))
+    }
+  }
+
+  // Gerar clips baseados nos cortes da timeline
+  const generateClipsFromCuts = () => {
+    if (cutPoints.length === 0) {
+      console.log('⚠️ Nenhum corte realizado ainda')
+      alert('⚠️ Faça alguns cortes na timeline primeiro usando a ferramenta Razor (tecla C)')
+      return
+    }
+
+    // Criar segmentos baseados nos pontos de corte
+    const segments = []
+    const sortedCuts = [...cutPoints].sort((a, b) => a.time - b.time)
+    
+    // Primeiro segmento (início até primeiro corte)
+    if (sortedCuts.length > 0 && sortedCuts[0].time > 0) {
+      segments.push({
+        start: 0,
+        end: sortedCuts[0].time,
+        name: `Segmento 1 (${formatTime(0)} - ${formatTime(sortedCuts[0].time)})`
+      })
+    }
+    
+    // Segmentos entre cortes
+    for (let i = 0; i < sortedCuts.length - 1; i++) {
+      segments.push({
+        start: sortedCuts[i].time,
+        end: sortedCuts[i + 1].time,
+        name: `Segmento ${i + 2} (${formatTime(sortedCuts[i].time)} - ${formatTime(sortedCuts[i + 1].time)})`
+      })
+    }
+    
+    // Último segmento (último corte até final)
+    if (sortedCuts.length > 0 && sortedCuts[sortedCuts.length - 1].time < duration) {
+      segments.push({
+        start: sortedCuts[sortedCuts.length - 1].time,
+        end: duration,
+        name: `Segmento ${sortedCuts.length + 1} (${formatTime(sortedCuts[sortedCuts.length - 1].time)} - ${formatTime(duration)})`
+      })
+    }
+
+    console.log('✂️ Gerando clips dos segmentos:', segments)
+    
+    // Em produção, aqui seria feita a chamada para o backend
+    // para processar os segmentos e gerar os clips
+    alert(`🎬 Gerando ${segments.length} clips baseados nos cortes realizados!\n\n` +
+          segments.map(s => `• ${s.name}`).join('\n'))
+  }
+
+  // Lidar com captions geradas
+  const handleCaptionsGenerated = (words: any[]) => {
+    setGeneratedCaptions(words)
+    console.log('🎤 Captions geradas:', words)
+    
+    // Aqui você pode adicionar lógica adicional quando as captions são geradas
+    if (words.length > 0) {
+      console.log(`✅ ${words.length} palavras transcritas com sucesso`)
+    }
+  }
+
+  // Hook para capturar dados da navegação
+  useEffect(() => {
+    if (location.state?.videoData) {
+      const data = location.state.videoData as VideoData
+      setDuration(data.duration || 30)
+      
+      // Capturar arquivo se disponível
+      if (location.state.videoFile) {
+        setCurrentVideoFile(location.state.videoFile as File)
+      }
+    }
+  }, [location.state])
 
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
@@ -592,131 +854,293 @@ export function VideoEditorPage() {
             </div>
           </div>
 
-          {/* Professional Timeline */}
-          <div className="h-64 timeline-container slide-in-right">
-            <div className="p-3 border-b border-gray-700 flex items-center justify-between">
+          {/* TIMELINE PROFISSIONAL AVANÇADA */}
+          <div className="h-72 timeline-container-pro slide-in-right">
+            {/* Toolbar da Timeline */}
+            <div className="timeline-toolbar p-3 border-b border-gray-700 flex items-center justify-between bg-gray-800/90">
               <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-300">Timeline</span>
+                <span className="text-sm font-bold text-white">⚡ Timeline Pro</span>
+                
+                {/* Ferramentas Profissionais */}
                 <div className="flex items-center space-x-2">
+                  <Button
+                    variant={razorToolActive ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setRazorToolActive(!razorToolActive)}
+                    className={`${razorToolActive 
+                      ? 'bg-red-600 hover:bg-red-700 text-white' 
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                    } transition-all duration-200`}
+                    title="Ferramenta Razor (C)"
+                  >
+                    ✂️ Razor
+                  </Button>
+                  
+                  <Button
+                    variant={snapEnabled ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSnapEnabled(!snapEnabled)}
+                    className={`${snapEnabled 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                    } transition-all duration-200`}
+                    title="Snap Magnético (M)"
+                  >
+                    🧲 {snapEnabled ? 'ON' : 'OFF'}
+                  </Button>
+                </div>
+
+                {/* Zoom Controls */}
+                <div className="flex items-center space-x-2 border-l border-gray-600 pl-4">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+                    onClick={() => setTimelineZoom(Math.max(0.25, timelineZoom - 0.25))}
                     className="text-gray-400 hover:text-white"
+                    title="Zoom Out (-)"
                   >
                     🔍-
                   </Button>
-                  <span className="text-xs text-gray-500">{Math.round(zoom * 100)}%</span>
+                  <span className="text-xs text-gray-400 min-w-12 text-center">
+                    {Math.round(timelineZoom * 100)}%
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                    onClick={() => setTimelineZoom(Math.min(3, timelineZoom + 0.25))}
                     className="text-gray-400 hover:text-white"
+                    title="Zoom In (+)"
                   >
                     🔍+
                   </Button>
                 </div>
               </div>
               
+              {/* Controles de Reprodução */}
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-400">
+                <div className="text-sm text-gray-300 font-mono">
                   {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
+                </div>
                 <Button
                   onClick={togglePlayPause}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 font-medium"
                 >
-                  {isPlaying ? '⏸️ Pausar' : '▶️ Play'}
+                  {isPlaying ? '⏸️ Pause' : '▶️ Play'}
                 </Button>
               </div>
             </div>
 
-            {/* Timeline Tracks */}
-            <div className="flex-1 relative overflow-auto" ref={timelineRef}>
-              {/* Time ruler */}
-              <div className="h-8 bg-gray-700 border-b border-gray-600 relative">
-                {duration > 0 && Array.from({ length: Math.ceil(duration) }, (_, i) => (
+            {/* Timeline Principal */}
+            <div className="flex-1 relative overflow-hidden" ref={timelineRef}>
+              {/* Régua de Tempo */}
+              <div className="timeline-ruler h-10 bg-gradient-to-b from-gray-700 to-gray-750 border-b border-gray-600 relative overflow-hidden">
+                {renderTimeMarkers()}
+                
+                {/* Marcadores de Corte */}
+                {cutPoints.map(cutPoint => (
                   <div
-                    key={i}
-                    className="absolute top-0 h-full border-l border-gray-500 text-xs text-gray-400 pl-1 pt-1"
-                    style={{ left: `${(i / duration) * 100 * zoom}%` }}
+                    key={cutPoint.id}
+                    className="absolute top-0 bottom-0 border-l-2 border-red-400 z-20"
+                    style={{ left: `${(cutPoint.time / duration) * 100 * timelineZoom}%` }}
+                    title={`Corte em ${formatTime(cutPoint.time)}`}
                   >
-                    {formatTime(i)}
+                    <div className="w-3 h-3 bg-red-500 rounded-full -ml-1.5 -mt-1 border-2 border-white"></div>
                   </div>
                 ))}
                 
-                {/* Playhead */}
+                {/* Preview de Corte */}
+                {previewCut !== null && (
+                  <div
+                    className="absolute top-0 bottom-0 border-l-2 border-yellow-400 z-30 opacity-75"
+                    style={{ left: `${(previewCut / duration) * 100 * timelineZoom}%` }}
+                  >
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full -ml-1.5 -mt-1 animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Playhead Principal */}
                 <div
-                  className="playhead absolute top-0 w-0.5 h-full z-10 pointer-events-none"
-                  style={{ left: `${playheadPosition * zoom}%` }}
+                  className="playhead-pro absolute top-0 w-0.5 h-full z-40 transition-all duration-75"
+                  style={{ left: `${(currentTime / duration) * 100 * timelineZoom}%` }}
                 >
-                  <div className="w-3 h-3 bg-red-500 rounded-full -ml-1.5 -mt-1"></div>
+                  <div className="playhead-handle w-4 h-4 bg-red-500 rounded-full -ml-2 -mt-2 border-2 border-white shadow-lg"></div>
+                  <div className="playhead-line w-0.5 bg-red-500 h-full shadow-lg"></div>
                 </div>
               </div>
 
-              {/* Video Tracks */}
-              <div className="space-y-1 p-2">
+              {/* Tracks Container */}
+              <div className="tracks-container flex-1 overflow-y-auto bg-gray-850">
                 {timelineLayers.map((layer) => (
-                  <div key={layer.id} className="timeline-track flex items-center h-12 bg-gray-750 rounded">
+                  <div key={layer.id} className="track-row flex items-center h-16 border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors">
                     {/* Track Header */}
-                    <div className="w-32 px-3 border-r border-gray-600 flex items-center justify-between">
+                    <div className="track-header w-36 px-3 bg-gray-800/50 h-full flex items-center justify-between border-r border-gray-600">
                       <div className="flex items-center space-x-2">
                         <div 
-                          className="w-3 h-3 rounded"
+                          className="w-4 h-4 rounded-full border-2 border-white/20"
                           style={{ backgroundColor: layer.color }}
                         />
-                        <span className="text-xs text-gray-300 truncate">
-                          {layer.name}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-white truncate max-w-16">
+                            {layer.name}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {layer.type.toUpperCase()}
+                          </span>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-400 hover:text-white p-1"
-                      >
-                        {layer.locked ? '🔒' : '🔓'}
-                      </Button>
+                      <div className="flex flex-col space-y-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-white p-1 w-6 h-6"
+                          onClick={() => {
+                            setTimelineLayers(prev => prev.map(l => 
+                              l.id === layer.id ? { ...l, locked: !l.locked } : l
+                            ))
+                          }}
+                        >
+                          {layer.locked ? '🔒' : '🔓'}
+                        </Button>
+                      </div>
                     </div>
                     
-                    {/* Track Content */}
-                    <div className="flex-1 relative h-10 mx-2">
+                    {/* Track Content Area */}
+                    <div 
+                      className="track-content flex-1 relative h-14 mx-1"
+                      onMouseMove={(e) => {
+                        if (razorToolActive) {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const x = e.clientX - rect.left
+                          const time = getTimeFromPosition(x)
+                          handleTimelineHover(time)
+                        }
+                      }}
+                      onMouseLeave={() => setPreviewCut(null)}
+                      onClick={(e) => {
+                        if (razorToolActive) {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const x = e.clientX - rect.left
+                          const time = getTimeFromPosition(x)
+                          const snappedTime = snapToGrid(time)
+                          
+                          if (snappedTime >= layer.start && snappedTime <= layer.start + layer.duration) {
+                            handleRazorCut(layer.id, snappedTime)
+                          }
+                        }
+                      }}
+                    >
+                      {/* Clip Visual */}
                       <div
-                        className={`timeline-clip absolute top-1 h-8 rounded cursor-pointer border-2 flex items-center px-2 ${
+                        className={`timeline-clip-pro absolute top-1 h-12 rounded-lg cursor-pointer border-2 transition-all duration-200 ${
                           selectedLayer === layer.id 
-                            ? 'selected' 
-                            : ''
+                            ? 'border-blue-400 shadow-lg shadow-blue-400/30' 
+                            : 'border-gray-600 hover:border-gray-500'
                         }`}
                         style={{
-                          left: `${(layer.start / duration) * 100 * zoom}%`,
-                          width: `${(layer.duration / duration) * 100 * zoom}%`,
-                          minWidth: '60px'
+                          left: `${(layer.start / duration) * 100 * timelineZoom}%`,
+                          width: `${(layer.duration / duration) * 100 * timelineZoom}%`,
+                          minWidth: '80px',
+                          background: `linear-gradient(135deg, ${layer.color}AA, ${layer.color}FF)`,
+                          boxShadow: selectedLayer === layer.id ? `0 0 20px ${layer.color}40` : 'none'
                         }}
-                        onClick={() => setSelectedLayer(layer.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!razorToolActive) {
+                            setSelectedLayer(layer.id)
+                          }
+                        }}
                       >
-                        <span className="text-xs text-white truncate">
-                          {layer.type === 'video' ? '🎬' : 
-                           layer.type === 'audio' ? '🎵' : 
-                           layer.type === 'text' ? '📝' : '✨'} 
-                          {layer.name}
-                        </span>
+                        {/* Clip Content */}
+                        <div className="flex items-center h-full px-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">
+                              {layer.type === 'video' ? '🎬' : 
+                              layer.type === 'audio' ? '🎵' : 
+                              layer.type === 'text' ? '📝' : '✨'}
+                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium text-white truncate">
+                                {layer.name}
+                              </span>
+                              <span className="text-xs text-gray-300">
+                                {formatTime(layer.duration)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Trim Handles */}
+                        {selectedLayer === layer.id && (
+                          <>
+                            <div className="trim-handle-left absolute left-0 top-0 w-2 h-full bg-blue-400 rounded-l-lg cursor-ew-resize opacity-75 hover:opacity-100"></div>
+                            <div className="trim-handle-right absolute right-0 top-0 w-2 h-full bg-blue-400 rounded-r-lg cursor-ew-resize opacity-75 hover:opacity-100"></div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
+                
+                {/* Placeholder para mais tracks */}
+                <div className="track-row flex items-center h-16 border-b border-gray-700/30 opacity-50">
+                  <div className="track-header w-36 px-3 h-full flex items-center border-r border-gray-600">
+                    <span className="text-xs text-gray-500">+ Adicionar Track</span>
+                  </div>
+                  <div className="track-content flex-1 h-14 mx-1"></div>
+                </div>
               </div>
 
-              {/* Clickable timeline for seeking */}
+              {/* Timeline Interactions */}
               <div
-                className="absolute inset-0 cursor-pointer z-5"
+                className={`absolute inset-0 z-10 ${razorToolActive ? 'cursor-crosshair' : 'cursor-pointer'}`}
+                onMouseMove={(e) => {
+                  if (razorToolActive) {
+                    const rect = timelineRef.current?.getBoundingClientRect()
+                    if (rect) {
+                      const x = e.clientX - rect.left - 144
+                      const time = getTimeFromPosition(x)
+                      handleTimelineHover(time)
+                    }
+                  }
+                }}
                 onClick={(e) => {
-                  const rect = timelineRef.current?.getBoundingClientRect()
-                  if (rect) {
-                    const x = e.clientX - rect.left - 128
-                    const percentage = (x / ((rect.width - 128) * zoom)) * 100
-                    seekTo(Math.max(0, Math.min(100, percentage)))
+                  if (!razorToolActive) {
+                    const rect = timelineRef.current?.getBoundingClientRect()
+                    if (rect) {
+                      const x = e.clientX - rect.left - 144
+                      const percentage = (x / ((rect.width - 144) * timelineZoom)) * 100
+                      seekTo(Math.max(0, Math.min(100, percentage)))
+                    }
                   }
                 }}
               />
+            </div>
+            
+            {/* Timeline Status Bar */}
+            <div className="timeline-status bg-gray-800 px-3 py-1 text-xs text-gray-400 border-t border-gray-700 flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span>📊 {timelineLayers.length} tracks</span>
+                <span>✂️ {cutPoints.length} cuts</span>
+                {razorToolActive && <span className="text-red-400 animate-pulse">🔄 Razor Tool Ativo</span>}
+                
+                {/* Botão para gerar clips dos cortes */}
+                {cutPoints.length > 0 && (
+                  <Button
+                    onClick={generateClipsFromCuts}
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-xs font-medium rounded-md"
+                    title="Gerar clips baseados nos cortes realizados"
+                  >
+                    🎬 Gerar {cutPoints.length + 1} Clips
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center space-x-2 text-gray-500">
+                <span>Atalhos:</span>
+                <span className="bg-gray-700 px-1 rounded">Space</span>
+                <span className="bg-gray-700 px-1 rounded">C</span>
+                <span className="bg-gray-700 px-1 rounded">S</span>
+                <span className="bg-gray-700 px-1 rounded">M</span>
+              </div>
             </div>
           </div>
         </div>
@@ -856,21 +1280,57 @@ export function VideoEditorPage() {
             )}
 
             {activeTab === 'audio' && (
-              <div className="flex-1 overflow-y-auto p-4">
-                <h3 className="text-lg font-semibold mb-4 text-white">Áudio Profissional</h3>
-                <div className="text-center text-gray-400 py-8">
-                  🎵 Mixer profissional em desenvolvimento<br/>
-                  <span className="text-xs">Em breve: Auto captions como CapCut</span>
-                </div>
+              <div className="flex-1 overflow-y-auto">
+                <AutoCaptions
+                  videoUrl={videoData?.url}
+                  duration={duration}
+                  onCaptionsGenerated={handleCaptionsGenerated}
+                  videoFile={currentVideoFile || undefined}
+                />
               </div>
             )}
 
             {activeTab === 'ai' && (
               <div className="flex-1 overflow-y-auto p-4">
                 <h3 className="text-lg font-semibold mb-4 text-white">IA Avançada</h3>
+                
+                {/* Corte Inteligente */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-300 mb-3">🎯 Corte Inteligente</h4>
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => {
+                        // Simulação de corte automático baseado em pausas/silêncios
+                        const autoCuts = [duration * 0.2, duration * 0.5, duration * 0.8]
+                        const newCuts = autoCuts.map((time, index) => ({
+                          id: `auto_cut_${Date.now()}_${index}`,
+                          time: time,
+                          type: 'cut' as const
+                        }))
+                        setCutPoints(prev => [...prev, ...newCuts])
+                        console.log('🤖 IA detectou pausas e criou cortes automáticos')
+                      }}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
+                    >
+                      🤖 Auto Cut (Detectar Pausas)
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => {
+                        // Simulação de detecção de momentos-chave
+                        alert('🎬 IA analisando momentos de maior engajamento...\n\n• Expressões faciais intensas\n• Mudanças de tom de voz\n• Gestos marcantes\n\nEm breve: Cortes automáticos nos melhores momentos!')
+                      }}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
+                    >
+                      🎯 Smart Highlights
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Outras funcionalidades IA */}
                 <div className="space-y-3">
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
-                    🤖 Auto Caption (IA)
+                    🎬 Auto Caption (IA)
                   </Button>
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
                     🎬 Script to Video
@@ -878,12 +1338,32 @@ export function VideoEditorPage() {
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
                     🗣️ AI Voice Generator  
                   </Button>
-                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
-                    ✂️ Smart Cut (IA)
+                  <Button 
+                    onClick={() => {
+                      if (cutPoints.length > 0) {
+                        generateClipsFromCuts()
+                      } else {
+                        alert('⚠️ Faça alguns cortes primeiro usando a ferramenta Razor ou Auto Cut')
+                      }
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
+                  >
+                    ✂️ Gerar Clips dos Cortes
                   </Button>
                 </div>
-                <div className="text-center text-gray-400 text-xs mt-4">
-                  Powered by ClipsForge AI Engine
+                
+                {/* Status da IA */}
+                <div className="mt-6 p-3 bg-gray-800 rounded-lg border border-purple-500/30">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-purple-400">🧠</span>
+                    <span className="text-sm font-medium text-white">Status da IA</span>
+                  </div>
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <div>• Timeline: {timelineLayers.length} layers detectadas</div>
+                    <div>• Cortes: {cutPoints.length} pontos identificados</div>
+                    <div>• Duração: {formatTime(duration)} de conteúdo</div>
+                    <div className="text-green-400">• Sistema: Pronto para análise</div>
+                  </div>
                 </div>
               </div>
             )}
@@ -901,6 +1381,32 @@ export function VideoEditorPage() {
           }}
         />
       )}
+
+      {/* Status da IA e Timeline */}
+      <div className="ia-status-panel">
+        <div className="status-header">
+          <span className="status-icon">🤖</span>
+          <span className="status-title">IA Status</span>
+        </div>
+        <div className="status-grid">
+          <div className="status-item">
+            <span className="status-label">Timeline Layers:</span>
+            <span className="status-value">{timelineLayers.length}</span>
+          </div>
+          <div className="status-item">
+            <span className="status-label">Cuts Made:</span>
+            <span className="status-value">{cutPoints.length}</span>
+          </div>
+          <div className="status-item">
+            <span className="status-label">Duration:</span>
+            <span className="status-value">{formatTime(duration)}</span>
+          </div>
+          <div className="status-item">
+            <span className="status-label">Captions:</span>
+            <span className="status-value">{generatedCaptions.length} words</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 } 

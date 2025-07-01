@@ -1,0 +1,462 @@
+/* ===== TIMELINE PROFISSIONAL - ESTILOS CUSTOMIZADOS ===== */
+
+/* Container principal da timeline */
+.timeline-container-pro {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #374151;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Toolbar da timeline */
+.timeline-toolbar {
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.8);
+}
+
+/* Régua de tempo aprimorada */
+.timeline-ruler {
+  background: linear-gradient(to bottom, #374151, #4b5563);
+  position: relative;
+  overflow: hidden;
+  height: 40px;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.timeline-ruler::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(59, 130, 246, 0.1) 50%, 
+    transparent 100%);
+  animation: ruler-glow 3s ease-in-out infinite alternate;
+}
+
+/* Marcações de tempo precisas */
+.time-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(156, 163, 175, 0.4);
+  font-size: 10px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.time-marker.major {
+  background: rgba(156, 163, 175, 0.8);
+  width: 2px;
+}
+
+.time-marker.major::after {
+  content: attr(data-time);
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* Playhead melhorado */
+.playhead-pro {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+  z-index: 30;
+  cursor: pointer;
+  border-radius: 1px;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.playhead-pro::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  width: 15px;
+  height: 15px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.playhead-pro::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  width: 11px;
+  height: 11px;
+  background: #fca5a5;
+  border-radius: 50%;
+  animation: playhead-pulse 1.5s ease-in-out infinite;
+}
+
+/* Tracks com melhor visual */
+.track-row {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+.track-row:hover {
+  background: rgba(55, 65, 81, 0.2);
+  transform: translateX(2px);
+}
+
+.track-header {
+  background: linear-gradient(135deg, #374151, #4b5563);
+  border-right: 2px solid #6b7280;
+}
+
+/* Clips com visual profissional */
+.timeline-clip-pro {
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  cursor: move;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-clip-pro:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.4) !important;
+}
+
+.timeline-clip-pro.selected {
+  border-width: 3px;
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+}
+
+/* Handles de redimensionamento melhorados */
+.trim-handle-left,
+.trim-handle-right {
+  opacity: 0;
+  transition: all 0.2s ease;
+  background: linear-gradient(to bottom, #3b82f6, #2563eb);
+  border-radius: 0;
+  position: relative;
+}
+
+.timeline-clip-pro:hover .trim-handle-left,
+.timeline-clip-pro:hover .trim-handle-right,
+.timeline-clip-pro.selected .trim-handle-left,
+.timeline-clip-pro.selected .trim-handle-right {
+  opacity: 1;
+}
+
+.trim-handle-left {
+  border-radius: 8px 0 0 8px;
+}
+
+.trim-handle-right {
+  border-radius: 0 8px 8px 0;
+}
+
+.trim-handle-left::before,
+.trim-handle-right::before {
+  content: '⋮⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 8px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Ferramenta Razor */
+.razor-cursor {
+  cursor: crosshair !important;
+}
+
+.razor-preview-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0.8;
+  animation: razor-blink 0.8s ease-in-out infinite alternate;
+}
+
+.razor-preview-line::before {
+  content: '✂️';
+  position: absolute;
+  top: -15px;
+  left: -8px;
+  font-size: 16px;
+  animation: razor-bounce 0.5s ease-in-out infinite alternate;
+}
+
+/* Indicadores de corte */
+.cut-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, #f59e0b, #d97706);
+  z-index: 20;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
+.cut-indicator::before {
+  content: '✂';
+  position: absolute;
+  top: -12px;
+  left: -6px;
+  color: #f59e0b;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* Zoom controls melhorados */
+.zoom-controls {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+.zoom-slider {
+  width: 80px;
+  height: 4px;
+  background: #374151;
+  border-radius: 2px;
+  appearance: none;
+  outline: none;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* Timeline Status Bar */
+.timeline-status {
+  background: linear-gradient(135deg, #111827, #1f2937);
+  border-top: 1px solid #374151;
+}
+
+/* Animations */
+@keyframes ruler-glow {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.7; }
+}
+
+@keyframes playhead-pulse {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes razor-blink {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+@keyframes razor-bounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
+}
+
+/* Scrollbars customizados */
+.tracks-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tracks-container::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+.tracks-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #374151, #4b5563);
+  border-radius: 4px;
+}
+
+.tracks-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #4b5563, #6b7280);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .timeline-ruler {
+    height: 35px;
+  }
+  
+  .time-marker.major::after {
+    font-size: 9px;
+  }
+  
+  .playhead-pro::before {
+    width: 12px;
+    height: 12px;
+    left: -5px;
+    top: -6px;
+  }
+  
+  .track-header {
+    width: 120px;
+  }
+}
+
+/* Animações e transições */
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Cursor personalizado para razor tool */
+.cursor-crosshair {
+  cursor: crosshair !important;
+}
+
+/* Indicadores visuais */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* Cores de fundo personalizadas */
+.bg-gray-750 {
+  background-color: #374151;
+}
+
+.bg-gray-850 {
+  background-color: #1f2937;
+}
+
+/* Estados ativos */
+.bg-red-600 {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.4) !important;
+}
+
+.bg-blue-600 {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* Efeitos de hover melhorados */
+.hover\\:bg-gray-700:hover {
+  background: linear-gradient(135deg, rgba(55, 65, 81, 0.8), rgba(75, 85, 99, 0.6)) !important;
+  backdrop-filter: blur(5px) !important;
+}
+
+/* Toolbar buttons */
+.timeline-toolbar .button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-toolbar .button:hover {
+  transform: translateY(-1px);
+}
+
+/* Grid lines para precisão */
+.timeline-ruler::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      rgba(156, 163, 175, 0.1) 20px
+    );
+  pointer-events: none;
+}
+
+/* Zoom smooth transitions */
+.timeline-clip-pro,
+.playhead-pro,
+.trim-handle-left,
+.trim-handle-right {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Indicador de zoom */
+.text-gray-400 {
+  transition: color 0.2s ease;
+}
+
+/* Loading states */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .timeline-container-pro {
+    border-width: 2px;
+  }
+  
+  .timeline-clip-pro {
+    border-width: 2px;
+  }
+  
+  .playhead-line {
+    width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+} 
