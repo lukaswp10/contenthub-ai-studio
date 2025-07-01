@@ -18,14 +18,29 @@ const CLOUDINARY_CONFIG = {
   apiSecret: 'gJh-IPVTqWOv12GKCDDBJ1gy4i8'
 }
 
-// Função para gerar assinatura para upload seguro
-const generateSignature = (params: Record<string, any>, apiSecret: string): string => {
+// Função para gerar assinatura SHA-1 para upload seguro
+const generateSignature = async (params: Record<string, any>, apiSecret: string): Promise<string> => {
+  // Ordenar parâmetros alfabeticamente e criar string
   const sortedParams = Object.keys(params)
     .sort()
     .map(key => `${key}=${params[key]}`)
     .join('&')
   
-  return btoa(sortedParams + apiSecret).slice(0, 40) // Simulação de hash SHA-1
+  const stringToSign = sortedParams + apiSecret
+  
+  // Usar Web Crypto API para gerar SHA-1
+  const encoder = new TextEncoder()
+  const data = encoder.encode(stringToSign)
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+  
+  // Converter para hex
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  
+  console.log('🔐 String to sign:', stringToSign)
+  console.log('🔐 Generated signature:', hashHex)
+  
+  return hashHex
 }
 
 // Upload de vídeo para Cloudinary
@@ -33,17 +48,15 @@ export const uploadVideoToCloudinary = async (file: File): Promise<CloudinaryUpl
   const formData = new FormData()
   const timestamp = Math.round(Date.now() / 1000)
   
-  // Parâmetros para o upload
+  // Parâmetros para o upload (sem api_key e signature)
   const uploadParams = {
-    timestamp,
     folder: 'clipsforge/videos',
     resource_type: 'video',
-    quality: 'auto',
-    format: 'mp4'
+    timestamp
   }
   
   // Gerar assinatura
-  const signature = generateSignature(uploadParams, CLOUDINARY_CONFIG.apiSecret)
+  const signature = await generateSignature(uploadParams, CLOUDINARY_CONFIG.apiSecret)
   
   // Adicionar parâmetros ao FormData
   formData.append('file', file)
@@ -52,11 +65,10 @@ export const uploadVideoToCloudinary = async (file: File): Promise<CloudinaryUpl
   formData.append('signature', signature)
   formData.append('folder', uploadParams.folder)
   formData.append('resource_type', uploadParams.resource_type)
-  formData.append('quality', uploadParams.quality)
-  formData.append('format', uploadParams.format)
   
   try {
     console.log('📤 Iniciando upload para Cloudinary:', file.name)
+    console.log('📋 Upload params:', uploadParams)
     
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/video/upload`,
@@ -88,11 +100,11 @@ export const deleteVideoFromCloudinary = async (publicId: string): Promise<boole
   
   const deleteParams = {
     public_id: publicId,
-    timestamp,
-    resource_type: 'video'
+    resource_type: 'video',
+    timestamp
   }
   
-  const signature = generateSignature(deleteParams, CLOUDINARY_CONFIG.apiSecret)
+  const signature = await generateSignature(deleteParams, CLOUDINARY_CONFIG.apiSecret)
   
   const formData = new FormData()
   formData.append('public_id', publicId)
