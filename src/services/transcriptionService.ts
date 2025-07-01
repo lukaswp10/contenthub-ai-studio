@@ -31,18 +31,9 @@ class TranscriptionService {
     return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost'
   }
 
-  // Upload direto para AssemblyAI (método oficial)
-  private async uploadToAssemblyAI(audioBlob: Blob): Promise<string> {
-    if (!this.assemblyAI) {
-      throw new Error('API Key da AssemblyAI não configurada')
-    }
+  // Método de upload removido - usando upload direto do arquivo
 
-    // Usar método oficial de upload
-    const uploadUrl = await this.assemblyAI.files.upload(audioBlob)
-    return uploadUrl
-  }
-
-  // Transcrição AssemblyAI com configurações oficiais
+  // Transcrição AssemblyAI com configurações oficiais (seguindo docs)
   async transcribeWithAssemblyAI(
     videoFile: File, 
     onProgress: (status: string) => void
@@ -52,57 +43,11 @@ class TranscriptionService {
     }
 
     try {
-      onProgress('🎵 Extraindo áudio do vídeo...')
+      onProgress('📤 Enviando vídeo para AssemblyAI...')
       
-      // Criar elemento de vídeo para extrair áudio usando Blob URL
-      const video = document.createElement('video')
-      const videoUrl = URL.createObjectURL(videoFile)
-      video.src = videoUrl
-      
-      // Aguardar carregamento dos metadados
-      await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve
-        video.onerror = reject
-      })
-
-      // Criar contexto de áudio
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const source = audioContext.createMediaElementSource(video)
-      const destination = audioContext.createMediaStreamDestination()
-      
-      source.connect(destination)
-      
-      // Gravar áudio
-      const mediaRecorder = new MediaRecorder(destination.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
-      
-      const chunks: BlobPart[] = []
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data)
-        }
-      }
-
-      const audioBlob = await new Promise<Blob>((resolve) => {
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' })
-          resolve(blob)
-        }
-        
-        mediaRecorder.start()
-        video.play()
-        
-        video.onended = () => {
-          mediaRecorder.stop()
-          audioContext.close()
-          URL.revokeObjectURL(videoUrl) // Limpar memória
-        }
-      })
-      
-      onProgress('📤 Enviando para AssemblyAI...')
-      const audioUrl = await this.uploadToAssemblyAI(audioBlob)
+      // Upload direto do arquivo de vídeo (AssemblyAI suporta vídeo)
+      // Seguindo documentação oficial: https://www.assemblyai.com/docs
+      const audioUrl = await this.assemblyAI.files.upload(videoFile)
       
       onProgress('🧠 Processando com IA...')
       
@@ -169,7 +114,7 @@ class TranscriptionService {
     }
   }
 
-  // Web Speech API com especificação W3C oficial
+  // Web Speech API simplificada (sem problemas de CSP)
   async transcribeWithWebSpeech(
     videoFile: File,
     onProgress: (status: string) => void
@@ -196,19 +141,13 @@ class TranscriptionService {
       recognition.interimResults = true
       recognition.lang = 'pt-BR'
       recognition.maxAlternatives = 3
-      recognition.serviceURI = '' // Usar serviço padrão
-
-      const video = document.createElement('video')
-      const videoUrl = URL.createObjectURL(videoFile)
-      video.src = videoUrl
-      video.muted = false
 
       let finalTranscript = ''
       let words: TranscriptionWord[] = []
       let startTime = 0
 
       recognition.onstart = () => {
-        onProgress('🎤 Web Speech ativo - processando áudio...')
+        onProgress('🎤 Web Speech ativo - fale no microfone...')
         startTime = Date.now()
       }
 
@@ -278,7 +217,6 @@ class TranscriptionService {
 
       recognition.onend = () => {
         onProgress('✅ Web Speech API concluída!')
-        URL.revokeObjectURL(videoUrl) // Limpar memória
         resolve({
           words,
           text: finalTranscript.trim(),
@@ -286,20 +224,13 @@ class TranscriptionService {
         })
       }
 
-      // Iniciar vídeo e reconhecimento
-      video.onloadeddata = () => {
-        recognition.start()
-        video.play()
-      }
-
-      video.onended = () => {
+      // Iniciar reconhecimento direto do microfone
+      recognition.start()
+      
+      // Auto-parar após 30 segundos
+      setTimeout(() => {
         recognition.stop()
-      }
-
-      video.onerror = () => {
-        URL.revokeObjectURL(videoUrl) // Limpar memória
-        reject(new Error('Erro ao carregar vídeo para Web Speech'))
-      }
+      }, 30000)
     })
   }
 

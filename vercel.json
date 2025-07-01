@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
+  "alias": ["clipsforge.vercel.app"],
   "rewrites": [
     {
       "source": "/(.*)",
