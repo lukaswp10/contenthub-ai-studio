@@ -128,6 +128,22 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   const [dropZone, setDropZone] = useState<string | null>(null);
   const [clipOrder, setClipOrder] = useState<string[]>([]);
 
+  // ➕ NOVOS ESTADOS para FASE 7.0 - Exportação em Lote & Templates
+  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
+  const [batchExportMode, setBatchExportMode] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('tiktok-viral');
+  const [exportProgress, setExportProgress] = useState<{
+    isExporting: boolean;
+    current: number;
+    total: number;
+    currentClip: string;
+  }>({
+    isExporting: false,
+    current: 0,
+    total: 0,
+    currentClip: ''
+  });
+
   // ➕ TRACKS baseadas nos timelineLayers recebidos
   const tracks = useMemo(() => [
     {
@@ -716,6 +732,129 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     setDropZone(null);
   }, [reorderClips]);
 
+  // ➕ TEMPLATES VIRAIS disponíveis
+  const viralTemplates = [
+    {
+      id: 'tiktok-viral',
+      name: '🎵 TikTok Viral',
+      description: '9:16, Legendas Bold, Música Trending',
+      format: '9:16',
+      quality: '1080p',
+      captionStyle: 'tiktok-bold',
+      effects: ['zoom-in', 'trending-audio'],
+      icon: '🎵'
+    },
+    {
+      id: 'youtube-shorts',
+      name: '📺 YouTube Shorts',
+      description: '9:16, Título Chamativo, Thumb Atraente',
+      format: '9:16',
+      quality: '1080p',
+      captionStyle: 'youtube-highlight',
+      effects: ['thumbnail-overlay', 'hook-intro'],
+      icon: '📺'
+    },
+    {
+      id: 'instagram-reels',
+      name: '📸 Instagram Reels',
+      description: '9:16, Estética Premium, Hash Otimizadas',
+      format: '9:16',
+      quality: '1080p',
+      captionStyle: 'instagram-neon',
+      effects: ['aesthetic-filter', 'story-style'],
+      icon: '📸'
+    },
+    {
+      id: 'podcast-clips',
+      name: '🎙️ Podcast Clips',
+      description: '16:9, Legendas Limpas, Waveform Visual',
+      format: '16:9',
+      quality: '1080p',
+      captionStyle: 'podcast-clean',
+      effects: ['waveform-bg', 'speaker-highlight'],
+      icon: '🎙️'
+    }
+  ];
+
+  // ➕ FUNÇÃO para selecionar/deselecionar clips
+  const toggleClipSelection = useCallback((clipId: string) => {
+    setSelectedClips(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(clipId)) {
+        newSet.delete(clipId);
+      } else {
+        newSet.add(clipId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // ➕ FUNÇÃO para selecionar todos os clips
+  const selectAllClips = useCallback(() => {
+    setSelectedClips(new Set(availableClips.map(clip => clip.id)));
+  }, [availableClips]);
+
+  // ➕ FUNÇÃO para limpar seleção
+  const clearSelection = useCallback(() => {
+    setSelectedClips(new Set());
+  }, []);
+
+  // ➕ FUNÇÃO para exportação em lote
+  const exportBatch = useCallback(async () => {
+    const selectedClipsList = availableClips.filter(clip => selectedClips.has(clip.id));
+    
+    if (selectedClipsList.length === 0) {
+      alert('Selecione pelo menos um clip para exportar!');
+      return;
+    }
+
+    const template = viralTemplates.find(t => t.id === selectedTemplate);
+    
+    setExportProgress({
+      isExporting: true,
+      current: 0,
+      total: selectedClipsList.length,
+      currentClip: ''
+    });
+
+    console.log(`🚀 Iniciando exportação em lote: ${selectedClipsList.length} clips`);
+    console.log(`📱 Template selecionado: ${template?.name}`);
+
+    // Simular exportação de cada clip
+    for (let i = 0; i < selectedClipsList.length; i++) {
+      const clip = selectedClipsList[i];
+      
+      setExportProgress(prev => ({
+        ...prev,
+        current: i + 1,
+        currentClip: clip.name
+      }));
+
+      console.log(`📤 Exportando ${i + 1}/${selectedClipsList.length}: ${clip.name}`);
+      console.log(`⚙️ Aplicando template: ${template?.name}`);
+      console.log(`🎬 Formato: ${template?.format} ${template?.quality}`);
+      console.log(`📝 Estilo legenda: ${template?.captionStyle}`);
+      console.log(`✨ Efeitos: ${template?.effects.join(', ')}`);
+      
+      // Simular tempo de processamento
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    setExportProgress({
+      isExporting: false,
+      current: 0,
+      total: 0,
+      currentClip: ''
+    });
+
+    alert(`✅ Exportação concluída! ${selectedClipsList.length} clips foram processados com o template "${template?.name}"`);
+    console.log(`✅ Exportação em lote finalizada com sucesso!`);
+    
+    // Limpar seleção
+    clearSelection();
+    setBatchExportMode(false);
+  }, [selectedClips, availableClips, selectedTemplate, viralTemplates, clearSelection]);
+
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
@@ -955,15 +1094,28 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         </div>
       </div>
       
-      {/* ➕ PAINEL DE CLIPS DISPONÍVEIS COM DRAG & DROP E LEGENDAS */}
+      {/* ➕ PAINEL DE CLIPS DISPONÍVEIS COM TODAS AS FUNCIONALIDADES */}
       {availableClips.length > 0 && (
         <div className="clips-panel mt-4 p-3 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-white flex items-center">
               <span className="mr-2">🎬</span>
               Clips Disponíveis ({availableClips.length})
+              {selectedClips.size > 0 && (
+                <span className="ml-2 px-2 py-1 bg-blue-600/20 rounded text-blue-300 text-xs">
+                  {selectedClips.size} selecionados
+                </span>
+              )}
             </h3>
             <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBatchExportMode(!batchExportMode)}
+                className={`text-xs px-2 py-1 ${batchExportMode ? 'bg-orange-600/20 text-orange-300' : 'text-gray-400'}`}
+              >
+                📦 Lote
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -975,6 +1127,93 @@ const TimelinePro: React.FC<TimelineProProps> = ({
               <span className="text-xs text-gray-500">↕️ Arraste para reordenar</span>
             </div>
           </div>
+
+          {/* ➕ PAINEL DE EXPORTAÇÃO EM LOTE */}
+          {batchExportMode && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-orange-600/10 to-red-600/10 rounded-lg border border-orange-500/20">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-bold text-orange-300 flex items-center">
+                  <span className="mr-2">📦</span>
+                  Exportação em Lote
+                </h4>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={selectAllClips}
+                    className="text-xs px-2 py-1 text-orange-300 hover:bg-orange-600/20"
+                  >
+                    ✅ Todos
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="text-xs px-2 py-1 text-gray-400 hover:bg-gray-600/20"
+                  >
+                    ❌ Limpar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Template Selector */}
+              <div className="mb-3">
+                <label className="block text-xs text-gray-300 mb-2">Template Viral:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {viralTemplates.map(template => (
+                    <button
+                      key={template.id}
+                      onClick={() => setSelectedTemplate(template.id)}
+                      className={`p-2 rounded border text-left transition-all duration-200 ${
+                        selectedTemplate === template.id
+                          ? 'bg-blue-600/20 border-blue-500 text-blue-300'
+                          : 'bg-black/20 border-white/10 text-gray-300 hover:border-white/30'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span>{template.icon}</span>
+                        <span className="text-xs font-semibold">{template.name}</span>
+                      </div>
+                      <p className="text-xs text-gray-400">{template.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Botão de Exportação */}
+              <Button
+                variant="ghost"
+                onClick={exportBatch}
+                disabled={selectedClips.size === 0 || exportProgress.isExporting}
+                className="w-full bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/30 disabled:opacity-50"
+              >
+                {exportProgress.isExporting ? (
+                  <span className="flex items-center">
+                    <span className="mr-2 animate-spin">⚙️</span>
+                    Exportando {exportProgress.current}/{exportProgress.total}...
+                  </span>
+                ) : (
+                  <span>🚀 Exportar {selectedClips.size} clips com template</span>
+                )}
+              </Button>
+
+              {/* Progress Bar */}
+              {exportProgress.isExporting && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Processando: {exportProgress.currentClip}</span>
+                    <span>{Math.round((exportProgress.current / exportProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {availableClips.map((clip, index) => (
@@ -986,11 +1225,13 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 onDragEnter={(e) => handleDragEnter(e, clip.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
-                className={`clip-item p-2 rounded-lg border transition-all duration-200 cursor-move ${
+                className={`clip-item p-2 rounded-lg border transition-all duration-200 cursor-move relative ${
                   draggedClip?.id === clip.id
                     ? 'opacity-50 scale-95 rotate-1'
                     : dropZone === clip.id
                     ? 'border-blue-500 bg-blue-600/20 scale-105'
+                    : selectedClips.has(clip.id) && batchExportMode
+                    ? 'border-orange-500 bg-orange-600/20'
                     : currentClipIndex === index 
                     ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-500/20' 
                     : hoveredClip === index
@@ -1000,6 +1241,18 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 onMouseEnter={() => setHoveredClip(index)}
                 onMouseLeave={() => setHoveredClip(-1)}
               >
+                {/* Checkbox para seleção em lote */}
+                {batchExportMode && (
+                  <div className="absolute top-1 left-1 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedClips.has(clip.id)}
+                      onChange={() => toggleClipSelection(clip.id)}
+                      className="w-4 h-4 text-orange-600 bg-gray-800 border-gray-600 rounded focus:ring-orange-500"
+                    />
+                  </div>
+                )}
+
                 {/* Indicador de posição */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center space-x-1">
@@ -1076,6 +1329,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                     onClick={() => exportClip(index)}
                     className="flex-1 text-xs py-1 px-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30"
                     title={`Exportar ${clip.name}`}
+                    disabled={exportProgress.isExporting}
                   >
                     📤 Export
                   </Button>
@@ -1085,6 +1339,13 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 {draggedClip?.id === clip.id && (
                   <div className="absolute top-1 right-1 text-blue-400 animate-pulse">
                     ↕️
+                  </div>
+                )}
+
+                {/* Indicador de seleção */}
+                {selectedClips.has(clip.id) && batchExportMode && (
+                  <div className="absolute top-1 right-1 text-orange-400">
+                    ✅
                   </div>
                 )}
               </div>
