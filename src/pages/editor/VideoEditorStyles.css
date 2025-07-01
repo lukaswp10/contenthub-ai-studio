@@ -625,4 +625,303 @@
 .slider-timeline::-moz-range-thumb:hover {
   background: #2563eb;
   transform: scale(1.1);
+}
+
+/* ESTILOS VISIONÁRIOS - CLIPSFORGE PRO */
+
+/* Slider Visionário */
+.slider-visionario {
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.8) 0%, rgba(59, 130, 246, 0.8) var(--progress, 0%), rgba(255, 255, 255, 0.2) var(--progress, 0%), rgba(255, 255, 255, 0.2) 100%);
+}
+
+.slider-visionario::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.slider-visionario::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+/* Animações Visionárias */
+@keyframes wordPop {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeInSlide {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes neonGlow {
+  0% { text-shadow: 0 0 20px #FF00FF, 0 0 40px #FF00FF; }
+  50% { text-shadow: 0 0 30px #FF00FF, 0 0 60px #FF00FF, 0 0 20px #00FFFF; }
+  100% { text-shadow: 0 0 20px #FF00FF, 0 0 40px #FF00FF; }
+}
+
+@keyframes smoothFade {
+  0% { opacity: 0; transform: translateY(5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Glassmorphism Visionário */
+.sidebar-visionario {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.header-visionario {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.timeline-visionario {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Cards Visionários */
+.video-card-visionario,
+.clip-card-visionario {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card-visionario:hover,
+.clip-card-visionario:hover {
+  transform: translateY(-2px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Botões Visionários */
+.nav-tab {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-tab-active {
+  box-shadow: 0 8px 32px rgba(147, 51, 234, 0.3);
+}
+
+.export-btn-visionario {
+  position: relative;
+  overflow: hidden;
+}
+
+.export-btn-visionario::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.export-btn-visionario:hover::before {
+  left: 100%;
+}
+
+/* Estilos Virais */
+.viral-style-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.viral-style-card:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* Timeline Visionária */
+.track-visionario {
+  transition: all 0.2s ease;
+}
+
+.track-header-visionario {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.video-clip-visionario,
+.caption-block,
+.effect-block {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-clip-visionario:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+/* Playhead Visionário */
+.playhead-visionario {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+
+.playhead-handle-visionario {
+  transition: all 0.2s ease;
+}
+
+.playhead-handle-visionario:hover {
+  transform: scale(1.2);
+}
+
+/* Waveform Visionário */
+.waveform-visionario .bg-orange-400 {
+  animation: waveformPulse 2s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.1s);
+}
+
+@keyframes waveformPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Effects Grid */
+.effect-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.effect-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* Status Card */
+.status-card-visionario {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: statusPulse 3s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.4); }
+}
+
+/* Input Visionário */
+.api-input-visionario {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.api-input-visionario:focus {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+/* Generate Button */
+.generate-btn-visionario {
+  position: relative;
+  overflow: hidden;
+}
+
+.generate-btn-visionario::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.generate-btn-visionario:hover::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Tool Buttons */
+.tool-btn-visionario {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Project Info */
+.project-info-visionario {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Responsive Melhorado */
+@media (max-width: 768px) {
+  .sidebar-visionario {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: rgba(0, 0, 0, 0.8);
+  }
+  
+  .timeline-visionario {
+    height: 200px !important;
+  }
+  
+  .tracks-container-visionario {
+    height: 120px !important;
+  }
+}
+
+/* Scroll Customizado */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(147, 51, 234, 0.8), rgba(59, 130, 246, 0.8));
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(147, 51, 234, 1), rgba(59, 130, 246, 1));
+}
+
+/* Glow Effects */
+.glow-effect {
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+/* Hardware Acceleration */
+.sidebar-visionario,
+.header-visionario,
+.timeline-visionario,
+.video-card-visionario,
+.clip-card-visionario,
+.viral-style-card,
+.effect-btn,
+.tool-btn-visionario {
+  transform: translateZ(0);
+  will-change: transform, opacity;
 } 
