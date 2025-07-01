@@ -1705,31 +1705,7 @@ export function VideoEditorPage() {
         />
       )}
 
-      {/* Status da IA e Timeline */}
-      <div className="ia-status-panel">
-        <div className="status-header">
-          <span className="status-icon">🤖</span>
-          <span className="status-title">IA Status</span>
-        </div>
-        <div className="status-grid">
-          <div className="status-item">
-            <span className="status-label">Timeline Layers:</span>
-            <span className="status-value">{timelineLayers.length}</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Cuts Made:</span>
-            <span className="status-value">{cutPoints.length}</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Duration:</span>
-            <span className="status-value">{formatTime(duration)}</span>
-          </div>
-          <div className="status-item">
-            <span className="status-label">Captions:</span>
-            <span className="status-value">{generatedCaptions.length} words</span>
-          </div>
-        </div>
-      </div>
+
     </div>
   )
 } 
