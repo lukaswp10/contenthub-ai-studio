@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
+import { saveVideoToGallery } from '@/utils/galleryStorage'
 
 interface VideoUploadProps {
   onUploadComplete?: (videoUrl: string, videoData: any) => void
@@ -241,6 +242,13 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       
       // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)
+      
+      // Salvar no banco de dados
+      saveVideoToGallery({
+        file: selectedFile,
+        url: reliableUrl,
+        duration: videoRef.current?.duration || 0
+      })
       
     } catch (err) {
       console.error('Erro no upload:', err)

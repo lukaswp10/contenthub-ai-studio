@@ -1,9 +1,36 @@
+/**
+ * CURSOR CONTEXT CHECKPOINT - 2025-01-07 14:51:00
+ * ===============================================
+ * Projeto: ClipsForge Pro Video Editor
+ * Status: Galeria modal implementada + Legendas corrigidas
+ * 
+ * ÚLTIMAS IMPLEMENTAÇÕES:
+ * - ✅ Galeria transformada em modal elegante
+ * - ✅ Sistema de exclusão de vídeos/clips
+ * - ✅ Botão upload redesenhado
+ * - ✅ Correção legendas AssemblyAI
+ * - ✅ Editor manual na dashboard
+ * 
+ * PRÓXIMOS PASSOS:
+ * - Aguardando próximas melhorias do usuário
+ * - Possível otimização de persistência
+ * 
+ * BUGS CONHECIDOS:
+ * - TypeScript warning linha 451 (prev: any)
+ * 
+ * DECISÕES IMPORTANTES:
+ * - Modal substitui sidebar para melhor UX
+ * - AssemblyAI como serviço principal de transcrição
+ * - 4 estilos virais mantidos e funcionais
+ */
+
 import React, { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button } from '../../components/ui/button'
-import { Card } from '../../components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import './VideoEditorStyles.css'
 import '../../components/editor/AutoCaptions.css'
+import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip } from '@/utils/galleryStorage'
 
 interface VideoData {
   file?: File | null
@@ -64,99 +91,33 @@ export function VideoEditorPage() {
   const location = useLocation()
   const navigate = useNavigate()
   
-  const videoData = location.state?.videoData as VideoData
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   
-  // Estados principais
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  
-  // Timeline e camadas
-  const [timelineLayers, setTimelineLayers] = useState<TimelineLayer[]>([])
-  const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
-  
-  // Estados profissionais da timeline
-  const [cutPoints, setCutPoints] = useState<CutPoint[]>([])
-  const [razorToolActive, setRazorToolActive] = useState(false)
-  
-  // Estados das captions - MELHORADOS
-  const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([])
-  const [activeCaptionStyle, setActiveCaptionStyle] = useState<string>('tiktok-bold')
-  const [captionsVisible, setCaptionsVisible] = useState(true)
-  
-  // Efeitos e filtros
-  const [activeEffects, setActiveEffects] = useState<string[]>([])
-  
-  // UI States - Navegação responsiva
+  // Estados principais visionários
+  const [mobileView, setMobileView] = useState(false)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
-  const [mobileView, setMobileView] = useState(false)
-  
-  // Galeria e Clips
   const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(30)
+  const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
+  const [razorToolActive, setRazorToolActive] = useState(false)
+  const [activeCaptionStyle, setActiveCaptionStyle] = useState<string>('tiktok-bold')
+  const [captionsVisible, setCaptionsVisible] = useState(true)
+  const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([])
+  const [cutPoints, setCutPoints] = useState<CutPoint[]>([])
+  const [timelineLayers, setTimelineLayers] = useState<TimelineLayer[]>([])
+  const [videoData, setVideoData] = useState<VideoData | null>(() => {
+    // Inicializar com dados da navegação se disponível
+    return location.state?.videoData as VideoData || null
+  })
+
+  // Estados das captions - MELHORADOS
+  const [activeEffects, setActiveEffects] = useState<string[]>([])
   
-  // Mock de vídeos carregados (implementar persistência real)
-  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([
-    {
-      id: '1',
-      name: 'Video Marketing.mp4',
-      thumbnail: '/placeholder.svg',
-      duration: 120,
-      size: '45 MB',
-      uploadedAt: new Date(Date.now() - 3600000)
-    },
-    {
-      id: '2',
-      name: 'Apresentação.mov',
-      thumbnail: '/placeholder.svg',
-      duration: 180,
-      size: '32 MB',
-      uploadedAt: new Date(Date.now() - 7200000)
-    },
-    {
-      id: '3',
-      name: 'Tutorial.mp4',
-      thumbnail: '/placeholder.svg',
-      duration: 200,
-      size: '78 MB',
-      uploadedAt: new Date(Date.now() - 10800000)
-    }
-  ])
-
-  // Mock de clips gerados (implementar persistência real)  
-  const [generatedClips, setGeneratedClips] = useState<GeneratedClip[]>([
-    {
-      id: '1',
-      name: 'Hook Viral - TikTok',
-      thumbnail: '/placeholder.svg',
-      duration: 15,
-      format: 'TikTok',
-      createdAt: new Date(Date.now() - 3600000),
-      status: 'ready'
-    },
-    {
-      id: '2',
-      name: 'Apresentação - Instagram',
-      thumbnail: '/placeholder.svg',
-      duration: 30,
-      format: 'Instagram',
-      createdAt: new Date(Date.now() - 7200000),
-      status: 'ready'
-    },
-    {
-      id: '3',
-      name: 'Tutorial Rápido - YouTube',
-      thumbnail: '/placeholder.svg',
-      duration: 60,
-      format: 'YouTube',
-      createdAt: new Date(Date.now() - 10800000),
-      status: 'processing'
-    }
-  ])
-
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
     { id: 'cinematic', name: 'Cinematic', icon: '🎬', category: 'Color', preview: 'sepia(0.3) contrast(1.2)', intensity: 0.8 },
@@ -475,10 +436,23 @@ export function VideoEditorPage() {
     alert('🎬 Exportação em desenvolvimento! Em breve teremos renderização profissional.')
   }
 
-  const loadVideo = (video: UploadedVideo) => {
-    // Simular carregamento de um vídeo da galeria
-    console.log('Carregando vídeo:', video.name)
-    // Em produção, isso faria a navegação com os dados do vídeo
+  const loadVideo = (video: GalleryVideo) => {
+    console.log('🎬 Carregando vídeo da galeria:', video.name)
+    
+    // Converter GalleryVideo para VideoData
+    const videoData: VideoData = {
+      id: video.id,
+      name: video.name,
+      size: parseInt(video.size.replace(/[^\d]/g, '')) || 0, // Extrair número do size
+      duration: video.duration,
+      url: video.url,
+      file: video.file || null
+    }
+    
+    setVideoData(videoData)
+    setDuration(video.duration)
+    
+    console.log('✅ Vídeo carregado no editor:', videoData)
   }
 
   const openClip = (clip: GeneratedClip) => {
@@ -888,16 +862,22 @@ export function VideoEditorPage() {
     }, 3000)
   }
 
+  // Estados da galeria
+  const [uploadedVideos, setUploadedVideos] = useState<GalleryVideo[]>([])
+  const [generatedClips, setGeneratedClips] = useState<GalleryClip[]>([])
+  
   // NOVO: Estado para modal da galeria
   const [galleryModalOpen, setGalleryModalOpen] = useState(false)
 
   // NOVAS FUNÇÕES: Exclusão de vídeos e clips
   const deleteVideo = (videoId: string) => {
+    deleteVideoFromGallery(videoId)
     setUploadedVideos(prev => prev.filter(video => video.id !== videoId))
     console.log(`🗑️ Vídeo ${videoId} excluído da galeria`)
   }
 
   const deleteClip = (clipId: string) => {
+    deleteClipFromGallery(clipId)
     setGeneratedClips(prev => prev.filter(clip => clip.id !== clipId))
     console.log(`🗑️ Clip ${clipId} excluído da galeria`)
   }
@@ -907,6 +887,29 @@ export function VideoEditorPage() {
     setGalleryModalOpen(true)
     console.log('📁 Abrindo galeria para seleção manual')
   }
+
+  // Carregar dados reais da galeria ao inicializar
+  useEffect(() => {
+    const loadGalleryData = () => {
+      const videos = getGalleryVideos()
+      const clips = getGalleryClips()
+      
+      setUploadedVideos(videos)
+      setGeneratedClips(clips)
+      
+      console.log('📁 Galeria carregada:', { videos: videos.length, clips: clips.length })
+    }
+    
+    loadGalleryData()
+    
+    // Recarregar dados quando a janela receber foco (caso tenha sido atualizada em outra aba)
+    const handleFocus = () => {
+      loadGalleryData()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
