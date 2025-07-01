@@ -113,7 +113,7 @@
     "type": "git",
     "url": "https://github.com/lukaswp10/contenthub-ai-studio.git"
   },
-  "homepage": "https://contenthub-ai-studio.vercel.app",
+  "homepage": "https://clipsforge.vercel.app",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"

@@ -6,10 +6,24 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "alias": ["clipsforge.vercel.app"],
+  "domains": ["clipsforge.vercel.app"],
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?!clipsforge\\.vercel\\.app).*"
+        }
+      ],
+      "destination": "https://clipsforge.vercel.app/",
+      "permanent": true
     }
   ],
   "headers": [
