@@ -174,10 +174,25 @@
   cursor: not-allowed;
 }
 
+.config-btn.small {
+  padding: 8px 12px;
+  font-size: 12px;
+  flex: none;
+  min-width: 120px;
+}
+
 /* Transcription Controls */
 .transcription-controls {
   padding: 20px;
   text-align: center;
+}
+
+.transcribe-main {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .transcribe-btn {

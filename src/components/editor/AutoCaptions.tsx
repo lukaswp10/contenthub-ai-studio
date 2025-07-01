@@ -29,8 +29,14 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [words, setWords] = useState<TranscriptionWord[]>([])
   const [selectedStyle, setSelectedStyle] = useState<string>('tiktok-bold')
-  const [apiKey, setApiKey] = useState('')
-  const [showApiKeyInput, setShowApiKeyInput] = useState(true)
+  const [apiKey, setApiKey] = useState(() => {
+    // Carregar API key salva do localStorage
+    return localStorage.getItem('assemblyai_api_key') || ''
+  })
+  const [showApiKeyInput, setShowApiKeyInput] = useState(() => {
+    // Mostrar input apenas se não tiver API key salva
+    return !localStorage.getItem('assemblyai_api_key')
+  })
   const [transcriptionStatus, setTranscriptionStatus] = useState('')
 
   // Estilos de legenda virais
@@ -252,11 +258,18 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
                 Usar Web Speech (Grátis)
               </Button>
               <Button
-                onClick={() => apiKey && setShowApiKeyInput(false)}
+                onClick={() => {
+                  if (apiKey) {
+                    // Salvar API key no localStorage
+                    localStorage.setItem('assemblyai_api_key', apiKey)
+                    setShowApiKeyInput(false)
+                    console.log('🔑 API Key salva com sucesso!')
+                  }
+                }}
                 disabled={!apiKey}
                 className="config-btn primary"
               >
-                Usar AssemblyAI
+                💾 Salvar & Usar AssemblyAI
               </Button>
             </div>
           </div>
@@ -265,22 +278,39 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
 
       {/* Controles de Transcrição */}
       <div className="transcription-controls">
-        <Button
-          onClick={transcribeWithRealAPI}
-          disabled={isTranscribing}
-          className="transcribe-btn"
-        >
-          {isTranscribing ? (
-            <>
-              <span className="loading-spinner"></span>
-              Transcrevendo...
-            </>
-          ) : (
-            <>
-              🎤 Gerar Legendas (API Real)
-            </>
+        <div className="transcribe-main">
+          <Button
+            onClick={transcribeWithRealAPI}
+            disabled={isTranscribing}
+            className="transcribe-btn"
+          >
+            {isTranscribing ? (
+              <>
+                <span className="loading-spinner"></span>
+                Transcrevendo...
+              </>
+            ) : (
+              <>
+                🎤 Gerar Legendas (API Real)
+              </>
+            )}
+          </Button>
+          
+          {!showApiKeyInput && localStorage.getItem('assemblyai_api_key') && (
+            <Button
+              onClick={() => {
+                localStorage.removeItem('assemblyai_api_key')
+                setApiKey('')
+                setShowApiKeyInput(true)
+                console.log('🗑️ API Key removida')
+              }}
+              className="config-btn secondary small"
+              title="Editar/Remover API Key"
+            >
+              🔑 Editar API Key
+            </Button>
           )}
-        </Button>
+        </div>
         
         {transcriptionStatus && (
           <div className="transcription-status">
