@@ -1009,9 +1009,9 @@ export function VideoEditorPage() {
         </div>
       </div>
 
-      {/* LAYOUT PRINCIPAL - Grid 3 Colunas Visionário */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* BOTÃO GALERIA - Substitui a sidebar */}
+      {/* LAYOUT PRINCIPAL - Estrutura Profissional */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* BOTÃO GALERIA - Posição fixa */}
         <div className="absolute top-20 left-4 z-30">
           <Button
             onClick={() => setGalleryModalOpen(true)}
@@ -1021,783 +1021,785 @@ export function VideoEditorPage() {
           </Button>
         </div>
 
-        {/* MODAL DA GALERIA VISIONÁRIO */}
-        {galleryModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="gallery-modal-visionario bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] border border-white/20 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-              {/* Header do Modal */}
-              <div className="modal-header-visionario bg-black/20 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white flex items-center">
-                  <span className="mr-3">📁</span>
-                  Minha Galeria
-                </h2>
-                <Button
-                  onClick={() => setGalleryModalOpen(false)}
-                  className="close-btn-visionario bg-white/10 hover:bg-red-500/20 text-white rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300 hover:scale-110"
+        {/* ÁREA PRINCIPAL - Vídeo + Sidebar */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* ÁREA CENTRAL - Video Preview */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Video Preview Container */}
+            <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[65vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
+                <video
+                  ref={videoRef}
+                  src={videoData?.url}
+                  onLoadedData={handleVideoLoad}
+                  onTimeUpdate={handleTimeUpdate}
+                  className="video-player-visionario w-full h-full object-contain rounded-2xl"
+                  style={{ 
+                    filter: 'none',
+                    transition: 'filter 0.3s ease'
+                  }}
+                />
+                
+                {/* Canvas para efeitos */}
+                <canvas
+                  ref={canvasRef}
+                  className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-0 rounded-2xl"
+                  style={{ mixBlendMode: 'overlay' }}
+                />
+                
+                {/* OVERLAY DE LEGENDAS VISIONÁRIO */}
+                <div 
+                  className="caption-overlay-visionario absolute bottom-8 left-8 right-8 text-center pointer-events-none z-10"
+                  style={{
+                    fontSize: '32px',
+                    fontWeight: 'bold',
+                    color: 'white',
+                    textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
+                    wordWrap: 'break-word'
+                  }}
                 >
-                  ✕
-                </Button>
-              </div>
-
-              {/* Tabs do Modal */}
-              <div className="modal-tabs-visionario p-6 pb-0">
-                <div className="flex bg-white/5 rounded-full p-1">
-                  <Button
-                    onClick={() => setActiveGalleryTab('videos')}
-                    className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
-                      activeGalleryTab === 'videos'
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    🎬 Videos ({uploadedVideos.length})
-                  </Button>
-                  <Button
-                    onClick={() => setActiveGalleryTab('clips')}
-                    className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
-                      activeGalleryTab === 'clips'
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    ✂️ Clips ({generatedClips.length})
-                  </Button>
+                  {/* Legendas funcionais mantidas */}
+                  {getCurrentCaption() && renderCaptionWithStyle(getCurrentCaption())}
                 </div>
-              </div>
-
-              {/* Conteúdo do Modal */}
-              <div className="modal-content-visionario p-6 overflow-y-auto max-h-[50vh]">
-                {activeGalleryTab === 'videos' && (
-                  <div className="space-y-4">
-                    {/* Botão Upload Melhorado */}
-                    <div className="upload-section-visionario">
-                      <Button 
-                        onClick={() => {
-                          setGalleryModalOpen(false)
-                          navigate('/upload')
-                        }}
-                        className="upload-btn-improved w-full bg-gradient-to-r from-green-500/20 via-blue-500/20 to-purple-500/20 border-2 border-dashed border-green-400/50 hover:border-green-300 text-green-200 hover:text-green-100 py-6 rounded-2xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-500/30 hover:via-blue-500/30 hover:to-purple-500/30 hover:scale-[1.02] group"
-                      >
-                        <div className="flex items-center justify-center space-x-4">
-                          <div className="upload-icon-container bg-green-500/20 rounded-full p-3 group-hover:bg-green-500/30 transition-all duration-300">
-                            <span className="text-3xl">📤</span>
-                          </div>
-                          <div className="text-left">
-                            <div className="text-lg font-bold">Adicionar Novo Vídeo</div>
-                            <div className="text-sm text-gray-400">Clique para fazer upload</div>
-                          </div>
-                        </div>
-                      </Button>
-                    </div>
-                    
-                    {/* Grid de Vídeos */}
-                    <div className="videos-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {uploadedVideos.map(video => (
-                        <div
-                          key={video.id}
-                          className="video-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-blue-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-500/20 group relative"
-                        >
-                          {/* Botão Excluir */}
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteVideo(video.id)
-                            }}
-                            className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
-                          >
-                            🗑️
-                          </Button>
-
-                          <div 
-                            className="cursor-pointer"
-                            onClick={() => {
-                              loadVideo(video)
-                              setGalleryModalOpen(false)
-                            }}
-                          >
-                            <div className="flex items-start space-x-4">
-                              <div className="w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                                <img
-                                  src={video.thumbnail}
-                                  alt={video.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-lg font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
-                                  🎬 {video.name}
-                                </h4>
-                                <div className="text-sm text-gray-400 mt-2 space-y-1">
-                                  <div className="flex items-center space-x-3">
-                                    <span>⏱️ {formatTime(video.duration)}</span>
-                                    <span>📦 {video.size}</span>
-                                  </div>
-                                  <div className="text-gray-500">
-                                    📅 {formatTimeAgo(video.uploadedAt)}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeGalleryTab === 'clips' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-300">Clips Gerados</h3>
-                      <span className="text-sm text-gray-500 bg-white/5 px-3 py-1 rounded-full">
-                        {generatedClips.filter(c => c.status === 'ready').length} prontos
-                      </span>
-                    </div>
-                    
-                    {/* Grid de Clips */}
-                    <div className="clips-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {generatedClips.map(clip => (
-                        <div
-                          key={clip.id}
-                          className="clip-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-purple-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20 group relative"
-                        >
-                          {/* Botão Excluir */}
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteClip(clip.id)
-                            }}
-                            className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
-                          >
-                            🗑️
-                          </Button>
-
-                          <div 
-                            className="cursor-pointer"
-                            onClick={() => {
-                              openClip(clip)
-                              setGalleryModalOpen(false)
-                            }}
-                          >
-                            <div className="flex items-start space-x-4">
-                              <div className="relative w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                                <img
-                                  src={clip.thumbnail}
-                                  alt={clip.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                                {/* Status Badge */}
-                                <div className={`absolute top-1 right-1 w-3 h-3 rounded-full ${
-                                  clip.status === 'ready' ? 'bg-green-500' :
-                                  clip.status === 'processing' ? 'bg-yellow-500' :
-                                  'bg-red-500'
-                                }`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-lg font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
-                                  ✂️ {clip.name}
-                                </h4>
-                                <div className="text-sm text-gray-400 mt-2 space-y-1">
-                                  <div className="flex items-center space-x-3">
-                                    <span>⏱️ {formatTime(clip.duration)}</span>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      clip.format === 'TikTok' ? 'bg-pink-600/20 text-pink-300 border border-pink-500/30' :
-                                      clip.format === 'Instagram' ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30' :
-                                      'bg-red-600/20 text-red-300 border border-red-500/30'
-                                    }`}>
-                                      {clip.format}
-                                    </span>
-                                  </div>
-                                  <div className="text-gray-500">
-                                    {clip.status === 'processing' ? '⏳ Processando...' : `📅 ${formatTimeAgo(clip.createdAt)}`}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ÁREA CENTRAL - Video Preview Visionário */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Video Preview Container Visionário */}
-          <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[80vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
-              <video
-                ref={videoRef}
-                src={videoData?.url}
-                onLoadedData={handleVideoLoad}
-                onTimeUpdate={handleTimeUpdate}
-                className="video-player-visionario w-full h-full object-contain rounded-2xl"
-                style={{ 
-                  filter: 'none',
-                  transition: 'filter 0.3s ease'
-                }}
-              />
-              
-              {/* Canvas para efeitos */}
-              <canvas
-                ref={canvasRef}
-                className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-0 rounded-2xl"
-                style={{ mixBlendMode: 'overlay' }}
-              />
-              
-              {/* OVERLAY DE LEGENDAS VISIONÁRIO - MANTIDO FUNCIONANDO */}
-              <div 
-                className="caption-overlay-visionario absolute bottom-8 left-8 right-8 text-center pointer-events-none z-10"
-                style={{
-                  fontSize: '32px',
-                  fontWeight: 'bold',
-                  color: 'white',
-                  textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
-                  wordWrap: 'break-word'
-                }}
-              >
-                {/* Legendas funcionais mantidas */}
-                {getCurrentCaption() && renderCaptionWithStyle(getCurrentCaption())}
-              </div>
-              
-              {/* Play/Pause Overlay Visionário */}
-              <div className="play-overlay-visionario absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-300 bg-black/10 rounded-2xl backdrop-blur-sm">
-                <Button
-                  onClick={togglePlayPause}
-                  className="play-btn-visionario bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full w-24 h-24 flex items-center justify-center text-4xl border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-110 shadow-2xl"
-                >
-                  {isPlaying ? '⏸️' : '▶️'}
-                </Button>
-              </div>
-              
-              {/* Controles minimalistas que aparecem no hover */}
-              <div className="video-controls-visionario absolute bottom-6 left-6 right-6 opacity-0 hover:opacity-100 transition-all duration-300">
-                <div className="bg-black/60 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20">
+                
+                {/* Play/Pause Overlay */}
+                <div className="play-overlay-visionario absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-300 bg-black/10 rounded-2xl backdrop-blur-sm">
                   <Button
                     onClick={togglePlayPause}
-                    className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
+                    className="play-btn-visionario bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full w-24 h-24 flex items-center justify-center text-4xl border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-110 shadow-2xl"
                   >
                     {isPlaying ? '⏸️' : '▶️'}
                   </Button>
-                  
-                  <div className="flex-1 mx-6">
-                    <div className="text-sm text-gray-300 mb-2 text-center font-medium">
-                      {formatTime(currentTime)} / {formatTime(duration)}
+                </div>
+                
+                {/* Controles que aparecem no hover */}
+                <div className="video-controls-visionario absolute bottom-6 left-6 right-6 opacity-0 hover:opacity-100 transition-all duration-300">
+                  <div className="bg-black/60 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20">
+                    <Button
+                      onClick={togglePlayPause}
+                      className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
+                    >
+                      {isPlaying ? '⏸️' : '▶️'}
+                    </Button>
+                    
+                    <div className="flex-1 mx-6">
+                      <div className="text-sm text-gray-300 mb-2 text-center font-medium">
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max={duration || 100}
+                        value={currentTime}
+                        onChange={(e) => {
+                          const percentage = parseFloat(e.target.value)
+                          seekTo((percentage / (duration || 100)) * 100)
+                        }}
+                        className="w-full h-2 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration || 100}
-                      value={currentTime}
-                      onChange={(e) => {
-                        const percentage = parseFloat(e.target.value)
-                        seekTo((percentage / (duration || 100)) * 100)
-                      }}
-                      className="w-full h-2 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
-                    />
+                    
+                    <div className="text-sm text-gray-300 font-medium">
+                      {Math.round((currentTime / duration) * 100) || 0}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TIMELINE VISIONÁRIA - Embaixo do Vídeo */}
+            <div className="timeline-visionario bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl" style={{ height: '300px' }}>
+              {/* Header da Timeline */}
+              <div className="timeline-header-visionario bg-black/20 backdrop-blur-sm border-b border-white/10 px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <h2 className="text-lg font-bold text-white flex items-center">
+                    <span className="mr-2">⚡</span>
+                    Timeline Pro
+                  </h2>
+                  
+                  {/* Ferramentas */}
+                  <div className="flex items-center space-x-3">
+                    <Button
+                      variant={razorToolActive ? "default" : "ghost"}
+                      onClick={() => setRazorToolActive(!razorToolActive)}
+                      className={`tool-btn-visionario ${razorToolActive 
+                        ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20' 
+                        : 'bg-white/5 hover:bg-red-600/20 text-gray-300 hover:text-red-300 border border-white/20 hover:border-red-500/50'
+                      } px-3 py-2 rounded-lg transition-all duration-300 text-sm`}
+                      title="Ferramenta Razor (C)"
+                    >
+                      <span className="mr-1">✂️</span>
+                      Razor
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      className="tool-btn-visionario bg-white/5 hover:bg-blue-600/20 text-gray-300 hover:text-blue-300 border border-white/20 hover:border-blue-500/50 px-3 py-2 rounded-lg transition-all duration-300 text-sm"
+                      title="Zoom Fit"
+                    >
+                      <span className="mr-1">🎯</span>
+                      Fit
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      className="tool-btn-visionario bg-white/5 hover:bg-purple-600/20 text-gray-300 hover:text-purple-300 border border-white/20 hover:border-purple-500/50 px-3 py-2 rounded-lg transition-all duration-300 text-sm"
+                      title="Configurações"
+                    >
+                      <span className="mr-1">⚙️</span>
+                      Config
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Controles de Reprodução */}
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="progress-indicator-visionario bg-white/5 rounded-full px-2 py-1 border border-white/20">
+                      <span className="text-xs text-gray-300 font-mono">
+                        {Math.round((currentTime / duration) * 100) || 0}%
+                      </span>
+                    </div>
+                    
+                    <div className="time-display-visionario bg-white/5 rounded-full px-3 py-1 border border-white/20">
+                      <span className="text-xs text-white font-mono">
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline Principal */}
+              <div className="timeline-main-visionario flex-1 relative overflow-hidden">
+                {/* Régua de Tempo */}
+                <div className="timeline-ruler-visionario h-10 bg-gradient-to-b from-black/40 to-black/20 border-b border-white/10 relative overflow-hidden">
+                  {/* Marcadores de tempo */}
+                  <div className="absolute inset-0 flex items-end pb-1">
+                    {Array.from({ length: Math.ceil(duration / 10) + 1 }, (_, i) => (
+                      <div
+                        key={i}
+                        className="time-marker-visionario absolute bottom-0"
+                        style={{ left: `${(i * 10 / duration) * 100}%` }}
+                      >
+                        <div className="w-px h-4 bg-white/30"></div>
+                        <div className="text-xs text-gray-400 mt-1 -translate-x-1/2">
+                          {formatTime(i * 10)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   
-                  <div className="text-sm text-gray-300 font-medium">
-                    {Math.round((currentTime / duration) * 100) || 0}%
+                  {/* Playhead */}
+                  <div
+                    className="playhead-visionario absolute top-0 w-0.5 h-full z-40 transition-all duration-75"
+                    style={{ left: `${(currentTime / duration) * 100}%` }}
+                  >
+                    <div className="playhead-handle-visionario w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full -ml-1.5 -mt-1 border border-white shadow-lg shadow-red-500/50"></div>
+                    <div className="playhead-line-visionario w-0.5 bg-gradient-to-b from-red-500 to-red-600 h-full shadow-lg"></div>
+                  </div>
+                </div>
+
+                {/* Tracks Container */}
+                <div className="tracks-container-visionario flex-1 overflow-y-auto bg-black/10" style={{ height: '220px' }}>
+                  {/* Track de Vídeo */}
+                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
+                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-400"></div>
+                        <div>
+                          <div className="text-xs font-medium text-white">🎬 Video</div>
+                          <div className="text-xs text-gray-400">Principal</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
+                      <div
+                        className="video-clip-visionario absolute top-1 h-10 rounded-lg cursor-pointer border-2 border-blue-500/50 hover:border-blue-400 transition-all duration-200 group-hover:shadow-lg group-hover:shadow-blue-500/20"
+                        style={{
+                          left: '0%',
+                          width: '100%',
+                          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.6))',
+                          backdropFilter: 'blur(4px)'
+                        }}
+                      >
+                        <div className="flex items-center h-full px-2">
+                          <div className="flex items-center space-x-1">
+                            <span className="text-sm">🎬</span>
+                            <div>
+                              <div className="text-xs font-medium text-white truncate">
+                                {videoData?.name || 'Video Principal'}
+                              </div>
+                              <div className="text-xs text-blue-200">
+                                {formatTime(duration)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Track de Legendas */}
+                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
+                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-green-600 border border-green-400"></div>
+                        <div>
+                          <div className="text-xs font-medium text-white">💬 Captions</div>
+                          <div className="text-xs text-gray-400">IA</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
+                      {/* Blocos de legendas */}
+                      {generatedCaptions.length > 0 && (
+                        <div className="caption-blocks-visionario absolute top-1 h-10 flex space-x-1">
+                          {Array.from({ length: 8 }, (_, i) => (
+                            <div
+                              key={i}
+                              className="caption-block bg-gradient-to-r from-green-500/30 to-green-600/30 rounded border border-green-500/50 flex-1 min-w-8"
+                              style={{ height: '40px' }}
+                            >
+                              <div className="text-xs text-green-200 p-1 truncate">
+                                L{i + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Track de Efeitos */}
+                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
+                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 border border-purple-400"></div>
+                        <div>
+                          <div className="text-xs font-medium text-white">✨ Effects</div>
+                          <div className="text-xs text-gray-400">Visual</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
+                      {activeEffects.length > 0 && (
+                        <div className="effects-blocks-visionario absolute top-1 h-10 flex space-x-1">
+                          {Array.from({ length: 4 }, (_, i) => (
+                            <div
+                              key={i}
+                              className="effect-block bg-gradient-to-r from-purple-500/30 to-purple-600/30 rounded border border-purple-500/50"
+                              style={{ width: '60px', height: '40px' }}
+                            >
+                              <div className="text-xs text-purple-200 p-1 text-center">
+                                FX{i + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Track de Áudio */}
+                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
+                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-400"></div>
+                        <div>
+                          <div className="text-xs font-medium text-white">🎵 Audio</div>
+                          <div className="text-xs text-gray-400">Wave</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
+                      {/* Waveform visual */}
+                      <div className="waveform-visionario absolute top-1 h-10 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded border border-orange-500/30 w-full">
+                        <div className="flex items-end h-full px-1 space-x-px">
+                          {Array.from({ length: 80 }, (_, i) => (
+                            <div
+                              key={i}
+                              className="bg-orange-400 rounded-sm opacity-70"
+                              style={{
+                                width: '1px',
+                                height: `${Math.random() * 30 + 4}px`
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Sidebar - Effects Panel */}
-        {rightSidebarOpen && (
-          <div className={`${mobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
-            {/* Header dos Controles */}
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white flex items-center">
-                  <span className="mr-2">✨</span>
-                  Magic Captions
-                </h2>
-                {mobileView && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setRightSidebarOpen(false)}
-                    className="text-gray-400 hover:text-white p-1"
-                  >
-                    ✕
-                  </Button>
-                )}
+          {/* Right Sidebar - Effects Panel */}
+          {rightSidebarOpen && (
+            <div className={`${mobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
+              {/* Header dos Controles */}
+              <div className="p-6 border-b border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-white flex items-center">
+                    <span className="mr-2">✨</span>
+                    Magic Captions
+                  </h2>
+                  {mobileView && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setRightSidebarOpen(false)}
+                      className="text-gray-400 hover:text-white p-1"
+                    >
+                      ✕
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Status da IA Visionário */}
+                <div className="status-card-visionario bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/30 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-300">Status: ✅ Ativo</p>
+                        <p className="text-xs text-gray-400">
+                          {generatedCaptions.length || 0} palavras detectadas
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-2xl">🤖</div>
+                  </div>
+                </div>
               </div>
-              
-              {/* Status da IA Visionário */}
-              <div className="status-card-visionario bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/30 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+
+              {/* Conteúdo dos Controles Visionário */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                {/* Seção 1: Gerar Legendas com IA */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">🎯</span>
+                    Gerar Legendas
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {/* Input da API Key */}
                     <div>
-                      <p className="text-sm font-semibold text-green-300">Status: ✅ Ativo</p>
-                      <p className="text-xs text-gray-400">
-                        {generatedCaptions.length || 0} palavras detectadas
-                      </p>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        🔑 AssemblyAI API Key
+                      </label>
+                      <input
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Cole sua API key aqui..."
+                        className="api-input-visionario w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
+                      />
+                    </div>
+                    
+                    {/* Botão Gerar Visionário */}
+                    <Button
+                      onClick={generateCaptions}
+                      disabled={!apiKey || !videoData || isGenerating}
+                      className="generate-btn-visionario w-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 hover:from-blue-700 hover:via-purple-700 hover:to-blue-700 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {isGenerating ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Gerando Magia...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-xl">🎯</span>
+                          <span>Gerar Legendas com IA</span>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Seção 2: Estilos Virais */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">🎨</span>
+                    Estilos Virais
+                  </h3>
+                  
+                  <div className="viral-styles-grid grid grid-cols-2 gap-3">
+                    {/* TikTok Bold */}
+                    <Button
+                      onClick={() => setCaptionStyle('tiktok')}
+                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
+                        captionStyle === 'tiktok'
+                          ? 'border-pink-500 bg-gradient-to-br from-pink-600/30 to-pink-700/30 shadow-lg shadow-pink-500/20'
+                          : 'border-white/20 bg-white/5 hover:border-pink-500/50 hover:bg-pink-600/10'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-2xl">🔥</span>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-pink-300">TikTok</div>
+                          <div className="text-xs text-gray-400">Bold</div>
+                        </div>
+                      </div>
+                    </Button>
+
+                    {/* YouTube Minimal */}
+                    <Button
+                      onClick={() => setCaptionStyle('youtube')}
+                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
+                        captionStyle === 'youtube'
+                          ? 'border-red-500 bg-gradient-to-br from-red-600/30 to-red-700/30 shadow-lg shadow-red-500/20'
+                          : 'border-white/20 bg-white/5 hover:border-red-500/50 hover:bg-red-600/10'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-2xl">📺</span>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-red-300">YouTube</div>
+                          <div className="text-xs text-gray-400">Minimal</div>
+                        </div>
+                      </div>
+                    </Button>
+
+                    {/* Instagram Gradient */}
+                    <Button
+                      onClick={() => setCaptionStyle('instagram')}
+                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
+                        captionStyle === 'instagram'
+                          ? 'border-purple-500 bg-gradient-to-br from-purple-600/30 to-purple-700/30 shadow-lg shadow-purple-500/20'
+                          : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-purple-600/10'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-2xl">🌈</span>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-purple-300">Instagram</div>
+                          <div className="text-xs text-gray-400">Gradient</div>
+                        </div>
+                      </div>
+                    </Button>
+
+                    {/* Podcast Clean */}
+                    <Button
+                      onClick={() => setCaptionStyle('podcast')}
+                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
+                        captionStyle === 'podcast'
+                          ? 'border-green-500 bg-gradient-to-br from-green-600/30 to-green-700/30 shadow-lg shadow-green-500/20'
+                          : 'border-white/20 bg-white/5 hover:border-green-500/50 hover:bg-green-600/10'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-2xl">🎙️</span>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-green-300">Podcast</div>
+                          <div className="text-xs text-gray-400">Clean</div>
+                        </div>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Seção 3: Efeitos Rápidos */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">⚡</span>
+                    Efeitos Rápidos
+                  </h3>
+                  
+                  <div className="effects-grid grid grid-cols-3 gap-2">
+                    <Button
+                      onClick={() => applyEffect('zoom')}
+                      className="effect-btn bg-white/5 hover:bg-blue-600/20 border border-white/20 hover:border-blue-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-lg">🔍</span>
+                        <span className="text-xs">Zoom</span>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => applyEffect('blur')}
+                      className="effect-btn bg-white/5 hover:bg-purple-600/20 border border-white/20 hover:border-purple-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-lg">🌀</span>
+                        <span className="text-xs">Blur</span>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => applyEffect('glow')}
+                      className="effect-btn bg-white/5 hover:bg-yellow-600/20 border border-white/20 hover:border-yellow-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20"
+                    >
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-lg">✨</span>
+                        <span className="text-xs">Glow</span>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Seção 4: Áudio */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">🎵</span>
+                    Áudio
+                  </h3>
+                  
+                  <Button
+                    onClick={() => {/* Implementar adicionar música */}}
+                    className="audio-btn w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-dashed border-green-500/50 hover:border-green-400 text-green-300 hover:text-green-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-600/30 hover:to-blue-600/30"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <span className="text-xl">🎵</span>
+                      <span className="font-medium">Adicionar Música</span>
+                    </div>
+                  </Button>
+                </div>
+
+                {/* Seção 5: Informações do Projeto */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">📊</span>
+                    Projeto
+                  </h3>
+                  
+                  <div className="project-info-visionario bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Duração:</span>
+                      <span className="text-sm font-medium text-white">{formatTime(duration)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Progresso:</span>
+                      <span className="text-sm font-medium text-blue-300">{Math.round((currentTime / duration) * 100) || 0}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Legendas:</span>
+                      <span className="text-sm font-medium text-green-300">
+                        {generatedCaptions.length || 0} palavras
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Estilo:</span>
+                      <span className="text-sm font-medium text-purple-300 capitalize">{captionStyle}</span>
                     </div>
                   </div>
-                  <div className="text-2xl">🤖</div>
                 </div>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Conteúdo dos Controles Visionário */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              
-              {/* Seção 1: Gerar Legendas com IA */}
-              <div className="control-section-visionario">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                  <span className="mr-2">🎯</span>
-                  Gerar Legendas
-                </h3>
-                
-                <div className="space-y-3">
-                  {/* Input da API Key */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      🔑 AssemblyAI API Key
-                    </label>
-                    <input
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Cole sua API key aqui..."
-                      className="api-input-visionario w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
-                    />
-                  </div>
-                  
-                  {/* Botão Gerar Visionário */}
-                  <Button
-                    onClick={generateCaptions}
-                    disabled={!apiKey || !videoData || isGenerating}
-                    className="generate-btn-visionario w-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 hover:from-blue-700 hover:via-purple-700 hover:to-blue-700 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                  >
-                    {isGenerating ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Gerando Magia...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center space-x-2">
-                        <span className="text-xl">🎯</span>
-                        <span>Gerar Legendas com IA</span>
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </div>
+      {/* MODAL DA GALERIA VISIONÁRIO */}
+      {galleryModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="gallery-modal-visionario bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] border border-white/20 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="modal-header-visionario bg-black/20 backdrop-blur-xl border-b border-white/10 p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white flex items-center">
+                <span className="mr-3">📁</span>
+                Minha Galeria
+              </h2>
+              <Button
+                onClick={() => setGalleryModalOpen(false)}
+                className="close-btn-visionario bg-white/10 hover:bg-red-500/20 text-white rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300 hover:scale-110"
+              >
+                ✕
+              </Button>
+            </div>
 
-              {/* Seção 2: Estilos Virais */}
-              <div className="control-section-visionario">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                  <span className="mr-2">🎨</span>
-                  Estilos Virais
-                </h3>
-                
-                <div className="viral-styles-grid grid grid-cols-2 gap-3">
-                  {/* TikTok Bold */}
-                  <Button
-                    onClick={() => setCaptionStyle('tiktok')}
-                    className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                      captionStyle === 'tiktok'
-                        ? 'border-pink-500 bg-gradient-to-br from-pink-600/30 to-pink-700/30 shadow-lg shadow-pink-500/20'
-                        : 'border-white/20 bg-white/5 hover:border-pink-500/50 hover:bg-pink-600/10'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-2xl">🔥</span>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-pink-300">TikTok</div>
-                        <div className="text-xs text-gray-400">Bold</div>
-                      </div>
-                    </div>
-                  </Button>
-
-                  {/* YouTube Minimal */}
-                  <Button
-                    onClick={() => setCaptionStyle('youtube')}
-                    className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                      captionStyle === 'youtube'
-                        ? 'border-red-500 bg-gradient-to-br from-red-600/30 to-red-700/30 shadow-lg shadow-red-500/20'
-                        : 'border-white/20 bg-white/5 hover:border-red-500/50 hover:bg-red-600/10'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-2xl">📺</span>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-red-300">YouTube</div>
-                        <div className="text-xs text-gray-400">Minimal</div>
-                      </div>
-                    </div>
-                  </Button>
-
-                  {/* Instagram Gradient */}
-                  <Button
-                    onClick={() => setCaptionStyle('instagram')}
-                    className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                      captionStyle === 'instagram'
-                        ? 'border-purple-500 bg-gradient-to-br from-purple-600/30 to-purple-700/30 shadow-lg shadow-purple-500/20'
-                        : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-purple-600/10'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-2xl">🌈</span>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-purple-300">Instagram</div>
-                        <div className="text-xs text-gray-400">Gradient</div>
-                      </div>
-                    </div>
-                  </Button>
-
-                  {/* Podcast Clean */}
-                  <Button
-                    onClick={() => setCaptionStyle('podcast')}
-                    className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                      captionStyle === 'podcast'
-                        ? 'border-green-500 bg-gradient-to-br from-green-600/30 to-green-700/30 shadow-lg shadow-green-500/20'
-                        : 'border-white/20 bg-white/5 hover:border-green-500/50 hover:bg-green-600/10'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-2xl">🎙️</span>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-green-300">Podcast</div>
-                        <div className="text-xs text-gray-400">Clean</div>
-                      </div>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Seção 3: Efeitos Rápidos */}
-              <div className="control-section-visionario">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                  <span className="mr-2">⚡</span>
-                  Efeitos Rápidos
-                </h3>
-                
-                <div className="effects-grid grid grid-cols-3 gap-2">
-                  <Button
-                    onClick={() => applyEffect('zoom')}
-                    className="effect-btn bg-white/5 hover:bg-blue-600/20 border border-white/20 hover:border-blue-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-lg">🔍</span>
-                      <span className="text-xs">Zoom</span>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => applyEffect('blur')}
-                    className="effect-btn bg-white/5 hover:bg-purple-600/20 border border-white/20 hover:border-purple-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-lg">🌀</span>
-                      <span className="text-xs">Blur</span>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => applyEffect('glow')}
-                    className="effect-btn bg-white/5 hover:bg-yellow-600/20 border border-white/20 hover:border-yellow-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20"
-                  >
-                    <div className="flex flex-col items-center space-y-1">
-                      <span className="text-lg">✨</span>
-                      <span className="text-xs">Glow</span>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Seção 4: Áudio */}
-              <div className="control-section-visionario">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                  <span className="mr-2">🎵</span>
-                  Áudio
-                </h3>
-                
+            {/* Tabs do Modal */}
+            <div className="modal-tabs-visionario p-6 pb-0">
+              <div className="flex bg-white/5 rounded-full p-1">
                 <Button
-                  onClick={() => {/* Implementar adicionar música */}}
-                  className="audio-btn w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-dashed border-green-500/50 hover:border-green-400 text-green-300 hover:text-green-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-600/30 hover:to-blue-600/30"
+                  onClick={() => setActiveGalleryTab('videos')}
+                  className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
+                    activeGalleryTab === 'videos'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-white hover:bg-white/10'
+                  }`}
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-xl">🎵</span>
-                    <span className="font-medium">Adicionar Música</span>
-                  </div>
+                  🎬 Videos ({uploadedVideos.length})
+                </Button>
+                <Button
+                  onClick={() => setActiveGalleryTab('clips')}
+                  className={`flex-1 py-3 px-6 rounded-full text-sm font-medium transition-all duration-300 ${
+                    activeGalleryTab === 'clips'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  ✂️ Clips ({generatedClips.length})
                 </Button>
               </div>
+            </div>
 
-              {/* Seção 5: Informações do Projeto */}
-              <div className="control-section-visionario">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                  <span className="mr-2">📊</span>
-                  Projeto
-                </h3>
-                
-                <div className="project-info-visionario bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Duração:</span>
-                    <span className="text-sm font-medium text-white">{formatTime(duration)}</span>
+            {/* Conteúdo do Modal */}
+            <div className="modal-content-visionario p-6 overflow-y-auto max-h-[50vh]">
+              {activeGalleryTab === 'videos' && (
+                <div className="space-y-4">
+                  {/* Botão Upload Melhorado */}
+                  <div className="upload-section-visionario">
+                    <Button 
+                      onClick={() => {
+                        setGalleryModalOpen(false)
+                        navigate('/upload')
+                      }}
+                      className="upload-btn-improved w-full bg-gradient-to-r from-green-500/20 via-blue-500/20 to-purple-500/20 border-2 border-dashed border-green-400/50 hover:border-green-300 text-green-200 hover:text-green-100 py-6 rounded-2xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-500/30 hover:via-blue-500/30 hover:to-purple-500/30 hover:scale-[1.02] group"
+                    >
+                      <div className="flex items-center justify-center space-x-4">
+                        <div className="upload-icon-container bg-green-500/20 rounded-full p-3 group-hover:bg-green-500/30 transition-all duration-300">
+                          <span className="text-3xl">📤</span>
+                        </div>
+                        <div className="text-left">
+                          <div className="text-lg font-bold">Adicionar Novo Vídeo</div>
+                          <div className="text-sm text-gray-400">Clique para fazer upload</div>
+                        </div>
+                      </div>
+                    </Button>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Progresso:</span>
-                    <span className="text-sm font-medium text-blue-300">{Math.round((currentTime / duration) * 100) || 0}%</span>
+                  
+                  {/* Grid de Vídeos */}
+                  <div className="videos-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {uploadedVideos.map(video => (
+                      <div
+                        key={video.id}
+                        className="video-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-blue-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-500/20 group relative"
+                      >
+                        {/* Botão Excluir */}
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteVideo(video.id)
+                          }}
+                          className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
+                        >
+                          🗑️
+                        </Button>
+
+                        <div 
+                          className="cursor-pointer"
+                          onClick={() => {
+                            loadVideo(video)
+                            setGalleryModalOpen(false)
+                          }}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <div className="w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                              <img
+                                src={video.thumbnail}
+                                alt={video.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-lg font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
+                                🎬 {video.name}
+                              </h4>
+                              <div className="text-sm text-gray-400 mt-2 space-y-1">
+                                <div className="flex items-center space-x-3">
+                                  <span>⏱️ {formatTime(video.duration)}</span>
+                                  <span>📦 {video.size}</span>
+                                </div>
+                                <div className="text-gray-500">
+                                  📅 {formatTimeAgo(video.uploadedAt)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Legendas:</span>
-                    <span className="text-sm font-medium text-green-300">
-                      {generatedCaptions.length || 0} palavras
+                </div>
+              )}
+
+              {activeGalleryTab === 'clips' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-300">Clips Gerados</h3>
+                    <span className="text-sm text-gray-500 bg-white/5 px-3 py-1 rounded-full">
+                      {generatedClips.filter(c => c.status === 'ready').length} prontos
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Estilo:</span>
-                    <span className="text-sm font-medium text-purple-300 capitalize">{captionStyle}</span>
+                  
+                  {/* Grid de Clips */}
+                  <div className="clips-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {generatedClips.map(clip => (
+                      <div
+                        key={clip.id}
+                        className="clip-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-purple-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/20 group relative"
+                      >
+                        {/* Botão Excluir */}
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteClip(clip.id)
+                          }}
+                          className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
+                        >
+                          🗑️
+                        </Button>
+
+                        <div 
+                          className="cursor-pointer"
+                          onClick={() => {
+                            openClip(clip)
+                            setGalleryModalOpen(false)
+                          }}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <div className="relative w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
+                              <img
+                                src={clip.thumbnail}
+                                alt={clip.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              {/* Status Badge */}
+                              <div className={`absolute top-1 right-1 w-3 h-3 rounded-full ${
+                                clip.status === 'ready' ? 'bg-green-500' :
+                                clip.status === 'processing' ? 'bg-yellow-500' :
+                                'bg-red-500'
+                              }`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-lg font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
+                                ✂️ {clip.name}
+                              </h4>
+                              <div className="text-sm text-gray-400 mt-2 space-y-1">
+                                <div className="flex items-center space-x-3">
+                                  <span>⏱️ {formatTime(clip.duration)}</span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    clip.format === 'TikTok' ? 'bg-pink-600/20 text-pink-300 border border-pink-500/30' :
+                                    clip.format === 'Instagram' ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30' :
+                                    'bg-red-600/20 text-red-300 border border-red-500/30'
+                                  }`}>
+                                    {clip.format}
+                                  </span>
+                                </div>
+                                <div className="text-gray-500">
+                                  {clip.status === 'processing' ? '⏳ Processando...' : `📅 ${formatTimeAgo(clip.createdAt)}`}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* TIMELINE VISIONÁRIA INFERIOR (280px) */}
-      <div className="timeline-visionario bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl" style={{ height: '280px' }}>
-        {/* Header da Timeline Visionário */}
-        <div className="timeline-header-visionario bg-black/20 backdrop-blur-sm border-b border-white/10 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <h2 className="text-xl font-bold text-white flex items-center">
-              <span className="mr-2">⚡</span>
-              Timeline Pro
-            </h2>
-            
-            {/* Ferramentas Visionárias */}
-            <div className="flex items-center space-x-3">
-              <Button
-                variant={razorToolActive ? "default" : "ghost"}
-                onClick={() => setRazorToolActive(!razorToolActive)}
-                className={`tool-btn-visionario ${razorToolActive 
-                  ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20' 
-                  : 'bg-white/5 hover:bg-red-600/20 text-gray-300 hover:text-red-300 border border-white/20 hover:border-red-500/50'
-                } px-4 py-2 rounded-xl transition-all duration-300`}
-                title="Ferramenta Razor (C)"
-              >
-                <span className="mr-2">✂️</span>
-                Razor
-              </Button>
-              
-              <Button
-                variant="ghost"
-                className="tool-btn-visionario bg-white/5 hover:bg-blue-600/20 text-gray-300 hover:text-blue-300 border border-white/20 hover:border-blue-500/50 px-4 py-2 rounded-xl transition-all duration-300"
-                title="Zoom Fit"
-              >
-                <span className="mr-2">🎯</span>
-                Fit
-              </Button>
-              
-              <Button
-                variant="ghost"
-                className="tool-btn-visionario bg-white/5 hover:bg-purple-600/20 text-gray-300 hover:text-purple-300 border border-white/20 hover:border-purple-500/50 px-4 py-2 rounded-xl transition-all duration-300"
-                title="Configurações"
-              >
-                <span className="mr-2">⚙️</span>
-                Config
-              </Button>
-            </div>
-          </div>
-          
-          {/* Controles de Reprodução Visionários */}
-          <div className="flex items-center space-x-4">
-            {/* Slider de Progresso Visionário */}
-            <div className="flex items-center space-x-3">
-              <div className="progress-indicator-visionario bg-white/5 rounded-full px-3 py-1 border border-white/20">
-                <span className="text-sm text-gray-300 font-mono">
-                  {Math.round((currentTime / duration) * 100) || 0}%
-                </span>
-              </div>
-              
-              <div className="time-display-visionario bg-white/5 rounded-full px-4 py-2 border border-white/20">
-                <span className="text-sm text-white font-mono">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Timeline Principal Visionária */}
-        <div className="timeline-main-visionario flex-1 relative overflow-hidden">
-          {/* Régua de Tempo Visionária */}
-          <div className="timeline-ruler-visionario h-12 bg-gradient-to-b from-black/40 to-black/20 border-b border-white/10 relative overflow-hidden">
-            {/* Marcadores de tempo */}
-            <div className="absolute inset-0 flex items-end pb-2">
-              {Array.from({ length: Math.ceil(duration / 10) + 1 }, (_, i) => (
-                <div
-                  key={i}
-                  className="time-marker-visionario absolute bottom-0"
-                  style={{ left: `${(i * 10 / duration) * 100}%` }}
-                >
-                  <div className="w-px h-6 bg-white/30"></div>
-                  <div className="text-xs text-gray-400 mt-1 -translate-x-1/2">
-                    {formatTime(i * 10)}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {/* Playhead Visionário */}
-            <div
-              className="playhead-visionario absolute top-0 w-0.5 h-full z-40 transition-all duration-75"
-              style={{ left: `${(currentTime / duration) * 100}%` }}
-            >
-              <div className="playhead-handle-visionario w-4 h-4 bg-gradient-to-r from-red-500 to-red-600 rounded-full -ml-2 -mt-2 border-2 border-white shadow-lg shadow-red-500/50"></div>
-              <div className="playhead-line-visionario w-0.5 bg-gradient-to-b from-red-500 to-red-600 h-full shadow-lg"></div>
-            </div>
-          </div>
-
-          {/* Tracks Container Visionário */}
-          <div className="tracks-container-visionario flex-1 overflow-y-auto bg-black/10" style={{ height: '200px' }}>
-            {/* Track de Vídeo */}
-            <div className="track-visionario flex items-center h-16 border-b border-white/10 hover:bg-white/5 transition-colors group">
-              <div className="track-header-visionario w-32 px-4 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-400"></div>
-                  <div>
-                    <div className="text-sm font-medium text-white">🎬 Video</div>
-                    <div className="text-xs text-gray-400">Principal</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="track-content-visionario flex-1 relative h-14 mx-2">
-                <div
-                  className="video-clip-visionario absolute top-1 h-12 rounded-lg cursor-pointer border-2 border-blue-500/50 hover:border-blue-400 transition-all duration-200 group-hover:shadow-lg group-hover:shadow-blue-500/20"
-                  style={{
-                    left: '0%',
-                    width: '100%',
-                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.6))',
-                    backdropFilter: 'blur(4px)'
-                  }}
-                >
-                  <div className="flex items-center h-full px-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">🎬</span>
-                      <div>
-                        <div className="text-xs font-medium text-white truncate">
-                          {videoData?.name || 'Video Principal'}
-                        </div>
-                        <div className="text-xs text-blue-200">
-                          {formatTime(duration)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Track de Legendas */}
-            <div className="track-visionario flex items-center h-16 border-b border-white/10 hover:bg-white/5 transition-colors group">
-              <div className="track-header-visionario w-32 px-4 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-green-500 to-green-600 border border-green-400"></div>
-                  <div>
-                    <div className="text-sm font-medium text-white">💬 Captions</div>
-                    <div className="text-xs text-gray-400">IA</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="track-content-visionario flex-1 relative h-14 mx-2">
-                {/* Blocos de legendas */}
-                {generatedCaptions.length > 0 && (
-                  <div className="caption-blocks-visionario absolute top-1 h-12 flex space-x-1">
-                    {Array.from({ length: 8 }, (_, i) => (
-                      <div
-                        key={i}
-                        className="caption-block bg-gradient-to-r from-green-500/30 to-green-600/30 rounded border border-green-500/50 flex-1 min-w-12"
-                        style={{ height: '48px' }}
-                      >
-                        <div className="text-xs text-green-200 p-1 truncate">
-                          Legenda {i + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Track de Efeitos */}
-            <div className="track-visionario flex items-center h-16 border-b border-white/10 hover:bg-white/5 transition-colors group">
-              <div className="track-header-visionario w-32 px-4 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 border border-purple-400"></div>
-                  <div>
-                    <div className="text-sm font-medium text-white">✨ Effects</div>
-                    <div className="text-xs text-gray-400">Visual</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="track-content-visionario flex-1 relative h-14 mx-2">
-                {activeEffects.length > 0 && (
-                  <div className="effects-blocks-visionario absolute top-1 h-12 flex space-x-1">
-                    {Array.from({ length: 4 }, (_, i) => (
-                      <div
-                        key={i}
-                        className="effect-block bg-gradient-to-r from-purple-500/30 to-purple-600/30 rounded border border-purple-500/50"
-                        style={{ width: '80px', height: '48px' }}
-                      >
-                        <div className="text-xs text-purple-200 p-1 text-center">
-                          FX{i + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Track de Áudio */}
-            <div className="track-visionario flex items-center h-16 border-b border-white/10 hover:bg-white/5 transition-colors group">
-              <div className="track-header-visionario w-32 px-4 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-400"></div>
-                  <div>
-                    <div className="text-sm font-medium text-white">🎵 Audio</div>
-                    <div className="text-xs text-gray-400">Wave</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="track-content-visionario flex-1 relative h-14 mx-2">
-                {/* Waveform visual */}
-                <div className="waveform-visionario absolute top-1 h-12 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded border border-orange-500/30 w-full">
-                  <div className="flex items-end h-full px-2 space-x-1">
-                    {Array.from({ length: 50 }, (_, i) => (
-                      <div
-                        key={i}
-                        className="bg-orange-400 rounded-sm"
-                        style={{
-                          width: '2px',
-                          height: `${Math.random() * 40 + 8}px`
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Mobile Overlay */}
       {mobileView && (leftSidebarOpen || rightSidebarOpen) && (
