@@ -8,6 +8,8 @@ export interface GalleryVideo {
   uploadedAt: Date
   file?: File
   url?: string
+  cloudinaryPublicId?: string // ID do vídeo no Cloudinary
+  cloudinaryUrl?: string // URL permanente do Cloudinary
 }
 
 export interface GalleryClip {
@@ -23,21 +25,27 @@ export interface GalleryClip {
 const GALLERY_VIDEOS_KEY = 'clipsforge_gallery_videos'
 const GALLERY_CLIPS_KEY = 'clipsforge_gallery_clips'
 
-// Função para salvar vídeo na galeria
+// Função para salvar vídeo na galeria (com suporte ao Cloudinary)
 export const saveVideoToGallery = (videoData: {
   file: File
   url: string
   duration: number
+  cloudinaryPublicId?: string
+  cloudinaryUrl?: string
 }): GalleryVideo => {
   const newVideo: GalleryVideo = {
     id: `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name: videoData.file.name,
-    thumbnail: videoData.url, // Usar a URL do vídeo como thumbnail
+    thumbnail: videoData.cloudinaryUrl 
+      ? `https://res.cloudinary.com/dyqjxsnjp/video/upload/so_2.0,w_300,h_200,c_fill,q_auto,f_jpg/${videoData.cloudinaryPublicId}.jpg`
+      : videoData.url,
     duration: videoData.duration,
     size: formatFileSize(videoData.file.size),
     uploadedAt: new Date(),
     file: videoData.file,
-    url: videoData.url
+    url: videoData.cloudinaryUrl || videoData.url, // Preferir URL do Cloudinary
+    cloudinaryPublicId: videoData.cloudinaryPublicId,
+    cloudinaryUrl: videoData.cloudinaryUrl
   }
 
   // Obter vídeos existentes
@@ -46,8 +54,8 @@ export const saveVideoToGallery = (videoData: {
   // Adicionar novo vídeo no início da lista
   const updatedVideos = [newVideo, ...existingVideos]
   
-  // Limitar a 10 vídeos para não sobrecarregar o localStorage
-  const limitedVideos = updatedVideos.slice(0, 10)
+  // Limitar a 50 vídeos (agora que temos Cloudinary, podemos armazenar mais)
+  const limitedVideos = updatedVideos.slice(0, 50)
   
   // Salvar no localStorage
   try {
@@ -58,6 +66,9 @@ export const saveVideoToGallery = (videoData: {
     }))))
     
     console.log('✅ Vídeo salvo na galeria:', newVideo.name)
+    if (videoData.cloudinaryUrl) {
+      console.log('☁️ Vídeo disponível no Cloudinary:', videoData.cloudinaryUrl)
+    }
   } catch (error) {
     console.error('❌ Erro ao salvar vídeo na galeria:', error)
   }

@@ -31,6 +31,7 @@ import { Card } from '@/components/ui/card'
 import './VideoEditorStyles.css'
 import '../../components/editor/AutoCaptions.css'
 import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip } from '@/utils/galleryStorage'
+import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 
 interface VideoData {
   file?: File | null
@@ -870,10 +871,25 @@ export function VideoEditorPage() {
   const [galleryModalOpen, setGalleryModalOpen] = useState(false)
 
   // NOVAS FUNÇÕES: Exclusão de vídeos e clips
-  const deleteVideo = (videoId: string) => {
-    deleteVideoFromGallery(videoId)
-    setUploadedVideos(prev => prev.filter(video => video.id !== videoId))
-    console.log(`🗑️ Vídeo ${videoId} excluído da galeria`)
+  const deleteVideo = async (videoId: string) => {
+    try {
+      // Encontrar o vídeo para obter o publicId do Cloudinary
+      const videos = getGalleryVideos()
+      const video = videos.find(v => v.id === videoId)
+      
+      // Se o vídeo tem publicId do Cloudinary, deletar de lá também
+      if (video?.cloudinaryPublicId) {
+        console.log('🗑️ Deletando vídeo do Cloudinary:', video.cloudinaryPublicId)
+        await deleteVideoFromCloudinary(video.cloudinaryPublicId)
+      }
+      
+      // Deletar da galeria local
+      deleteVideoFromGallery(videoId)
+      console.log('✅ Vídeo deletado com sucesso')
+      
+    } catch (error) {
+      console.error('❌ Erro ao deletar vídeo:', error)
+    }
   }
 
   const deleteClip = (clipId: string) => {

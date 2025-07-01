@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
 import { saveVideoToGallery } from '@/utils/galleryStorage'
+import { uploadVideoToCloudinary, isValidVideoFile } from '@/services/cloudinaryService'
 
 interface VideoUploadProps {
   onUploadComplete?: (videoUrl: string, videoData: any) => void
@@ -166,7 +167,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   const simulateUpload = async () => {
     if (!selectedFile || !user) return
 
-    console.log('Iniciando upload para:', selectedFile.name)
+    console.log('🚀 Iniciando upload para Cloudinary:', selectedFile.name)
     
     setUploading(true)
     setUploadProgress(0)
@@ -174,85 +175,67 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     onUploadStart?.()
 
     try {
-      // Simular processo de upload mais realista
-      const totalSteps = 20 // Mais steps para suavidade
-      const baseDelay = 150 // Delay base
-      
-      for (let step = 0; step <= totalSteps; step++) {
-        // Simular velocidade variável - mais lento no início e fim
-        let delay = baseDelay
-        if (step < 3) delay = 800 // Início mais lento
-        else if (step > totalSteps - 3) delay = 600 // Final mais lento
-        else delay = 300 + Math.random() * 200 // Meio com variação
-        
-        await new Promise(resolve => setTimeout(resolve, delay))
-        
-        const progress = (step / totalSteps) * 100
-        setUploadProgress(progress)
-        onUploadProgress?.(progress)
-        
-        console.log(`Upload progress: ${progress.toFixed(1)}%`)
+      // Validar arquivo antes do upload
+      if (!isValidVideoFile(selectedFile)) {
+        throw new Error('Arquivo não é um vídeo válido ou é muito grande (máx 100MB)')
       }
 
-      // Aguardar um pouco para garantir que o vídeo carregou completamente
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Upload real para o Cloudinary
+      setUploadProgress(10)
+      console.log('📤 Enviando para Cloudinary...')
+      
+      const cloudinaryResponse = await uploadVideoToCloudinary(selectedFile)
+      
+      setUploadProgress(90)
+      console.log('✅ Upload concluído no Cloudinary:', cloudinaryResponse.secure_url)
 
-      // Simular resposta do servidor
+      // Aguardar um pouco para finalizar
+      await new Promise(resolve => setTimeout(resolve, 500))
+      setUploadProgress(100)
+
+      // Dados do vídeo com informações do Cloudinary
       const videoData = {
         id: Date.now().toString(),
         filename: selectedFile.name,
         size: selectedFile.size,
-        duration: videoRef.current?.duration || Math.floor(Math.random() * 300) + 30, // 30-330s se não detectar
+        duration: cloudinaryResponse.duration || videoRef.current?.duration || 0,
         uploadedAt: new Date().toISOString(),
         userId: user.id,
-        status: 'uploaded'
+        status: 'uploaded',
+        cloudinaryPublicId: cloudinaryResponse.public_id,
+        cloudinaryUrl: cloudinaryResponse.secure_url,
+        cloudinaryBytes: cloudinaryResponse.bytes
       }
 
-      console.log('Upload concluído:', videoData)
-      
-      // Estratégia robusta: sempre preservar o arquivo + criar URL confiável
-      let reliableUrl: string = previewUrl || 'file-preserved'
-      
-      // Se não temos previewUrl ou é uma blob URL que pode expirar, criar data URL
-      if (!previewUrl || (previewUrl.startsWith('blob:') && selectedFile.size < 100 * 1024 * 1024)) {
-        console.log('Criando data URL confiável para navegação entre páginas')
-        try {
-          reliableUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target?.result as string)
-            reader.onerror = reject
-            reader.readAsDataURL(selectedFile)
-          })
-          console.log('Data URL criado para preservação:', reliableUrl.substring(0, 50) + '...')
-        } catch (err) {
-          console.log('Fallback: preservando apenas o arquivo')
-          reliableUrl = 'file-preserved'
-        }
-      }
+      console.log('📊 Dados do vídeo processados:', videoData)
       
       const videoDataWithFile = {
         ...videoData,
-        file: selectedFile, // SEMPRE preservar o arquivo original
-        reliableUrl, // URL que funcionará entre páginas
-        originalPreviewUrl: previewUrl // URL original para referência
+        file: selectedFile,
+        reliableUrl: cloudinaryResponse.secure_url, // URL permanente do Cloudinary
+        originalPreviewUrl: previewUrl
       }
       
-      // Passar a URL confiável
-      onUploadComplete?.(reliableUrl, videoDataWithFile)
+      // Passar a URL permanente do Cloudinary
+      onUploadComplete?.(cloudinaryResponse.secure_url, videoDataWithFile)
       
-      // NÃO resetar o form aqui - deixar para a página pai decidir
       setUploadProgress(0)
       
-      // Salvar no banco de dados
+      // Salvar na galeria com dados do Cloudinary
       saveVideoToGallery({
         file: selectedFile,
-        url: reliableUrl,
-        duration: videoRef.current?.duration || 0
+        url: cloudinaryResponse.secure_url,
+        duration: cloudinaryResponse.duration || 0,
+        cloudinaryPublicId: cloudinaryResponse.public_id,
+        cloudinaryUrl: cloudinaryResponse.secure_url
       })
       
+      console.log('🎉 Vídeo salvo com sucesso no Cloudinary e na galeria!')
+      
     } catch (err) {
-      console.error('Erro no upload:', err)
-      setError('Erro no upload. Tente novamente.')
+      console.error('❌ Erro no upload:', err)
+      setError(err instanceof Error ? err.message : 'Erro no upload. Tente novamente.')
+      setUploadProgress(0)
     } finally {
       setUploading(false)
     }
