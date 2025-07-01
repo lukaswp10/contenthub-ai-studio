@@ -26,6 +26,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [videoError, setVideoError] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -149,6 +151,8 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     setError(null)
     setVideoError(false)
     setUploadProgress(0)
+    setUploadSuccess(false)
+    setCloudinaryUrl(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -172,6 +176,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
     setUploading(true)
     setUploadProgress(0)
     setError(null)
+    setUploadSuccess(false)
     onUploadStart?.()
 
     try {
@@ -219,8 +224,6 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       // Passar a URL permanente do Cloudinary
       onUploadComplete?.(cloudinaryResponse.secure_url, videoDataWithFile)
       
-      setUploadProgress(0)
-      
       // Salvar na galeria com dados do Cloudinary
       saveVideoToGallery({
         file: selectedFile,
@@ -230,12 +233,18 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
         cloudinaryUrl: cloudinaryResponse.secure_url
       })
       
+      // Atualizar estado de sucesso
+      setUploadSuccess(true)
+      setCloudinaryUrl(cloudinaryResponse.secure_url)
+      setUploadProgress(0)
+      
       console.log('🎉 Vídeo salvo com sucesso no Cloudinary e na galeria!')
       
     } catch (err) {
       console.error('❌ Erro no upload:', err)
       setError(err instanceof Error ? err.message : 'Erro no upload. Tente novamente.')
       setUploadProgress(0)
+      setUploadSuccess(false)
     } finally {
       setUploading(false)
     }
@@ -345,6 +354,28 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
           </div>
         )}
 
+        {/* Success Message */}
+        {uploadSuccess && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-green-700 font-medium">
+                  🎉 Upload concluído com sucesso!
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  ☁️ Seu vídeo foi salvo no Cloudinary e está disponível permanentemente
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  📁 Você pode encontrá-lo na galeria do editor
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -368,17 +399,27 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
       </Card>
 
       {/* Video Preview */}
-      {previewUrl && !uploading && (
+      {(previewUrl || cloudinaryUrl) && !uploading && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Preview do Vídeo
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {uploadSuccess ? '🎬 Vídeo Enviado' : 'Preview do Vídeo'}
+            </h3>
+            {uploadSuccess && (
+              <div className="flex items-center space-x-2 text-sm text-green-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Salvo no Cloudinary</span>
+              </div>
+            )}
+          </div>
           
           {!videoError ? (
             <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
               <video 
                 ref={videoRef}
-                src={previewUrl}
+                src={cloudinaryUrl || previewUrl || undefined}
                 controls
                 preload="metadata"
                 className="w-full h-full object-contain"
@@ -422,9 +463,32 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
                 {videoRef.current?.duration && !videoError && (
                   <p>Duração: {Math.round(videoRef.current.duration)}s</p>
                 )}
+                {uploadSuccess && cloudinaryUrl && (
+                  <div className="mt-3 p-2 bg-green-50 rounded border">
+                    <p className="text-green-700 font-medium">✅ URL Permanente:</p>
+                    <p className="text-green-600 text-xs break-all">{cloudinaryUrl}</p>
+                  </div>
+                )}
                 {videoError && (
                   <p className="text-orange-600">⚠️ Preview indisponível (upload ainda funcionará)</p>
                 )}
+              </div>
+            )}
+            
+            {uploadSuccess && (
+              <div className="mt-4 flex justify-center space-x-3">
+                <Button 
+                  onClick={() => window.open('/editor', '_blank')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  🎬 Abrir Editor
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={clearSelection}
+                >
+                  📤 Enviar Outro Vídeo
+                </Button>
               </div>
             )}
           </div>
