@@ -509,9 +509,9 @@ export function VideoEditorPage() {
     return `${diffInDays}d atrás`
   }
 
+  // ✅ Função para exportar video/clip
   const exportVideo = async () => {
-    console.log('Exportando vídeo com efeitos:', activeEffects)
-    alert('🎬 Exportação em desenvolvimento! Em breve teremos renderização profissional.')
+    alert('📤 Função de exportação em desenvolvimento!')
   }
 
   const loadVideo = (video: GalleryVideo) => {
@@ -959,6 +959,54 @@ export function VideoEditorPage() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
+  // ➕ FUNÇÃO para exportar um clip específico (FASE 4.0)
+  const handleExportClip = async (clipData: any) => {
+    console.log(`📤 Iniciando exportação do ${clipData.name}...`);
+    
+    try {
+      // Simular processo de exportação
+      const exportProcess = async () => {
+        console.log(`🎬 Preparando ${clipData.name} para exportação...`);
+        console.log(`⏱️ Duração: ${formatTime(clipData.duration)}`);
+        console.log(`🎯 Range: ${formatTime(clipData.startTime)} - ${formatTime(clipData.endTime)}`);
+        
+        // Aqui seria integração com FFmpeg ou serviço de processamento
+        // Por enquanto, simular delay de processamento
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        return {
+          success: true,
+          downloadUrl: '#',
+          filename: `${clipData.name.replace(/\s+/g, '_')}_viral.mp4`
+        };
+      };
+
+      alert(`🚀 Exportando ${clipData.name}... (Simulação)
+      
+⏱️ Duração: ${formatTime(clipData.duration)}
+🎯 Range: ${formatTime(clipData.startTime)} - ${formatTime(clipData.endTime)}
+🎬 Incluirá: Vídeo + Áudio + Legendas
+📱 Formato: MP4 (1080p, otimizado para viral)
+
+🔄 Em desenvolvimento: Integração com FFmpeg`);
+
+      const result = await exportProcess();
+      
+      if (result.success) {
+        console.log(`✅ ${clipData.name} exportado com sucesso!`);
+        alert(`✅ ${clipData.name} exportado com sucesso!
+        
+📁 Arquivo: ${result.filename}
+🔗 Download: ${result.downloadUrl}
+        
+🎉 Pronto para viralizar!`);
+      }
+    } catch (error) {
+      console.error(`❌ Erro ao exportar ${clipData.name}:`, error);
+      alert(`❌ Erro ao exportar ${clipData.name}. Tente novamente.`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
@@ -1123,16 +1171,9 @@ export function VideoEditorPage() {
               videoData={videoData}
               currentTime={currentTime}
               duration={duration}
-              onSeek={(time) => {
-                if (videoRef.current) {
-                  videoRef.current.currentTime = time;
-                  setCurrentTime(time);
-                }
-              }}
+              onSeek={seekTo}
               onCut={(cutTime) => {
                 console.log('✂️ VideoEditor: Corte processado no tempo:', formatTime(cutTime));
-                // ✅ CORRIGIDO: Callback que realmente processa o corte
-                // O corte já foi processado no TimelinePro, apenas feedback aqui
               }}
               razorToolActive={razorToolActive}
               setRazorToolActive={setRazorToolActive}
@@ -1140,6 +1181,22 @@ export function VideoEditorPage() {
               setTimelineLayers={setTimelineLayers}
               cutPoints={cutPoints}
               setCutPoints={setCutPoints}
+              onPreviewClip={(startTime, endTime) => {
+                console.log(`🎬 Preview clip: ${formatTime(startTime)} - ${formatTime(endTime)}`);
+                if (videoRef.current) {
+                  videoRef.current.currentTime = startTime;
+                  setCurrentTime(startTime);
+                  if (!isPlaying) {
+                    togglePlayPause();
+                  }
+                }
+              }}
+              onExportClip={(clipData) => {
+                console.log(`📤 Exportando clip:`, clipData);
+                handleExportClip(clipData);
+              }}
+              isPreviewMode={false}
+              currentClipIndex={-1}
             />
           </div>
 
@@ -1358,11 +1415,16 @@ export function VideoEditorPage() {
                   
                   <Button
                     onClick={() => {/* Implementar adicionar música */}}
-                    className="audio-btn w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-dashed border-green-500/50 hover:border-green-400 text-green-300 hover:text-green-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-600/30 hover:to-blue-600/30"
+                    className="audio-btn w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-dashed border-green-500/50 hover:border-green-400 text-green-300 hover:text-green-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-500/30 hover:via-blue-500/30 hover:to-purple-500/30 hover:scale-[1.02] group"
                   >
-                    <div className="flex items-center justify-center space-x-2">
-                      <span className="text-xl">🎵</span>
-                      <span className="font-medium">Adicionar Música</span>
+                    <div className="flex items-center justify-center space-x-4">
+                      <div className="upload-icon-container bg-green-500/20 rounded-full p-3 group-hover:bg-green-500/30 transition-all duration-300">
+                        <span className="text-3xl">📤</span>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-lg font-bold">Adicionar Novo Vídeo</div>
+                        <div className="text-sm text-gray-400">Clique para fazer upload</div>
+                      </div>
                     </div>
                   </Button>
                 </div>

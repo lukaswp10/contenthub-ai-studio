@@ -4,12 +4,16 @@
   position: relative;
   overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 350px;
+  max-height: 500px;
 }
 
 /* Header da Timeline */
 .timeline-header {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  height: 60px;
+  min-height: 60px;
 }
 
 .tool-btn {
@@ -86,11 +90,18 @@
 /* Tracks Container */
 .tracks-container {
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.05));
+  height: 240px;
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .track {
   position: relative;
   transition: all 0.2s ease;
+  min-height: 60px;
+  height: 60px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .track:hover {
@@ -103,11 +114,20 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  width: 120px;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 .track-content {
   position: relative;
-  padding: 0 8px;
+  padding: 8px;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
 /* Timeline Effects */
@@ -149,6 +169,10 @@
   -webkit-backdrop-filter: blur(4px);
   position: relative;
   overflow: hidden;
+  height: 44px !important;
+  width: 100% !important;
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.2);
 }
 
 .audio-waveform::after {
@@ -535,5 +559,105 @@
   
   .undo-redo-group .tool-btn span {
     margin-right: 2px;
+  }
+}
+
+/* ➕ CONTAINER específico para AUDIO TRACK */
+.track[data-track-id="audio-track"] {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.05), rgba(255, 140, 66, 0.03));
+}
+
+.track[data-track-id="audio-track"] .track-header {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.2), rgba(255, 140, 66, 0.1));
+  color: #FF6B35;
+  font-weight: 600;
+}
+
+/* ➕ ESTILOS para PAINEL DE CLIPS (FASE 4.0) */
+.clips-panel {
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: slideInUp 0.3s ease-out;
+}
+
+.clip-item {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clip-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.clip-item.active {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  transform: scale(1.02);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ➕ MELHORES CORES para TRACKS */
+.track[data-track-id="video-track"] .track-header {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.2));
+  color: #60A5FA;
+  font-weight: 600;
+}
+
+.track[data-track-id="captions-track"] .track-header {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.2));
+  color: #34D399;
+  font-weight: 600;
+}
+
+.track[data-track-id="effects-track"] .track-header {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(168, 85, 247, 0.2));
+  color: #A78BFA;
+  font-weight: 600;
+}
+
+/* ➕ INDICADORES de CORTES */
+.cut-point {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+  z-index: 50;
+  cursor: pointer;
+  animation: cutGlow 2s ease-in-out infinite;
+}
+
+.cut-point::before {
+  content: '✂️';
+  position: absolute;
+  top: -20px;
+  left: -8px;
+  font-size: 12px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes cutGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.8);
   }
 } 

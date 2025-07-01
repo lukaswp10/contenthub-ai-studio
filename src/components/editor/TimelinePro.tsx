@@ -16,6 +16,10 @@ interface TimelineProProps {
   setTimelineLayers: (layers: TimelineLayer[]) => void;
   cutPoints: CutPoint[];
   setCutPoints: (points: CutPoint[]) => void;
+  onPreviewClip?: (startTime: number, endTime: number) => void;
+  onExportClip?: (clipData: ClipData) => void;
+  isPreviewMode?: boolean;
+  currentClipIndex?: number;
 }
 
 interface TimelineLayer {
@@ -49,6 +53,17 @@ interface Track {
   effects: TrackEffect[];
 }
 
+interface ClipData {
+  id: string;
+  name: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  hasAudio: boolean;
+  hasVideo: boolean;
+  captions: any[];
+}
+
 const TimelinePro: React.FC<TimelineProProps> = ({
   videoData,
   currentTime,
@@ -60,7 +75,11 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   timelineLayers,
   setTimelineLayers,
   cutPoints,
-  setCutPoints
+  setCutPoints,
+  onPreviewClip,
+  onExportClip,
+  isPreviewMode = false,
+  currentClipIndex = -1
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const audioWaveformRef = useRef<HTMLDivElement>(null);
@@ -79,6 +98,14 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     type: 'start' | 'end';
   } | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+
+  // ➕ NOVOS ESTADOS para FASE 4.0
+  const [availableClips, setAvailableClips] = useState<ClipData[]>([]);
+  const [hoveredClip, setHoveredClip] = useState<number>(-1);
+  const [selectedClipForEdit, setSelectedClipForEdit] = useState<string | null>(null);
+  const [timelineZoom, setTimelineZoom] = useState(1);
+
+
 
   // ➕ TRACKS baseadas nos timelineLayers recebidos
   const tracks = useMemo(() => [
@@ -158,9 +185,34 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     };
   }, [videoData]);
 
-  // ✂️ FUNÇÃO DE CORTE CORRIGIDA - trabalha com timelineLayers
+  // ➕ FUNÇÃO para verificar se pode cortar (deve vir ANTES de handleCut)
+  const canCutAtTime = useCallback((time: number): boolean => {
+    // Verificar se já existe um corte muito próximo (0.5s de tolerância)
+    const tolerance = 0.5;
+    const hasNearCut = cutPoints.some(cut => Math.abs(cut.time - time) < tolerance);
+    
+    if (hasNearCut) {
+      console.log(`⚠️ Corte muito próximo de outro existente (${formatTime(time)})`);
+      return false;
+    }
+    
+    // Verificar se está dentro dos limites do vídeo
+    if (time <= 0.1 || time >= duration - 0.1) {
+      console.log(`⚠️ Corte fora dos limites válidos (${formatTime(time)})`);
+      return false;
+    }
+    
+    return true;
+  }, [cutPoints, duration]);
+
+  // ✂️ FUNÇÃO DE CORTE MELHORADA - CORTES ILIMITADOS
   const handleCut = useCallback((time: number) => {
-    console.log(`✂️ TimelinePro: Executando corte no tempo ${formatTime(time)}`);
+    console.log(`✂️ TimelinePro: Tentando corte no tempo ${formatTime(time)}`);
+    
+    // ➕ VERIFICAR se pode cortar neste tempo
+    if (!canCutAtTime(time)) {
+      return;
+    }
     
     // Encontrar layers que podem ser cortados no tempo especificado
     const affectedLayers = timelineLayers.filter(layer => 
@@ -187,7 +239,9 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       // Callback para o componente pai
       onCut(time);
       
-      // Auto-desativar razor
+      console.log(`✅ Corte realizado! Total de cortes: ${cutPoints.length + 1}`);
+      
+      // Auto-desativar razor após 1s
       setTimeout(() => {
         setRazorToolActive(false);
         console.log('🔄 Razor tool desativado automaticamente');
@@ -197,7 +251,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       console.error('❌ Erro ao executar comando de corte:', error);
       alert('❌ Não foi possível realizar o corte. Tente novamente.');
     }
-  }, [timelineLayers, setTimelineLayers, cutPoints, setCutPoints, onCut, setRazorToolActive]);
+  }, [canCutAtTime, timelineLayers, setTimelineLayers, cutPoints, setCutPoints, onCut, setRazorToolActive]);
 
   // 🎯 FUNÇÕES TRIM HANDLES
   const startTrimDrag = useCallback((e: React.MouseEvent, layerId: string, type: 'start' | 'end') => {
@@ -335,9 +389,9 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
   // Função para formatar tempo
   const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   // Função para obter cor da track
@@ -367,8 +421,144 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     }
   };
 
+  // ➕ FUNÇÃO para calcular clips disponíveis
+  const calculateClips = useCallback((): ClipData[] => {
+    if (cutPoints.length === 0) return [];
+
+    const sortedCuts = [...cutPoints].sort((a, b) => a.time - b.time);
+    const clips: ClipData[] = [];
+    
+    // Primeiro clip (início até primeiro corte)
+    if (sortedCuts.length > 0 && sortedCuts[0].time > 0) {
+      clips.push({
+        id: `clip-0`,
+        name: `Clip 1`,
+        startTime: 0,
+        endTime: sortedCuts[0].time,
+        duration: sortedCuts[0].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    // Clips intermediários
+    for (let i = 0; i < sortedCuts.length - 1; i++) {
+      clips.push({
+        id: `clip-${i + 1}`,
+        name: `Clip ${i + 2}`,
+        startTime: sortedCuts[i].time,
+        endTime: sortedCuts[i + 1].time,
+        duration: sortedCuts[i + 1].time - sortedCuts[i].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    // Último clip (último corte até final)
+    if (sortedCuts.length > 0 && sortedCuts[sortedCuts.length - 1].time < duration) {
+      clips.push({
+        id: `clip-${sortedCuts.length}`,
+        name: `Clip ${sortedCuts.length + 1}`,
+        startTime: sortedCuts[sortedCuts.length - 1].time,
+        endTime: duration,
+        duration: duration - sortedCuts[sortedCuts.length - 1].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    return clips.filter(clip => clip.duration > 0.1); // Mínimo 0.1s
+  }, [cutPoints, duration]);
+
+  // ➕ ATUALIZAR clips quando cutPoints mudarem
+  useEffect(() => {
+    if (cutPoints.length === 0) {
+      setAvailableClips([]);
+      return;
+    }
+
+    const sortedCuts = [...cutPoints].sort((a, b) => a.time - b.time);
+    const clips: ClipData[] = [];
+    
+    // Primeiro clip (início até primeiro corte)
+    if (sortedCuts.length > 0 && sortedCuts[0].time > 0) {
+      clips.push({
+        id: `clip-0`,
+        name: `Clip 1`,
+        startTime: 0,
+        endTime: sortedCuts[0].time,
+        duration: sortedCuts[0].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    // Clips intermediários
+    for (let i = 0; i < sortedCuts.length - 1; i++) {
+      clips.push({
+        id: `clip-${i + 1}`,
+        name: `Clip ${i + 2}`,
+        startTime: sortedCuts[i].time,
+        endTime: sortedCuts[i + 1].time,
+        duration: sortedCuts[i + 1].time - sortedCuts[i].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    // Último clip (último corte até final)
+    if (sortedCuts.length > 0 && sortedCuts[sortedCuts.length - 1].time < duration) {
+      clips.push({
+        id: `clip-${sortedCuts.length}`,
+        name: `Clip ${sortedCuts.length + 1}`,
+        startTime: sortedCuts[sortedCuts.length - 1].time,
+        endTime: duration,
+        duration: duration - sortedCuts[sortedCuts.length - 1].time,
+        hasAudio: true,
+        hasVideo: true,
+        captions: []
+      });
+    }
+
+    const filteredClips = clips.filter(clip => clip.duration > 0.1); // Mínimo 0.1s
+    setAvailableClips(filteredClips);
+    console.log(`🎬 ${filteredClips.length} clips disponíveis:`, filteredClips.map(c => `${c.name} (${formatTime(c.duration)})`));
+  }, [cutPoints, duration]);
+
+  // ➕ FUNÇÃO para preview de um clip específico
+  const previewClip = useCallback((clipIndex: number) => {
+    if (clipIndex < 0 || clipIndex >= availableClips.length) return;
+    
+    const clip = availableClips[clipIndex];
+    console.log(`▶️ Preview do ${clip.name}: ${formatTime(clip.startTime)} - ${formatTime(clip.endTime)}`);
+    
+    if (onPreviewClip) {
+      onPreviewClip(clip.startTime, clip.endTime);
+    }
+    
+    // Mover playhead para início do clip
+    onSeek(clip.startTime);
+  }, [availableClips, onPreviewClip, onSeek]);
+
+  // ➕ FUNÇÃO para exportar um clip específico
+  const exportClip = useCallback((clipIndex: number) => {
+    if (clipIndex < 0 || clipIndex >= availableClips.length) return;
+    
+    const clip = availableClips[clipIndex];
+    console.log(`📤 Exportando ${clip.name}...`);
+    
+    if (onExportClip) {
+      onExportClip(clip);
+    }
+  }, [availableClips, onExportClip]);
+
   return (
-    <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: '300px' }}>
+    <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
       <div className="timeline-header bg-black/20 backdrop-blur-sm border-b border-white/10 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-6">
@@ -453,48 +643,23 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         
         {/* Controles de Reprodução */}
         <div className="flex items-center space-x-3">
-          {/* ➕ Informações de Histórico */}
-          {commandManager.getLastCommand() && (
-            <div className="command-history bg-gray-600/20 border border-gray-500/50 rounded-lg px-3 py-1 mr-3">
-              <div className="text-xs text-gray-200">
-                📚 Último: {commandManager.getLastCommand()?.description}
-              </div>
-              <div className="text-xs text-gray-400">
-                ↩️ {commandManager.canUndo() ? 'Ctrl+Z' : 'Sem undo'} | 
-                ↪️ {commandManager.canRedo() ? 'Ctrl+Y' : 'Sem redo'}
-              </div>
+          {/* ➕ Informações dos Clips */}
+          {availableClips.length > 0 && (
+            <div className="text-sm text-gray-300 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
+              📽️ {availableClips.length} clips prontos
             </div>
           )}
           
-          {/* ➕ Informações de Trim em tempo real */}
-          {isDragging && dragData && (
-            <div className="trim-info bg-blue-600/20 border border-blue-500/50 rounded-lg px-3 py-1 mr-3">
-              <div className="text-xs text-blue-200">
-                📐 {dragData.type === 'start' ? 'Início' : 'Final'}: {formatTime(
-                  dragData.type === 'start' 
-                    ? timelineLayers.find(l => l.id === dragData.layerId)?.start || 0
-                    : (timelineLayers.find(l => l.id === dragData.layerId)?.start || 0) + 
-                      (timelineLayers.find(l => l.id === dragData.layerId)?.duration || 0)
-                )}
-              </div>
-              <div className="text-xs text-blue-300">
-                ⏱️ Duração: {formatTime(timelineLayers.find(l => l.id === dragData.layerId)?.duration || 0)}
-              </div>
-            </div>
-          )}
+          <div className="progress-indicator bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
+            <span className="text-sm text-gray-300">
+              {cutPoints.length} cortes • {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
           
-          <div className="flex items-center space-x-2">
-            <div className="progress-indicator bg-white/5 rounded-full px-2 py-1 border border-white/20">
-              <span className="text-xs text-gray-300 font-mono">
-                {Math.round((currentTime / duration) * 100) || 0}%
-              </span>
-            </div>
-            
-            <div className="time-display bg-white/5 rounded-full px-3 py-1 border border-white/20">
-              <span className="text-xs text-white font-mono">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            </div>
+          <div className="time-display bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
+            <span className="text-sm text-gray-300 font-mono">
+              {Math.round((currentTime / duration) * 100) || 0}%
+            </span>
           </div>
         </div>
       </div>
@@ -502,162 +667,192 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       {/* Timeline Principal */}
       <div 
         ref={timelineRef}
-        className={`timeline-main flex-1 relative overflow-hidden ${razorToolActive ? 'cursor-crosshair' : 'cursor-pointer'}`}
+        className="timeline-main flex-1 cursor-crosshair"
         onClick={handleTimelineClick}
       >
         {/* Régua de Tempo */}
-        <div className="timeline-ruler h-10 bg-gradient-to-b from-black/40 to-black/20 border-b border-white/10 relative overflow-hidden">
+        <div className="timeline-ruler h-8 bg-black/40 border-b border-white/10 relative">
           {/* Marcadores de tempo */}
-          <div className="absolute inset-0 flex items-end pb-1" style={{ marginLeft: '128px' }}>
-            {Array.from({ length: Math.ceil(duration / 10) + 1 }, (_, i) => (
+          {Array.from({ length: Math.ceil(duration / 10) + 1 }, (_, i) => {
+            const time = i * 10;
+            const left = (time / duration) * 100;
+            return (
               <div
                 key={i}
-                className="time-marker absolute bottom-0"
-                style={{ left: `${(i * 10 / duration) * 100}%` }}
+                className="time-marker absolute"
+                style={{ left: `calc(128px + ${left}% - 1px)` }}
               >
-                <div className="w-px h-4 bg-white/30"></div>
-                <div className="text-xs text-gray-400 mt-1 -translate-x-1/2">
-                  {formatTime(i * 10)}
-                </div>
+                <div className="w-px h-4 bg-white/20"></div>
+                <span className="text-xs text-gray-400 mt-1">{formatTime(time)}</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
           
-          {/* Playhead */}
-          <div
-            className="playhead absolute top-0 w-0.5 h-full z-40 transition-all duration-75"
-            style={{ left: `${128 + (currentTime / duration) * (100 - 12.8)}%` }}
-          >
-            <div className="playhead-handle w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full -ml-1.5 -mt-1 border border-white shadow-lg shadow-red-500/50"></div>
-            <div className="playhead-line w-0.5 bg-gradient-to-b from-red-500 to-red-600 h-full shadow-lg"></div>
-          </div>
+          {/* ➕ Marcadores de Corte */}
+          {cutPoints.map((cut, index) => {
+            const left = (cut.time / duration) * 100;
+            return (
+              <div
+                key={cut.id}
+                className="cut-point absolute"
+                style={{ left: `calc(128px + ${left}% - 1px)` }}
+                title={`Corte ${index + 1}: ${formatTime(cut.time)}`}
+              />
+            );
+          })}
         </div>
 
-        {/* Tracks Container */}
-        <div className="tracks-container flex-1 overflow-y-auto bg-black/10" style={{ height: '220px' }}>
-          {tracks.map((track, index) => (
-            <div key={track.id} className="track flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
-              {/* Track Header */}
-              <div className="track-header w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full border ${
-                    track.id === 'video-track' ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400' :
-                    track.id === 'captions-track' ? 'bg-gradient-to-r from-green-500 to-green-600 border-green-400' :
-                    track.id === 'effects-track' ? 'bg-gradient-to-r from-purple-500 to-purple-600 border-purple-400' :
-                    'bg-gradient-to-r from-orange-500 to-orange-600 border-orange-400'
-                  }`}></div>
-                  <div>
-                    <div className="text-xs font-medium text-white">{track.label}</div>
-                    <div className="text-xs text-gray-400">
-                      {track.id === 'video-track' ? 'Principal' :
-                       track.id === 'captions-track' ? 'IA' :
-                       track.id === 'effects-track' ? 'Visual' : 'Wave'}
-                    </div>
-                  </div>
+        {/* Playhead */}
+        <div 
+          className="playhead absolute top-0 bottom-0 z-40"
+          style={{ left: `calc(128px + ${(currentTime / duration) * 100}% - 1px)` }}
+        >
+          <div className="playhead-handle w-4 h-4 rounded-full absolute -top-2 -left-2"></div>
+          <div className="playhead-line w-px h-full bg-red-500"></div>
+        </div>
+
+        {/* Container das Tracks */}
+        <div className="tracks-container overflow-y-auto">
+          {tracks.map((track) => (
+            <div 
+              key={track.id} 
+              className="track flex"
+              data-track-id={track.id}
+            >
+              <div className="track-header">
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="text-xs font-semibold text-white">{track.label}</div>
+                  <div className="text-xs text-gray-400 mt-1">{track.effects.length} items</div>
                 </div>
               </div>
               
-              {/* Track Content */}
-              <div className="track-content flex-1 relative h-12 mx-2">
-                {/* Renderizar effects/clips */}
-                {track.effects.map(effect => (
-                  <div
-                    key={effect.id}
-                    className={`timeline-effect absolute top-1 h-10 rounded-lg cursor-pointer border-2 transition-all duration-200 group-hover:shadow-lg ${
-                      selectedLayerId === effect.id ? 'border-opacity-100 shadow-lg' : 'border-opacity-50 hover:border-opacity-100'
-                    }`}
-                    style={{
-                      left: `${(effect.start / duration) * 100}%`,
-                      width: `${((effect.end - effect.start) / duration) * 100}%`,
-                      background: getTrackColor(track.id),
-                      backdropFilter: 'blur(4px)',
-                      borderColor: selectedLayerId === effect.id ? '#ffffff' : (
-                        track.id === 'video-track' ? '#3b82f6' :
-                        track.id === 'captions-track' ? '#10b981' :
-                        track.id === 'effects-track' ? '#a855f7' : '#f97316'
-                      )
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedLayerId(effect.id === selectedLayerId ? null : effect.id);
-                    }}
-                  >
-                    {/* ➕ TRIM HANDLE ESQUERDO */}
-                    <div
-                      className={`absolute left-0 top-0 w-2 h-full cursor-ew-resize transition-all duration-200 ${
-                        hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'start' 
-                          ? 'bg-blue-500 opacity-100' 
-                          : 'bg-blue-400 opacity-0 hover:opacity-80'
-                      } ${selectedLayerId === effect.id ? 'opacity-60' : ''}`}
-                      style={{
-                        borderRadius: '8px 0 0 8px',
-                        borderRight: '1px solid rgba(255,255,255,0.3)'
-                      }}
-                      onMouseDown={(e) => startTrimDrag(e, effect.id, 'start')}
-                      onMouseEnter={() => setHoveredHandle({ layerId: effect.id, type: 'start' })}
-                      onMouseLeave={() => setHoveredHandle(null)}
-                      title="Arrastar para ajustar início"
-                    >
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs">
-                        ⋮
-                      </div>
-                    </div>
-
-                    {/* CONTEÚDO DO CLIP */}
-                    <div className="flex items-center h-full px-2" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-sm">
-                          {track.id === 'video-track' ? '🎬' :
-                           track.id === 'captions-track' ? '💬' :
-                           track.id === 'effects-track' ? '✨' : '🎵'}
-                        </span>
-                        <div>
-                          <div className="text-xs font-medium text-white truncate">
-                            {effect.name}
-                          </div>
-                          <div className="text-xs text-gray-200">
-                            {formatTime(effect.end - effect.start)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ➕ TRIM HANDLE DIREITO */}
-                    <div
-                      className={`absolute right-0 top-0 w-2 h-full cursor-ew-resize transition-all duration-200 ${
-                        hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'end' 
-                          ? 'bg-blue-500 opacity-100' 
-                          : 'bg-blue-400 opacity-0 hover:opacity-80'
-                      } ${selectedLayerId === effect.id ? 'opacity-60' : ''}`}
-                      style={{
-                        borderRadius: '0 8px 8px 0',
-                        borderLeft: '1px solid rgba(255,255,255,0.3)'
-                      }}
-                      onMouseDown={(e) => startTrimDrag(e, effect.id, 'end')}
-                      onMouseEnter={() => setHoveredHandle({ layerId: effect.id, type: 'end' })}
-                      onMouseLeave={() => setHoveredHandle(null)}
-                      title="Arrastar para ajustar final"
-                    >
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs">
-                        ⋮
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Waveform para track de áudio */}
+              <div className="track-content flex-1 relative">
                 {track.id === 'audio-track' && (
                   <div 
                     ref={audioWaveformRef} 
-                    className="audio-waveform absolute top-1 h-10 w-full opacity-70 rounded"
-                    style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.4))' }}
+                    className="audio-waveform w-full h-full"
+                    style={{ 
+                      position: 'absolute', 
+                      top: '8px', 
+                      left: '8px', 
+                      right: '8px', 
+                      bottom: '8px',
+                      height: '44px'
+                    }}
                   />
                 )}
+                
+                {track.effects.map((effect) => {
+                  const left = (effect.start / duration) * 100;
+                  const width = ((effect.end - effect.start) / duration) * 100;
+                  const isSelected = selectedLayerId === effect.id;
+                  const isAudioTrack = track.id === 'audio-track';
+                  
+                  return (
+                    <div
+                      key={effect.id}
+                      className={`timeline-effect ${isSelected ? 'selected' : ''}`}
+                      style={{
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        backgroundColor: getTrackColor(track.id),
+                        zIndex: isAudioTrack ? 1 : 2
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedLayerId(effect.id);
+                      }}
+                      onMouseEnter={() => setHoveredHandle({ layerId: effect.id, type: 'start' })}
+                      onMouseLeave={() => setHoveredHandle(null)}
+                    >
+                      {/* ➕ TRIM HANDLES MELHORADOS */}
+                      <div
+                        className={`trim-handle left ${hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'start' ? 'active' : ''}`}
+                        onMouseDown={(e) => startTrimDrag(e, effect.id, 'start')}
+                        title={`Início: ${formatTime(effect.start)}`}
+                      >
+                        <div className="trim-handle-icon">⬅</div>
+                      </div>
+                      
+                      <div className="effect-content flex items-center justify-center h-full px-2">
+                        <div className="text-xs text-white truncate font-semibold">
+                          {effect.name}
+                        </div>
+                      </div>
+                      
+                      <div
+                        className={`trim-handle right ${hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'end' ? 'active' : ''}`}
+                        onMouseDown={(e) => startTrimDrag(e, effect.id, 'end')}
+                        title={`Final: ${formatTime(effect.end)}`}
+                      >
+                        <div className="trim-handle-icon">➡</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
         </div>
       </div>
+      
+      {/* ➕ PAINEL DE CLIPS DISPONÍVEIS */}
+      {availableClips.length > 0 && (
+        <div className="clips-panel mt-4 p-3 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+          <h3 className="text-sm font-bold text-white mb-2 flex items-center">
+            <span className="mr-2">🎬</span>
+            Clips Disponíveis ({availableClips.length})
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {availableClips.map((clip, index) => (
+              <div
+                key={clip.id}
+                className={`clip-item p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
+                  currentClipIndex === index 
+                    ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-500/20' 
+                    : hoveredClip === index
+                    ? 'bg-white/10 border-white/30'
+                    : 'bg-white/5 border-white/20 hover:border-white/40'
+                }`}
+                onMouseEnter={() => setHoveredClip(index)}
+                onMouseLeave={() => setHoveredClip(-1)}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-white">{clip.name}</span>
+                  <span className="text-xs text-gray-400">{formatTime(clip.duration)}</span>
+                </div>
+                
+                <div className="text-xs text-gray-300 mb-2">
+                  {formatTime(clip.startTime)} - {formatTime(clip.endTime)}
+                </div>
+                
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => previewClip(index)}
+                    className="flex-1 text-xs py-1 px-2 bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30"
+                    title={`Preview ${clip.name}`}
+                  >
+                    ▶️ Preview
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => exportClip(index)}
+                    className="flex-1 text-xs py-1 px-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30"
+                    title={`Exportar ${clip.name}`}
+                  >
+                    📤 Export
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
