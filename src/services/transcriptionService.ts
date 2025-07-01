@@ -116,7 +116,7 @@ class TranscriptionService {
 
   // Web Speech API simplificada (sem problemas de CSP)
   async transcribeWithWebSpeech(
-    videoFile: File,
+    _videoFile: File, // Não usado nesta implementação
     onProgress: (status: string) => void
   ): Promise<TranscriptionResult> {
     // Verificar contexto seguro (requisito W3C)
