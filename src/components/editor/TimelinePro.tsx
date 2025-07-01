@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '../ui/button';
 import './TimelinePro.css';
+import { commandManager, RazorCutCommand, TrimCommand } from '../../utils/commandManager';
 
 interface TimelineProProps {
   videoData?: any;
@@ -11,6 +12,27 @@ interface TimelineProProps {
   onCut: (cutTime: number) => void;
   razorToolActive: boolean;
   setRazorToolActive: (active: boolean) => void;
+  timelineLayers: TimelineLayer[];
+  setTimelineLayers: (layers: TimelineLayer[]) => void;
+  cutPoints: CutPoint[];
+  setCutPoints: (points: CutPoint[]) => void;
+}
+
+interface TimelineLayer {
+  id: string;
+  type: 'video' | 'audio' | 'text' | 'effect';
+  name: string;
+  start: number;
+  duration: number;
+  data: any;
+  color: string;
+  locked: boolean;
+}
+
+interface CutPoint {
+  id: string;
+  time: number;
+  type: 'cut' | 'split';
 }
 
 interface TrackEffect {
@@ -34,35 +56,74 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   onSeek,
   onCut,
   razorToolActive,
-  setRazorToolActive
+  setRazorToolActive,
+  timelineLayers,
+  setTimelineLayers,
+  cutPoints,
+  setCutPoints
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const audioWaveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
 
-  // Estado das tracks
-  const [tracks, setTracks] = useState<Track[]>([
+  // ➕ ESTADOS para Trim Handles
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragData, setDragData] = useState<{
+    layerId: string;
+    type: 'start' | 'end';
+    originalValue: number;
+    startX: number;
+  } | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<{
+    layerId: string;
+    type: 'start' | 'end';
+  } | null>(null);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+
+  // ➕ TRACKS baseadas nos timelineLayers recebidos
+  const tracks = useMemo(() => [
     {
       id: 'video-track',
       label: '🎬 Video',
-      effects: []
+      effects: timelineLayers.filter(layer => layer.type === 'video').map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        start: layer.start,
+        end: layer.start + layer.duration,
+        source: layer.data
+      }))
     },
     {
       id: 'captions-track',
       label: '💬 Captions',
-      effects: []
+      effects: timelineLayers.filter(layer => layer.type === 'text').map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        start: layer.start,
+        end: layer.start + layer.duration
+      }))
     },
     {
       id: 'effects-track',
       label: '✨ Effects',
-      effects: []
+      effects: timelineLayers.filter(layer => layer.type === 'effect').map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        start: layer.start,
+        end: layer.start + layer.duration
+      }))
     },
     {
       id: 'audio-track',
       label: '🎵 Audio',
-      effects: []
+      effects: timelineLayers.filter(layer => layer.type === 'audio').map(layer => ({
+        id: layer.id,
+        name: layer.name,
+        start: layer.start,
+        end: layer.start + layer.duration
+      }))
     }
-  ]);
+  ], [timelineLayers]);
 
   // Configurar WaveSurfer para waveform de áudio
   useEffect(() => {
@@ -97,92 +158,180 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     };
   }, [videoData]);
 
-  // Atualizar tracks quando videoData mudar
-  useEffect(() => {
-    if (videoData && duration) {
-      setTracks(prev => prev.map(track => {
-        if (track.id === 'video-track') {
-          return {
-            ...track,
-            effects: [{
-              id: 'main-video',
-              name: videoData.name || 'video.mp4',
-              start: 0,
-              end: duration,
-              source: videoData
-            }]
-          };
-        }
-        if (track.id === 'audio-track') {
-          return {
-            ...track,
-            effects: [{
-              id: 'main-audio',
-              name: 'Audio',
-              start: 0,
-              end: duration
-            }]
-          };
-        }
-        return track;
-      }));
-    }
-  }, [videoData, duration]);
-
-  // Atualizar track de legendas quando legendas são geradas
-  useEffect(() => {
-    // Simular legendas para demonstração
-    if (videoData && duration) {
-      const captionSegments = Array.from({ length: 8 }, (_, i) => ({
-        id: `caption-${i}`,
-        name: `L${i + 1}`,
-        start: (i * duration) / 8,
-        end: ((i + 1) * duration) / 8
-      }));
-
-      setTracks(prev => prev.map(track => 
-        track.id === 'captions-track' 
-          ? { ...track, effects: captionSegments }
-          : track
-      ));
-    }
-  }, [videoData, duration]);
-
-  // Função para cortar vídeo
+  // ✂️ FUNÇÃO DE CORTE CORRIGIDA - trabalha com timelineLayers
   const handleCut = useCallback((time: number) => {
-    const videoTrack = tracks.find(t => t.id === 'video-track');
-    if (!videoTrack || videoTrack.effects.length === 0) return;
+    console.log(`✂️ TimelinePro: Executando corte no tempo ${formatTime(time)}`);
+    
+    // Encontrar layers que podem ser cortados no tempo especificado
+    const affectedLayers = timelineLayers.filter(layer => 
+      time > layer.start && time < (layer.start + layer.duration) && !layer.locked
+    );
 
-    const mainVideo = videoTrack.effects[0];
-
-    if (time > mainVideo.start && time < mainVideo.end) {
-      // Dividir o clipe em dois
-      const newClips: TrackEffect[] = [
-        {
-          ...mainVideo,
-          id: `${mainVideo.id}-part1`,
-          name: `${mainVideo.name} (1/2)`,
-          end: time
-        },
-        {
-          ...mainVideo,
-          id: `${mainVideo.id}-part2`,
-          name: `${mainVideo.name} (2/2)`,
-          start: time
-        }
-      ];
-
-      setTracks(prev => prev.map(track => 
-        track.id === 'video-track' 
-          ? { ...track, effects: newClips }
-          : track
-      ));
-
-      // Callback para processar o corte
-      onCut(time);
-      setRazorToolActive(false);
+    if (affectedLayers.length === 0) {
+      console.log('❌ Nenhum layer encontrado para corte no tempo:', formatTime(time));
+      return;
     }
-  }, [tracks, onCut, setRazorToolActive]);
+
+    // ✅ USAR COMANDO para undo/redo
+    const razorCommand = new RazorCutCommand(
+      time,
+      timelineLayers,
+      cutPoints,
+      setTimelineLayers,
+      setCutPoints
+    );
+
+    try {
+      commandManager.executeCommand(razorCommand);
+      
+      // Callback para o componente pai
+      onCut(time);
+      
+      // Auto-desativar razor
+      setTimeout(() => {
+        setRazorToolActive(false);
+        console.log('🔄 Razor tool desativado automaticamente');
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Erro ao executar comando de corte:', error);
+      alert('❌ Não foi possível realizar o corte. Tente novamente.');
+    }
+  }, [timelineLayers, setTimelineLayers, cutPoints, setCutPoints, onCut, setRazorToolActive]);
+
+  // 🎯 FUNÇÕES TRIM HANDLES
+  const startTrimDrag = useCallback((e: React.MouseEvent, layerId: string, type: 'start' | 'end') => {
+    e.stopPropagation();
+    console.log(`🎯 Iniciando trim ${type} no layer ${layerId}`);
+    
+    const layer = timelineLayers.find(l => l.id === layerId);
+    if (!layer || layer.locked) {
+      console.log('❌ Layer bloqueado ou não encontrado');
+      return;
+    }
+
+    const originalValue = type === 'start' ? layer.start : layer.start + layer.duration;
+    
+    setDragData({
+      layerId,
+      type,
+      originalValue,
+      startX: e.clientX
+    });
+    setIsDragging(true);
+    setSelectedLayerId(layerId);
+
+    console.log(`📍 Trim iniciado: ${type}=${formatTime(originalValue)}`);
+  }, [timelineLayers]);
+
+  const processTrimDrag = useCallback((e: MouseEvent) => {
+    if (!isDragging || !dragData || !timelineRef.current) return;
+
+    const deltaX = e.clientX - dragData.startX;
+    const timelineWidth = timelineRef.current.clientWidth - 128;
+    const deltaTime = (deltaX / timelineWidth) * duration;
+    
+    const layer = timelineLayers.find(l => l.id === dragData.layerId);
+    if (!layer) return;
+
+    let newValue = dragData.originalValue + deltaTime;
+    
+    // 🎯 VALIDAÇÕES de trim
+    if (dragData.type === 'start') {
+      // Não pode passar do final do clip
+      newValue = Math.max(0, Math.min(newValue, layer.start + layer.duration - 0.1));
+    } else {
+      // Não pode ir antes do início do clip
+      newValue = Math.max(layer.start + 0.1, Math.min(newValue, duration));
+    }
+
+    // Aplicar mudança temporária (preview)
+    const updatedLayers = timelineLayers.map(l => {
+      if (l.id === dragData.layerId) {
+        if (dragData.type === 'start') {
+          const newDuration = (l.start + l.duration) - newValue;
+          return { ...l, start: newValue, duration: newDuration };
+        } else {
+          const newDuration = newValue - l.start;
+          return { ...l, duration: newDuration };
+        }
+      }
+      return l;
+    });
+
+    setTimelineLayers(updatedLayers);
+  }, [isDragging, dragData, timelineLayers, duration, setTimelineLayers]);
+
+  const finishTrimDrag = useCallback(() => {
+    if (!isDragging || !dragData) return;
+
+    console.log(`✅ Trim finalizado: ${dragData.type} no layer ${dragData.layerId}`);
+    
+    const currentLayer = timelineLayers.find(l => l.id === dragData.layerId);
+    if (!currentLayer) return;
+
+    const currentValue = dragData.type === 'start' 
+      ? currentLayer.start 
+      : currentLayer.start + currentLayer.duration;
+
+    // ✅ USAR COMANDO para undo/redo (apenas se houve mudança significativa)
+    if (Math.abs(currentValue - dragData.originalValue) > 0.05) { // Margem de 50ms
+      const trimCommand = new TrimCommand(
+        dragData.layerId,
+        dragData.type,
+        dragData.originalValue,
+        currentValue,
+        timelineLayers,
+        setTimelineLayers
+      );
+
+      try {
+        // Aplicar comando (já foi aplicado visualmente, agora formalizar)
+        commandManager.executeCommand(trimCommand);
+        console.log(`📐 Comando trim criado: ${trimCommand.description}`);
+      } catch (error) {
+        console.error('❌ Erro ao criar comando de trim:', error);
+        // Reverter para valor original em caso de erro
+        const revertedLayers = timelineLayers.map(l => {
+          if (l.id === dragData.layerId) {
+            if (dragData.type === 'start') {
+              const originalDuration = (l.start + l.duration) - dragData.originalValue;
+              return { ...l, start: dragData.originalValue, duration: originalDuration };
+            } else {
+              const originalDuration = dragData.originalValue - l.start;
+              return { ...l, duration: originalDuration };
+            }
+          }
+          return l;
+        });
+        setTimelineLayers(revertedLayers);
+      }
+    }
+    
+    setIsDragging(false);
+    setDragData(null);
+    
+    // Feedback de sucesso
+    if (currentLayer) {
+      console.log(`📐 Novo tamanho: ${formatTime(currentLayer.duration)} | Início: ${formatTime(currentLayer.start)}`);
+    }
+  }, [isDragging, dragData, timelineLayers, setTimelineLayers]);
+
+  // 🎯 EVENT LISTENERS para mouse events
+  useEffect(() => {
+    if (isDragging) {
+      const handleMouseMove = (e: MouseEvent) => processTrimDrag(e);
+      const handleMouseUp = () => finishTrimDrag();
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, processTrimDrag, finishTrimDrag]);
 
   // Função para formatar tempo
   const formatTime = (seconds: number): string => {
@@ -219,17 +368,56 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   };
 
   return (
-    <div className="timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl" style={{ height: '300px' }}>
+    <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: '300px' }}>
       {/* Header da Timeline */}
       <div className="timeline-header bg-black/20 backdrop-blur-sm border-b border-white/10 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-6">
           <h2 className="text-lg font-bold text-white flex items-center">
             <span className="mr-2">⚡</span>
             Timeline Pro
+            {/* ➕ Indicador de Trim ativo */}
+            {isDragging && (
+              <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded-full animate-pulse">
+                ✂️ Trimming
+              </span>
+            )}
           </h2>
           
           {/* Ferramentas */}
           <div className="flex items-center space-x-3">
+            {/* ➕ BOTÕES UNDO/REDO */}
+            <div className="flex items-center space-x-1 border border-white/20 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                onClick={() => commandManager.undo()}
+                disabled={!commandManager.canUndo()}
+                className={`tool-btn px-2 py-1 text-xs transition-all duration-300 ${
+                  commandManager.canUndo() 
+                    ? 'bg-white/5 hover:bg-green-600/20 text-gray-300 hover:text-green-300 border-0 hover:border-green-500/50' 
+                    : 'bg-white/2 text-gray-600 border-0 cursor-not-allowed'
+                }`}
+                title={`Desfazer ${commandManager.getLastCommand()?.description || ''} (Ctrl+Z)`}
+              >
+                <span className="mr-1">↩️</span>
+                Undo
+              </Button>
+              
+              <Button
+                variant="ghost"
+                onClick={() => commandManager.redo()}
+                disabled={!commandManager.canRedo()}
+                className={`tool-btn px-2 py-1 text-xs transition-all duration-300 ${
+                  commandManager.canRedo() 
+                    ? 'bg-white/5 hover:bg-blue-600/20 text-gray-300 hover:text-blue-300 border-0 hover:border-blue-500/50' 
+                    : 'bg-white/2 text-gray-600 border-0 cursor-not-allowed'
+                }`}
+                title="Refazer (Ctrl+Y)"
+              >
+                <span className="mr-1">↪️</span>
+                Redo
+              </Button>
+            </div>
+            
             <Button
               variant={razorToolActive ? "default" : "ghost"}
               onClick={() => setRazorToolActive(!razorToolActive)}
@@ -265,6 +453,36 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         
         {/* Controles de Reprodução */}
         <div className="flex items-center space-x-3">
+          {/* ➕ Informações de Histórico */}
+          {commandManager.getLastCommand() && (
+            <div className="command-history bg-gray-600/20 border border-gray-500/50 rounded-lg px-3 py-1 mr-3">
+              <div className="text-xs text-gray-200">
+                📚 Último: {commandManager.getLastCommand()?.description}
+              </div>
+              <div className="text-xs text-gray-400">
+                ↩️ {commandManager.canUndo() ? 'Ctrl+Z' : 'Sem undo'} | 
+                ↪️ {commandManager.canRedo() ? 'Ctrl+Y' : 'Sem redo'}
+              </div>
+            </div>
+          )}
+          
+          {/* ➕ Informações de Trim em tempo real */}
+          {isDragging && dragData && (
+            <div className="trim-info bg-blue-600/20 border border-blue-500/50 rounded-lg px-3 py-1 mr-3">
+              <div className="text-xs text-blue-200">
+                📐 {dragData.type === 'start' ? 'Início' : 'Final'}: {formatTime(
+                  dragData.type === 'start' 
+                    ? timelineLayers.find(l => l.id === dragData.layerId)?.start || 0
+                    : (timelineLayers.find(l => l.id === dragData.layerId)?.start || 0) + 
+                      (timelineLayers.find(l => l.id === dragData.layerId)?.duration || 0)
+                )}
+              </div>
+              <div className="text-xs text-blue-300">
+                ⏱️ Duração: {formatTime(timelineLayers.find(l => l.id === dragData.layerId)?.duration || 0)}
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center space-x-2">
             <div className="progress-indicator bg-white/5 rounded-full px-2 py-1 border border-white/20">
               <span className="text-xs text-gray-300 font-mono">
@@ -345,18 +563,48 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 {track.effects.map(effect => (
                   <div
                     key={effect.id}
-                    className="timeline-effect absolute top-1 h-10 rounded-lg cursor-pointer border-2 border-opacity-50 hover:border-opacity-100 transition-all duration-200 group-hover:shadow-lg"
+                    className={`timeline-effect absolute top-1 h-10 rounded-lg cursor-pointer border-2 transition-all duration-200 group-hover:shadow-lg ${
+                      selectedLayerId === effect.id ? 'border-opacity-100 shadow-lg' : 'border-opacity-50 hover:border-opacity-100'
+                    }`}
                     style={{
                       left: `${(effect.start / duration) * 100}%`,
                       width: `${((effect.end - effect.start) / duration) * 100}%`,
                       background: getTrackColor(track.id),
                       backdropFilter: 'blur(4px)',
-                      borderColor: track.id === 'video-track' ? '#3b82f6' :
-                                   track.id === 'captions-track' ? '#10b981' :
-                                   track.id === 'effects-track' ? '#a855f7' : '#f97316'
+                      borderColor: selectedLayerId === effect.id ? '#ffffff' : (
+                        track.id === 'video-track' ? '#3b82f6' :
+                        track.id === 'captions-track' ? '#10b981' :
+                        track.id === 'effects-track' ? '#a855f7' : '#f97316'
+                      )
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedLayerId(effect.id === selectedLayerId ? null : effect.id);
                     }}
                   >
-                    <div className="flex items-center h-full px-2">
+                    {/* ➕ TRIM HANDLE ESQUERDO */}
+                    <div
+                      className={`absolute left-0 top-0 w-2 h-full cursor-ew-resize transition-all duration-200 ${
+                        hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'start' 
+                          ? 'bg-blue-500 opacity-100' 
+                          : 'bg-blue-400 opacity-0 hover:opacity-80'
+                      } ${selectedLayerId === effect.id ? 'opacity-60' : ''}`}
+                      style={{
+                        borderRadius: '8px 0 0 8px',
+                        borderRight: '1px solid rgba(255,255,255,0.3)'
+                      }}
+                      onMouseDown={(e) => startTrimDrag(e, effect.id, 'start')}
+                      onMouseEnter={() => setHoveredHandle({ layerId: effect.id, type: 'start' })}
+                      onMouseLeave={() => setHoveredHandle(null)}
+                      title="Arrastar para ajustar início"
+                    >
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs">
+                        ⋮
+                      </div>
+                    </div>
+
+                    {/* CONTEÚDO DO CLIP */}
+                    <div className="flex items-center h-full px-2" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
                       <div className="flex items-center space-x-1">
                         <span className="text-sm">
                           {track.id === 'video-track' ? '🎬' :
@@ -371,6 +619,27 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                             {formatTime(effect.end - effect.start)}
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* ➕ TRIM HANDLE DIREITO */}
+                    <div
+                      className={`absolute right-0 top-0 w-2 h-full cursor-ew-resize transition-all duration-200 ${
+                        hoveredHandle?.layerId === effect.id && hoveredHandle?.type === 'end' 
+                          ? 'bg-blue-500 opacity-100' 
+                          : 'bg-blue-400 opacity-0 hover:opacity-80'
+                      } ${selectedLayerId === effect.id ? 'opacity-60' : ''}`}
+                      style={{
+                        borderRadius: '0 8px 8px 0',
+                        borderLeft: '1px solid rgba(255,255,255,0.3)'
+                      }}
+                      onMouseDown={(e) => startTrimDrag(e, effect.id, 'end')}
+                      onMouseEnter={() => setHoveredHandle({ layerId: effect.id, type: 'end' })}
+                      onMouseLeave={() => setHoveredHandle(null)}
+                      title="Arrastar para ajustar final"
+                    >
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs">
+                        ⋮
                       </div>
                     </div>
                   </div>

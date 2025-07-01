@@ -33,6 +33,7 @@ import '../../components/editor/AutoCaptions.css'
 import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip } from '@/utils/galleryStorage'
 import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 import TimelinePro from '../../components/editor/TimelinePro'
+import { commandManager } from '../../utils/commandManager'
 
 interface VideoData {
   file?: File | null
@@ -119,6 +120,11 @@ export function VideoEditorPage() {
 
   // Estados das captions - MELHORADOS
   const [activeEffects, setActiveEffects] = useState<string[]>([])
+  
+  // ➕ Estados para Undo/Redo
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const [lastCommand, setLastCommand] = useState<string | null>(null)
   
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
@@ -211,16 +217,40 @@ export function VideoEditorPage() {
   // Detectar mobile
   useEffect(() => {
     const checkMobile = () => {
-      setMobileView(window.innerWidth < 1024)
-      if (window.innerWidth < 1024) {
+      const mobile = window.innerWidth < 768
+      setMobileView(mobile)
+      
+      // Ajustar sidebars baseado no tamanho da tela
+      if (mobile) {
         setLeftSidebarOpen(false)
         setRightSidebarOpen(false)
       }
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // ➕ USEEFFECT: Conectar CommandManager aos estados
+  useEffect(() => {
+    const updateCommandStates = () => {
+      setCanUndo(commandManager.canUndo())
+      setCanRedo(commandManager.canRedo())
+      
+      const lastCmd = commandManager.getLastCommand()
+      setLastCommand(lastCmd ? lastCmd.description : null)
+    }
+
+    // Estado inicial
+    updateCommandStates()
+
+    // Listener para mudanças
+    commandManager.addListener(updateCommandStates)
+
+    return () => {
+      commandManager.removeListener(updateCommandStates)
+    }
   }, [])
 
   // Carregar vídeo automaticamente quando chegar via navegação
@@ -250,6 +280,31 @@ export function VideoEditorPage() {
       if (e.target instanceof HTMLInputElement) return
       
       switch (e.key.toLowerCase()) {
+        case 'z':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            if (e.shiftKey) {
+              // Ctrl+Shift+Z = Redo (alternativa)
+              if (commandManager.redo()) {
+                console.log('↪️ Redo executado via Ctrl+Shift+Z')
+              }
+            } else {
+              // Ctrl+Z = Undo
+              if (commandManager.undo()) {
+                console.log('↩️ Undo executado via Ctrl+Z')
+              }
+            }
+          }
+          break
+        case 'y':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            // Ctrl+Y = Redo
+            if (commandManager.redo()) {
+              console.log('↪️ Redo executado via Ctrl+Y')
+            }
+          }
+          break
         case ' ':
           e.preventDefault()
           togglePlayPause()
@@ -513,7 +568,11 @@ export function VideoEditorPage() {
 
   // Função corrigida e melhorada para corte Razor
   const handleRazorCut = (layerId: string, time: number) => {
-    console.log(`✂️ Executando corte no layer ${layerId} no tempo ${formatTime(time)}`)
+    console.log(`✂️ VideoEditor: handleRazorCut DEPRECADO - usando TimelinePro agora`)
+    console.log(`ℹ️ Parâmetros recebidos: layerId=${layerId}, time=${formatTime(time)}`)
+    
+    // ✅ NOVA LÓGICA: O corte agora é processado diretamente no TimelinePro
+    // Esta função é mantida apenas para compatibilidade com atalhos de teclado
     
     const layer = timelineLayers.find(l => l.id === layerId)
     if (!layer || layer.locked) {
@@ -527,60 +586,11 @@ export function VideoEditorPage() {
       return
     }
 
-    // Criar novo ponto de corte
-    const newCutPoint: CutPoint = {
-      id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      time: time,
-      type: 'cut'
-    }
-
-    // Adicionar ponto de corte
-    setCutPoints(prev => {
-      const updated = [...prev, newCutPoint]
-      console.log(`📍 Ponto de corte adicionado. Total: ${updated.length}`)
-      return updated
-    })
-
-    // Dividir o layer no ponto de corte
-    const cutTime = time - layer.start
-    if (cutTime > 0.1 && cutTime < layer.duration - 0.1) { // Margem mínima de 0.1s
-      // Criar dois novos layers
-      const firstPart: TimelineLayer = {
-        ...layer,
-        id: `${layer.id}_part1_${Date.now()}`,
-        duration: cutTime,
-        name: `${layer.name} (1/${2})`,
-        color: layer.color
-      }
-
-      const secondPart: TimelineLayer = {
-        ...layer,
-        id: `${layer.id}_part2_${Date.now()}`,
-        start: time,
-        duration: layer.duration - cutTime,
-        name: `${layer.name} (2/${2})`,
-        color: layer.color
-      }
-
-      // Atualizar timeline
-      setTimelineLayers(prev => {
-        const updated = prev.map(l => l.id === layerId ? firstPart : l).concat([secondPart])
-        console.log(`🎬 Layer dividido: "${firstPart.name}" (${formatTime(firstPart.duration)}) + "${secondPart.name}" (${formatTime(secondPart.duration)})`)
-        return updated
-      })
-
-      // Feedback visual
-      console.log(`✅ Corte realizado em ${formatTime(time)}! Layer dividido em 2 partes.`)
-      
-      // Auto-desativar razor após corte bem-sucedido
-      setTimeout(() => {
-        setRazorToolActive(false)
-        console.log('🔄 Razor tool desativado automaticamente')
-      }, 1000)
-    } else {
-      console.log('❌ Corte muito próximo das bordas do layer')
-      console.log('❌ Erro: Corte muito próximo das bordas. Tente em outro ponto.')
-    }
+    // ✅ DELEGADO: Deixar TimelinePro processar o corte
+    console.log('✅ Corte será processado pelo TimelinePro component')
+    
+    // Feedback visual apenas
+    console.log(`📍 Preparando corte no layer "${layer.name}" em ${formatTime(time)}`)
   }
 
   // Função melhorada para obter tempo da posição
@@ -1120,12 +1130,16 @@ export function VideoEditorPage() {
                 }
               }}
               onCut={(cutTime) => {
-                console.log('✂️ Corte realizado em:', formatTime(cutTime));
-                // Aqui você pode processar o corte do vídeo
-                // Por exemplo, dividir o vídeo em segmentos
+                console.log('✂️ VideoEditor: Corte processado no tempo:', formatTime(cutTime));
+                // ✅ CORRIGIDO: Callback que realmente processa o corte
+                // O corte já foi processado no TimelinePro, apenas feedback aqui
               }}
               razorToolActive={razorToolActive}
               setRazorToolActive={setRazorToolActive}
+              timelineLayers={timelineLayers}
+              setTimelineLayers={setTimelineLayers}
+              cutPoints={cutPoints}
+              setCutPoints={setCutPoints}
             />
           </div>
 

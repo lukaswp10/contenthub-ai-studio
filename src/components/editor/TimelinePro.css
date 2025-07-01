@@ -267,4 +267,273 @@
   50% {
     opacity: 1;
   }
+}
+
+/* 🎯 TRIM HANDLES - Estilos profissionais */
+.timeline-effect {
+  position: relative;
+  overflow: visible; /* Permitir handles fora do clip */
+}
+
+.timeline-effect:hover .trim-handle {
+  opacity: 0.8 !important;
+}
+
+.timeline-effect.selected .trim-handle {
+  opacity: 1 !important;
+}
+
+.trim-handle {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  cursor: ew-resize;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trim-handle:hover {
+  opacity: 1 !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+  transform: scaleX(1.2);
+}
+
+.trim-handle.dragging {
+  opacity: 1 !important;
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+  transform: scaleX(1.5);
+}
+
+.trim-handle.left {
+  left: -4px;
+  border-radius: 4px 0 0 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.trim-handle.right {
+  right: -4px;
+  border-radius: 0 4px 4px 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.trim-handle-icon {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* 🎯 Estados de seleção */
+.timeline-effect.selected {
+  border-color: #ffffff !important;
+  border-width: 2px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+  z-index: 15;
+}
+
+.timeline-effect.selected::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* 🎯 Feedback durante drag */
+.timeline-container.dragging {
+  cursor: ew-resize !important;
+  user-select: none;
+}
+
+.timeline-container.dragging * {
+  cursor: ew-resize !important;
+  pointer-events: none;
+}
+
+.timeline-container.dragging .trim-handle.active {
+  pointer-events: all;
+}
+
+/* 🎯 Preview de trim */
+.trim-preview-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, #10b981, #059669);
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0.8;
+  animation: trim-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes trim-pulse {
+  0% {
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+  }
+}
+
+/* 🎯 Tooltip melhorado */
+.trim-handle[title] {
+  position: relative;
+}
+
+.trim-handle[title]:hover::before {
+  content: attr(title);
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 100;
+  animation: tooltip-fade 0.2s ease-in;
+}
+
+@keyframes tooltip-fade {
+  from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* 🎯 Responsividade para trim handles */
+@media (max-width: 768px) {
+  .trim-handle {
+    width: 12px;
+  }
+  
+  .trim-handle.left {
+    left: -6px;
+  }
+  
+  .trim-handle.right {
+    right: -6px;
+  }
+}
+
+/* 🔄 UNDO/REDO - Estilos profissionais */
+.command-history {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.command-history:hover {
+  background: rgba(107, 114, 128, 0.3);
+  border-color: rgba(107, 114, 128, 0.7);
+}
+
+/* Botões undo/redo agrupados */
+.undo-redo-group {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.undo-redo-group .tool-btn {
+  margin: 0;
+  border-radius: 6px;
+}
+
+.undo-redo-group .tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.undo-redo-group .tool-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Estados específicos dos botões */
+.undo-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.3));
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+}
+
+.redo-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.3));
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #60a5fa;
+}
+
+/* Animação de feedback para comandos */
+.command-executed {
+  animation: command-feedback 0.4s ease-out;
+}
+
+@keyframes command-feedback {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+}
+
+.command-undone {
+  animation: undo-feedback 0.4s ease-out;
+}
+
+@keyframes undo-feedback {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* Responsividade para undo/redo */
+@media (max-width: 768px) {
+  .command-history {
+    min-width: 150px;
+    font-size: 10px;
+  }
+  
+  .undo-redo-group .tool-btn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  
+  .undo-redo-group .tool-btn span {
+    margin-right: 2px;
+  }
 } 
