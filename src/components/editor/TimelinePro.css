@@ -1,0 +1,270 @@
+/* Timeline Pro - Estilos Profissionais */
+
+.timeline-pro-container {
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Header da Timeline */
+.timeline-header {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.tool-btn {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.progress-indicator,
+.time-display {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Timeline Principal */
+.timeline-main {
+  position: relative;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.05));
+}
+
+/* Régua de Tempo */
+.timeline-ruler {
+  position: relative;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.2));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.time-marker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.time-marker div:first-child {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+}
+
+/* Playhead */
+.playhead {
+  position: absolute;
+  z-index: 40;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+
+.playhead-handle {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.playhead-line {
+  background: linear-gradient(to bottom, #ef4444, #dc2626);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+  }
+}
+
+/* Tracks Container */
+.tracks-container {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.05));
+}
+
+.track {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.track:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
+
+.track-header {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.2));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.track-content {
+  position: relative;
+  padding: 0 8px;
+}
+
+/* Timeline Effects */
+.timeline-effect {
+  position: absolute;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.timeline-effect:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-effect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.timeline-effect:hover::before {
+  opacity: 1;
+}
+
+/* Waveform */
+.audio-waveform {
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  position: relative;
+  overflow: hidden;
+}
+
+.audio-waveform::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: wave-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes wave-shimmer {
+  0%, 100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .timeline-header {
+    padding: 12px 16px;
+  }
+  
+  .timeline-header h2 {
+    font-size: 16px;
+  }
+  
+  .tool-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .track-header {
+    width: 100px;
+    padding: 0 8px;
+  }
+  
+  .track-header div div {
+    font-size: 10px;
+  }
+  
+  .timeline-effect {
+    min-width: 20px;
+  }
+  
+  .timeline-effect div div {
+    font-size: 10px;
+  }
+}
+
+/* Animações Suaves */
+* {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar Customizada */
+.tracks-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tracks-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.tracks-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  border-radius: 3px;
+}
+
+.tracks-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+}
+
+/* Estados de Foco */
+.timeline-main:focus-within .playhead-handle {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+}
+
+/* Cursor States */
+.cursor-crosshair {
+  cursor: crosshair !important;
+}
+
+.cursor-crosshair * {
+  cursor: crosshair !important;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Glassmorphism Effects */
+.timeline-pro-container {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Loading States */
+.timeline-effect[data-loading="true"] {
+  opacity: 0.7;
+  animation: pulse-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-loading {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+} 

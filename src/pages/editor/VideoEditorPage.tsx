@@ -32,6 +32,7 @@ import './VideoEditorStyles.css'
 import '../../components/editor/AutoCaptions.css'
 import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip } from '@/utils/galleryStorage'
 import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
+import TimelinePro from '../../components/editor/TimelinePro'
 
 interface VideoData {
   file?: File | null
@@ -1107,236 +1108,25 @@ export function VideoEditorPage() {
               </div>
             </div>
 
-            {/* TIMELINE VISIONÁRIA - Embaixo do Vídeo */}
-            <div className="timeline-visionario bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl" style={{ height: '300px' }}>
-              {/* Header da Timeline */}
-              <div className="timeline-header-visionario bg-black/20 backdrop-blur-sm border-b border-white/10 px-6 py-3 flex items-center justify-between">
-                <div className="flex items-center space-x-6">
-                  <h2 className="text-lg font-bold text-white flex items-center">
-                    <span className="mr-2">⚡</span>
-                    Timeline Pro
-                  </h2>
-                  
-                  {/* Ferramentas */}
-                  <div className="flex items-center space-x-3">
-                    <Button
-                      variant={razorToolActive ? "default" : "ghost"}
-                      onClick={() => setRazorToolActive(!razorToolActive)}
-                      className={`tool-btn-visionario ${razorToolActive 
-                        ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20' 
-                        : 'bg-white/5 hover:bg-red-600/20 text-gray-300 hover:text-red-300 border border-white/20 hover:border-red-500/50'
-                      } px-3 py-2 rounded-lg transition-all duration-300 text-sm`}
-                      title="Ferramenta Razor (C)"
-                    >
-                      <span className="mr-1">✂️</span>
-                      Razor
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      className="tool-btn-visionario bg-white/5 hover:bg-blue-600/20 text-gray-300 hover:text-blue-300 border border-white/20 hover:border-blue-500/50 px-3 py-2 rounded-lg transition-all duration-300 text-sm"
-                      title="Zoom Fit"
-                    >
-                      <span className="mr-1">🎯</span>
-                      Fit
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      className="tool-btn-visionario bg-white/5 hover:bg-purple-600/20 text-gray-300 hover:text-purple-300 border border-white/20 hover:border-purple-500/50 px-3 py-2 rounded-lg transition-all duration-300 text-sm"
-                      title="Configurações"
-                    >
-                      <span className="mr-1">⚙️</span>
-                      Config
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Controles de Reprodução */}
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="progress-indicator-visionario bg-white/5 rounded-full px-2 py-1 border border-white/20">
-                      <span className="text-xs text-gray-300 font-mono">
-                        {Math.round((currentTime / duration) * 100) || 0}%
-                      </span>
-                    </div>
-                    
-                    <div className="time-display-visionario bg-white/5 rounded-full px-3 py-1 border border-white/20">
-                      <span className="text-xs text-white font-mono">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeline Principal */}
-              <div className="timeline-main-visionario flex-1 relative overflow-hidden">
-                {/* Régua de Tempo */}
-                <div className="timeline-ruler-visionario h-10 bg-gradient-to-b from-black/40 to-black/20 border-b border-white/10 relative overflow-hidden">
-                  {/* Marcadores de tempo */}
-                  <div className="absolute inset-0 flex items-end pb-1">
-                    {Array.from({ length: Math.ceil(duration / 10) + 1 }, (_, i) => (
-                      <div
-                        key={i}
-                        className="time-marker-visionario absolute bottom-0"
-                        style={{ left: `${(i * 10 / duration) * 100}%` }}
-                      >
-                        <div className="w-px h-4 bg-white/30"></div>
-                        <div className="text-xs text-gray-400 mt-1 -translate-x-1/2">
-                          {formatTime(i * 10)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Playhead */}
-                  <div
-                    className="playhead-visionario absolute top-0 w-0.5 h-full z-40 transition-all duration-75"
-                    style={{ left: `${(currentTime / duration) * 100}%` }}
-                  >
-                    <div className="playhead-handle-visionario w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full -ml-1.5 -mt-1 border border-white shadow-lg shadow-red-500/50"></div>
-                    <div className="playhead-line-visionario w-0.5 bg-gradient-to-b from-red-500 to-red-600 h-full shadow-lg"></div>
-                  </div>
-                </div>
-
-                {/* Tracks Container */}
-                <div className="tracks-container-visionario flex-1 overflow-y-auto bg-black/10" style={{ height: '220px' }}>
-                  {/* Track de Vídeo */}
-                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
-                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-400"></div>
-                        <div>
-                          <div className="text-xs font-medium text-white">🎬 Video</div>
-                          <div className="text-xs text-gray-400">Principal</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
-                      <div
-                        className="video-clip-visionario absolute top-1 h-10 rounded-lg cursor-pointer border-2 border-blue-500/50 hover:border-blue-400 transition-all duration-200 group-hover:shadow-lg group-hover:shadow-blue-500/20"
-                        style={{
-                          left: '0%',
-                          width: '100%',
-                          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.6))',
-                          backdropFilter: 'blur(4px)'
-                        }}
-                      >
-                        <div className="flex items-center h-full px-2">
-                          <div className="flex items-center space-x-1">
-                            <span className="text-sm">🎬</span>
-                            <div>
-                              <div className="text-xs font-medium text-white truncate">
-                                {videoData?.name || 'Video Principal'}
-                              </div>
-                              <div className="text-xs text-blue-200">
-                                {formatTime(duration)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Track de Legendas */}
-                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
-                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-green-600 border border-green-400"></div>
-                        <div>
-                          <div className="text-xs font-medium text-white">💬 Captions</div>
-                          <div className="text-xs text-gray-400">IA</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
-                      {/* Blocos de legendas */}
-                      {generatedCaptions.length > 0 && (
-                        <div className="caption-blocks-visionario absolute top-1 h-10 flex space-x-1">
-                          {Array.from({ length: 8 }, (_, i) => (
-                            <div
-                              key={i}
-                              className="caption-block bg-gradient-to-r from-green-500/30 to-green-600/30 rounded border border-green-500/50 flex-1 min-w-8"
-                              style={{ height: '40px' }}
-                            >
-                              <div className="text-xs text-green-200 p-1 truncate">
-                                L{i + 1}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Track de Efeitos */}
-                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
-                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 border border-purple-400"></div>
-                        <div>
-                          <div className="text-xs font-medium text-white">✨ Effects</div>
-                          <div className="text-xs text-gray-400">Visual</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
-                      {activeEffects.length > 0 && (
-                        <div className="effects-blocks-visionario absolute top-1 h-10 flex space-x-1">
-                          {Array.from({ length: 4 }, (_, i) => (
-                            <div
-                              key={i}
-                              className="effect-block bg-gradient-to-r from-purple-500/30 to-purple-600/30 rounded border border-purple-500/50"
-                              style={{ width: '60px', height: '40px' }}
-                            >
-                              <div className="text-xs text-purple-200 p-1 text-center">
-                                FX{i + 1}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Track de Áudio */}
-                  <div className="track-visionario flex items-center h-14 border-b border-white/10 hover:bg-white/5 transition-colors group">
-                    <div className="track-header-visionario w-32 px-3 bg-black/20 h-full flex items-center border-r border-white/10 flex-shrink-0">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 border border-orange-400"></div>
-                        <div>
-                          <div className="text-xs font-medium text-white">🎵 Audio</div>
-                          <div className="text-xs text-gray-400">Wave</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="track-content-visionario flex-1 relative h-12 mx-2">
-                      {/* Waveform visual */}
-                      <div className="waveform-visionario absolute top-1 h-10 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded border border-orange-500/30 w-full">
-                        <div className="flex items-end h-full px-1 space-x-px">
-                          {Array.from({ length: 80 }, (_, i) => (
-                            <div
-                              key={i}
-                              className="bg-orange-400 rounded-sm opacity-70"
-                              style={{
-                                width: '1px',
-                                height: `${Math.random() * 30 + 4}px`
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* TIMELINE PROFISSIONAL - Embaixo do Vídeo */}
+            <TimelinePro
+              videoData={videoData}
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={(time) => {
+                if (videoRef.current) {
+                  videoRef.current.currentTime = time;
+                  setCurrentTime(time);
+                }
+              }}
+              onCut={(cutTime) => {
+                console.log('✂️ Corte realizado em:', formatTime(cutTime));
+                // Aqui você pode processar o corte do vídeo
+                // Por exemplo, dividir o vídeo em segmentos
+              }}
+              razorToolActive={razorToolActive}
+              setRazorToolActive={setRazorToolActive}
+            />
           </div>
 
           {/* Right Sidebar - Effects Panel */}
