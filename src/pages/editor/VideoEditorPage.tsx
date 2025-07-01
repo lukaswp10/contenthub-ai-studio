@@ -431,7 +431,7 @@ export function VideoEditorPage() {
 
   const removeEffect = (effectId: string) => {
     setActiveEffects(prev => prev.filter(id => id !== effectId))
-    setEffectIntensity(prev => {
+    setEffectIntensity((prev: any) => {
       const { [effectId]: removed, ...rest } = prev
       return rest
     })
@@ -1228,14 +1228,14 @@ export function VideoEditorPage() {
         {/* ÁREA CENTRAL - Video Preview Visionário */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Video Preview Container Visionário */}
-          <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-8">
-            <div className="video-container-visionario relative max-w-5xl max-h-full bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+          <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[80vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
               <video
                 ref={videoRef}
                 src={videoData?.url}
                 onLoadedData={handleVideoLoad}
                 onTimeUpdate={handleTimeUpdate}
-                className="video-player-visionario max-w-full max-h-full rounded-2xl"
+                className="video-player-visionario w-full h-full object-contain rounded-2xl"
                 style={{ 
                   filter: 'none',
                   transition: 'filter 0.3s ease'
@@ -1253,10 +1253,10 @@ export function VideoEditorPage() {
               <div 
                 className="caption-overlay-visionario absolute bottom-8 left-8 right-8 text-center pointer-events-none z-10"
                 style={{
-                  fontSize: '24px',
+                  fontSize: '32px',
                   fontWeight: 'bold',
                   color: 'white',
-                  textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                  textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
                   wordWrap: 'break-word'
                 }}
               >
@@ -1268,24 +1268,24 @@ export function VideoEditorPage() {
               <div className="play-overlay-visionario absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-300 bg-black/10 rounded-2xl backdrop-blur-sm">
                 <Button
                   onClick={togglePlayPause}
-                  className="play-btn-visionario bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full w-20 h-20 flex items-center justify-center text-3xl border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-110 shadow-2xl"
+                  className="play-btn-visionario bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full w-24 h-24 flex items-center justify-center text-4xl border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-110 shadow-2xl"
                 >
                   {isPlaying ? '⏸️' : '▶️'}
                 </Button>
               </div>
               
               {/* Controles minimalistas que aparecem no hover */}
-              <div className="video-controls-visionario absolute bottom-4 left-4 right-4 opacity-0 hover:opacity-100 transition-all duration-300">
-                <div className="bg-black/50 backdrop-blur-xl rounded-full px-6 py-3 flex items-center justify-between border border-white/20">
+              <div className="video-controls-visionario absolute bottom-6 left-6 right-6 opacity-0 hover:opacity-100 transition-all duration-300">
+                <div className="bg-black/60 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20">
                   <Button
                     onClick={togglePlayPause}
-                    className="control-btn text-white hover:text-blue-300 transition-colors"
+                    className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
                   >
                     {isPlaying ? '⏸️' : '▶️'}
                   </Button>
                   
-                  <div className="flex-1 mx-4">
-                    <div className="text-xs text-gray-300 mb-1 text-center">
+                  <div className="flex-1 mx-6">
+                    <div className="text-sm text-gray-300 mb-2 text-center font-medium">
                       {formatTime(currentTime)} / {formatTime(duration)}
                     </div>
                     <input
@@ -1297,11 +1297,11 @@ export function VideoEditorPage() {
                         const percentage = parseFloat(e.target.value)
                         seekTo((percentage / (duration || 100)) * 100)
                       }}
-                      className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
+                      className="w-full h-2 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
                     />
                   </div>
                   
-                  <div className="text-xs text-gray-300">
+                  <div className="text-sm text-gray-300 font-medium">
                     {Math.round((currentTime / duration) * 100) || 0}%
                   </div>
                 </div>
