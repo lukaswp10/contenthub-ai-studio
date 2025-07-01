@@ -38,6 +38,9 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
     return !localStorage.getItem('assemblyai_api_key')
   })
   const [transcriptionStatus, setTranscriptionStatus] = useState('')
+  const [apiKeySaved, setApiKeySaved] = useState(() => {
+    return !!localStorage.getItem('assemblyai_api_key')
+  })
 
   // Estilos de legenda virais
   const captionStyles: CaptionStyle[] = [
@@ -120,6 +123,34 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
       }
     }
   ]
+
+  // Função para salvar API key
+  const handleApiKeySave = (key: string) => {
+    if (key.trim()) {
+      localStorage.setItem('assemblyai_api_key', key.trim())
+      setApiKey(key.trim())
+      setApiKeySaved(true)
+      setShowApiKeyInput(false)
+      console.log('🔑 API Key salva com sucesso!')
+    }
+  }
+
+  // Função para remover API key
+  const handleApiKeyRemove = () => {
+    localStorage.removeItem('assemblyai_api_key')
+    setApiKey('')
+    setApiKeySaved(false)
+    setShowApiKeyInput(true)
+    console.log('🗑️ API Key removida')
+  }
+
+  // Auto-salvar quando API key é inserida
+  const handleApiKeyChange = (newKey: string) => {
+    setApiKey(newKey)
+    if (newKey.length > 10) { // Assumindo que API keys têm pelo menos 10 caracteres
+      handleApiKeySave(newKey)
+    }
+  }
 
   // Transcrição REAL com APIs
   const transcribeWithRealAPI = async () => {
@@ -238,7 +269,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
               type="password"
               placeholder="Cole sua AssemblyAI API Key aqui..."
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
               className="api-input"
             />
             <div className="config-help">
@@ -261,9 +292,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
                 onClick={() => {
                   if (apiKey) {
                     // Salvar API key no localStorage
-                    localStorage.setItem('assemblyai_api_key', apiKey)
-                    setShowApiKeyInput(false)
-                    console.log('🔑 API Key salva com sucesso!')
+                    handleApiKeySave(apiKey)
                   }
                 }}
                 disabled={!apiKey}
@@ -296,14 +325,9 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
             )}
           </Button>
           
-          {!showApiKeyInput && localStorage.getItem('assemblyai_api_key') && (
+          {!showApiKeyInput && apiKeySaved && (
             <Button
-              onClick={() => {
-                localStorage.removeItem('assemblyai_api_key')
-                setApiKey('')
-                setShowApiKeyInput(true)
-                console.log('🗑️ API Key removida')
-              }}
+              onClick={handleApiKeyRemove}
               className="config-btn secondary small"
               title="Editar/Remover API Key"
             >

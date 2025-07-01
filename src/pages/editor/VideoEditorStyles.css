@@ -75,6 +75,8 @@
   cursor: pointer;
   border-radius: 1px;
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+  transition: left 0.1s linear;
 }
 
 .playhead-pro::before {
@@ -88,6 +90,7 @@
   border-radius: 50%;
   border: 2px solid white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  animation: playhead-pulse 2s ease-in-out infinite;
 }
 
 .playhead-pro::after {
@@ -459,4 +462,167 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== ANIMAÇÕES PARA LEGENDAS VIRAIS ===== */
+
+/* Animação TikTok - Pop Word */
+@keyframes wordPop {
+  0% {
+    transform: scale(0.8) translateY(10px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) translateY(-2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Animação YouTube - Fade In Slide */
+@keyframes fadeInSlide {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Animação Instagram - Neon Glow */
+@keyframes neonGlow {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: blur(0px);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+/* Animação Podcast - Smooth Fade */
+@keyframes smoothFade {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Classes específicas para cada estilo */
+.caption-tiktok-bold {
+  font-feature-settings: 'kern' 1;
+  text-rendering: optimizeLegibility;
+}
+
+.caption-youtube-highlight {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.caption-instagram-neon {
+  background-size: 200% 200%;
+  animation: neonGlow 0.5s ease-in-out, gradientShift 3s ease-in-out infinite;
+}
+
+.caption-podcast-clean {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Animação adicional para Instagram - Gradient Shift */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Container de legendas melhorado */
+.caption-overlay {
+  pointer-events: none;
+  user-select: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+/* Responsividade para legendas */
+@media (max-width: 768px) {
+  .caption-text {
+    font-size: 0.8em !important;
+    padding: 0.5em !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .caption-text {
+    font-size: 0.7em !important;
+    padding: 0.4em !important;
+  }
+}
+
+/* ===== SLIDER DE TIMELINE MELHORADO ===== */
+
+.slider-timeline {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.slider-timeline::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider-timeline::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.slider-timeline::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider-timeline::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
 } 
