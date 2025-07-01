@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { getGalleryVideos } from '@/utils/galleryStorage'
 
 export const DashboardPage: React.FC = () => {
   const { user, signOut } = useAuth()
@@ -17,6 +18,38 @@ export const DashboardPage: React.FC = () => {
       navigate('/login')
     } catch (error) {
       console.error('Error signing out:', error)
+    }
+  }
+
+  // Função para abrir editor com último vídeo
+  const openEditorWithLastVideo = () => {
+    const galleryVideos = getGalleryVideos()
+    
+    if (galleryVideos.length > 0) {
+      // Pegar o vídeo mais recente (primeiro da lista)
+      const lastVideo = galleryVideos[0]
+      
+      console.log('🎬 Abrindo editor com último vídeo:', lastVideo.name)
+      
+      // Navegar para o editor com os dados do vídeo
+      navigate('/editor', {
+        state: {
+          videoData: {
+            file: null, // Não temos o File object, mas temos a URL
+            url: lastVideo.cloudinaryUrl || lastVideo.url,
+            name: lastVideo.name,
+            size: parseInt(lastVideo.size.replace(/[^\d]/g, '')) * 1024 * 1024, // Converter de "X.X MB" para bytes
+            duration: lastVideo.duration,
+            id: lastVideo.id,
+            cloudinaryPublicId: lastVideo.cloudinaryPublicId,
+            cloudinaryUrl: lastVideo.cloudinaryUrl
+          }
+        }
+      })
+    } else {
+      // Se não há vídeos, ir para upload primeiro
+      console.log('📤 Nenhum vídeo encontrado, redirecionando para upload')
+      navigate('/upload')
     }
   }
 
@@ -139,11 +172,11 @@ export const DashboardPage: React.FC = () => {
               <span className="text-center">Upload de Vídeo</span>
             </Button>
 
-            {/* NOVO: Botão Editor Manual */}
+            {/* BOTÃO EDITOR MANUAL MELHORADO */}
             <Button
               size="lg"
               className="h-20 sm:h-24 text-base sm:text-lg bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 flex-col sm:flex-row"
-              onClick={() => navigate('/editor')}
+              onClick={openEditorWithLastVideo}
             >
               <svg className="h-5 w-5 sm:h-6 sm:w-6 mb-1 sm:mb-0 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />

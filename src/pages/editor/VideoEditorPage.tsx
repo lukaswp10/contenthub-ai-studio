@@ -222,6 +222,27 @@ export function VideoEditorPage() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Carregar vídeo automaticamente quando chegar via navegação
+  useEffect(() => {
+    if (location.state?.videoData && !videoData) {
+      const incomingVideoData = location.state.videoData
+      console.log('🎬 Carregando vídeo do dashboard:', incomingVideoData.name)
+      
+      setVideoData(incomingVideoData)
+      
+      // Se temos uma URL do Cloudinary, usar ela
+      if (incomingVideoData.cloudinaryUrl || incomingVideoData.url) {
+        console.log('☁️ Usando URL permanente do Cloudinary')
+        setDuration(incomingVideoData.duration || 30)
+        
+        // Inicializar layers padrão para este vídeo
+        setTimeout(() => {
+          initializeDefaultLayers()
+        }, 100)
+      }
+    }
+  }, [location.state, videoData])
+
   // Keyboard shortcuts profissionais
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
