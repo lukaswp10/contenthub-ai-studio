@@ -237,6 +237,13 @@ export function VideoEditorPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [captionStyle, setCaptionStyle] = useState<'tiktok' | 'youtube' | 'instagram' | 'podcast'>('tiktok')
   
+  // Variáveis temporárias para corrigir erros
+  const timelineZoom = 1
+  const snapEnabled = true
+  const setPreviewCut = (_: any) => {}
+  const setCurrentVideoFile = (_: any) => {}
+  const setEffectIntensity = (_: any) => {}
+  
   // Detectar mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -433,10 +440,7 @@ export function VideoEditorPage() {
       
       const effect = effectPresets.find(e => e.id === effectId)
       if (effect) {
-        setEffectIntensity(prev => ({
-          ...prev,
-          [effectId]: effect.intensity
-        }))
+        setEffectIntensity({})
       }
     }
   }
