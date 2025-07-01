@@ -48,27 +48,27 @@ export const uploadVideoToCloudinary = async (file: File): Promise<CloudinaryUpl
   const formData = new FormData()
   const timestamp = Math.round(Date.now() / 1000)
   
-  // Parâmetros para o upload (sem api_key e signature)
-  const uploadParams = {
+  // Parâmetros para assinatura (apenas os que o Cloudinary espera)
+  const signatureParams = {
     folder: 'clipsforge/videos',
-    resource_type: 'video',
     timestamp
   }
   
   // Gerar assinatura
-  const signature = await generateSignature(uploadParams, CLOUDINARY_CONFIG.apiSecret)
+  const signature = await generateSignature(signatureParams, CLOUDINARY_CONFIG.apiSecret)
   
   // Adicionar parâmetros ao FormData
   formData.append('file', file)
   formData.append('api_key', CLOUDINARY_CONFIG.apiKey)
   formData.append('timestamp', timestamp.toString())
   formData.append('signature', signature)
-  formData.append('folder', uploadParams.folder)
-  formData.append('resource_type', uploadParams.resource_type)
+  formData.append('folder', 'clipsforge/videos')
+  formData.append('resource_type', 'video') // Enviar mas não assinar
   
   try {
     console.log('📤 Iniciando upload para Cloudinary:', file.name)
-    console.log('📋 Upload params:', uploadParams)
+    console.log('📋 Signature params:', signatureParams)
+    console.log('🔐 Signature generated:', signature)
     
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/video/upload`,
@@ -98,20 +98,20 @@ export const uploadVideoToCloudinary = async (file: File): Promise<CloudinaryUpl
 export const deleteVideoFromCloudinary = async (publicId: string): Promise<boolean> => {
   const timestamp = Math.round(Date.now() / 1000)
   
-  const deleteParams = {
+  // Parâmetros para assinatura (apenas os que o Cloudinary espera)
+  const signatureParams = {
     public_id: publicId,
-    resource_type: 'video',
     timestamp
   }
   
-  const signature = await generateSignature(deleteParams, CLOUDINARY_CONFIG.apiSecret)
+  const signature = await generateSignature(signatureParams, CLOUDINARY_CONFIG.apiSecret)
   
   const formData = new FormData()
   formData.append('public_id', publicId)
   formData.append('api_key', CLOUDINARY_CONFIG.apiKey)
   formData.append('timestamp', timestamp.toString())
   formData.append('signature', signature)
-  formData.append('resource_type', 'video')
+  formData.append('resource_type', 'video') // Enviar mas não assinar
   
   try {
     const response = await fetch(
