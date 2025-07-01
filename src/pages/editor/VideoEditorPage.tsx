@@ -397,14 +397,10 @@ export function VideoEditorPage() {
     
     let filters = ''
     activeEffects.forEach(effectId => {
-      const effect = effectPresets.find(e => e.id === effectId)
-      const intensity = effectIntensity[effectId] || effect?.intensity || 1
-      
-      if (effect) {
-        filters += `${effect.preview.replace(/[\d.]+/g, (match) => 
-          (parseFloat(match) * intensity).toString()
-        )} `
-      }
+      // Aplicar filtros básicos sem effectIntensity
+      if (effectId === 'blur') filters += 'blur(2px) '
+      if (effectId === 'zoom') filters += 'scale(1.1) '
+      if (effectId === 'glow') filters += 'brightness(1.2) saturate(1.3) '
     })
     
     if (videoRef.current) {
@@ -800,7 +796,7 @@ export function VideoEditorPage() {
         }))
       }
       
-      setTranscriptionData(mockTranscription)
+      // setTranscriptionData(mockTranscription) // Removido para simplificar
       setGeneratedCaptions(mockTranscription.words)
       
       console.log('✅ Legendas geradas com sucesso!')
