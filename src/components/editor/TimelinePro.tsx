@@ -61,7 +61,17 @@ interface ClipData {
   duration: number;
   hasAudio: boolean;
   hasVideo: boolean;
-  captions: any[];
+  captions: CaptionSegment[];
+}
+
+// ➕ INTERFACE para segmentos de legenda por clip
+interface CaptionSegment {
+  id: string;
+  text: string;
+  startTime: number;
+  endTime: number;
+  style: 'tiktok-bold' | 'youtube-highlight' | 'instagram-neon' | 'podcast-clean';
+  isEditing?: boolean;
 }
 
 const TimelinePro: React.FC<TimelineProProps> = ({
@@ -105,7 +115,18 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   const [selectedClipForEdit, setSelectedClipForEdit] = useState<string | null>(null);
   const [timelineZoom, setTimelineZoom] = useState(1);
 
+  // ➕ NOVOS ESTADOS para FASE 5.0 - Editor de Legendas
+  const [editingCaption, setEditingCaption] = useState<{
+    clipId: string;
+    captionId: string;
+  } | null>(null);
+  const [captionText, setCaptionText] = useState('');
+  const [showCaptionEditor, setShowCaptionEditor] = useState(false);
 
+  // ➕ NOVOS ESTADOS para FASE 6.0 - Drag & Drop
+  const [draggedClip, setDraggedClip] = useState<ClipData | null>(null);
+  const [dropZone, setDropZone] = useState<string | null>(null);
+  const [clipOrder, setClipOrder] = useState<string[]>([]);
 
   // ➕ TRACKS baseadas nos timelineLayers recebidos
   const tracks = useMemo(() => [
@@ -557,6 +578,144 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     }
   }, [availableClips, onExportClip]);
 
+  // ➕ FUNÇÃO para adicionar legenda a um clip (FASE 5.0)
+  const addCaptionToClip = useCallback((clipIndex: number, captionData: Partial<any>) => {
+    if (clipIndex < 0 || clipIndex >= availableClips.length) return;
+    
+    const clip = availableClips[clipIndex];
+    const newCaption = {
+      id: `caption-${Date.now()}`,
+      text: captionData.text || 'Nova legenda...',
+      startTime: captionData.startTime || clip.startTime,
+      endTime: captionData.endTime || Math.min(clip.startTime + 3, clip.endTime),
+      style: captionData.style || 'tiktok-bold',
+      isEditing: false
+    };
+
+    const updatedClips = [...availableClips];
+    updatedClips[clipIndex] = {
+      ...clip,
+      captions: [...clip.captions, newCaption]
+    };
+    
+    setAvailableClips(updatedClips);
+    console.log(`📝 Legenda adicionada ao ${clip.name}:`, newCaption);
+  }, [availableClips]);
+
+  // ➕ FUNÇÃO para editar legenda existente
+  const editCaption = useCallback((clipId: string, captionId: string, updates: any) => {
+    const updatedClips = availableClips.map(clip => {
+      if (clip.id === clipId) {
+        return {
+          ...clip,
+          captions: clip.captions.map((caption: any) => 
+            caption.id === captionId 
+              ? { ...caption, ...updates }
+              : caption
+          )
+        };
+      }
+      return clip;
+    });
+    
+    setAvailableClips(updatedClips);
+  }, [availableClips]);
+
+  // ➕ FUNÇÃO para remover legenda
+  const removeCaption = useCallback((clipId: string, captionId: string) => {
+    const updatedClips = availableClips.map(clip => {
+      if (clip.id === clipId) {
+        return {
+          ...clip,
+          captions: clip.captions.filter((caption: any) => caption.id !== captionId)
+        };
+      }
+      return clip;
+    });
+    
+    setAvailableClips(updatedClips);
+    console.log(`🗑️ Legenda removida do clip ${clipId}`);
+  }, [availableClips]);
+
+  // ➕ FUNÇÃO para iniciar edição de legenda
+  const startEditingCaption = useCallback((clipId: string, captionId: string) => {
+    const clip = availableClips.find(c => c.id === clipId);
+    const caption = clip?.captions.find((c: any) => c.id === captionId);
+    
+    if (caption) {
+      setEditingCaption({ clipId, captionId });
+      setCaptionText(caption.text);
+      setShowCaptionEditor(true);
+    }
+  }, [availableClips]);
+
+  // ➕ FUNÇÃO para salvar edição de legenda
+  const saveCaptionEdit = useCallback(() => {
+    if (editingCaption) {
+      editCaption(editingCaption.clipId, editingCaption.captionId, {
+        text: captionText,
+        isEditing: false
+      });
+      setEditingCaption(null);
+      setCaptionText('');
+      setShowCaptionEditor(false);
+    }
+  }, [editingCaption, captionText, editCaption]);
+
+  // ➕ FUNÇÃO para reordenar clips via drag & drop
+  const reorderClips = useCallback((startIndex: number, endIndex: number) => {
+    const result = Array.from(availableClips);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    
+    setAvailableClips(result);
+    console.log(`🔄 Clips reordenados: ${startIndex} → ${endIndex}`);
+  }, [availableClips]);
+
+  // ➕ HANDLERS para Drag & Drop
+  const handleDragStart = useCallback((e: React.DragEvent, clip: ClipData, index: number) => {
+    setDraggedClip(clip);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', index.toString());
+    
+    // Adicionar feedback visual
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+    dragImage.style.opacity = '0.8';
+    dragImage.style.transform = 'rotate(5deg)';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent, targetClipId: string) => {
+    e.preventDefault();
+    setDropZone(targetClipId);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Verificar se realmente saiu da área
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropZone(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndex = parseInt(e.dataTransfer.getData('text/html'), 10);
+    
+    if (sourceIndex !== targetIndex) {
+      reorderClips(sourceIndex, targetIndex);
+    }
+    
+    setDraggedClip(null);
+    setDropZone(null);
+  }, [reorderClips]);
+
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
@@ -796,20 +955,43 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         </div>
       </div>
       
-      {/* ➕ PAINEL DE CLIPS DISPONÍVEIS */}
+      {/* ➕ PAINEL DE CLIPS DISPONÍVEIS COM DRAG & DROP E LEGENDAS */}
       {availableClips.length > 0 && (
         <div className="clips-panel mt-4 p-3 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-          <h3 className="text-sm font-bold text-white mb-2 flex items-center">
-            <span className="mr-2">🎬</span>
-            Clips Disponíveis ({availableClips.length})
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-white flex items-center">
+              <span className="mr-2">🎬</span>
+              Clips Disponíveis ({availableClips.length})
+            </h3>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCaptionEditor(!showCaptionEditor)}
+                className={`text-xs px-2 py-1 ${showCaptionEditor ? 'bg-purple-600/20 text-purple-300' : 'text-gray-400'}`}
+              >
+                📝 Legendas
+              </Button>
+              <span className="text-xs text-gray-500">↕️ Arraste para reordenar</span>
+            </div>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {availableClips.map((clip, index) => (
               <div
                 key={clip.id}
-                className={`clip-item p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
-                  currentClipIndex === index 
+                draggable
+                onDragStart={(e) => handleDragStart(e, clip, index)}
+                onDragOver={handleDragOver}
+                onDragEnter={(e) => handleDragEnter(e, clip.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                className={`clip-item p-2 rounded-lg border transition-all duration-200 cursor-move ${
+                  draggedClip?.id === clip.id
+                    ? 'opacity-50 scale-95 rotate-1'
+                    : dropZone === clip.id
+                    ? 'border-blue-500 bg-blue-600/20 scale-105'
+                    : currentClipIndex === index 
                     ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-500/20' 
                     : hoveredClip === index
                     ? 'bg-white/10 border-white/30'
@@ -818,14 +1000,54 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 onMouseEnter={() => setHoveredClip(index)}
                 onMouseLeave={() => setHoveredClip(-1)}
               >
+                {/* Indicador de posição */}
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-semibold text-white">{clip.name}</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-xs bg-gray-600/50 rounded px-1 text-gray-300">#{index + 1}</span>
+                    <span className="text-sm font-semibold text-white">{clip.name}</span>
+                  </div>
                   <span className="text-xs text-gray-400">{formatTime(clip.duration)}</span>
                 </div>
                 
                 <div className="text-xs text-gray-300 mb-2">
                   {formatTime(clip.startTime)} - {formatTime(clip.endTime)}
                 </div>
+
+                {/* ➕ LEGENDAS DO CLIP */}
+                {clip.captions.length > 0 && (
+                  <div className="mb-2 p-1 bg-black/20 rounded border border-purple-500/20">
+                    <div className="text-xs text-purple-300 mb-1 flex items-center">
+                      <span className="mr-1">📝</span>
+                      {clip.captions.length} legendas
+                    </div>
+                    <div className="space-y-1 max-h-16 overflow-y-auto">
+                      {clip.captions.map((caption: any) => (
+                        <div 
+                          key={caption.id}
+                          className="text-xs bg-white/10 rounded px-1 py-0.5 flex items-center justify-between"
+                        >
+                          <span className="truncate text-white">{caption.text}</span>
+                          <div className="flex items-center space-x-1 ml-1">
+                            <button
+                              onClick={() => startEditingCaption(clip.id, caption.id)}
+                              className="text-blue-400 hover:text-blue-300"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => removeCaption(clip.id, caption.id)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Remover"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex items-center space-x-1">
                   <Button
@@ -841,6 +1063,16 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => addCaptionToClip(index, {})}
+                    className="text-xs py-1 px-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                    title="Adicionar legenda"
+                  >
+                    📝
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => exportClip(index)}
                     className="flex-1 text-xs py-1 px-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30"
                     title={`Exportar ${clip.name}`}
@@ -848,9 +1080,71 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                     📤 Export
                   </Button>
                 </div>
+
+                {/* Indicador de arraste */}
+                {draggedClip?.id === clip.id && (
+                  <div className="absolute top-1 right-1 text-blue-400 animate-pulse">
+                    ↕️
+                  </div>
+                )}
               </div>
             ))}
           </div>
+
+          {/* ➕ MODAL DE EDIÇÃO DE LEGENDAS */}
+          {showCaptionEditor && editingCaption && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-gray-900 rounded-xl p-6 border border-white/20 max-w-md w-full mx-4">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                  <span className="mr-2">📝</span>
+                  Editar Legenda
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">Texto da Legenda:</label>
+                    <textarea
+                      value={captionText}
+                      onChange={(e) => setCaptionText(e.target.value)}
+                      className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white resize-none"
+                      rows={3}
+                      placeholder="Digite o texto da legenda..."
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowCaptionEditor(false);
+                        setEditingCaption(null);
+                        setCaptionText('');
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={saveCaptionEdit}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Área de drop quando arrastando */}
+          {draggedClip && (
+            <div className="mt-2 p-2 border-2 border-dashed border-blue-500/50 rounded-lg bg-blue-600/10 text-center">
+              <span className="text-sm text-blue-300">↕️ Solte aqui para reordenar</span>
+            </div>
+          )}
         </div>
       )}
     </div>
