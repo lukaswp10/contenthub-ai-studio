@@ -3,6 +3,7 @@ import WaveSurfer from 'wavesurfer.js';
 import { Button } from '../ui/button';
 import './TimelinePro.css';
 import { commandManager, RazorCutCommand, TrimCommand } from '../../utils/commandManager';
+import { formatTime, formatTimeToSRT } from '../../utils/timeUtils';
 
 interface TimelineProProps {
   videoData?: any;
@@ -474,13 +475,6 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     }
   }, [isDragging, processTrimDrag, finishTrimDrag]);
 
-  // Função para formatar tempo
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
   // ➕ FUNÇÃO para obter palavra atual da transcrição
   const getCurrentTranscriptWord = useCallback(() => {
     if (!transcriptionData?.words || !Array.isArray(transcriptionData.words)) return '';
@@ -491,16 +485,6 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     
     return currentWord?.text || '';
   }, [transcriptionData, currentTime]);
-
-  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
-  const formatTimeToSRT = useCallback((seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    const milliseconds = Math.floor((seconds % 1) * 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
-  }, []);
 
   // ➕ ATUALIZAR palavra atual quando tempo muda
   useEffect(() => {

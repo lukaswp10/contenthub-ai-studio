@@ -36,6 +36,7 @@ import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
 import { transcriptionService } from '../../services/transcriptionService'
 import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
+import { formatTime, formatTimeAgo } from '../../utils/timeUtils'
 
 interface VideoData {
   file?: File | null
@@ -506,10 +507,7 @@ export function VideoEditorPage() {
 
   const removeEffect = (effectId: string) => {
     setActiveEffects(prev => prev.filter(id => id !== effectId))
-    setEffectIntensity((prev: any) => {
-      const { [effectId]: removed, ...rest } = prev
-      return rest
-    })
+    applyRealTimeEffects()
   }
 
   const formatTime = (seconds: number) => {
@@ -1289,7 +1287,7 @@ export function VideoEditorPage() {
   const [captionShadowIntensity, setCaptionShadowIntensity] = useState(3)
   const [captionOpacity, setCaptionOpacity] = useState(100)
   const [captionAnimation, setCaptionAnimation] = useState('fadeIn')
-  const [captionPosition, setCaptionPosition] = useState('bottom')
+  const [captionPosition, setCaptionPosition] = useState<'bottom' | 'center' | 'top'>('bottom')
   const [showCaptionPreview, setShowCaptionPreview] = useState(true)
 
   return (
@@ -1750,7 +1748,7 @@ export function VideoEditorPage() {
                     <label className="block text-sm text-gray-300 mb-2">Posição da Legenda:</label>
                     <select
                       value={captionPosition}
-                      onChange={(e) => setCaptionPosition(e.target.value)}
+                      onChange={(e) => setCaptionPosition(e.target.value as 'bottom' | 'center' | 'top')}
                       className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
                       <option value="top">Topo</option>

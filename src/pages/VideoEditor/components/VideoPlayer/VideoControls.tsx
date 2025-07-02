@@ -118,8 +118,9 @@ export const VideoControls = memo(({
             max={duration || 100}
             value={currentTime}
             onChange={(e) => {
-              const percentage = parseFloat(e.target.value)
-              onSeek((percentage / (duration || 100)) * 100)
+              const timeValue = parseFloat(e.target.value)
+              const percentage = (timeValue / (duration || 100)) * 100  // ✅ CORRIGIDO
+              onSeek(percentage)
             }}
             className="w-full h-2 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
           />

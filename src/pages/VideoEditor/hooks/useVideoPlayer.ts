@@ -1,4 +1,5 @@
 import { useCallback, useEffect, RefObject } from 'react'
+import { formatTime } from '../../../utils/timeUtils'
 
 interface VideoData {
   file?: File | null
@@ -35,7 +36,7 @@ export const useVideoPlayer = ({
   // 🎯 Função para buscar posição específica no vídeo
   const seekTo = useCallback((percentage: number) => {
     if (videoRef.current && duration > 0) {
-      const time = (percentage / duration) * duration
+      const time = (percentage / 100) * duration
       videoRef.current.currentTime = time
       onTimeUpdate(time)
       
@@ -89,15 +90,6 @@ export const useVideoPlayer = ({
       video.removeEventListener('loadeddata', handleVideoLoad)
     }
   }, [handleTimeUpdate, handleVideoLoad])
-
-  // 🎯 Formatar tempo em MM:SS
-  const formatTime = useCallback((seconds: number): string => {
-    if (!seconds || isNaN(seconds)) return '00:00'
-    
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }, [])
 
   return {
     // Funções
