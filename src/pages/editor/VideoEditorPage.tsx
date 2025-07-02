@@ -2088,7 +2088,15 @@ export function VideoEditorPage() {
                   {/* Grid de Vídeos */}
                   <div className="videos-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
                     {uploadedVideos.map(video => (
-                      <div key={video.id} className="gallery-item-visionario bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-black/30 hover:border-white/20 transition-all duration-300 group cursor-pointer">
+                      <div 
+                        key={video.id} 
+                        className="gallery-item-visionario bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-black/30 hover:border-white/20 transition-all duration-300 group cursor-pointer"
+                        onClick={() => {
+                          console.log('🎬 Selecionando vídeo:', video.name)
+                          loadVideo(video)
+                          setGalleryModalOpen(false)
+                        }}
+                      >
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="text-sm font-semibold text-purple-300 truncate">
                             🎬 {video.name}
@@ -2118,6 +2126,39 @@ export function VideoEditorPage() {
                           >
                             🗑️
                           </Button>
+                        </div>
+                        
+                        {/* ✅ ADICIONAR PREVIEW DO VÍDEO */}
+                        <div className="relative w-full h-32 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden mb-3 border border-white/10">
+                          {video.thumbnail ? (
+                            <img
+                              src={video.thumbnail}
+                              alt={video.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <span className="text-4xl">🎬</span>
+                            </div>
+                          )}
+                          
+                          {/* Play overlay */}
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="bg-white/20 rounded-full p-3 backdrop-blur-sm">
+                              <span className="text-2xl">▶️</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* ✅ INFORMAÇÕES DO VÍDEO */}
+                        <div className="text-xs text-gray-400 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span>⏱️ {formatTime(video.duration)}</span>
+                            <span>📁 {video.size}</span>
+                          </div>
+                          <div className="text-gray-500">
+                            📅 {formatTimeAgo(video.uploadedAt)}
+                          </div>
                         </div>
                       </div>
                     ))}
