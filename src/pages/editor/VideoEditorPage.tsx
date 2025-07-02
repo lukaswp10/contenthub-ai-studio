@@ -49,9 +49,11 @@ interface TimelineLayer {
   id: string
   type: 'video' | 'audio' | 'text' | 'effect'
   name: string
-  start: number
-  duration: number
-  data: any
+  visible: boolean // ➕ NOVO: Compatibilidade com TimelinePro
+  items: any[] // ➕ NOVO: Compatibilidade com TimelinePro
+  start?: number // ➕ NOVO: Opcional para compatibilidade
+  duration?: number // ➕ NOVO: Opcional para compatibilidade
+  data?: any // ➕ NOVO: Opcional para compatibilidade
   color: string
   locked: boolean
 }
@@ -125,6 +127,16 @@ export function VideoEditorPage() {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [lastCommand, setLastCommand] = useState<string | null>(null)
+  
+  // ➕ NOVOS ESTADOS para Sistema de Transcrição Avançado (ETAPA 1.1)
+  const [transcriptionProvider, setTranscriptionProvider] = useState<'whisper' | 'assemblyai' | 'webspeech'>('whisper')
+  const [showTranscriptionConfig, setShowTranscriptionConfig] = useState(false)
+  const [openaiApiKey, setOpenaiApiKey] = useState<string>('')
+  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState<string>('')
+  const [transcriptionProgress, setTranscriptionProgress] = useState<string>('')
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
+  const [showTranscriptTimeline, setShowTranscriptTimeline] = useState(false)
   
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
@@ -383,7 +395,9 @@ export function VideoEditorPage() {
       duration: videoData.duration || 60,
       data: { url: videoData.url },
       color: '#3B82F6',
-      locked: false
+      locked: false,
+      visible: true,
+      items: []
     }
     
     setTimelineLayers([videoLayer])
@@ -406,7 +420,9 @@ export function VideoEditorPage() {
         duration: duration,
         data: videoData,
         color: '#3b82f6',
-        locked: false
+        locked: false,
+        visible: true,
+        items: []
       }
       
       setTimelineLayers([videoLayer])
@@ -581,8 +597,8 @@ export function VideoEditorPage() {
     }
 
     // Verificar se o tempo está dentro do layer
-    if (time < layer.start || time > layer.start + layer.duration) {
-      console.log('❌ Tempo fora do range do layer')
+    if (layer.start === undefined || layer.duration === undefined || time < layer.start || time > layer.start + layer.duration) {
+      console.log('❌ Tempo fora do range do layer ou layer sem dimensões definidas')
       return
     }
 
@@ -612,7 +628,9 @@ export function VideoEditorPage() {
         duration: duration || 30,
         data: videoData,
         color: '#3b82f6',
-        locked: false
+        locked: false,
+        visible: true,
+        items: []
       }
       setTimelineLayers([defaultLayer])
     }
@@ -628,6 +646,7 @@ export function VideoEditorPage() {
   // Dividir clip no tempo atual
   const splitClipAt = (time: number) => {
     const affectedLayer = timelineLayers.find(layer => 
+      layer.start !== undefined && layer.duration !== undefined && 
       time >= layer.start && time <= layer.start + layer.duration
     )
     
@@ -821,6 +840,7 @@ export function VideoEditorPage() {
         (status) => {
           console.log('📝 Status da transcrição:', status)
         },
+        'assemblyai', // Usar AssemblyAI como padrão
         true // Usar Web Speech como fallback
       )
 
@@ -1006,6 +1026,95 @@ export function VideoEditorPage() {
       alert(`❌ Erro ao exportar ${clipData.name}. Tente novamente.`);
     }
   };
+
+  // ➕ NOVA FUNÇÃO: Transcrição Avançada com Múltiplos Provedores
+  const generateAdvancedCaptions = async () => {
+    if (!videoData) return
+
+    setIsTranscribing(true)
+    setTranscriptionProgress('Preparando...')
+
+    try {
+      // Importar o serviço de transcrição
+      const { transcriptionService } = await import('../../services/transcriptionService')
+
+      // Configurar API keys
+      if (transcriptionProvider === 'whisper' && openaiApiKey) {
+        transcriptionService.setOpenAIApiKey(openaiApiKey)
+      } else if (transcriptionProvider === 'assemblyai' && assemblyaiApiKey) {
+        transcriptionService.setApiKey(assemblyaiApiKey)
+      }
+
+      // Obter arquivo de vídeo
+      let fileToTranscribe: File
+      
+      if (videoData.file) {
+        fileToTranscribe = videoData.file
+      } else if (videoData.url) {
+        // Converter URL em File
+        const response = await fetch(videoData.url)
+        const blob = await response.blob()
+        fileToTranscribe = new File([blob], videoData.name || 'video.mp4', { type: blob.type })
+      } else {
+        throw new Error('Nenhum vídeo disponível')
+      }
+
+      // Executar transcrição
+      const result = await transcriptionService.transcribe(
+        fileToTranscribe,
+        (status) => {
+          setTranscriptionProgress(status)
+        },
+        transcriptionProvider,
+        true // Fallback para Web Speech
+      )
+
+      setTranscriptionResult(result)
+      setGeneratedCaptions(result.words)
+      setTranscriptionProgress('✅ Transcrição concluída!')
+      
+      console.log('🎉 Transcrição avançada concluída:', result)
+
+    } catch (error) {
+      console.error('❌ Erro na transcrição avançada:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      setTranscriptionProgress(`❌ Erro: ${errorMessage}`)
+      
+      // Fallback para sistema antigo
+      setTimeout(() => {
+        setTranscriptionProgress('')
+        setIsTranscribing(false)
+      }, 3000)
+    } finally {
+      setTimeout(() => {
+        setIsTranscribing(false)
+        setTranscriptionProgress('')
+      }, 2000)
+    }
+  }
+
+  // ➕ NOVA FUNÇÃO: Configurar API Keys
+  const configureApiKeys = () => {
+    // Salvar no localStorage
+    if (openaiApiKey) {
+      localStorage.setItem('openai_api_key', openaiApiKey)
+    }
+    if (assemblyaiApiKey) {
+      localStorage.setItem('assemblyai_api_key', assemblyaiApiKey)
+    }
+    
+    setShowTranscriptionConfig(false)
+    console.log('✅ API Keys configuradas')
+  }
+
+  // ➕ NOVA FUNÇÃO: Carregar API Keys do localStorage
+  useEffect(() => {
+    const savedOpenAI = localStorage.getItem('openai_api_key')
+    const savedAssemblyAI = localStorage.getItem('assemblyai_api_key')
+    
+    if (savedOpenAI) setOpenaiApiKey(savedOpenAI)
+    if (savedAssemblyAI) setAssemblyaiApiKey(savedAssemblyAI)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
