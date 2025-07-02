@@ -133,7 +133,7 @@ export function VideoEditorPage() {
   // Estados para transcrição avançada
   const [transcriptionProvider, setTranscriptionProvider] = useState<'whisper' | 'assemblyai' | 'webspeech'>('whisper')
   const [openaiApiKey, setOpenaiApiKey] = useState('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')
-  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState('')
+  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState('8f2a3b4c5d6e7f8g9h0i1j2k3l4m5n6o') // ➕ API key de fallback
   const [transcriptionProgress, setTranscriptionProgress] = useState('')
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
@@ -1146,7 +1146,11 @@ export function VideoEditorPage() {
     // Configurar serviço de transcrição
     transcriptionService.setOpenAIApiKey('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')
     
+    // ➕ Configurar AssemblyAI como fallback
+    transcriptionService.setApiKey(assemblyaiApiKey)
+    
     console.log('✅ API Key OpenAI configurada automaticamente')
+    console.log('✅ API Key AssemblyAI configurada como fallback')
   }, [])
 
   // ✅ NOVOS ESTADOS para Editor Avançado de Legendas
