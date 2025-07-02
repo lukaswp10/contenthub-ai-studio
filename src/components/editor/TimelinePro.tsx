@@ -482,25 +482,31 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   };
 
   // ➕ FUNÇÃO para obter palavra atual da transcrição
-  const getCurrentTranscriptWord = (): string => {
-    if (!transcriptionData?.words?.length) return '';
+  const getCurrentTranscriptWord = useCallback(() => {
+    if (!transcriptionData?.words || !Array.isArray(transcriptionData.words)) return '';
     
     const currentWord = transcriptionData.words.find((word: any) => 
       currentTime >= word.start && currentTime <= word.end
     );
     
-    return currentWord ? currentWord.text : '';
-  };
+    return currentWord?.text || '';
+  }, [transcriptionData, currentTime]);
 
-  // ➕ FUNÇÃO para formatar tempo em formato SRT
-  const formatTimeToSRT = (seconds: number): string => {
+  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
+  const formatTimeToSRT = useCallback((seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 1000);
+    const milliseconds = Math.floor((seconds % 1) * 1000);
     
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
-  };
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+  }, []);
+
+  // ➕ ATUALIZAR palavra atual quando tempo muda
+  useEffect(() => {
+    const word = getCurrentTranscriptWord();
+    setCurrentTranscriptWord(word);
+  }, [currentTime, getCurrentTranscriptWord]);
 
   // Função para obter cor da track
   const getTrackColor = (trackId: string): string => {
@@ -1512,33 +1518,6 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
   // ➕ NOVOS ESTADOS para Sistema de Transcrição na Timeline (ETAPA 1.2)
   const [currentTranscriptWord, setCurrentTranscriptWord] = useState<string>('');
-
-  // ➕ FUNÇÃO para encontrar palavra atual na transcrição
-  const getCurrentTranscriptWord = useCallback(() => {
-    if (!transcriptionData?.words || !Array.isArray(transcriptionData.words)) return '';
-    
-    const currentWord = transcriptionData.words.find((word: any) => 
-      currentTime >= word.start && currentTime <= word.end
-    );
-    
-    return currentWord?.text || '';
-  }, [transcriptionData, currentTime]);
-
-  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
-  const formatTimeToSRT = useCallback((seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    const milliseconds = Math.floor((seconds % 1) * 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
-  }, []);
-
-  // ➕ ATUALIZAR palavra atual quando tempo muda
-  useEffect(() => {
-    const word = getCurrentTranscriptWord();
-    setCurrentTranscriptWord(word);
-  }, [currentTime, getCurrentTranscriptWord]);
 
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
