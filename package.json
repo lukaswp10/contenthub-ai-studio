@@ -27,7 +27,9 @@
     "supabase:reset": "supabase db reset",
     "supabase:gen-types": "supabase gen types typescript --local > src/types/supabase.ts",
     "deploy": "vercel --prod",
-    "deploy:preview": "vercel"
+    "deploy:preview": "vercel",
+    "deploy:check": "./scripts/deploy-check.sh",
+    "deploy:status": "vercel ls && vercel whoami"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.1.2",

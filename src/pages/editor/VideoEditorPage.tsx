@@ -799,10 +799,26 @@ export function VideoEditorPage() {
     console.log('✅ Captions processadas:', captions.length)
   }
 
-  // Função para alternar visibilidade das captions
+  // ✅ FUNÇÃO MELHORADA: Alternar visibilidade das captions com feedback visual
   const toggleCaptionsVisibility = () => {
-    setCaptionsVisible(!captionsVisible)
-    console.log(`👁️ Captions ${!captionsVisible ? 'ativadas' : 'desativadas'}`)
+    const newVisibility = !captionsVisible
+    setCaptionsVisible(newVisibility)
+    
+    // ✅ Feedback visual melhorado
+    if (newVisibility) {
+      console.log('👁️ Legendas ATIVADAS - Agora visíveis no vídeo')
+      // Pequena animação de confirmação
+      if (videoRef.current) {
+        videoRef.current.style.filter = 'brightness(1.1)'
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.style.filter = 'brightness(1)'
+          }
+        }, 200)
+      }
+    } else {
+      console.log('👁️ Legendas DESATIVADAS - Ocultas do vídeo')
+    }
   }
 
   // Função para aplicar estilo de caption
@@ -1320,30 +1336,49 @@ export function VideoEditorPage() {
                   </Button>
                 </div>
                 
-                {/* Controles que aparecem no hover */}
-                <div className="video-controls-visionario absolute bottom-6 left-6 right-6 opacity-0 hover:opacity-100 transition-all duration-300">
-                  <div className="bg-black/60 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20">
-                    <div className="flex items-center gap-3">
+                {/* ✅ CONTROLES SEMPRE VISÍVEIS - Melhorados */}
+                <div className="video-controls-visionario absolute bottom-6 left-6 right-6 transition-all duration-300">
+                  <div className="bg-black/70 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20 shadow-2xl">
+                    <div className="flex items-center gap-4">
                       <Button
                         onClick={togglePlayPause}
-                        className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
+                        className="control-btn text-white hover:text-blue-300 transition-colors text-xl bg-white/10 hover:bg-white/20 rounded-full w-12 h-12 flex items-center justify-center"
                       >
                         {isPlaying ? '⏸️' : '▶️'}
                       </Button>
                       
-                      {/* ✅ NOVO: Botão de Toggle de Legendas */}
+                      {/* ✅ BOTÃO CC SEMPRE VISÍVEL E DESTACADO */}
+                      <Button
+                        onClick={toggleCaptionsVisibility}
+                        className={`cc-btn transition-all duration-300 text-sm px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                          transcriptionResult?.words?.length > 0
+                            ? captionsVisible 
+                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' 
+                              : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white border border-white/20'
+                            : 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
+                        }`}
+                        disabled={!transcriptionResult?.words?.length}
+                        title={
+                          !transcriptionResult?.words?.length 
+                            ? 'Faça transcrição primeiro' 
+                            : captionsVisible 
+                              ? 'Ocultar legendas' 
+                              : 'Mostrar legendas'
+                        }
+                      >
+                        <span className="text-lg">📝</span>
+                        <span>CC</span>
+                        {transcriptionResult?.words?.length > 0 && (
+                          <div className={`w-2 h-2 rounded-full ${captionsVisible ? 'bg-green-400' : 'bg-gray-400'}`} />
+                        )}
+                      </Button>
+
+                      {/* ✅ INDICADOR DE STATUS DAS LEGENDAS */}
                       {transcriptionResult?.words?.length > 0 && (
-                        <Button
-                          onClick={toggleCaptionsVisibility}
-                          className={`control-btn transition-colors text-sm px-3 py-1 rounded ${
-                            captionsVisible 
-                              ? 'bg-purple-600 text-white' 
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                          title={captionsVisible ? 'Ocultar legendas' : 'Mostrar legendas'}
-                        >
-                          📝 CC
-                        </Button>
+                        <div className="flex items-center gap-2 text-xs text-gray-300">
+                          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                          <span>{transcriptionResult.words.length} palavras</span>
+                        </div>
                       )}
                     </div>
                     
