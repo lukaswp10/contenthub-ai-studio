@@ -1519,16 +1519,6 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     setCurrentTranscriptWord(word);
   }, [currentTime, getCurrentTranscriptWord]);
 
-  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
-  const formatTimeToSRT = useCallback((seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    const milliseconds = Math.floor((seconds % 1) * 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
-  }, []);
-
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
@@ -2735,16 +2725,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  // Exportar legendas como SRT
-                  const formatTimeToSRT = (seconds: number) => {
-                    const hours = Math.floor(seconds / 3600);
-                    const minutes = Math.floor((seconds % 3600) / 60);
-                    const secs = Math.floor(seconds % 60);
-                    const milliseconds = Math.floor((seconds % 1) * 1000);
-                    
-                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
-                  };
-                  
+                  // Exportar legendas como SRT usando a função já definida
                   const srtContent = transcriptionData.words.map((word: any, index: number) => {
                     const start = formatTimeToSRT(word.start);
                     const end = formatTimeToSRT(word.end);
@@ -2787,22 +2768,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         </div>
       )}
 
-      {/* ➕ FUNÇÃO AUXILIAR para formatar tempo para SRT */}
-      {(() => {
-        // Função para converter segundos em formato SRT (HH:MM:SS,mmm)
-        const formatTimeToSRT = (seconds: number) => {
-          const hours = Math.floor(seconds / 3600);
-          const minutes = Math.floor((seconds % 3600) / 60);
-          const secs = Math.floor(seconds % 60);
-          const milliseconds = Math.floor((seconds % 1) * 1000);
-          
-          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
-        };
-        
-        // Expor função para uso no componente
-        (window as any).formatTimeToSRT = formatTimeToSRT;
-        return null;
-      })()}
+
     </div>
   );
 };
