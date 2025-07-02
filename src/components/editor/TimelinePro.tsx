@@ -2692,7 +2692,17 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                         });
                       }
                     }}
-                    className={`flex-1 bg-transparent border-none text-white text-sm focus:outline-none ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        // Pular para próxima palavra ao pressionar Enter
+                        const nextIndex = index + 1;
+                        if (nextIndex < transcriptionData.words.length) {
+                          const nextWord = transcriptionData.words[nextIndex];
+                          onSeek(nextWord.start);
+                        }
+                      }
+                    }}
+                    className={`flex-1 bg-transparent border-none text-white text-sm focus:outline-none focus:bg-white/5 focus:px-2 focus:py-1 focus:rounded transition-all ${
                       isCurrentWord ? 'font-bold text-purple-200' : ''
                     }`}
                     placeholder="Editar texto..."

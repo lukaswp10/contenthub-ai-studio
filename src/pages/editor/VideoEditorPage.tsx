@@ -719,13 +719,26 @@ export function VideoEditorPage() {
           segments.map(s => `• ${s.name}`).join('\n'))
   }
 
-  // Função para obter legenda atual baseada no tempo
+  // Função para obter legenda atual baseada no tempo - CORRIGIDA
   const getCurrentCaption = () => {
-    if (!generatedCaptions.length || !captionsVisible) return null
+    // ✅ CORRIGIDO: Usar transcriptionResult.words ao invés de generatedCaptions
+    if (!transcriptionResult?.words?.length || !captionsVisible) return null
     
-    return generatedCaptions.find(caption => 
-      currentTime >= caption.start && currentTime <= caption.end
+    const currentWord = transcriptionResult.words.find((word: any) => 
+      currentTime >= word.start && currentTime <= word.end
     )
+    
+    if (currentWord) {
+      return {
+        id: `word_${currentTime}`,
+        text: currentWord.text,
+        start: currentWord.start,
+        end: currentWord.end,
+        confidence: currentWord.confidence || 0.9
+      }
+    }
+    
+    return null
   }
 
   // Função melhorada para renderizar legenda com estilo avançado personalizado
@@ -1128,14 +1141,18 @@ export function VideoEditorPage() {
     if (savedAssemblyAI) setAssemblyaiApiKey(savedAssemblyAI)
   }, [])
 
-  // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline
+  // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline - CORRIGIDA
   const updateTimelineTranscript = useCallback((transcriptionData: any) => {
     // Atualizar tanto o estado local quanto a timeline
     setTranscriptionResult(transcriptionData)
     setGeneratedCaptions(transcriptionData.words || [])
     setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
     
+    // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
+    setCaptionsVisible(true)
+    
     console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
+    console.log('👁️ Legendas ativadas automaticamente')
   }, [])
 
   // ✅ Configurar API keys automaticamente ao carregar
@@ -1306,12 +1323,29 @@ export function VideoEditorPage() {
                 {/* Controles que aparecem no hover */}
                 <div className="video-controls-visionario absolute bottom-6 left-6 right-6 opacity-0 hover:opacity-100 transition-all duration-300">
                   <div className="bg-black/60 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20">
-                    <Button
-                      onClick={togglePlayPause}
-                      className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
-                    >
-                      {isPlaying ? '⏸️' : '▶️'}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={togglePlayPause}
+                        className="control-btn text-white hover:text-blue-300 transition-colors text-lg"
+                      >
+                        {isPlaying ? '⏸️' : '▶️'}
+                      </Button>
+                      
+                      {/* ✅ NOVO: Botão de Toggle de Legendas */}
+                      {transcriptionResult?.words?.length > 0 && (
+                        <Button
+                          onClick={toggleCaptionsVisibility}
+                          className={`control-btn transition-colors text-sm px-3 py-1 rounded ${
+                            captionsVisible 
+                              ? 'bg-purple-600 text-white' 
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                          title={captionsVisible ? 'Ocultar legendas' : 'Mostrar legendas'}
+                        >
+                          📝 CC
+                        </Button>
+                      )}
+                    </div>
                     
                     <div className="flex-1 mx-6">
                       <div className="text-sm text-gray-300 mb-2 text-center font-medium">
