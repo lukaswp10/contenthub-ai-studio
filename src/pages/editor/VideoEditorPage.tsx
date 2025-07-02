@@ -854,6 +854,18 @@ export function VideoEditorPage() {
       lastWord: wordsArray?.[wordsArray.length - 1]
     })
     
+    // ✅ ADICIONAR LOG ESPECÍFICO PARA DEPURAÇÃO
+    console.log('🚨 DEPURAÇÃO CRÍTICA:', {
+      temTranscricao: !!storeTranscriptionData,
+      temWords: !!storeTranscriptionData?.words,
+      quantidadeWords: storeTranscriptionData?.words?.length,
+      temGeneratedCaptions: !!storeGeneratedCaptionsData,
+      quantidadeGenerated: storeGeneratedCaptionsData?.length,
+      captionsAtivadas: storeCaptionsVisibleData,
+      tempoAtual: storeCurrentTimeData,
+      arrayFinal: wordsArray?.length
+    })
+    
     if (!wordsArray?.length || !storeCaptionsVisibleData) {
       console.log('🔍 getCurrentCaption: Sem palavras ou legendas desativadas', {
         wordsLength: wordsArray?.length,
@@ -863,41 +875,42 @@ export function VideoEditorPage() {
       return null
     }
     
-    // ✅ MELHORADO: Buscar palavra atual com tolerância maior para evitar "pulos"
-    const tolerance = 0.5 // 500ms de tolerância (aumentado)
-    const currentWord = wordsArray.find((word: any) => 
-      storeCurrentTimeData >= (word.start - tolerance) && storeCurrentTimeData <= (word.end + tolerance)
+    // ✅ NOVO: Buscar palavra atual com múltiplas estratégias
+    const currentTime = storeCurrentTimeData
+    
+    // Estratégia 1: Busca exata com tolerância pequena
+    let currentWord = wordsArray.find((word: any) => 
+      currentTime >= word.start && currentTime <= word.end
     )
     
-    // ✅ NOVO: Se não encontrar palavra exata, buscar a mais próxima
+    // Estratégia 2: Se não encontrou, buscar com tolerância maior
     if (!currentWord) {
-      // Buscar palavra mais próxima do tempo atual
-      const nearestWord = wordsArray.reduce((closest: any, word: any) => {
+      const tolerance = 0.3 // 300ms de tolerância
+      currentWord = wordsArray.find((word: any) => 
+        currentTime >= (word.start - tolerance) && currentTime <= (word.end + tolerance)
+      )
+    }
+    
+    // Estratégia 3: Se ainda não encontrou, buscar a palavra mais próxima
+    if (!currentWord) {
+      currentWord = wordsArray.reduce((closest: any, word: any) => {
         if (!closest) return word
         
-        const currentDistance = Math.abs(storeCurrentTimeData - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(storeCurrentTimeData - ((closest.start + closest.end) / 2))
+        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((closest.start + closest.end) / 2))
         
         return currentDistance < closestDistance ? word : closest
       }, null)
       
-      // Só mostrar se estiver muito próximo (dentro de 3 segundos)
-      if (nearestWord && Math.abs(storeCurrentTimeData - ((nearestWord.start + nearestWord.end) / 2)) <= 3) {
-        console.log('🎯 getCurrentCaption: Palavra próxima encontrada:', nearestWord.text, 'no tempo', storeCurrentTimeData)
-        return {
-          id: `word_near_${storeCurrentTimeData}`,
-          text: nearestWord.text,
-          start: nearestWord.start,
-          end: nearestWord.end,
-          confidence: nearestWord.confidence || 0.9
-        }
+      // Só usar se estiver muito próximo (dentro de 2 segundos)
+      if (currentWord && Math.abs(currentTime - ((currentWord.start + currentWord.end) / 2)) > 2) {
+        currentWord = null
       }
     }
     
     if (currentWord) {
-      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', storeCurrentTimeData)
+      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', currentTime)
       return {
-        id: `word_${storeCurrentTimeData}`,
         text: currentWord.text,
         start: currentWord.start,
         end: currentWord.end,
@@ -905,7 +918,8 @@ export function VideoEditorPage() {
       }
     }
     
-    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', storeCurrentTimeData)
+    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', currentTime)
+    console.log('🚨 PALAVRAS DISPONÍVEIS:', wordsArray?.slice(0, 5).map((w: any, i: number) => `${i}: "${w.text}" (${w.start.toFixed(1)}-${w.end.toFixed(1)})`))
     return null
   }
 
@@ -1535,6 +1549,63 @@ export function VideoEditorPage() {
           <div className="flex-1 flex flex-col min-w-0">
             {/* Video Preview Container */}
             <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
+              {/* 🚨 BOTÃO DE TESTE CRÍTICO - REMOVER APÓS CORREÇÃO */}
+              <div className="absolute top-4 left-4 z-50">
+                <Button
+                  onClick={() => {
+                    console.log('🚨 TESTE CRÍTICO: Forçando legendas de emergência!')
+                    
+                    // ✅ ESTADO ATUAL ANTES
+                    const estadoAntes = useVideoEditorStore.getState()
+                    console.log('📊 Estado ANTES:', {
+                      transcriptionWords: estadoAntes.transcriptionResult?.words?.length,
+                      generatedCaptions: estadoAntes.generatedCaptions?.length,
+                      captionsVisible: estadoAntes.captionsVisible,
+                      currentTime: estadoAntes.currentTime
+                    })
+                    
+                    // ✅ FORÇAR LEGENDAS DE TESTE
+                    const testWords = [
+                      { text: 'TESTE', start: 0, end: 2, confidence: 0.9 },
+                      { text: 'LEGENDAS', start: 1, end: 3, confidence: 0.9 },
+                      { text: 'FUNCIONANDO', start: 2, end: 4, confidence: 0.9 },
+                      { text: 'AGORA!', start: 3, end: 5, confidence: 0.9 }
+                    ]
+                    
+                    // ✅ FORÇAR TODOS OS ESTADOS
+                    useVideoEditorStore.setState({
+                      transcriptionResult: {
+                        words: testWords,
+                        text: testWords.map(w => w.text).join(' '),
+                        confidence: 0.9,
+                        language: 'pt-BR'
+                      },
+                      generatedCaptions: testWords,
+                      captionsVisible: true,
+                      currentTime: 1.5 // Tempo onde há palavra
+                    })
+                    
+                    // ✅ VERIFICAR ESTADO DEPOIS
+                    setTimeout(() => {
+                      const estadoDepois = useVideoEditorStore.getState()
+                      console.log('📊 Estado DEPOIS:', {
+                        transcriptionWords: estadoDepois.transcriptionResult?.words?.length,
+                        generatedCaptions: estadoDepois.generatedCaptions?.length,
+                        captionsVisible: estadoDepois.captionsVisible,
+                        currentTime: estadoDepois.currentTime
+                      })
+                      
+                      // ✅ TESTAR getCurrentCaption
+                      const caption = getCurrentCaption()
+                      console.log('🎯 getCurrentCaption resultado:', caption)
+                    }, 100)
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded shadow-lg"
+                >
+                  🚨 TESTE DIRETO
+                </Button>
+              </div>
+              
               {/* ✅ NOVO COMPONENTE VIDEOPLAYER REFATORADO */}
               <VideoPlayer
                 // Captions específicas

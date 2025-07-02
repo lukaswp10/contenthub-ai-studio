@@ -43,11 +43,11 @@ export const VideoOverlay = memo(({
     visible: captionsVisible
   })
 
-  // ✅ Posicionamento dinâmico
+  // ✅ Posicionamento dinâmico CORRIGIDO
   const positionClasses = {
-    top: 'top-8 justify-start',
-    center: 'top-1/2 -translate-y-1/2 justify-center',
-    bottom: 'bottom-20 justify-end'
+    top: 'top-8 justify-center items-start',
+    center: 'top-1/2 -translate-y-1/2 justify-center items-center',
+    bottom: 'bottom-20 justify-center items-end'
   }
 
   // ✅ Estilos dinâmicos para a legenda
@@ -64,11 +64,11 @@ export const VideoOverlay = memo(({
 
   return (
     <div className={`
-      caption-overlay-visionario absolute left-0 right-0 flex items-center px-8 pointer-events-none z-10
+      caption-overlay-visionario absolute inset-0 flex pointer-events-none z-20
       ${positionClasses[captionPosition]}
     `}>
       <div 
-        className="caption-text-visionario text-center font-bold leading-tight max-w-full px-4 py-2 rounded-lg backdrop-blur-sm"
+        className="caption-text-visionario text-center font-bold leading-tight max-w-[90%] px-6 py-3 rounded-xl backdrop-blur-sm mx-auto"
         style={captionStyles}
       >
         {currentCaption.text}
