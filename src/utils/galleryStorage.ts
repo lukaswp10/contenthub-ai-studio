@@ -10,6 +10,24 @@ export interface GalleryVideo {
   url?: string
   cloudinaryPublicId?: string // ID do vídeo no Cloudinary
   cloudinaryUrl?: string // URL permanente do Cloudinary
+  transcription?: { // ✅ NOVO: Suporte para transcrição persistente
+    words: TranscriptionWord[]
+    text: string
+    language?: string
+    confidence?: number
+    provider?: 'whisper' | 'assemblyai' | 'webspeech'
+    createdAt?: string
+  }
+}
+
+// ✅ NOVA INTERFACE: Palavra de transcrição
+export interface TranscriptionWord {
+  text: string
+  start: number
+  end: number
+  confidence: number
+  highlight?: boolean
+  speaker?: string
 }
 
 export interface GalleryClip {
@@ -179,4 +197,70 @@ const formatFileSize = (bytes: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// ✅ NOVA FUNÇÃO: Salvar transcrição na galeria
+export const saveTranscriptionToGallery = (videoId: string, transcription: {
+  words: TranscriptionWord[]
+  text: string
+  language?: string
+  confidence?: number
+  provider?: 'whisper' | 'assemblyai' | 'webspeech'
+}): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const videoIndex = videos.findIndex(v => v.id === videoId)
+    
+    if (videoIndex !== -1) {
+      videos[videoIndex].transcription = {
+        ...transcription,
+        createdAt: new Date().toISOString()
+      }
+      
+      // Salvar no localStorage
+      localStorage.setItem(GALLERY_VIDEOS_KEY, JSON.stringify(videos.map(video => ({
+        ...video,
+        uploadedAt: video.uploadedAt.toISOString(),
+        file: undefined
+      }))))
+      
+      console.log('✅ Transcrição salva na galeria:', {
+        videoId,
+        palavras: transcription.words.length,
+        provider: transcription.provider
+      })
+      
+      return true
+    }
+    
+    console.warn('⚠️ Vídeo não encontrado para salvar transcrição:', videoId)
+    return false
+  } catch (error) {
+    console.error('❌ Erro ao salvar transcrição na galeria:', error)
+    return false
+  }
+}
+
+// ✅ NOVA FUNÇÃO: Verificar se vídeo tem transcrição
+export const hasTranscription = (videoId: string): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const video = videos.find(v => v.id === videoId)
+    return !!(video?.transcription?.words?.length)
+  } catch (error) {
+    console.error('❌ Erro ao verificar transcrição:', error)
+    return false
+  }
+}
+
+// ✅ NOVA FUNÇÃO: Obter transcrição de um vídeo
+export const getTranscriptionFromGallery = (videoId: string) => {
+  try {
+    const videos = getGalleryVideos()
+    const video = videos.find(v => v.id === videoId)
+    return video?.transcription || null
+  } catch (error) {
+    console.error('❌ Erro ao carregar transcrição:', error)
+    return null
+  }
 } 

@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import './VideoEditorStyles.css'
 import '../../components/editor/AutoCaptions.css'
-import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip } from '@/utils/galleryStorage'
+import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip, saveTranscriptionToGallery, hasTranscription, getTranscriptionFromGallery } from '@/utils/galleryStorage'
 import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
@@ -650,6 +650,17 @@ export function VideoEditorPage() {
     storeSetVideoData(videoData)
     storeSetDuration(video.duration)
     
+    // ✅ CARREGAR TRANSCRIÇÃO EXISTENTE (sem gastar API)
+    if (video.transcription?.words?.length) {
+      console.log('📝 Carregando transcrição salva:', video.transcription.words.length, 'palavras')
+      setTranscriptionResult(video.transcription)
+      storeSetGeneratedCaptions(video.transcription.words)
+      storeSetCaptionsVisible(true)
+      
+      console.log('✅ Transcrição restaurada automaticamente!')
+      console.log('💰 Créditos da API poupados - usando transcrição existente')
+    }
+    
     console.log('✅ Vídeo carregado no editor:', videoData)
   }
 
@@ -1225,6 +1236,36 @@ export function VideoEditorPage() {
     }
   };
 
+  // ✅ NOVA FUNÇÃO: Verificar e gerar legendas inteligentemente
+  const handleGenerateCaptions = async () => {
+    if (!videoData) return
+
+    // ✅ VERIFICAR SE JÁ EXISTE TRANSCRIÇÃO (economizar API)
+    if (videoData.id && hasTranscription(videoData.id)) {
+      console.log('💰 Transcrição já existe! Carregando sem gastar créditos...')
+      
+      const existingTranscription = getTranscriptionFromGallery(videoData.id)
+      if (existingTranscription?.words?.length) {
+        setTranscriptionResult(existingTranscription)
+        storeSetGeneratedCaptions(existingTranscription.words)
+        storeSetCaptionsVisible(true)
+        
+        console.log('✅ Transcrição restaurada:', existingTranscription.words.length, 'palavras')
+        console.log('🎯 Provider usado anteriormente:', existingTranscription.provider)
+        console.log('💸 Créditos da API preservados!')
+        
+        // Mostrar feedback visual
+        setTranscriptionProgress('✅ Transcrição carregada do cache!')
+        setTimeout(() => setTranscriptionProgress(''), 2000)
+        return
+      }
+    }
+    
+    // Se não tem transcrição, gerar nova
+    console.log('🆕 Gerando nova transcrição...')
+    await generateAdvancedCaptions()
+  }
+
   // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline - CORRIGIDA
   const updateTimelineTranscript = useCallback((transcriptionData: any) => {
     console.log('🔗 Dados recebidos para timeline:', transcriptionData)
@@ -1320,6 +1361,22 @@ export function VideoEditorPage() {
       storeSetGeneratedCaptions(result.words || [])
       setTranscriptionResult(result)
       storeSetCaptionsVisible(true)
+      
+      // ✅ SALVAR TRANSCRIÇÃO NA GALERIA (persistência)
+      if (videoData.id && result.words?.length > 0) {
+        const saved = saveTranscriptionToGallery(videoData.id, {
+          words: result.words,
+          text: result.text,
+          language: result.language,
+          confidence: result.confidence,
+          provider: transcriptionProvider
+        })
+        
+        if (saved) {
+          console.log('💾 Transcrição salva permanentemente na galeria')
+          console.log('💰 Próximas aberturas não gastarão créditos da API!')
+        }
+      }
       
       setTranscriptionProgress('✅ Transcrição concluída e aplicada à timeline!')
       
@@ -1960,51 +2017,36 @@ export function VideoEditorPage() {
                   {/* Grid de Vídeos */}
                   <div className="videos-grid-visionario grid grid-cols-1 md:grid-cols-2 gap-4">
                     {uploadedVideos.map(video => (
-                      <div
-                        key={video.id}
-                        className="video-card-improved bg-white/5 backdrop-blur-sm border border-white/10 hover:border-blue-500/50 p-4 rounded-xl transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:shadow-blue-500/20 group relative"
-                      >
-                        {/* Botão Excluir */}
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteVideo(video.id)
-                          }}
-                          className="delete-btn-visionario absolute top-2 right-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 hover:text-red-200 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
-                        >
-                          🗑️
-                        </Button>
-
-                        <div 
-                          className="cursor-pointer"
-                          onClick={() => {
-                            loadVideo(video)
-                            setGalleryModalOpen(false)
-                          }}
-                        >
-                          <div className="flex items-start space-x-4">
-                            <div className="w-20 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden flex-shrink-0 border border-white/10">
-                              <img
-                                src={video.thumbnail}
-                                alt={video.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
+                      <div key={video.id} className="gallery-item-visionario bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-black/30 hover:border-white/20 transition-all duration-300 group cursor-pointer">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-purple-300 truncate">
+                            🎬 {video.name}
+                          </h4>
+                          
+                          {/* ✅ INDICADOR DE TRANSCRIÇÃO */}
+                          {video.transcription?.words?.length ? (
+                            <div className="flex items-center gap-1 bg-green-600/20 border border-green-500/50 rounded-full px-2 py-1">
+                              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                              <span className="text-xs text-green-300">📝 {video.transcription.words.length}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-lg font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
-                                🎬 {video.name}
-                              </h4>
-                              <div className="text-sm text-gray-400 mt-2 space-y-1">
-                                <div className="flex items-center space-x-3">
-                                  <span>⏱️ {formatTime(video.duration)}</span>
-                                  <span>📦 {video.size}</span>
-                                </div>
-                                <div className="text-gray-500">
-                                  📅 {formatTimeAgo(video.uploadedAt)}
-                                </div>
-                              </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">
+                              📝 Sem legenda
                             </div>
-                          </div>
+                          )}
+                          
+                          {/* Botão de exclusão */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteVideo(video.id)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-400 p-1"
+                          >
+                            🗑️
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -2248,7 +2290,7 @@ export function VideoEditorPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={generateAdvancedCaptions}
+            onClick={handleGenerateCaptions}
             disabled={isTranscribing || !videoData}
             className="flex-1 bg-purple-600/20 border-purple-500/50 text-purple-300 hover:bg-purple-600/30"
           >
