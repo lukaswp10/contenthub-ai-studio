@@ -1149,8 +1149,16 @@ export function VideoEditorPage() {
     // ➕ Configurar AssemblyAI como fallback
     transcriptionService.setApiKey(assemblyaiApiKey)
     
+    // ⚠️ IMPORTANTE: Configurar rate limits conservadores para conta Free/Tier1
+    // OpenAI Free: 3 RPM, Tier 1: 500 RPM - Vamos ser conservadores
+    transcriptionService.configureRateLimits({
+      openai: { rpm: 2, tpm: 150000 }, // Conservador para Free tier
+      assemblyai: { rpm: 10, tpm: 500000 } // Mais generoso para AssemblyAI
+    })
+    
     console.log('✅ API Key OpenAI configurada automaticamente')
     console.log('✅ API Key AssemblyAI configurada como fallback')
+    console.log('⚠️ Rate limits configurados conservadoramente para conta Free/Tier1')
   }, [])
 
   // ✅ NOVOS ESTADOS para Editor Avançado de Legendas
@@ -1982,6 +1990,17 @@ export function VideoEditorPage() {
           <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
             <h4 className="text-sm font-medium text-gray-300 mb-3">🔑 Configuração de API Keys</h4>
             
+            {/* ⚠️ AVISO SOBRE RATE LIMITS */}
+            <div className="mb-3 p-2 bg-yellow-900/30 border border-yellow-600/50 rounded">
+              <div className="text-xs text-yellow-300 font-medium mb-1">⚠️ Importante: Rate Limits OpenAI</div>
+              <div className="text-xs text-yellow-200 leading-relaxed">
+                • <strong>Conta Free:</strong> Apenas 3 requests/min (muito baixo)<br/>
+                • <strong>Tier 1 ($5):</strong> 500 requests/min<br/>
+                • <strong>Recomendação:</strong> Upgrade para Tier 1 ou use AssemblyAI<br/>
+                • <strong>Link:</strong> <a href="https://platform.openai.com/settings/organization/limits" target="_blank" className="text-yellow-100 underline">Ver seus limites</a>
+              </div>
+            </div>
+            
             {/* OpenAI API Key */}
             <div className="mb-3">
               <label className="block text-xs text-gray-400 mb-1">OpenAI API Key</label>
@@ -1996,7 +2015,7 @@ export function VideoEditorPage() {
 
             {/* AssemblyAI API Key */}
             <div className="mb-3">
-              <label className="block text-xs text-gray-400 mb-1">AssemblyAI API Key</label>
+              <label className="block text-xs text-gray-400 mb-1">AssemblyAI API Key (Fallback)</label>
               <input
                 type="password"
                 value={assemblyaiApiKey}

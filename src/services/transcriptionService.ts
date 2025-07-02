@@ -550,6 +550,22 @@ class TranscriptionService {
       this.setApiKey(keys.assemblyai)
     }
   }
+
+  // ➕ NOVO: Método para configurar rate limits específicos por provedor
+  configureRateLimits(limits: { 
+    openai?: { rpm: number, tpm: number }, 
+    assemblyai?: { rpm: number, tpm: number } 
+  }) {
+    console.log('🔧 Configurando rate limits conservadores:', limits)
+    
+    // Salvar configurações para uso futuro se necessário
+    if (limits.openai) {
+      localStorage.setItem('openai_rate_limits', JSON.stringify(limits.openai))
+    }
+    if (limits.assemblyai) {
+      localStorage.setItem('assemblyai_rate_limits', JSON.stringify(limits.assemblyai))
+    }
+  }
 }
 
 export const transcriptionService = new TranscriptionService() 
