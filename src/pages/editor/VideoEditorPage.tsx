@@ -34,6 +34,7 @@ import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFr
 import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
+import { transcriptionService } from '../../services/transcriptionService'
 
 interface VideoData {
   file?: File | null
@@ -129,16 +130,16 @@ export function VideoEditorPage() {
   const [canRedo, setCanRedo] = useState(false)
   const [lastCommand, setLastCommand] = useState<string | null>(null)
   
-  // ➕ NOVOS ESTADOS para Sistema de Transcrição Avançado (ETAPA 1.1)
+  // Estados para transcrição avançada
   const [transcriptionProvider, setTranscriptionProvider] = useState<'whisper' | 'assemblyai' | 'webspeech'>('whisper')
-  const [showTranscriptionConfig, setShowTranscriptionConfig] = useState(false)
-  const [openaiApiKey, setOpenaiApiKey] = useState<string>('')
-  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState<string>('')
-  const [transcriptionProgress, setTranscriptionProgress] = useState<string>('')
+  const [openaiApiKey, setOpenaiApiKey] = useState('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')
+  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState('')
+  const [transcriptionProgress, setTranscriptionProgress] = useState('')
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
-  const [showTranscriptTimeline, setShowTranscriptTimeline] = useState(false)
-  
+  const [showTranscriptionConfig, setShowTranscriptionConfig] = useState(false)
+  const [showTranscriptTimeline, setShowTranscriptTimeline] = useState(true) // ✅ Estado para mostrar timeline de transcrição
+
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
     { id: 'cinematic', name: 'Cinematic', icon: '🎬', category: 'Color', preview: 'sepia(0.3) contrast(1.2)', intensity: 0.8 },
@@ -727,29 +728,39 @@ export function VideoEditorPage() {
     )
   }
 
-  // Função melhorada para renderizar legenda com estilo e animação
+  // Função melhorada para renderizar legenda com estilo avançado personalizado
   const renderCaptionWithStyle = (caption: any) => {
     if (!caption) return null
     
-    const style = captionStyles[activeCaptionStyle as keyof typeof captionStyles] || captionStyles['tiktok-bold']
+    // Usar os controles avançados ao invés dos estilos fixos
+    const dynamicStyle = {
+      fontFamily: captionFontFamily,
+      fontSize: `${captionFontSize}px`,
+      fontWeight: '700',
+      color: captionTextColor,
+      textShadow: captionShadowIntensity > 0 ? `${captionShadowIntensity}px ${captionShadowIntensity}px 0px ${captionShadowColor}` : 'none',
+      opacity: captionOpacity / 100,
+      background: captionBackgroundColor !== 'transparent' ? captionBackgroundColor : 'transparent',
+      padding: captionBackgroundColor !== 'transparent' ? '8px 16px' : '0px',
+      borderRadius: captionBackgroundColor !== 'transparent' ? '8px' : '0px',
+      wordWrap: 'break-word' as const,
+      maxWidth: '90%',
+      textAlign: 'center' as const,
+      lineHeight: '1.3',
+      display: 'inline-block',
+      position: 'relative' as const,
+      zIndex: 1000,
+      // Animações CSS personalizadas baseadas na seleção
+      animation: `${captionAnimation} 0.5s ease-out`,
+      animationFillMode: 'both',
+      transform: 'translateZ(0)', // Hardware acceleration
+      willChange: 'transform, opacity'
+    }
     
     return (
       <div
-        className={`caption-text caption-${activeCaptionStyle}`}
-        style={{
-          ...style,
-          wordWrap: 'break-word',
-          maxWidth: '90%',
-          textAlign: 'center',
-          lineHeight: '1.3',
-          display: 'inline-block',
-          position: 'relative',
-          zIndex: 1000,
-          // Animações CSS personalizadas
-          animationFillMode: 'both',
-          transform: 'translateZ(0)', // Hardware acceleration
-          willChange: 'transform, opacity'
-        }}
+        className={`caption-text caption-custom`}
+        style={dynamicStyle}
         key={`caption-${caption.id || Math.random()}`} // Force re-render para animação
       >
         {caption.text}
@@ -1127,6 +1138,31 @@ export function VideoEditorPage() {
     console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
   }, [])
 
+  // ✅ Configurar API keys automaticamente ao carregar
+  useEffect(() => {
+    // Salvar API key do OpenAI no localStorage
+    localStorage.setItem('openai_api_key', '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')
+    
+    // Configurar serviço de transcrição
+    transcriptionService.setOpenAIApiKey('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')
+    
+    console.log('✅ API Key OpenAI configurada automaticamente')
+  }, [])
+
+  // ✅ NOVOS ESTADOS para Editor Avançado de Legendas
+  const [captionFontFamily, setCaptionFontFamily] = useState('Montserrat')
+  const [captionFontSize, setCaptionFontSize] = useState(36)
+  const [captionTextColor, setCaptionTextColor] = useState('#FFFFFF')
+  const [captionBackgroundColor, setCaptionBackgroundColor] = useState('transparent')
+  const [captionBorderColor, setCaptionBorderColor] = useState('#000000')
+  const [captionBorderWidth, setCaptionBorderWidth] = useState(2)
+  const [captionShadowColor, setCaptionShadowColor] = useState('#000000')
+  const [captionShadowIntensity, setCaptionShadowIntensity] = useState(3)
+  const [captionOpacity, setCaptionOpacity] = useState(100)
+  const [captionAnimation, setCaptionAnimation] = useState('fadeIn')
+  const [captionPosition, setCaptionPosition] = useState('bottom')
+  const [showCaptionPreview, setShowCaptionPreview] = useState(true)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
@@ -1228,16 +1264,20 @@ export function VideoEditorPage() {
                 
                 {/* OVERLAY DE LEGENDAS VISIONÁRIO */}
                 <div 
-                  className="caption-overlay-visionario absolute bottom-8 left-8 right-8 text-center pointer-events-none z-10"
+                  className={`caption-overlay-visionario absolute left-8 right-8 text-center pointer-events-none z-10 ${
+                    captionPosition === 'top' ? 'top-8' : 
+                    captionPosition === 'center' ? 'top-1/2 transform -translate-y-1/2' : 
+                    'bottom-8'
+                  }`}
                   style={{
-                    fontSize: '32px',
+                    fontSize: `${captionFontSize}px`,
                     fontWeight: 'bold',
-                    color: 'white',
-                    textShadow: '3px 3px 6px rgba(0,0,0,0.9)',
+                    color: captionTextColor,
+                    textShadow: `${captionShadowIntensity}px ${captionShadowIntensity}px 0px ${captionShadowColor}`,
                     wordWrap: 'break-word'
                   }}
                 >
-                  {/* Legendas funcionais mantidas */}
+                  {/* Legendas funcionais com estilo personalizado */}
                   {getCurrentCaption() && renderCaptionWithStyle(getCurrentCaption())}
                 </div>
                 
@@ -1320,8 +1360,8 @@ export function VideoEditorPage() {
               <div className="p-6 border-b border-white/10">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-white flex items-center">
-                    <span className="mr-2">✨</span>
-                    Magic Captions
+                    <span className="mr-2">🎨</span>
+                    Estilos de Legendas
                   </h2>
                   {mobileView && (
                     <Button
@@ -1335,87 +1375,193 @@ export function VideoEditorPage() {
                 </div>
                 
                 {/* Status da IA Visionário */}
-                <div className="status-card-visionario bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/30 rounded-xl p-4">
+                <div className="status-card-visionario bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
                       <div>
-                        <p className="text-sm font-semibold text-green-300">Status: ✅ Ativo</p>
+                        <p className="text-sm font-semibold text-purple-300">Status: ✅ Editor Ativo</p>
                         <p className="text-xs text-gray-400">
-                          {generatedCaptions.length || 0} palavras detectadas
+                          {generatedCaptions.length || 0} palavras com estilo
                         </p>
                       </div>
                     </div>
-                    <div className="text-2xl">🤖</div>
+                    <div className="text-2xl">🎨</div>
                   </div>
                 </div>
               </div>
 
               {/* Conteúdo dos Controles Visionário */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 
-                {/* Seção 1: Gerar Legendas com IA */}
+                {/* ===== SEÇÃO 1: EDITOR DE FONTE ===== */}
                 <div className="control-section-visionario">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">🎯</span>
-                    Gerar Legendas
+                    <span className="mr-2">🔤</span>
+                    Fonte e Tamanho
                   </h3>
                   
-                  <div className="space-y-3">
-                    {/* Input da API Key */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        🔑 AssemblyAI API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="Cole sua API key aqui..."
-                        className="api-input-visionario w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:bg-white/10 transition-all duration-300"
-                      />
-                    </div>
-                    
-                    {/* Botão Gerar Visionário */}
-                    <Button
-                      onClick={generateCaptions}
-                      disabled={!apiKey || !videoData || isGenerating}
-                      className="generate-btn-visionario w-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 hover:from-blue-700 hover:via-purple-700 hover:to-blue-700 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  {/* Seletor de Fonte */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">Família da Fonte:</label>
+                    <select
+                      value={captionFontFamily}
+                      onChange={(e) => setCaptionFontFamily(e.target.value)}
+                      className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
-                      {isGenerating ? (
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Gerando Magia...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <span className="text-xl">🎯</span>
-                          <span>Gerar Legendas com IA</span>
-                        </div>
-                      )}
-                    </Button>
+                      <option value="Montserrat">Montserrat (TikTok Style)</option>
+                      <option value="Arial Black">Arial Black (Bold)</option>
+                      <option value="Impact">Impact (Meme Style)</option>
+                      <option value="Roboto">Roboto (YouTube Style)</option>
+                      <option value="Inter">Inter (Instagram Style)</option>
+                      <option value="Source Sans Pro">Source Sans Pro (Podcast)</option>
+                      <option value="Oswald">Oswald (Modern)</option>
+                      <option value="Bebas Neue">Bebas Neue (Cinematic)</option>
+                      <option value="Poppins">Poppins (Clean)</option>
+                      <option value="Bangers">Bangers (Comic)</option>
+                    </select>
+                  </div>
+
+                  {/* Slider de Tamanho */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Tamanho da Fonte: <span className="text-purple-300 font-bold">{captionFontSize}px</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="16"
+                      max="80"
+                      value={captionFontSize}
+                      onChange={(e) => setCaptionFontSize(Number(e.target.value))}
+                      className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer slider-purple"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>16px</span>
+                      <span>48px</span>
+                      <span>80px</span>
+                    </div>
+                  </div>
+
+                  {/* Preview da Fonte */}
+                  <div className="bg-black/40 rounded-lg p-4 border border-white/10">
+                    <p className="text-xs text-gray-400 mb-2">Preview:</p>
+                    <div 
+                      style={{
+                        fontFamily: captionFontFamily,
+                        fontSize: `${Math.min(captionFontSize, 24)}px`,
+                        color: captionTextColor,
+                        textShadow: `${captionShadowIntensity}px ${captionShadowIntensity}px 0px ${captionShadowColor}`,
+                      }}
+                      className="text-center font-bold"
+                    >
+                      Texto de Exemplo
+                    </div>
                   </div>
                 </div>
 
-                {/* Seção 2: Estilos Virais */}
+                {/* ===== SEÇÃO 2: CORES E EFEITOS ===== */}
                 <div className="control-section-visionario">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">🎨</span>
-                    Estilos Virais
+                    <span className="mr-2">🌈</span>
+                    Cores e Efeitos
                   </h3>
                   
-                  <div className="viral-styles-grid grid grid-cols-2 gap-3">
+                  {/* Grid de Cores */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* Cor do Texto */}
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Cor do Texto:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={captionTextColor}
+                          onChange={(e) => setCaptionTextColor(e.target.value)}
+                          className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={captionTextColor}
+                          onChange={(e) => setCaptionTextColor(e.target.value)}
+                          className="flex-1 bg-black/20 border border-white/20 rounded-lg p-2 text-white text-sm"
+                          placeholder="#FFFFFF"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cor da Sombra */}
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">Cor da Sombra:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={captionShadowColor}
+                          onChange={(e) => setCaptionShadowColor(e.target.value)}
+                          className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={captionShadowColor}
+                          onChange={(e) => setCaptionShadowColor(e.target.value)}
+                          className="flex-1 bg-black/20 border border-white/20 rounded-lg p-2 text-white text-sm"
+                          placeholder="#000000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Intensidade da Sombra */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Intensidade da Sombra: <span className="text-purple-300 font-bold">{captionShadowIntensity}px</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={captionShadowIntensity}
+                      onChange={(e) => setCaptionShadowIntensity(Number(e.target.value))}
+                      className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer slider-purple"
+                    />
+                  </div>
+
+                  {/* Opacidade */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Opacidade: <span className="text-purple-300 font-bold">{captionOpacity}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={captionOpacity}
+                      onChange={(e) => setCaptionOpacity(Number(e.target.value))}
+                      className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer slider-purple"
+                    />
+                  </div>
+                </div>
+
+                {/* ===== SEÇÃO 3: PRESETS VIRAIS ===== */}
+                <div className="control-section-visionario">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                    <span className="mr-2">🔥</span>
+                    Presets Virais
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-3">
                     {/* TikTok Bold */}
                     <Button
-                      onClick={() => setCaptionStyle('tiktok')}
-                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                        captionStyle === 'tiktok'
-                          ? 'border-pink-500 bg-gradient-to-br from-pink-600/30 to-pink-700/30 shadow-lg shadow-pink-500/20'
-                          : 'border-white/20 bg-white/5 hover:border-pink-500/50 hover:bg-pink-600/10'
-                      }`}
+                      onClick={() => {
+                        setCaptionFontFamily('Montserrat')
+                        setCaptionFontSize(48)
+                        setCaptionTextColor('#FFFFFF')
+                        setCaptionShadowColor('#000000')
+                        setCaptionShadowIntensity(4)
+                        setCaptionOpacity(100)
+                      }}
+                      className="preset-card h-20 rounded-xl border-2 border-white/20 bg-gradient-to-br from-pink-600/30 to-red-600/30 hover:from-pink-600/40 hover:to-red-600/40 transition-all duration-300"
                     >
                       <div className="flex flex-col items-center space-y-1">
-                        <span className="text-2xl">🔥</span>
+                        <span className="text-2xl">🎵</span>
                         <div className="text-center">
                           <div className="text-sm font-bold text-pink-300">TikTok</div>
                           <div className="text-xs text-gray-400">Bold</div>
@@ -1423,53 +1569,62 @@ export function VideoEditorPage() {
                       </div>
                     </Button>
 
-                    {/* YouTube Minimal */}
+                    {/* YouTube Clean */}
                     <Button
-                      onClick={() => setCaptionStyle('youtube')}
-                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                        captionStyle === 'youtube'
-                          ? 'border-red-500 bg-gradient-to-br from-red-600/30 to-red-700/30 shadow-lg shadow-red-500/20'
-                          : 'border-white/20 bg-white/5 hover:border-red-500/50 hover:bg-red-600/10'
-                      }`}
+                      onClick={() => {
+                        setCaptionFontFamily('Roboto')
+                        setCaptionFontSize(32)
+                        setCaptionTextColor('#FFFFFF')
+                        setCaptionShadowColor('#000000')
+                        setCaptionShadowIntensity(2)
+                        setCaptionOpacity(95)
+                      }}
+                      className="preset-card h-20 rounded-xl border-2 border-white/20 bg-gradient-to-br from-red-600/30 to-red-700/30 hover:from-red-600/40 hover:to-red-700/40 transition-all duration-300"
                     >
                       <div className="flex flex-col items-center space-y-1">
                         <span className="text-2xl">📺</span>
                         <div className="text-center">
                           <div className="text-sm font-bold text-red-300">YouTube</div>
-                          <div className="text-xs text-gray-400">Minimal</div>
+                          <div className="text-xs text-gray-400">Clean</div>
                         </div>
                       </div>
                     </Button>
 
-                    {/* Instagram Gradient */}
+                    {/* Instagram Neon */}
                     <Button
-                      onClick={() => setCaptionStyle('instagram')}
-                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                        captionStyle === 'instagram'
-                          ? 'border-purple-500 bg-gradient-to-br from-purple-600/30 to-purple-700/30 shadow-lg shadow-purple-500/20'
-                          : 'border-white/20 bg-white/5 hover:border-purple-500/50 hover:bg-purple-600/10'
-                      }`}
+                      onClick={() => {
+                        setCaptionFontFamily('Inter')
+                        setCaptionFontSize(40)
+                        setCaptionTextColor('#FF00FF')
+                        setCaptionShadowColor('#FF00FF')
+                        setCaptionShadowIntensity(6)
+                        setCaptionOpacity(100)
+                      }}
+                      className="preset-card h-20 rounded-xl border-2 border-white/20 bg-gradient-to-br from-purple-600/30 to-pink-600/30 hover:from-purple-600/40 hover:to-pink-600/40 transition-all duration-300"
                     >
                       <div className="flex flex-col items-center space-y-1">
                         <span className="text-2xl">🌈</span>
                         <div className="text-center">
                           <div className="text-sm font-bold text-purple-300">Instagram</div>
-                          <div className="text-xs text-gray-400">Gradient</div>
+                          <div className="text-xs text-gray-400">Neon</div>
                         </div>
                       </div>
                     </Button>
 
-                    {/* Podcast Clean */}
+                    {/* Podcast Professional */}
                     <Button
-                      onClick={() => setCaptionStyle('podcast')}
-                      className={`viral-style-card h-20 rounded-xl border-2 transition-all duration-300 ${
-                        captionStyle === 'podcast'
-                          ? 'border-green-500 bg-gradient-to-br from-green-600/30 to-green-700/30 shadow-lg shadow-green-500/20'
-                          : 'border-white/20 bg-white/5 hover:border-green-500/50 hover:bg-green-600/10'
-                      }`}
+                      onClick={() => {
+                        setCaptionFontFamily('Source Sans Pro')
+                        setCaptionFontSize(28)
+                        setCaptionTextColor('#FFFFFF')
+                        setCaptionShadowColor('#000000')
+                        setCaptionShadowIntensity(1)
+                        setCaptionOpacity(90)
+                      }}
+                      className="preset-card h-20 rounded-xl border-2 border-white/20 bg-gradient-to-br from-green-600/30 to-teal-600/30 hover:from-green-600/40 hover:to-teal-600/40 transition-all duration-300"
                     >
                       <div className="flex flex-col items-center space-y-1">
-                        <span className="text-2xl">🎙️</span>
+                        <span className="text-2xl">🎤</span>
                         <div className="text-center">
                           <div className="text-sm font-bold text-green-300">Podcast</div>
                           <div className="text-xs text-gray-400">Clean</div>
@@ -1479,95 +1634,76 @@ export function VideoEditorPage() {
                   </div>
                 </div>
 
-                {/* Seção 3: Efeitos Rápidos */}
+                {/* ===== SEÇÃO 4: POSIÇÃO E ANIMAÇÃO ===== */}
                 <div className="control-section-visionario">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">⚡</span>
-                    Efeitos Rápidos
+                    <span className="mr-2">📍</span>
+                    Posição e Animação
                   </h3>
                   
-                  <div className="effects-grid grid grid-cols-3 gap-2">
-                    <Button
-                      onClick={() => applyEffect('zoom')}
-                      className="effect-btn bg-white/5 hover:bg-blue-600/20 border border-white/20 hover:border-blue-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+                  {/* Posição */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">Posição da Legenda:</label>
+                    <select
+                      value={captionPosition}
+                      onChange={(e) => setCaptionPosition(e.target.value)}
+                      className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
-                      <div className="flex flex-col items-center space-y-1">
-                        <span className="text-lg">🔍</span>
-                        <span className="text-xs">Zoom</span>
-                      </div>
-                    </Button>
-                    
-                    <Button
-                      onClick={() => applyEffect('blur')}
-                      className="effect-btn bg-white/5 hover:bg-purple-600/20 border border-white/20 hover:border-purple-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
+                      <option value="top">Topo</option>
+                      <option value="center">Centro</option>
+                      <option value="bottom">Inferior (Padrão)</option>
+                    </select>
+                  </div>
+
+                  {/* Animação */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-gray-300 mb-2">Animação de Entrada:</label>
+                    <select
+                      value={captionAnimation}
+                      onChange={(e) => setCaptionAnimation(e.target.value)}
+                      className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
-                      <div className="flex flex-col items-center space-y-1">
-                        <span className="text-lg">🌀</span>
-                        <span className="text-xs">Blur</span>
-                      </div>
-                    </Button>
-                    
-                    <Button
-                      onClick={() => applyEffect('glow')}
-                      className="effect-btn bg-white/5 hover:bg-yellow-600/20 border border-white/20 hover:border-yellow-500/50 text-white py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20"
-                    >
-                      <div className="flex flex-col items-center space-y-1">
-                        <span className="text-lg">✨</span>
-                        <span className="text-xs">Glow</span>
-                      </div>
-                    </Button>
+                      <option value="fadeIn">Fade In</option>
+                      <option value="slideUp">Slide Up</option>
+                      <option value="slideDown">Slide Down</option>
+                      <option value="bounce">Bounce</option>
+                      <option value="zoom">Zoom</option>
+                      <option value="typewriter">Typewriter</option>
+                    </select>
                   </div>
                 </div>
 
-                {/* Seção 4: Áudio */}
+                {/* ===== SEÇÃO 5: CONTROLES DE TRANSCRIÇÃO ===== */}
                 <div className="control-section-visionario">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">🎵</span>
-                    Áudio
+                    <span className="mr-2">🎯</span>
+                    Transcrição Automática
                   </h3>
                   
-                  <Button
-                    onClick={() => {/* Implementar adicionar música */}}
-                    className="audio-btn w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-dashed border-green-500/50 hover:border-green-400 text-green-300 hover:text-green-200 py-4 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-green-500/30 hover:via-blue-500/30 hover:to-purple-500/30 hover:scale-[1.02] group"
-                  >
-                    <div className="flex items-center justify-center space-x-4">
-                      <div className="upload-icon-container bg-green-500/20 rounded-full p-3 group-hover:bg-green-500/30 transition-all duration-300">
-                        <span className="text-3xl">📤</span>
-                      </div>
-                      <div className="text-left">
-                        <div className="text-lg font-bold">Adicionar Novo Vídeo</div>
-                        <div className="text-sm text-gray-400">Clique para fazer upload</div>
-                      </div>
-                    </div>
-                  </Button>
-                </div>
+                  <div className="space-y-4">
+                    <Button
+                      onClick={generateAdvancedCaptions}
+                      disabled={!videoData || isTranscribing}
+                      className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-700 hover:via-pink-700 hover:to-purple-700 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {isTranscribing ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Transcrevendo...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-xl">🎯</span>
+                          <span>Gerar Legendas Automáticas</span>
+                        </div>
+                      )}
+                    </Button>
 
-                {/* Seção 5: Informações do Projeto */}
-                <div className="control-section-visionario">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">📊</span>
-                    Projeto
-                  </h3>
-                  
-                  <div className="project-info-visionario bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Duração:</span>
-                      <span className="text-sm font-medium text-white">{formatTime(duration)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Progresso:</span>
-                      <span className="text-sm font-medium text-blue-300">{Math.round((currentTime / duration) * 100) || 0}%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Legendas:</span>
-                      <span className="text-sm font-medium text-green-300">
-                        {generatedCaptions.length || 0} palavras
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Estilo:</span>
-                      <span className="text-sm font-medium text-purple-300 capitalize">{captionStyle}</span>
-                    </div>
+                    {transcriptionProgress && (
+                      <div className="bg-purple-600/20 border border-purple-500/30 rounded-lg p-3">
+                        <p className="text-purple-300 text-sm">{transcriptionProgress}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1999,6 +2135,10 @@ export function VideoEditorPage() {
         )}
       </div>
 
+      {/* ➕ PAINEL DE AJUDA PARA API KEYS */}
+      {/* Removido: API key já configurada automaticamente */}
+
+      {/* Painel de Transcrição Avançada existente */}
     </div>
   )
 } 

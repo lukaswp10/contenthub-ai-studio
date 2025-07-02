@@ -76,19 +76,20 @@ class TranscriptionService {
     })
   }
 
+  // ➕ NOVO: Transcrição OpenAI Whisper (MELHOR QUALIDADE/PREÇO)
   async transcribeWithWhisper(
     videoFile: File, 
     onProgress: (status: string) => void
   ): Promise<TranscriptionResult> {
     if (!this.openaiApiKey) {
-      throw new Error('Configure sua API Key do OpenAI primeiro')
+      throw new Error('🔑 Configure sua API Key do OpenAI primeiro!\n\n📍 Onde obter: https://platform.openai.com/api-keys\n💰 Custo: $0.006/minuto\n🎯 Melhor qualidade de transcrição');
     }
 
     try {
       onProgress('🎤 Preparando áudio para OpenAI Whisper...')
       
       if (videoFile.size > 25 * 1024 * 1024) {
-        throw new Error('Arquivo muito grande para Whisper (máx 25MB). Use AssemblyAI.')
+        throw new Error('📁 Arquivo muito grande para Whisper (máx 25MB).\n\n💡 Alternativa: Use AssemblyAI que não tem limite de tamanho.\n🌐 https://www.assemblyai.com/dashboard/signup');
       }
 
       onProgress('📤 Enviando para OpenAI Whisper...')
@@ -96,10 +97,11 @@ class TranscriptionService {
       const formData = new FormData()
       formData.append('file', videoFile)
       formData.append('model', 'whisper-1')
-      formData.append('language', 'pt')
-      formData.append('response_format', 'verbose_json')
-      formData.append('timestamp_granularities[]', 'word')
+      formData.append('language', 'pt') // Português por padrão
+      formData.append('response_format', 'verbose_json') // Para ter timestamps
+      formData.append('timestamp_granularities[]', 'word') // Timestamps por palavra
 
+      // Chamada para OpenAI Whisper API
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
@@ -110,7 +112,17 @@ class TranscriptionService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(`OpenAI API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`)
+        let errorMessage = `OpenAI API Error: ${response.status}`
+        
+        if (response.status === 401) {
+          errorMessage = '🔑 API Key inválida!\n\n📍 Verifique se copiou corretamente de:\nhttps://platform.openai.com/api-keys\n\n💡 A key deve começar com "sk-"'
+        } else if (response.status === 429) {
+          errorMessage = '⏳ Limite de rate excedido!\n\n💡 Aguarde alguns minutos ou:\n🔄 Use AssemblyAI como alternativa'
+        } else if (errorData.error?.message) {
+          errorMessage += ` - ${errorData.error.message}`
+        }
+        
+        throw new Error(errorMessage)
       }
 
       onProgress('🧠 Processando resposta do Whisper...')
@@ -119,23 +131,26 @@ class TranscriptionService {
 
       onProgress('✅ Transcrição Whisper concluída!')
 
+      // Converter para nosso formato padrão
       const words: TranscriptionWord[] = []
-      let wordIndex = 0
 
+      // Processar segments e words
       if (result.segments) {
         result.segments.forEach((segment, segIndex) => {
           if (segment.words && segment.words.length > 0) {
+            // Se tem words com timestamps precisos
             segment.words.forEach(word => {
               words.push({
                 text: word.word.trim(),
                 start: word.start,
                 end: word.end,
-                confidence: 0.95,
-                highlight: word.word.length > 6,
-                speaker: `Speaker ${segIndex % 2 + 1}`
+                confidence: 0.95, // Whisper tem alta confiança
+                highlight: word.word.length > 6, // Highlight palavras longas
+                speaker: `Speaker ${segIndex % 2 + 1}` // Speakers básicos
               })
             })
           } else {
+            // Fallback: dividir texto por palavras e estimar timestamps
             const segmentWords = segment.text.trim().split(/\s+/)
             const wordDuration = (segment.end - segment.start) / segmentWords.length
 
@@ -156,13 +171,14 @@ class TranscriptionService {
         })
       }
 
+      // Calcular estatísticas
       const duration = words.length > 0 ? Math.max(...words.map(w => w.end)) : 0
       const speakers = [...new Set(words.map(w => w.speaker).filter((s): s is string => Boolean(s)))]
 
       return {
         words,
         text: result.text || '',
-        confidence: 0.95,
+        confidence: 0.95, // Whisper tem alta qualidade
         language: result.language || 'pt',
         duration,
         speakers
@@ -176,27 +192,50 @@ class TranscriptionService {
 
   // Método de upload removido - usando upload direto do arquivo
 
-  // Transcrição AssemblyAI com configurações oficiais (seguindo docs)
+  // 🤖 EXISTING: Transcrição AssemblyAI (MELHOR PARA ARQUIVOS GRANDES)
   async transcribeWithAssemblyAI(
     videoFile: File, 
     onProgress: (status: string) => void
   ): Promise<TranscriptionResult> {
     if (!this.assemblyAI) {
-      throw new Error('Configure sua API Key do AssemblyAI primeiro')
+      throw new Error('🔑 Configure sua API Key da AssemblyAI primeiro!\n\n📍 Onde obter: https://www.assemblyai.com/dashboard/signup\n🎁 5 horas grátis para testar\n💰 Custo: $0.37/hora');
     }
 
     try {
-      onProgress('📤 Enviando vídeo para AssemblyAI...')
-      
-      // Upload direto do arquivo de vídeo (AssemblyAI suporta vídeo)
-      // Seguindo documentação oficial: https://www.assemblyai.com/docs
-      const audioUrl = await this.assemblyAI.files.upload(videoFile)
-      
+      onProgress('📤 Enviando áudio para AssemblyAI...')
+
+      // Primeiro, fazer upload do arquivo
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', videoFile)
+
+      const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': this.apiKey,
+        },
+        body: uploadFormData
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}))
+        let errorMessage = `AssemblyAI Upload Error: ${uploadResponse.status}`
+        
+        if (uploadResponse.status === 401) {
+          errorMessage = '🔑 API Key da AssemblyAI inválida!\n\n📍 Verifique se copiou corretamente de:\nhttps://www.assemblyai.com/dashboard\n\n💡 Certifique-se de estar logado'
+        } else if (uploadResponse.status === 429) {
+          errorMessage = '⏳ Limite de rate excedido!\n\n💡 Aguarde alguns minutos ou:\n🔄 Use OpenAI Whisper como alternativa'
+        } else if (errorData.error) {
+          errorMessage += ` - ${errorData.error}`
+        }
+        
+        throw new Error(errorMessage)
+      }
+
       onProgress('🧠 Processando com IA...')
       
       // Configuração oficial AssemblyAI
       const transcript = await this.assemblyAI.transcripts.create({
-        audio_url: audioUrl,
+        audio_url: await this.assemblyAI.files.upload(videoFile),
         language_detection: true,
         speaker_labels: true,
         auto_highlights: true,
@@ -337,16 +376,16 @@ class TranscriptionService {
         // Mensagens de erro específicas (seguindo spec W3C)
         switch (event.error) {
           case 'not-allowed':
-            errorMessage = 'Permissão negada para microfone'
+            errorMessage = '🔇 Permissão negada para microfone!\n\n💡 Para usar Web Speech API:\n• Permita acesso ao microfone\n• Certifique-se de que há um microfone conectado\n\n🎯 Alternativa: Use OpenAI Whisper (melhor qualidade)'
             break
           case 'no-speech':
-            errorMessage = 'Nenhuma fala detectada'
+            errorMessage = '🎤 Nenhuma fala detectada!\n\n💡 Certifique-se de:\n• Estar falando no microfone\n• Microfone não está mutado\n• Volume adequado\n\n🎯 Alternativa: Use OpenAI Whisper ou AssemblyAI para vídeos'
             break
           case 'audio-capture':
-            errorMessage = 'Erro na captura de áudio'
+            errorMessage = '🎧 Erro na captura de áudio!\n\n💡 Possíveis soluções:\n• Reconecte o microfone\n• Permita acesso ao áudio\n• Teste outro navegador\n\n🎯 Alternativa: Use APIs pagas (Whisper/AssemblyAI)'
             break
           case 'network':
-            errorMessage = 'Erro de rede'
+            errorMessage = '🌐 Erro de rede!\n\n💡 Web Speech precisa de conexão.\n\n🎯 Alternativa: OpenAI Whisper funciona offline após upload'
             break
           case 'service-not-allowed':
             errorMessage = 'Serviço não permitido'
