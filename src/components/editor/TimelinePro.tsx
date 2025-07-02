@@ -1231,7 +1231,9 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         setShowCaptionEditor(false);
         setBatchExportMode(false);
         setRazorToolActive(false);
-        console.log('⌨️ Escape - cancelar ações');
+        setSelectedLayerId(null);
+        setEditingCaption(null);
+        console.log('⌨️ ESC - cancelar ações e fechar modals');
         break;
         
       default:
@@ -2078,21 +2080,33 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
       {/* ➕ MODAL DE AJUDA DE ATALHOS */}
       {showShortcutsHelp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-6 border border-white/20 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={(e) => {
+            // Fechar modal clicando no backdrop
+            if (e.target === e.currentTarget) {
+              setShowShortcutsHelp(false);
+            }
+          }}
+        >
+          <div className="bg-gray-900 rounded-xl p-6 border border-white/20 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto relative">
+            {/* Botão X grande e visível no canto superior direito */}
+            <button
+              onClick={() => setShowShortcutsHelp(false)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-400/60 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg"
+              title="Fechar (ESC)"
+            >
+              <span className="text-xl font-bold">✕</span>
+            </button>
+
+            <div className="flex items-center justify-between mb-6 pr-12">
               <h3 className="text-xl font-bold text-white flex items-center">
                 <span className="mr-3">⌨️</span>
                 Atalhos de Teclado Profissionais
               </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowShortcutsHelp(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </Button>
+              <div className="text-sm text-gray-400">
+                Pressione <kbd className="bg-gray-700 px-2 py-1 rounded text-xs">ESC</kbd> para fechar
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2127,6 +2141,16 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                 <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">Alt + A</kbd> para análise viral IA</li>
                 <li>• <kbd className="bg-gray-700 px-1 rounded text-xs">J/K/L</kbd> para controle de velocidade como no Premiere</li>
               </ul>
+            </div>
+
+            {/* Botão de fechar inferior adicional */}
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setShowShortcutsHelp(false)}
+                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-lg"
+              >
+                Fechar Ajuda
+              </button>
             </div>
           </div>
         </div>
