@@ -1482,8 +1482,8 @@ export function VideoEditorPage() {
               <VideoPlayer
                 // Captions específicas
                 currentCaption={getCurrentCaption()}
-                hasTranscription={!!transcriptionResult?.words?.length}
-                transcriptionWordsCount={transcriptionResult?.words?.length || 0}
+                hasTranscription={!!storeTranscription.transcriptionResult?.words?.length}
+                transcriptionWordsCount={storeTranscription.transcriptionResult?.words?.length || 0}
                 onTestCaptions={() => {
                   console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
                   
