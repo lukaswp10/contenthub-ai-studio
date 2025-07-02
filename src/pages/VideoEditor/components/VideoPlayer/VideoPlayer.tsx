@@ -50,8 +50,22 @@ export const VideoPlayer = memo(({
     hasVideo,
     currentTime,
     isPlaying,
-    hasCaption: !!currentCaption
+    hasCaption: !!currentCaption,
+    videoUrl
   })
+
+  // ✅ FALLBACK: Quando não há vídeo carregado
+  if (!hasVideo || !videoUrl) {
+    return (
+      <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[65vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
+        <div className="text-center text-white space-y-4">
+          <div className="text-6xl">🎬</div>
+          <h3 className="text-2xl font-bold">Nenhum vídeo carregado</h3>
+          <p className="text-gray-400">Clique no botão "Galeria" para selecionar um vídeo</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[65vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">

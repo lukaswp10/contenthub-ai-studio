@@ -94,9 +94,9 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
     durationFormatted: formatTime(duration),
     progressPercentage: duration > 0 ? (currentTime / duration) * 100 : 0,
     
-    // Dados do vídeo do store
-    hasVideo: !!videoData?.url,
-    videoUrl: videoData?.url,
+    // ✅ CORRIGIDO: Dados do vídeo considerando file E url
+    hasVideo: !!(videoData?.url || videoData?.file),
+    videoUrl: videoData?.url || (videoData?.file ? URL.createObjectURL(videoData.file) : undefined),
     videoName: videoData?.name || 'Video',
     
     // Estados diretos do store

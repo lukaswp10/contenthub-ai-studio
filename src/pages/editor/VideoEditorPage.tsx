@@ -151,41 +151,95 @@ export function VideoEditorPage() {
   const storeSetActiveGalleryTab = useVideoEditorStore(state => state.setActiveGalleryTab)
 
   // Estados principais visionários (TEMPORÁRIO - será migrado)
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
-  const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(30)
-  const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
-  const [razorToolActive, setRazorToolActive] = useState(false)
-  const [activeCaptionStyle, setActiveCaptionStyle] = useState<string>('tiktok-bold')
-  const [captionsVisible, setCaptionsVisible] = useState(true)
-  const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([])
-  const [cutPoints, setCutPoints] = useState<CutPoint[]>([])
-  const [timelineLayers, setTimelineLayers] = useState<TimelineLayer[]>([])
-  const [videoData, setVideoData] = useState<VideoData | null>(() => {
-    // Inicializar com dados da navegação se disponível
-    return location.state?.videoData as VideoData || null
-  })
+  // ✅ MIGRADOS PARA STORE - REMOVIDOS
+  // const [mobileView, setMobileView] = useState(false)
+  // const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
+  // const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
+  // const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
+  // const [isPlaying, setIsPlaying] = useState(false)
+  // const [currentTime, setCurrentTime] = useState(0)
+  // const [duration, setDuration] = useState(30)
+  // const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
+  // const [razorToolActive, setRazorToolActive] = useState(false)
+  // const [activeCaptionStyle, setActiveCaptionStyle] = useState<string>('tiktok-bold')
+  // const [captionsVisible, setCaptionsVisible] = useState(true)
+  // const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([])
+  // const [cutPoints, setCutPoints] = useState<CutPoint[]>([])
+  // const [timelineLayers, setTimelineLayers] = useState<TimelineLayer[]>([])
+  // const [videoData, setVideoData] = useState<VideoData | null>(() => {
+  //   return location.state?.videoData as VideoData || null
+  // })
 
-  // Estados das captions - MELHORADOS
-  const [activeEffects, setActiveEffects] = useState<string[]>([])
+  // Estados das captions - MIGRADOS
+  // const [activeEffects, setActiveEffects] = useState<string[]>([])
   
-  // ➕ Estados para Undo/Redo
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
-  const [lastCommand, setLastCommand] = useState<string | null>(null)
+  // ➕ Estados para Undo/Redo - MIGRADOS
+  // const [canUndo, setCanUndo] = useState(false)
+  // const [canRedo, setCanRedo] = useState(false)
+  // const [lastCommand, setLastCommand] = useState<string | null>(null)
   
-  // Estados para transcrição avançada
-  const [transcriptionProvider, setTranscriptionProvider] = useState<'whisper' | 'assemblyai' | 'webspeech'>('whisper')
-  const [openaiApiKey, setOpenaiApiKey] = useState('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')
-  const [assemblyaiApiKey, setAssemblyaiApiKey] = useState('8f2a3b4c5d6e7f8g9h0i1j2k3l4m5n6o') // ➕ API key de fallback
-  const [transcriptionProgress, setTranscriptionProgress] = useState('')
-  const [isTranscribing, setIsTranscribing] = useState(false)
-  const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
-  const [showTranscriptionConfig, setShowTranscriptionConfig] = useState(false)
-  const [showTranscriptTimeline, setShowTranscriptTimeline] = useState(true) // ✅ Estado para mostrar timeline de transcrição
+  // Estados para transcrição avançada - MIGRADOS
+  // const [transcriptionProvider, setTranscriptionProvider] = useState<'whisper' | 'assemblyai' | 'webspeech'>('whisper')
+  // const [openaiApiKey, setOpenaiApiKey] = useState('...')
+  // const [assemblyaiApiKey, setAssemblyaiApiKey] = useState('...')
+  // const [transcriptionProgress, setTranscriptionProgress] = useState('')
+  // const [isTranscribing, setIsTranscribing] = useState(false)
+  // const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
+  // const [showTranscriptionConfig, setShowTranscriptionConfig] = useState(false)
+  // const [showTranscriptTimeline, setShowTranscriptTimeline] = useState(true)
+
+  // 🔄 ALIASES PARA COMPATIBILIDADE
+  const mobileView = storeMobileView
+  const setMobileView = storeSetMobileView
+  const leftSidebarOpen = storeLeftSidebarOpen
+  const setLeftSidebarOpen = storeSetLeftSidebarOpen
+  const rightSidebarOpen = storeRightSidebarOpen
+  const setRightSidebarOpen = storeSetRightSidebarOpen
+  const activeGalleryTab = storeActiveGalleryTab
+  const setActiveGalleryTab = storeSetActiveGalleryTab
+  const isPlaying = storeIsPlaying
+  const setIsPlaying = storeSetIsPlaying
+  const currentTime = storeCurrentTime
+  const setCurrentTime = storeSetCurrentTime
+  const duration = storeDuration
+  const setDuration = storeSetDuration
+  const selectedLayer = storeSelectedLayer
+  const setSelectedLayer = storeSetSelectedLayer
+  const razorToolActive = storeRazorToolActive
+  const setRazorToolActive = storeSetRazorToolActive
+  const activeCaptionStyle = storeActiveCaptionStyle
+  const setActiveCaptionStyle = storeSetActiveCaptionStyle
+  const captionsVisible = storeCaptionsVisible
+  const setCaptionsVisible = storeSetCaptionsVisible
+  const generatedCaptions = storeGeneratedCaptions
+  const setGeneratedCaptions = storeSetGeneratedCaptions
+  const cutPoints = storeCutPoints
+  const setCutPoints = storeSetCutPoints
+  const timelineLayers = storeTimelineLayers
+  const setTimelineLayers = storeSetTimelineLayers
+  const videoData = storeVideoData
+  const setVideoData = storeSetVideoData
+  const activeEffects = storeActiveEffects
+  const addEffect = storeAddEffect
+  const removeEffect = storeRemoveEffect
+  const canUndo = storeCanUndo
+  const canRedo = storeCanRedo
+  const lastCommand = storeLastCommand
+  const transcriptionProvider = storeTranscription.transcriptionProvider
+  const openaiApiKey = storeTranscription.openaiApiKey
+  const assemblyaiApiKey = storeTranscription.assemblyaiApiKey
+  const transcriptionProgress = storeTranscription.transcriptionProgress
+  const isTranscribing = storeTranscription.isTranscribing
+  const transcriptionResult = storeTranscription.transcriptionResult
+  const showTranscriptionConfig = storeTranscription.showTranscriptionConfig
+  const showTranscriptTimeline = storeTranscription.showTranscriptTimeline
+  const galleryModalOpen = storeGalleryModalOpen
+  const setGalleryModalOpen = storeSetGalleryModalOpen
+
+  // ✅ FUNÇÕES DO STORE
+  const togglePlayPause = storeTogglePlayPause
+  const seekTo = storeSeekTo
+  const toggleCaptionsVisibility = storeToggleCaptionsVisibility
 
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
@@ -316,28 +370,46 @@ export function VideoEditorPage() {
 
   // Carregar vídeo automaticamente quando chegar via navegação
   useEffect(() => {
-    if (location.state?.videoData && !videoData) {
-      const incomingVideoData = location.state.videoData
-      console.log('🎬 Carregando vídeo do dashboard:', incomingVideoData.name)
-      
-      // ✅ MIGRAÇÃO: Usar store para videoData
-      storeSetVideoData(incomingVideoData)
-      setVideoData(incomingVideoData)
-      
-      // Se temos uma URL do Cloudinary, usar ela
-      if (incomingVideoData.cloudinaryUrl || incomingVideoData.url) {
-        console.log('☁️ Usando URL permanente do Cloudinary')
-        // ✅ MIGRAÇÃO: Usar store para duration
-        storeSetDuration(incomingVideoData.duration || 30)
-        setDuration(incomingVideoData.duration || 30)
-        
-        // Inicializar layers padrão para este vídeo
-        setTimeout(() => {
-          initializeDefaultLayers()
-        }, 100)
+    // ✅ CORRIGIDO: Permitir editor sem vídeo (não redirecionar)
+    if (!videoData) {
+      console.log('📝 Editor iniciado sem vídeo - modo galeria ativo')
+      return // Não redirecionar, permitir usar galeria
+    }
+    
+    // Lógica de carregamento de vídeo
+    if (videoData.url && videoData.url.startsWith('data:')) {
+      console.log('Usando data URL confiável')
+    } else if (videoData.file) {
+      console.log('Criando nova Blob URL a partir do arquivo preservado')
+      const newUrl = URL.createObjectURL(videoData.file)
+      videoData.url = newUrl
+    } else if (!videoData.url || videoData.url.includes('file-preserved')) {
+      console.log('⚠️ Vídeo sem URL válida - aguardando seleção na galeria')
+      return // Não redirecionar, permitir usar galeria
+    }
+
+    // Inicializar camada principal do vídeo
+    const videoLayer: TimelineLayer = {
+      id: 'main-video',
+      type: 'video',
+      name: videoData.name,
+      start: 0,
+      duration: videoData.duration || 60,
+      data: { url: videoData.url },
+      color: '#3B82F6',
+      locked: false,
+      visible: true,
+      items: []
+    }
+    
+    storeSetTimelineLayers([videoLayer])
+    
+    return () => {
+      if (videoData?.url && videoData.url.startsWith('blob:')) {
+        URL.revokeObjectURL(videoData.url)
       }
     }
-  }, [location.state, videoData, storeSetVideoData, storeSetDuration])
+  }, [videoData])
 
   // Keyboard shortcuts profissionais
   useEffect(() => {
@@ -420,48 +492,6 @@ export function VideoEditorPage() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [razorToolActive, currentTime, duration, selectedLayer])
 
-  useEffect(() => {
-    if (!videoData) {
-      navigate('/upload')
-      return
-    }
-    
-    // Lógica de carregamento de vídeo
-    if (videoData.url && videoData.url.startsWith('data:')) {
-      console.log('Usando data URL confiável')
-    } else if (videoData.file) {
-      console.log('Criando nova Blob URL a partir do arquivo preservado')
-      const newUrl = URL.createObjectURL(videoData.file)
-      videoData.url = newUrl
-    } else if (!videoData.url || videoData.url.includes('file-preserved')) {
-      alert('Erro: não foi possível carregar o vídeo. Tente fazer upload novamente.')
-      navigate('/upload')
-      return
-    }
-
-    // Inicializar camada principal do vídeo
-    const videoLayer: TimelineLayer = {
-      id: 'main-video',
-      type: 'video',
-      name: videoData.name,
-      start: 0,
-      duration: videoData.duration || 60,
-      data: { url: videoData.url },
-      color: '#3B82F6',
-      locked: false,
-      visible: true,
-      items: []
-    }
-    
-    storeSetTimelineLayers([videoLayer])
-    
-    return () => {
-      if (videoData?.url && videoData.url.startsWith('blob:')) {
-        URL.revokeObjectURL(videoData.url)
-      }
-    }
-  }, [videoData, navigate])
-
   // Adicionar vídeo à timeline quando carregado
   useEffect(() => {
     if (videoData && duration > 0 && storeTimelineLayers.length === 0) {
@@ -524,43 +554,43 @@ export function VideoEditorPage() {
     }
   }
 
-  const togglePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play()
-      }
-      storeSetIsPlaying(!isPlaying)
-    }
-  }
+  // ✅ FUNÇÕES REMOVIDAS - JÁ EXISTEM COMO ALIASES DO STORE
+  // const togglePlayPause = () => {
+  //   if (videoRef.current) {
+  //     if (isPlaying) {
+  //       videoRef.current.pause()
+  //       setIsPlaying(false)
+  //     } else {
+  //       videoRef.current.play()
+  //       setIsPlaying(true)
+  //     }
+  //   }
+  // }
 
-  const seekTo = (percentage: number) => {
-    if (videoRef.current && duration) {
-      const time = (percentage / 100) * duration
-      videoRef.current.currentTime = time
-      setCurrentTime(time)
-    }
-  }
+  // const seekTo = (percentage: number) => {
+  //   if (videoRef.current && duration) {
+  //     const time = (percentage / 100) * duration
+  //     videoRef.current.currentTime = time
+  //     setCurrentTime(time)
+  //   }
+  // }
 
-  const addEffect = (effectId: string) => {
-    if (!activeEffects.includes(effectId)) {
-      setActiveEffects(prev => [...prev, effectId])
-      
-      const effect = effectPresets.find(e => e.id === effectId)
-      if (effect) {
-        setEffectIntensity({})
-      }
-    }
-  }
+  // const addEffect = (effectId: string) => {
+  //   if (!activeEffects.includes(effectId)) {
+  //     setActiveEffects(prev => [...prev, effectId])
+  //     console.log(`✨ Efeito ${effectId} adicionado`)
+  //   }
+  // }
 
-  const removeEffect = (effectId: string) => {
-    setActiveEffects(prev => prev.filter(id => id !== effectId))
-    setEffectIntensity((prev: any) => {
-      const { [effectId]: removed, ...rest } = prev
-      return rest
-    })
-  }
+  // const removeEffect = (effectId: string) => {
+  //   setActiveEffects(prev => prev.filter(id => id !== effectId))
+  //   setEffectIntensity((prev: any) => {
+  //     const newIntensity = { ...prev }
+  //     delete newIntensity[effectId]
+  //     return newIntensity
+  //   })
+  //   console.log(`❌ Efeito ${effectId} removido`)
+  // }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -899,27 +929,27 @@ export function VideoEditorPage() {
     console.log('✅ Captions processadas:', captions.length)
   }
 
-  // ✅ FUNÇÃO MELHORADA: Alternar visibilidade das captions com feedback visual
-  const toggleCaptionsVisibility = () => {
-    const newVisibility = !captionsVisible
-    storeSetCaptionsVisible(newVisibility)
-    
-    // ✅ Feedback visual melhorado
-    if (newVisibility) {
-      console.log('👁️ Legendas ATIVADAS - Agora visíveis no vídeo')
-      // Pequena animação de confirmação
-      if (videoRef.current) {
-        videoRef.current.style.filter = 'brightness(1.1)'
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.style.filter = 'brightness(1)'
-          }
-        }, 200)
-      }
-    } else {
-      console.log('👁️ Legendas DESATIVADAS - Ocultas do vídeo')
-    }
-  }
+  // ✅ FUNÇÃO REMOVIDA - JÁ EXISTE COMO ALIAS DO STORE
+  // const toggleCaptionsVisibility = () => {
+  //   const newVisibility = !captionsVisible
+  //   storeSetCaptionsVisible(newVisibility)
+  //   
+  //   // ✅ Feedback visual melhorado
+  //   if (newVisibility) {
+  //     console.log('👁️ Legendas ATIVADAS - Agora visíveis no vídeo')
+  //     // Pequena animação de confirmação
+  //     if (videoRef.current) {
+  //       videoRef.current.style.filter = 'brightness(1.1)'
+  //       setTimeout(() => {
+  //         if (videoRef.current) {
+  //           videoRef.current.style.filter = 'brightness(1)'
+  //         }
+  //       }, 200)
+  //     }
+  //   } else {
+  //     console.log('👁️ Legendas DESATIVADAS - Ocultas do vídeo')
+  //   }
+  // }
 
   // Função para aplicar estilo de caption
   const applyCaptionStyle = (styleId: string) => {
@@ -1056,12 +1086,12 @@ export function VideoEditorPage() {
     }, 3000)
   }
 
-  // Estados da galeria
+  // Estados da galeria - MANTIDOS (locais para performance)
   const [uploadedVideos, setUploadedVideos] = useState<GalleryVideo[]>([])
   const [generatedClips, setGeneratedClips] = useState<GalleryClip[]>([])
   
-  // NOVO: Estado para modal da galeria
-  const [galleryModalOpen, setGalleryModalOpen] = useState(false)
+  // ✅ REMOVIDO - JÁ NO STORE
+  // const [galleryModalOpen, setGalleryModalOpen] = useState(false)
 
   // NOVAS FUNÇÕES: Exclusão de vídeos e clips
   const deleteVideo = async (videoId: string) => {
@@ -1391,7 +1421,7 @@ export function VideoEditorPage() {
           </Button>
           
           {/* Menu Mobile */}
-          {storeMobileView && (
+          {mobileView && (
             <Button
               variant="ghost"
               onClick={() => setGalleryModalOpen(true)}
@@ -1486,7 +1516,7 @@ export function VideoEditorPage() {
 
           {/* Right Sidebar - Effects Panel */}
           {rightSidebarOpen && (
-            <div className={`${storeMobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
+            <div className={`${mobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
               {/* Header dos Controles */}
               <div className="p-6 border-b border-white/10">
                 <div className="flex items-center justify-between mb-4">
@@ -1494,7 +1524,7 @@ export function VideoEditorPage() {
                     <span className="mr-2">🎨</span>
                     Estilos de Legendas
                   </h2>
-                  {storeMobileView && (
+                  {mobileView && (
                     <Button
                       variant="ghost"
                       onClick={() => storeSetRightSidebarOpen(false)}
@@ -2016,7 +2046,7 @@ export function VideoEditorPage() {
       )}
 
       {/* Mobile Overlay */}
-      {storeMobileView && (storeLeftSidebarOpen || storeRightSidebarOpen) && (
+      {mobileView && (leftSidebarOpen || rightSidebarOpen) && (
         <div 
           className="fixed inset-0 bg-black/50 z-10"
           onClick={() => {
