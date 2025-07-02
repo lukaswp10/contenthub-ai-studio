@@ -22,6 +22,7 @@ interface TimelineProProps {
   currentClipIndex?: number;
   transcriptionData?: any; // ➕ NOVO: Dados de transcrição
   showTranscriptTrack?: boolean; // ➕ NOVO: Controle de visibilidade
+  updateTimelineTranscript?: (data: any) => void; // ➕ NOVO: Função para atualizar transcrição na timeline
 }
 
 interface TimelineLayer {
@@ -126,7 +127,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   isPreviewMode = false,
   currentClipIndex = -1,
   transcriptionData,
-  showTranscriptTrack
+  showTranscriptTrack,
+  updateTimelineTranscript
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const audioWaveformRef = useRef<HTMLDivElement>(null);
@@ -1501,11 +1503,31 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     return currentWord?.text || '';
   }, [transcriptionData, currentTime]);
 
+  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
+  const formatTimeToSRT = useCallback((seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const milliseconds = Math.floor((seconds % 1) * 1000);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+  }, []);
+
   // ➕ ATUALIZAR palavra atual quando tempo muda
   useEffect(() => {
     const word = getCurrentTranscriptWord();
     setCurrentTranscriptWord(word);
   }, [currentTime, getCurrentTranscriptWord]);
+
+  // ➕ FUNÇÃO para formatar tempo para SRT (HH:MM:SS,mmm)
+  const formatTimeToSRT = useCallback((seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const milliseconds = Math.floor((seconds % 1) * 1000);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+  }, []);
 
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
@@ -2622,73 +2644,165 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         </div>
       </div>
 
-      {/* ➕ TRANSCRIPT TRACK (ETAPA 1.2) */}
-      {showTranscriptTrack && transcriptionData && (
-        <div 
-          className="timeline-track transcript-track group relative"
-          style={{
-            background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.2), rgba(147, 51, 234, 0.4))',
-            borderLeft: '3px solid rgba(147, 51, 234, 0.8)',
-          }}
-        >
-          {/* Header da Transcript Track */}
-          <div className="track-header flex items-center justify-between bg-purple-900/30 p-2 border-r border-purple-500/30">
+      {/* ➕ EDITOR DE LEGENDAS EM TEMPO REAL */}
+      {transcriptionData && transcriptionData.words && transcriptionData.words.length > 0 && (
+        <div className="caption-editor bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              📝 Editor de Legendas
+              <span className="text-sm text-purple-400">
+                ({transcriptionData.words.length} palavras)
+              </span>
+            </h3>
+            
             <div className="flex items-center gap-2">
-              <span className="text-purple-300 font-semibold">📝 Transcript</span>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-purple-400">
-                  {transcriptionData.words?.length || 0} palavras
-                </span>
-                {transcriptionData.language && (
-                  <span className="text-xs text-blue-400 bg-blue-900/30 px-1 rounded">
-                    {transcriptionData.language.toUpperCase()}
-                  </span>
-                )}
-              </div>
+              <span className="text-xs text-purple-300">
+                Palavra atual: "{getCurrentTranscriptWord()}"
+              </span>
             </div>
           </div>
 
-          {/* Conteúdo da Transcript Track */}
-          <div className="track-content relative h-12 bg-gradient-to-r from-purple-900/10 to-purple-800/20">
-            {/* Palavras da transcrição */}
-            {transcriptionData.words && transcriptionData.words.map((word: any, index: number) => {
-              const leftPercent = (word.start / duration) * 100;
-              const widthPercent = ((word.end - word.start) / duration) * 100;
+          {/* Lista de palavras editáveis */}
+          <div className="max-h-40 overflow-y-auto space-y-2">
+            {transcriptionData.words.map((word: any, index: number) => {
               const isCurrentWord = currentTime >= word.start && currentTime <= word.end;
               
               return (
-                <div
-                  key={`word-${index}`}
-                  className={`absolute top-0 h-full flex items-center justify-center text-xs font-medium px-1 cursor-pointer transition-all duration-200 hover:z-10 border-r border-purple-500/20 ${
+                <div 
+                  key={`word-edit-${index}`}
+                  className={`flex items-center gap-3 p-2 rounded-lg transition-all duration-200 ${
                     isCurrentWord 
-                      ? 'bg-purple-500/60 text-white scale-105 z-20 shadow-lg' 
-                      : word.confidence > 0.9 
-                        ? 'bg-purple-600/30 text-purple-200 hover:bg-purple-500/40' 
-                        : 'bg-purple-700/20 text-purple-300 hover:bg-purple-600/30'
+                      ? 'bg-purple-600/40 border border-purple-400 shadow-lg' 
+                      : 'bg-black/20 border border-white/10 hover:bg-purple-600/20'
                   }`}
-                  style={{
-                    left: `${leftPercent}%`,
-                    width: `${Math.max(widthPercent, 0.5)}%`,
-                  }}
-                  onClick={() => onSeek(word.start)}
-                  title={`"${word.text}" (${formatTime(word.start)} - ${formatTime(word.end)}) - Confiança: ${Math.round((word.confidence || 0.9) * 100)}%`}
                 >
-                  <span className="truncate text-xs">
-                    {word.text}
-                  </span>
+                  {/* Timestamp */}
+                  <button
+                    onClick={() => onSeek(word.start)}
+                    className="text-xs text-purple-300 hover:text-purple-200 font-mono bg-purple-900/30 px-2 py-1 rounded cursor-pointer"
+                    title="Pular para este momento"
+                  >
+                    {formatTime(word.start)}
+                  </button>
+                  
+                  {/* Input editável */}
+                  <input
+                    type="text"
+                    value={word.text}
+                    onChange={(e) => {
+                      // Atualizar palavra em tempo real
+                      const updatedWords = [...transcriptionData.words];
+                      updatedWords[index] = { ...word, text: e.target.value };
+                      
+                      // Callback para atualizar na timeline principal
+                      if (updateTimelineTranscript) {
+                        updateTimelineTranscript({
+                          ...transcriptionData,
+                          words: updatedWords
+                        });
+                      }
+                    }}
+                    className={`flex-1 bg-transparent border-none text-white text-sm focus:outline-none ${
+                      isCurrentWord ? 'font-bold text-purple-200' : ''
+                    }`}
+                    placeholder="Editar texto..."
+                  />
+                  
+                  {/* Indicador de confiança */}
+                  <div 
+                    className={`text-xs px-2 py-1 rounded ${
+                      (word.confidence || 0.9) > 0.9 
+                        ? 'bg-green-600/30 text-green-300' 
+                        : (word.confidence || 0.9) > 0.7 
+                          ? 'bg-yellow-600/30 text-yellow-300'
+                          : 'bg-red-600/30 text-red-300'
+                    }`}
+                    title={`Confiança: ${Math.round((word.confidence || 0.9) * 100)}%`}
+                  >
+                    {Math.round((word.confidence || 0.9) * 100)}%
+                  </div>
                 </div>
               );
             })}
+          </div>
 
-            {/* Indicador de palavra atual */}
-            {currentTranscriptWord && (
-              <div className="absolute top-0 right-2 bg-purple-600/80 text-white px-2 py-1 rounded text-xs font-medium">
-                🎤 "{currentTranscriptWord}"
-              </div>
-            )}
+          {/* Controles adicionais */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-purple-500/20">
+            <div className="text-xs text-purple-300">
+              💡 Dica: Edite o texto e veja as mudanças instantaneamente no vídeo
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  // Exportar legendas como SRT
+                  const formatTimeToSRT = (seconds: number) => {
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    const milliseconds = Math.floor((seconds % 1) * 1000);
+                    
+                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+                  };
+                  
+                  const srtContent = transcriptionData.words.map((word: any, index: number) => {
+                    const start = formatTimeToSRT(word.start);
+                    const end = formatTimeToSRT(word.end);
+                    return `${index + 1}\n${start} --> ${end}\n${word.text}\n`;
+                  }).join('\n');
+                  
+                  const blob = new Blob([srtContent], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'legendas.srt';
+                  a.click();
+                }}
+                className="text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 px-3 py-1 rounded border border-purple-500/30"
+              >
+                💾 Exportar SRT
+              </button>
+              
+              <button
+                onClick={() => {
+                  // Aplicar auto-correção
+                  const correctedWords = transcriptionData.words.map((word: any) => ({
+                    ...word,
+                    text: word.text.charAt(0).toUpperCase() + word.text.slice(1).toLowerCase()
+                  }));
+                  
+                  if (updateTimelineTranscript) {
+                    updateTimelineTranscript({
+                      ...transcriptionData,
+                      words: correctedWords
+                    });
+                  }
+                }}
+                className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-1 rounded border border-blue-500/30"
+              >
+                ✨ Auto-Correção
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* ➕ FUNÇÃO AUXILIAR para formatar tempo para SRT */}
+      {(() => {
+        // Função para converter segundos em formato SRT (HH:MM:SS,mmm)
+        const formatTimeToSRT = (seconds: number) => {
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          const secs = Math.floor(seconds % 60);
+          const milliseconds = Math.floor((seconds % 1) * 1000);
+          
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
+        };
+        
+        // Expor função para uso no componente
+        (window as any).formatTimeToSRT = formatTimeToSRT;
+        return null;
+      })()}
     </div>
   );
 };

@@ -1350,6 +1350,7 @@ export function VideoEditorPage() {
               currentClipIndex={-1}
               transcriptionData={transcriptionResult} // ➕ NOVO: Dados de transcrição
               showTranscriptTrack={showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
+              updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
             />
           </div>
 
