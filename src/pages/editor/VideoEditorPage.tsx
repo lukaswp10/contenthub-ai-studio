@@ -721,14 +721,35 @@ export function VideoEditorPage() {
 
   // Função para obter legenda atual baseada no tempo - CORRIGIDA
   const getCurrentCaption = () => {
-    // ✅ CORRIGIDO: Usar transcriptionResult.words ao invés de generatedCaptions
-    if (!transcriptionResult?.words?.length || !captionsVisible) return null
+    // ✅ CORRIGIDO: Usar AMBOS os arrays para garantir que funcione
+    const wordsArray = transcriptionResult?.words || generatedCaptions
     
-    const currentWord = transcriptionResult.words.find((word: any) => 
+    // ✅ DEBUG DETALHADO
+    console.log('🔍 DEBUG getCurrentCaption:', {
+      transcriptionResultWords: transcriptionResult?.words?.length || 0,
+      generatedCaptionsLength: generatedCaptions?.length || 0,
+      wordsArrayLength: wordsArray?.length || 0,
+      captionsVisible,
+      currentTime,
+      firstWord: wordsArray?.[0],
+      lastWord: wordsArray?.[wordsArray.length - 1]
+    })
+    
+    if (!wordsArray?.length || !captionsVisible) {
+      console.log('🔍 getCurrentCaption: Sem palavras ou legendas desativadas', {
+        wordsLength: wordsArray?.length,
+        captionsVisible,
+        currentTime
+      })
+      return null
+    }
+    
+    const currentWord = wordsArray.find((word: any) => 
       currentTime >= word.start && currentTime <= word.end
     )
     
     if (currentWord) {
+      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', currentTime)
       return {
         id: `word_${currentTime}`,
         text: currentWord.text,
@@ -738,6 +759,7 @@ export function VideoEditorPage() {
       }
     }
     
+    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', currentTime)
     return null
   }
 
@@ -1068,7 +1090,24 @@ export function VideoEditorPage() {
     }
   };
 
-  // ➕ NOVA FUNÇÃO: Transcrição Avançada com conexão à timeline
+  // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline - CORRIGIDA
+  const updateTimelineTranscript = useCallback((transcriptionData: any) => {
+    console.log('🔗 Dados recebidos para timeline:', transcriptionData)
+    
+    // Atualizar tanto o estado local quanto a timeline
+    setTranscriptionResult(transcriptionData)
+    setGeneratedCaptions(transcriptionData.words || [])
+    setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
+    
+    // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
+    setCaptionsVisible(true)
+    
+    console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
+    console.log('👁️ Legendas ativadas automaticamente')
+    console.log('📊 Palavras processadas:', transcriptionData.words?.length || 0)
+  }, [])
+
+  // ➕ NOVA FUNÇÃO: Transcrição Avançada com conexão à timeline - CORRIGIDA
   const generateAdvancedCaptions = async () => {
     if (!videoData) return
 
@@ -1110,11 +1149,23 @@ export function VideoEditorPage() {
         true // Fallback para Web Speech
       )
 
-      // ➕ CONECTAR à timeline
+      console.log('🎉 Transcrição avançada concluída:', result)
+      console.log('📊 Palavras encontradas:', result.words?.length || 0)
+
+      // ✅ CONECTAR à timeline E forçar atualização visual
       updateTimelineTranscript(result)
+      
+      // ✅ FORÇAR atualização da interface
+      setGeneratedCaptions(result.words || [])
+      setTranscriptionResult(result)
+      setCaptionsVisible(true)
+      
       setTranscriptionProgress('✅ Transcrição concluída e aplicada à timeline!')
       
-      console.log('🎉 Transcrição avançada concluída e conectada:', result)
+      console.log('✅ Estados atualizados:')
+      console.log('- transcriptionResult:', result)
+      console.log('- generatedCaptions:', result.words?.length || 0)
+      console.log('- captionsVisible:', true)
 
     } catch (error) {
       console.error('❌ Erro na transcrição avançada:', error)
@@ -1155,43 +1206,6 @@ export function VideoEditorPage() {
     
     if (savedOpenAI) setOpenaiApiKey(savedOpenAI)
     if (savedAssemblyAI) setAssemblyaiApiKey(savedAssemblyAI)
-  }, [])
-
-  // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline - CORRIGIDA
-  const updateTimelineTranscript = useCallback((transcriptionData: any) => {
-    // Atualizar tanto o estado local quanto a timeline
-    setTranscriptionResult(transcriptionData)
-    setGeneratedCaptions(transcriptionData.words || [])
-    setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
-    
-    // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
-    setCaptionsVisible(true)
-    
-    console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
-    console.log('👁️ Legendas ativadas automaticamente')
-  }, [])
-
-  // ✅ Configurar API keys automaticamente ao carregar
-  useEffect(() => {
-    // Salvar API key do OpenAI no localStorage
-    localStorage.setItem('openai_api_key', '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')
-    
-    // Configurar serviço de transcrição
-    transcriptionService.setOpenAIApiKey('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')
-    
-    // ➕ Configurar AssemblyAI como fallback
-    transcriptionService.setApiKey(assemblyaiApiKey)
-    
-    // ⚠️ IMPORTANTE: Configurar rate limits para Tier 1 ($5 pagos)
-    // OpenAI Tier 1: 500 RPM, 200k TPM - Podemos ser mais generosos
-    transcriptionService.configureRateLimits({
-      openai: { rpm: 50, tpm: 180000 }, // Mais generoso para Tier 1
-      assemblyai: { rpm: 10, tpm: 500000 } // Mantém AssemblyAI como fallback
-    })
-    
-    console.log('✅ API Key OpenAI configurada automaticamente')
-    console.log('✅ API Key AssemblyAI configurada como fallback')
-    console.log('🚀 Rate limits otimizados para Tier 1 (500 RPM disponível)')
   }, [])
 
   // ✅ NOVOS ESTADOS para Editor Avançado de Legendas
@@ -1380,6 +1394,36 @@ export function VideoEditorPage() {
                           <span>{transcriptionResult.words.length} palavras</span>
                         </div>
                       )}
+                      
+                      {/* ✅ BOTÃO DE TESTE URGENTE */}
+                      <Button
+                        onClick={() => {
+                          console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
+                          
+                          // Criar legendas de teste
+                          const testCaptions = [
+                            { text: 'Teste', start: 0, end: 2, confidence: 0.9 },
+                            { text: 'de', start: 2, end: 3, confidence: 0.9 },
+                            { text: 'legendas', start: 3, end: 5, confidence: 0.9 },
+                            { text: 'funcionando', start: 5, end: 8, confidence: 0.9 }
+                          ]
+                          
+                          // Forçar estados
+                          setGeneratedCaptions(testCaptions)
+                          setTranscriptionResult({ words: testCaptions })
+                          setCaptionsVisible(true)
+                          
+                          console.log('✅ Estados forçados:', {
+                            generatedCaptions: testCaptions.length,
+                            transcriptionResult: testCaptions.length,
+                            captionsVisible: true
+                          })
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded"
+                        title="TESTE URGENTE: Forçar legendas"
+                      >
+                        🚨 TESTE
+                      </Button>
                     </div>
                     
                     <div className="flex-1 mx-6">
