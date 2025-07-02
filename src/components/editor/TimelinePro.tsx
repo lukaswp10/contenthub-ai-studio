@@ -20,6 +20,8 @@ interface TimelineProProps {
   onExportClip?: (clipData: ClipData) => void;
   isPreviewMode?: boolean;
   currentClipIndex?: number;
+  transcriptionData?: any; // ➕ NOVO: Dados de transcrição
+  showTranscriptTrack?: boolean; // ➕ NOVO: Controle de visibilidade
 }
 
 interface TimelineLayer {
@@ -122,7 +124,9 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   onPreviewClip,
   onExportClip,
   isPreviewMode = false,
-  currentClipIndex = -1
+  currentClipIndex = -1,
+  transcriptionData,
+  showTranscriptTrack
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const audioWaveformRef = useRef<HTMLDivElement>(null);
@@ -191,8 +195,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       effects: timelineLayers.filter(layer => layer.type === 'video').map(layer => ({
         id: layer.id,
         name: layer.name,
-        start: layer.start,
-        end: layer.start + layer.duration,
+        start: layer.start || 0,
+        end: (layer.start || 0) + (layer.duration || 0),
         source: layer.data
       }))
     },
@@ -202,8 +206,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       effects: timelineLayers.filter(layer => layer.type === 'text').map(layer => ({
         id: layer.id,
         name: layer.name,
-        start: layer.start,
-        end: layer.start + layer.duration
+        start: layer.start || 0,
+        end: (layer.start || 0) + (layer.duration || 0)
       }))
     },
     {
@@ -212,8 +216,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       effects: timelineLayers.filter(layer => layer.type === 'effect').map(layer => ({
         id: layer.id,
         name: layer.name,
-        start: layer.start,
-        end: layer.start + layer.duration
+        start: layer.start || 0,
+        end: (layer.start || 0) + (layer.duration || 0)
       }))
     },
     {
@@ -222,8 +226,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       effects: timelineLayers.filter(layer => layer.type === 'audio').map(layer => ({
         id: layer.id,
         name: layer.name,
-        start: layer.start,
-        end: layer.start + layer.duration
+        start: layer.start || 0,
+        end: (layer.start || 0) + (layer.duration || 0)
       }))
     }
   ], [timelineLayers]);
@@ -261,6 +265,11 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     };
   }, [videoData]);
 
+  // ➕ FUNÇÃO HELPER para verificar se layer tem propriedades válidas
+  const isValidLayer = (layer: TimelineLayer): layer is TimelineLayer & { start: number; duration: number } => {
+    return layer.start !== undefined && layer.duration !== undefined;
+  };
+
   // ➕ FUNÇÃO para verificar se pode cortar (deve vir ANTES de handleCut)
   const canCutAtTime = useCallback((time: number): boolean => {
     // Verificar se já existe um corte muito próximo (0.5s de tolerância)
@@ -292,7 +301,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     
     // Encontrar layers que podem ser cortados no tempo especificado
     const affectedLayers = timelineLayers.filter(layer => 
-      time > layer.start && time < (layer.start + layer.duration) && !layer.locked
+      isValidLayer(layer) && time > layer.start && time < (layer.start + layer.duration) && !layer.locked
     );
 
     if (affectedLayers.length === 0) {
@@ -335,8 +344,8 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     console.log(`🎯 Iniciando trim ${type} no layer ${layerId}`);
     
     const layer = timelineLayers.find(l => l.id === layerId);
-    if (!layer || layer.locked) {
-      console.log('❌ Layer bloqueado ou não encontrado');
+    if (!layer || layer.locked || !isValidLayer(layer)) {
+      console.log('❌ Layer bloqueado, não encontrado ou inválido');
       return;
     }
 
@@ -362,7 +371,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     const deltaTime = (deltaX / timelineWidth) * duration;
     
     const layer = timelineLayers.find(l => l.id === dragData.layerId);
-    if (!layer) return;
+    if (!layer || !isValidLayer(layer)) return;
 
     let newValue = dragData.originalValue + deltaTime;
     
@@ -377,7 +386,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
     // Aplicar mudança temporária (preview)
     const updatedLayers = timelineLayers.map(l => {
-      if (l.id === dragData.layerId) {
+      if (l.id === dragData.layerId && isValidLayer(l)) {
         if (dragData.type === 'start') {
           const newDuration = (l.start + l.duration) - newValue;
           return { ...l, start: newValue, duration: newDuration };
@@ -398,7 +407,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     console.log(`✅ Trim finalizado: ${dragData.type} no layer ${dragData.layerId}`);
     
     const currentLayer = timelineLayers.find(l => l.id === dragData.layerId);
-    if (!currentLayer) return;
+    if (!currentLayer || !isValidLayer(currentLayer)) return;
 
     const currentValue = dragData.type === 'start' 
       ? currentLayer.start 
@@ -423,7 +432,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         console.error('❌ Erro ao criar comando de trim:', error);
         // Reverter para valor original em caso de erro
         const revertedLayers = timelineLayers.map(l => {
-          if (l.id === dragData.layerId) {
+          if (l.id === dragData.layerId && isValidLayer(l)) {
             if (dragData.type === 'start') {
               const originalDuration = (l.start + l.duration) - dragData.originalValue;
               return { ...l, start: dragData.originalValue, duration: originalDuration };
@@ -1477,6 +1486,26 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     'p': { action: 'previewCuts', description: '▶️ Preview só cortes', category: 'Playback' },
     'r': { action: 'resetPreview', description: '🔄 Reset preview', category: 'Playback' },
   };
+
+  // ➕ NOVOS ESTADOS para Sistema de Transcrição na Timeline (ETAPA 1.2)
+  const [currentTranscriptWord, setCurrentTranscriptWord] = useState<string>('');
+
+  // ➕ FUNÇÃO para encontrar palavra atual na transcrição
+  const getCurrentTranscriptWord = useCallback(() => {
+    if (!transcriptionData?.words || !Array.isArray(transcriptionData.words)) return '';
+    
+    const currentWord = transcriptionData.words.find((word: any) => 
+      currentTime >= word.start && currentTime <= word.end
+    );
+    
+    return currentWord?.text || '';
+  }, [transcriptionData, currentTime]);
+
+  // ➕ ATUALIZAR palavra atual quando tempo muda
+  useEffect(() => {
+    const word = getCurrentTranscriptWord();
+    setCurrentTranscriptWord(word);
+  }, [currentTime, getCurrentTranscriptWord]);
 
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
@@ -2592,6 +2621,74 @@ const TimelinePro: React.FC<TimelineProProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ➕ TRANSCRIPT TRACK (ETAPA 1.2) */}
+      {showTranscriptTrack && transcriptionData && (
+        <div 
+          className="timeline-track transcript-track group relative"
+          style={{
+            background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.2), rgba(147, 51, 234, 0.4))',
+            borderLeft: '3px solid rgba(147, 51, 234, 0.8)',
+          }}
+        >
+          {/* Header da Transcript Track */}
+          <div className="track-header flex items-center justify-between bg-purple-900/30 p-2 border-r border-purple-500/30">
+            <div className="flex items-center gap-2">
+              <span className="text-purple-300 font-semibold">📝 Transcript</span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-purple-400">
+                  {transcriptionData.words?.length || 0} palavras
+                </span>
+                {transcriptionData.language && (
+                  <span className="text-xs text-blue-400 bg-blue-900/30 px-1 rounded">
+                    {transcriptionData.language.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Conteúdo da Transcript Track */}
+          <div className="track-content relative h-12 bg-gradient-to-r from-purple-900/10 to-purple-800/20">
+            {/* Palavras da transcrição */}
+            {transcriptionData.words && transcriptionData.words.map((word: any, index: number) => {
+              const leftPercent = (word.start / duration) * 100;
+              const widthPercent = ((word.end - word.start) / duration) * 100;
+              const isCurrentWord = currentTime >= word.start && currentTime <= word.end;
+              
+              return (
+                <div
+                  key={`word-${index}`}
+                  className={`absolute top-0 h-full flex items-center justify-center text-xs font-medium px-1 cursor-pointer transition-all duration-200 hover:z-10 border-r border-purple-500/20 ${
+                    isCurrentWord 
+                      ? 'bg-purple-500/60 text-white scale-105 z-20 shadow-lg' 
+                      : word.confidence > 0.9 
+                        ? 'bg-purple-600/30 text-purple-200 hover:bg-purple-500/40' 
+                        : 'bg-purple-700/20 text-purple-300 hover:bg-purple-600/30'
+                  }`}
+                  style={{
+                    left: `${leftPercent}%`,
+                    width: `${Math.max(widthPercent, 0.5)}%`,
+                  }}
+                  onClick={() => onSeek(word.start)}
+                  title={`"${word.text}" (${formatTime(word.start)} - ${formatTime(word.end)}) - Confiança: ${Math.round((word.confidence || 0.9) * 100)}%`}
+                >
+                  <span className="truncate text-xs">
+                    {word.text}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* Indicador de palavra atual */}
+            {currentTranscriptWord && (
+              <div className="absolute top-0 right-2 bg-purple-600/80 text-white px-2 py-1 rounded text-xs font-medium">
+                🎤 "{currentTranscriptWord}"
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -24,7 +24,7 @@
  * - 4 estilos virais mantidos e funcionais
  */
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -99,6 +99,7 @@ export function VideoEditorPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
+  const timelineProRef = useRef<any>(null) // ➕ NOVO: Ref para TimelinePro
   
   // Estados principais visionários
   const [mobileView, setMobileView] = useState(false)
@@ -1027,7 +1028,7 @@ export function VideoEditorPage() {
     }
   };
 
-  // ➕ NOVA FUNÇÃO: Transcrição Avançada com Múltiplos Provedores
+  // ➕ NOVA FUNÇÃO: Transcrição Avançada com conexão à timeline
   const generateAdvancedCaptions = async () => {
     if (!videoData) return
 
@@ -1069,11 +1070,11 @@ export function VideoEditorPage() {
         true // Fallback para Web Speech
       )
 
-      setTranscriptionResult(result)
-      setGeneratedCaptions(result.words)
-      setTranscriptionProgress('✅ Transcrição concluída!')
+      // ➕ CONECTAR à timeline
+      updateTimelineTranscript(result)
+      setTranscriptionProgress('✅ Transcrição concluída e aplicada à timeline!')
       
-      console.log('🎉 Transcrição avançada concluída:', result)
+      console.log('🎉 Transcrição avançada concluída e conectada:', result)
 
     } catch (error) {
       console.error('❌ Erro na transcrição avançada:', error)
@@ -1114,6 +1115,16 @@ export function VideoEditorPage() {
     
     if (savedOpenAI) setOpenaiApiKey(savedOpenAI)
     if (savedAssemblyAI) setAssemblyaiApiKey(savedAssemblyAI)
+  }, [])
+
+  // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline
+  const updateTimelineTranscript = useCallback((transcriptionData: any) => {
+    // Atualizar tanto o estado local quanto a timeline
+    setTranscriptionResult(transcriptionData)
+    setGeneratedCaptions(transcriptionData.words || [])
+    setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
+    
+    console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
   }, [])
 
   return (
@@ -1283,6 +1294,9 @@ export function VideoEditorPage() {
               onSeek={seekTo}
               onCut={(cutTime) => {
                 console.log('✂️ VideoEditor: Corte processado no tempo:', formatTime(cutTime));
+                // Usar o primeiro layer disponível como padrão
+                const defaultLayerId = timelineLayers.length > 0 ? timelineLayers[0].id : 'main_video_layer';
+                handleRazorCut(defaultLayerId, cutTime);
               }}
               razorToolActive={razorToolActive}
               setRazorToolActive={setRazorToolActive}
@@ -1290,22 +1304,12 @@ export function VideoEditorPage() {
               setTimelineLayers={setTimelineLayers}
               cutPoints={cutPoints}
               setCutPoints={setCutPoints}
-              onPreviewClip={(startTime, endTime) => {
-                console.log(`🎬 Preview clip: ${formatTime(startTime)} - ${formatTime(endTime)}`);
-                if (videoRef.current) {
-                  videoRef.current.currentTime = startTime;
-                  setCurrentTime(startTime);
-                  if (!isPlaying) {
-                    togglePlayPause();
-                  }
-                }
-              }}
-              onExportClip={(clipData) => {
-                console.log(`📤 Exportando clip:`, clipData);
-                handleExportClip(clipData);
-              }}
+              onPreviewClip={undefined}
+              onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
+              transcriptionData={transcriptionResult} // ➕ NOVO: Dados de transcrição
+              showTranscriptTrack={showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
             />
           </div>
 
@@ -1825,6 +1829,172 @@ export function VideoEditorPage() {
             <div className="text-xs text-yellow-200">
               Você criou {generatedClips.length} segmentos. Na próxima versão, poderá marcar quais segmentos remover para gerar um vídeo final otimizado.
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ➕ PAINEL DE TRANSCRIÇÃO AVANÇADA (ETAPA 1.2) */}
+      <div className="transcription-panel bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-semibold flex items-center gap-2">
+            🎯 Transcrição Avançada
+            <span className="text-sm text-purple-300">
+              {transcriptionResult ? `(${transcriptionResult.words?.length || 0} palavras)` : '(Inativa)'}
+            </span>
+          </h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowTranscriptionConfig(!showTranscriptionConfig)}
+            className="text-purple-300 hover:text-white hover:bg-purple-600/20"
+          >
+            ⚙️
+          </Button>
+        </div>
+
+        {/* Seletor de Provedor */}
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Provedor de Transcrição
+          </label>
+          <select
+            value={transcriptionProvider}
+            onChange={(e) => setTranscriptionProvider(e.target.value as any)}
+            className="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="whisper">🎯 OpenAI Whisper (Melhor)</option>
+            <option value="assemblyai">🤖 AssemblyAI (Rápido)</option>
+            <option value="webspeech">🎤 Web Speech (Grátis)</option>
+          </select>
+        </div>
+
+        {/* Configuração de API Keys */}
+        {showTranscriptionConfig && (
+          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+            <h4 className="text-sm font-medium text-gray-300 mb-3">🔑 Configuração de API Keys</h4>
+            
+            {/* OpenAI API Key */}
+            <div className="mb-3">
+              <label className="block text-xs text-gray-400 mb-1">OpenAI API Key</label>
+              <input
+                type="password"
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                placeholder="sk-..."
+                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
+            </div>
+
+            {/* AssemblyAI API Key */}
+            <div className="mb-3">
+              <label className="block text-xs text-gray-400 mb-1">AssemblyAI API Key</label>
+              <input
+                type="password"
+                value={assemblyaiApiKey}
+                onChange={(e) => setAssemblyaiApiKey(e.target.value)}
+                placeholder="..."
+                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={configureApiKeys}
+              className="w-full bg-purple-600/20 border-purple-500/50 text-purple-300 hover:bg-purple-600/30"
+            >
+              💾 Salvar Configurações
+            </Button>
+          </div>
+        )}
+
+        {/* Status da Transcrição */}
+        {transcriptionProgress && (
+          <div className="mb-3 p-2 bg-blue-900/30 border border-blue-500/50 rounded">
+            <div className="text-sm text-blue-300">{transcriptionProgress}</div>
+            {isTranscribing && (
+              <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                <div className="bg-blue-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Botões de Ação */}
+        <div className="flex gap-2 mb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generateAdvancedCaptions}
+            disabled={isTranscribing || !videoData}
+            className="flex-1 bg-purple-600/20 border-purple-500/50 text-purple-300 hover:bg-purple-600/30"
+          >
+            {isTranscribing ? '⏳' : '🎯'} Transcrever
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTranscriptTimeline(!showTranscriptTimeline)}
+            disabled={!transcriptionResult}
+            className="bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30"
+          >
+            📝 Timeline
+          </Button>
+        </div>
+
+        {/* Resultado da Transcrição */}
+        {transcriptionResult && (
+          <div className="transcript-result bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-300">📝 Texto Gerado</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-green-400">
+                  ✅ {transcriptionResult.confidence ? Math.round(transcriptionResult.confidence * 100) : 95}% conf.
+                </span>
+                {transcriptionResult.language && (
+                  <span className="text-xs text-blue-400">
+                    🌐 {transcriptionResult.language.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="max-h-32 overflow-y-auto bg-gray-900/50 rounded p-2 mb-3">
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {transcriptionResult.text || 'Nenhum texto disponível'}
+              </p>
+            </div>
+
+            {/* Estatísticas */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-gray-700/50 rounded p-2">
+                <div className="text-gray-400">Palavras</div>
+                <div className="text-white font-medium">{transcriptionResult.words?.length || 0}</div>
+              </div>
+              <div className="bg-gray-700/50 rounded p-2">
+                <div className="text-gray-400">Duração</div>
+                <div className="text-white font-medium">
+                  {transcriptionResult.duration ? formatTime(transcriptionResult.duration) : 'N/A'}
+                </div>
+              </div>
+            </div>
+
+            {/* Speakers */}
+            {transcriptionResult.speakers && transcriptionResult.speakers.length > 0 && (
+              <div className="mt-2 p-2 bg-gray-700/50 rounded">
+                <div className="text-xs text-gray-400 mb-1">🎤 Speakers Detectados</div>
+                <div className="flex flex-wrap gap-1">
+                  {transcriptionResult.speakers.map((speaker: string, index: number) => (
+                    <span
+                      key={speaker}
+                      className="px-2 py-1 bg-purple-600/30 text-purple-300 rounded text-xs"
+                    >
+                      {speaker}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
