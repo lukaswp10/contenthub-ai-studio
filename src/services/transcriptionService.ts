@@ -86,6 +86,10 @@ class TranscriptionService {
     }
 
     try {
+      console.log('🚀 WHISPER: Iniciando transcrição')
+      console.log('📁 WHISPER: Arquivo:', videoFile.name, videoFile.size, 'bytes')
+      console.log('🔑 WHISPER: API Key configurada:', this.openaiApiKey.substring(0, 10) + '...')
+      
       onProgress('🎤 Preparando áudio para OpenAI Whisper...')
       
       if (videoFile.size > 25 * 1024 * 1024) {
@@ -101,6 +105,14 @@ class TranscriptionService {
       formData.append('response_format', 'verbose_json') // Para ter timestamps
       formData.append('timestamp_granularities[]', 'word') // Timestamps por palavra
 
+      console.log('📤 WHISPER: FormData preparado')
+      console.log('📋 WHISPER: Parâmetros:', {
+        model: 'whisper-1',
+        language: 'pt',
+        response_format: 'verbose_json',
+        timestamp_granularities: 'word'
+      })
+
       // Chamada para OpenAI Whisper API
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
@@ -110,8 +122,14 @@ class TranscriptionService {
         body: formData
       })
 
+      console.log('📡 WHISPER: Resposta recebida')
+      console.log('📊 WHISPER: Status:', response.status)
+      console.log('📋 WHISPER: Headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        console.error('❌ WHISPER: Erro na API:', errorData)
+        
         let errorMessage = `OpenAI API Error: ${response.status}`
         
         if (response.status === 401) {
@@ -128,28 +146,45 @@ class TranscriptionService {
       onProgress('🧠 Processando resposta do Whisper...')
 
       const result: WhisperResponse = await response.json()
+      
+      console.log('🎉 WHISPER: Dados recebidos!')
+      console.log('📄 WHISPER: Texto completo:', result.text)
+      console.log('🔤 WHISPER: Idioma detectado:', result.language)
+      console.log('📊 WHISPER: Segments:', result.segments?.length || 0)
+      console.log('🔍 WHISPER: Primeiro segment:', result.segments?.[0])
 
       onProgress('✅ Transcrição Whisper concluída!')
 
       // Converter para nosso formato padrão
       const words: TranscriptionWord[] = []
 
+      console.log('🔄 WHISPER: Processando segments...')
+
       // Processar segments e words
       if (result.segments) {
         result.segments.forEach((segment, segIndex) => {
+          console.log(`📝 WHISPER: Segment ${segIndex}:`, segment)
+          
           if (segment.words && segment.words.length > 0) {
+            console.log(`📝 WHISPER: Segment ${segIndex} tem ${segment.words.length} palavras com timestamps`)
+            
             // Se tem words com timestamps precisos
-            segment.words.forEach(word => {
-              words.push({
+            segment.words.forEach((word, wordIndex) => {
+              const processedWord = {
                 text: word.word.trim(),
                 start: word.start,
                 end: word.end,
                 confidence: 0.95, // Whisper tem alta confiança
                 highlight: word.word.length > 6, // Highlight palavras longas
                 speaker: `Speaker ${segIndex % 2 + 1}` // Speakers básicos
-              })
+              }
+              
+              words.push(processedWord)
+              console.log(`🔤 WHISPER: Palavra ${wordIndex}:`, processedWord)
             })
           } else {
+            console.log(`📝 WHISPER: Segment ${segIndex} sem words - usando fallback`)
+            
             // Fallback: dividir texto por palavras e estimar timestamps
             const segmentWords = segment.text.trim().split(/\s+/)
             const wordDuration = (segment.end - segment.start) / segmentWords.length
@@ -157,14 +192,17 @@ class TranscriptionService {
             segmentWords.forEach((word, index) => {
               if (word.trim()) {
                 const wordStart = segment.start + (index * wordDuration)
-                words.push({
+                const processedWord = {
                   text: word.trim(),
                   start: wordStart,
                   end: wordStart + wordDuration,
                   confidence: 0.95,
                   highlight: word.length > 6,
                   speaker: `Speaker ${segIndex % 2 + 1}`
-                })
+                }
+                
+                words.push(processedWord)
+                console.log(`🔤 WHISPER: Palavra fallback ${index}:`, processedWord)
               }
             })
           }
@@ -175,7 +213,7 @@ class TranscriptionService {
       const duration = words.length > 0 ? Math.max(...words.map(w => w.end)) : 0
       const speakers = [...new Set(words.map(w => w.speaker).filter((s): s is string => Boolean(s)))]
 
-      return {
+      const finalResult = {
         words,
         text: result.text || '',
         confidence: 0.95, // Whisper tem alta qualidade
@@ -184,8 +222,17 @@ class TranscriptionService {
         speakers
       }
 
+      console.log('✅ WHISPER: Resultado final processado!')
+      console.log('📊 WHISPER: Total de palavras:', words.length)
+      console.log('⏱️ WHISPER: Duração:', duration)
+      console.log('👥 WHISPER: Speakers:', speakers)
+      console.log('🎯 WHISPER: Resultado completo:', finalResult)
+
+      return finalResult
+
     } catch (error) {
-      console.error('Erro OpenAI Whisper:', error)
+      console.error('❌ WHISPER: Erro completo:', error)
+      console.error('🔍 WHISPER: Stack trace:', error instanceof Error ? error.stack : 'Sem stack')
       throw error
     }
   }
@@ -423,43 +470,74 @@ class TranscriptionService {
     provider: 'whisper' | 'assemblyai' | 'webspeech' = 'whisper', // ➕ NOVO: Whisper como padrão
     useWebSpeechFallback: boolean = true
   ): Promise<TranscriptionResult> {
+    console.log('🚀 TRANSCRIBE: Iniciando processo principal')
+    console.log('📁 TRANSCRIBE: Arquivo:', videoFile.name, videoFile.size)
+    console.log('🔧 TRANSCRIBE: Provider:', provider)
+    console.log('🔄 TRANSCRIBE: Fallback ativo:', useWebSpeechFallback)
+    console.log('🔑 TRANSCRIBE: Keys disponíveis:', {
+      openai: !!this.openaiApiKey,
+      assemblyai: !!this.apiKey
+    })
+
     // Tentativa com provedor escolhido
     try {
+      let result: TranscriptionResult
+      
       switch (provider) {
         case 'whisper':
           if (!this.openaiApiKey) {
             throw new Error('Configure OpenAI API Key para usar Whisper')
           }
+          console.log('🎯 TRANSCRIBE: Chamando Whisper...')
           onProgress('🎯 Iniciando OpenAI Whisper (Melhor qualidade)...')
-          return await this.transcribeWithWhisper(videoFile, onProgress)
+          result = await this.transcribeWithWhisper(videoFile, onProgress)
+          break
           
         case 'assemblyai':
           if (!this.apiKey || !this.assemblyAI) {
             throw new Error('Configure AssemblyAI API Key primeiro')
           }
+          console.log('🤖 TRANSCRIBE: Chamando AssemblyAI...')
           onProgress('🤖 Iniciando AssemblyAI (Rápido e confiável)...')
-          return await this.transcribeWithAssemblyAI(videoFile, onProgress)
+          result = await this.transcribeWithAssemblyAI(videoFile, onProgress)
+          break
           
         case 'webspeech':
+          console.log('🎤 TRANSCRIBE: Chamando Web Speech...')
           onProgress('🎤 Iniciando Web Speech API (Grátis, microfone)...')
-          return await this.transcribeWithWebSpeech(videoFile, onProgress)
+          result = await this.transcribeWithWebSpeech(videoFile, onProgress)
+          break
           
         default:
           throw new Error(`Provedor não suportado: ${provider}`)
       }
+      
+      console.log('✅ TRANSCRIBE: Sucesso com provider principal!')
+      console.log('📊 TRANSCRIBE: Resultado:', {
+        words: result.words?.length || 0,
+        text: result.text?.substring(0, 100) + '...',
+        confidence: result.confidence,
+        language: result.language
+      })
+      
+      return result
+      
     } catch (error) {
-      console.error(`Erro com ${provider}:`, error)
+      console.error(`❌ TRANSCRIBE: Erro com ${provider}:`, error)
       
       // ➕ NOVO: Fallback inteligente baseado no tipo de erro
       if (provider === 'whisper') {
         // Se OpenAI falhou por rate limit, tentar AssemblyAI
         if (error instanceof Error && (error.message.includes('rate') || error.message.includes('429'))) {
           if (this.apiKey && this.assemblyAI) {
+            console.log('🔄 TRANSCRIBE: Tentando fallback AssemblyAI...')
             onProgress('⚡ Rate limit OpenAI - Tentando AssemblyAI...')
             try {
-              return await this.transcribeWithAssemblyAI(videoFile, onProgress)
+              const result = await this.transcribeWithAssemblyAI(videoFile, onProgress)
+              console.log('✅ TRANSCRIBE: Sucesso com fallback AssemblyAI!')
+              return result
             } catch (assemblyError) {
-              console.error('Erro no fallback AssemblyAI:', assemblyError)
+              console.error('❌ TRANSCRIBE: Erro no fallback AssemblyAI:', assemblyError)
               // Continuar para próximo fallback
             }
           }
@@ -469,18 +547,24 @@ class TranscriptionService {
       // Se AssemblyAI falhou, tentar Web Speech
       if (provider === 'assemblyai' || (provider === 'whisper' && useWebSpeechFallback)) {
         if (useWebSpeechFallback) {
+          console.log('🔄 TRANSCRIBE: Tentando fallback Web Speech...')
           onProgress(`❌ Erro com ${provider}. Tentando Web Speech...`)
           try {
-            return await this.transcribeWithWebSpeech(videoFile, onProgress)
+            const result = await this.transcribeWithWebSpeech(videoFile, onProgress)
+            console.log('✅ TRANSCRIBE: Sucesso com fallback Web Speech!')
+            return result
           } catch (fallbackError) {
-            console.error('Erro no fallback Web Speech:', fallbackError)
+            console.error('❌ TRANSCRIBE: Erro no fallback Web Speech:', fallbackError)
           }
         }
       }
       
-      // ➕ NOVO: Fallback para dados simulados se tudo falhar
+      // ➅ NOVO: Fallback para dados simulados se tudo falhar
+      console.log('🔄 TRANSCRIBE: Todos os providers falharam - gerando demo...')
       onProgress('🔄 Gerando transcrição de demonstração...')
-      return this.generateDemoTranscription(videoFile)
+      const demoResult = this.generateDemoTranscription(videoFile)
+      console.log('✅ TRANSCRIBE: Demo gerada:', demoResult)
+      return demoResult
     }
   }
 

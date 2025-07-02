@@ -744,9 +744,36 @@ export function VideoEditorPage() {
       return null
     }
     
+    // ✅ MELHORADO: Buscar palavra atual com tolerância maior para evitar "pulos"
+    const tolerance = 0.1 // 100ms de tolerância
     const currentWord = wordsArray.find((word: any) => 
-      currentTime >= word.start && currentTime <= word.end
+      currentTime >= (word.start - tolerance) && currentTime <= (word.end + tolerance)
     )
+    
+    // ✅ NOVO: Se não encontrar palavra exata, buscar a mais próxima
+    if (!currentWord) {
+      // Buscar palavra mais próxima do tempo atual
+      const nearestWord = wordsArray.reduce((closest: any, word: any) => {
+        if (!closest) return word
+        
+        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((closest.start + closest.end) / 2))
+        
+        return currentDistance < closestDistance ? word : closest
+      }, null)
+      
+      // Só mostrar se estiver muito próximo (dentro de 2 segundos)
+      if (nearestWord && Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) <= 2) {
+        console.log('🎯 getCurrentCaption: Palavra próxima encontrada:', nearestWord.text, 'no tempo', currentTime)
+        return {
+          id: `word_near_${currentTime}`,
+          text: nearestWord.text,
+          start: nearestWord.start,
+          end: nearestWord.end,
+          confidence: nearestWord.confidence || 0.9
+        }
+      }
+    }
     
     if (currentWord) {
       console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', currentTime)
@@ -1115,14 +1142,22 @@ export function VideoEditorPage() {
     setTranscriptionProgress('Preparando...')
 
     try {
+      console.log('🚀 INICIANDO TRANSCRIÇÃO AVANÇADA')
+      console.log('📁 VideoData:', videoData)
+      console.log('🔑 Provider:', transcriptionProvider)
+      console.log('🔑 OpenAI Key:', openaiApiKey ? 'Configurada' : 'Não configurada')
+      console.log('🔑 AssemblyAI Key:', assemblyaiApiKey ? 'Configurada' : 'Não configurada')
+
       // Importar o serviço de transcrição
       const { transcriptionService } = await import('../../services/transcriptionService')
 
       // Configurar API keys
       if (transcriptionProvider === 'whisper' && openaiApiKey) {
         transcriptionService.setOpenAIApiKey(openaiApiKey)
+        console.log('✅ OpenAI API Key configurada')
       } else if (transcriptionProvider === 'assemblyai' && assemblyaiApiKey) {
         transcriptionService.setApiKey(assemblyaiApiKey)
+        console.log('✅ AssemblyAI API Key configurada')
       }
 
       // Obter arquivo de vídeo
@@ -1130,45 +1165,79 @@ export function VideoEditorPage() {
       
       if (videoData.file) {
         fileToTranscribe = videoData.file
+        console.log('📄 Usando arquivo direto:', fileToTranscribe.name, fileToTranscribe.size)
       } else if (videoData.url) {
         // Converter URL em File
+        console.log('🌐 Baixando arquivo da URL:', videoData.url)
         const response = await fetch(videoData.url)
         const blob = await response.blob()
         fileToTranscribe = new File([blob], videoData.name || 'video.mp4', { type: blob.type })
+        console.log('📄 Arquivo baixado:', fileToTranscribe.name, fileToTranscribe.size)
       } else {
         throw new Error('Nenhum vídeo disponível')
       }
+
+      console.log('🎬 EXECUTANDO TRANSCRIÇÃO...')
+      console.log('📋 Parâmetros:', {
+        fileName: fileToTranscribe.name,
+        fileSize: fileToTranscribe.size,
+        provider: transcriptionProvider,
+        fallback: true
+      })
 
       // Executar transcrição
       const result = await transcriptionService.transcribe(
         fileToTranscribe,
         (status) => {
+          console.log('📊 Status da transcrição:', status)
           setTranscriptionProgress(status)
         },
         transcriptionProvider,
         true // Fallback para Web Speech
       )
 
-      console.log('🎉 Transcrição avançada concluída:', result)
-      console.log('📊 Palavras encontradas:', result.words?.length || 0)
+      console.log('🎉 TRANSCRIÇÃO CONCLUÍDA!')
+      console.log('📊 Resultado completo:', result)
+      console.log('📝 Palavras encontradas:', result.words?.length || 0)
+      console.log('🔤 Primeira palavra:', result.words?.[0])
+      console.log('🔤 Última palavra:', result.words?.[result.words?.length - 1])
+      console.log('📄 Texto completo:', result.text)
 
       // ✅ CONECTAR à timeline E forçar atualização visual
+      console.log('🔗 CONECTANDO À TIMELINE...')
       updateTimelineTranscript(result)
       
-      // ✅ FORÇAR atualização da interface
+      // ✅ FORÇAR atualização da interface - MELHORADO
+      console.log('🔄 ATUALIZANDO ESTADOS...')
       setGeneratedCaptions(result.words || [])
       setTranscriptionResult(result)
       setCaptionsVisible(true)
       
       setTranscriptionProgress('✅ Transcrição concluída e aplicada à timeline!')
       
-      console.log('✅ Estados atualizados:')
-      console.log('- transcriptionResult:', result)
-      console.log('- generatedCaptions:', result.words?.length || 0)
+      console.log('✅ ESTADOS FINAIS ATUALIZADOS:')
+      console.log('- transcriptionResult palavras:', result.words?.length || 0)
+      console.log('- generatedCaptions palavras:', result.words?.length || 0)
       console.log('- captionsVisible:', true)
+      console.log('- showTranscriptTimeline:', true)
+
+      // ✅ VERIFICAÇÃO FINAL
+      setTimeout(() => {
+        console.log('🔍 VERIFICAÇÃO FINAL DOS ESTADOS:')
+        console.log('- Estado transcriptionResult:', transcriptionResult)
+        console.log('- Estado generatedCaptions:', generatedCaptions)
+        console.log('- Estado captionsVisible:', captionsVisible)
+      }, 1000)
 
     } catch (error) {
-      console.error('❌ Erro na transcrição avançada:', error)
+      console.error('❌ ERRO NA TRANSCRIÇÃO AVANÇADA:', error)
+      console.error('🔍 Detalhes do erro:', {
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        stack: error instanceof Error ? error.stack : 'Sem stack trace',
+        provider: transcriptionProvider,
+        hasApiKey: transcriptionProvider === 'whisper' ? !!openaiApiKey : !!assemblyaiApiKey
+      })
+      
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
       setTranscriptionProgress(`❌ Erro: ${errorMessage}`)
       
