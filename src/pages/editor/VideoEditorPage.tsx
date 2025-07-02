@@ -823,33 +823,39 @@ export function VideoEditorPage() {
 
   // Função para obter legenda atual baseada no tempo - CORRIGIDA
   const getCurrentCaption = () => {
-    // ✅ CORRIGIDO: Usar AMBOS os arrays para garantir que funcione
-    const wordsArray = transcriptionResult?.words || storeGeneratedCaptions
+    // ✅ CORRIGIDO: Usar diretamente o store para evitar dessincronia
+    const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
+    const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
+    const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
+    const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
     
-    // ✅ DEBUG DETALHADO
+    // ✅ PRIORIDADE: transcriptionResult.words > generatedCaptions
+    const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+    
+    // ✅ DEBUG DETALHADO CORRIGIDO
     console.log('🔍 DEBUG getCurrentCaption:', {
-      transcriptionResultWords: transcriptionResult?.words?.length || 0,
-      generatedCaptionsLength: storeGeneratedCaptions?.length || 0,
+      storeTranscriptionWords: storeTranscriptionData?.words?.length || 0,
+      storeGeneratedCaptionsLength: storeGeneratedCaptionsData?.length || 0,
       wordsArrayLength: wordsArray?.length || 0,
-      captionsVisible,
-      currentTime,
+      captionsVisible: storeCaptionsVisibleData,
+      currentTime: storeCurrentTimeData,
       firstWord: wordsArray?.[0],
       lastWord: wordsArray?.[wordsArray.length - 1]
     })
     
-    if (!wordsArray?.length || !captionsVisible) {
+    if (!wordsArray?.length || !storeCaptionsVisibleData) {
       console.log('🔍 getCurrentCaption: Sem palavras ou legendas desativadas', {
         wordsLength: wordsArray?.length,
-        captionsVisible,
-        currentTime
+        captionsVisible: storeCaptionsVisibleData,
+        currentTime: storeCurrentTimeData
       })
       return null
     }
     
     // ✅ MELHORADO: Buscar palavra atual com tolerância maior para evitar "pulos"
-    const tolerance = 0.1 // 100ms de tolerância
+    const tolerance = 0.5 // 500ms de tolerância (aumentado)
     const currentWord = wordsArray.find((word: any) => 
-      currentTime >= (word.start - tolerance) && currentTime <= (word.end + tolerance)
+      storeCurrentTimeData >= (word.start - tolerance) && storeCurrentTimeData <= (word.end + tolerance)
     )
     
     // ✅ NOVO: Se não encontrar palavra exata, buscar a mais próxima
@@ -858,17 +864,17 @@ export function VideoEditorPage() {
       const nearestWord = wordsArray.reduce((closest: any, word: any) => {
         if (!closest) return word
         
-        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((closest.start + closest.end) / 2))
+        const currentDistance = Math.abs(storeCurrentTimeData - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(storeCurrentTimeData - ((closest.start + closest.end) / 2))
         
         return currentDistance < closestDistance ? word : closest
       }, null)
       
-      // Só mostrar se estiver muito próximo (dentro de 2 segundos)
-      if (nearestWord && Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) <= 2) {
-        console.log('🎯 getCurrentCaption: Palavra próxima encontrada:', nearestWord.text, 'no tempo', currentTime)
+      // Só mostrar se estiver muito próximo (dentro de 3 segundos)
+      if (nearestWord && Math.abs(storeCurrentTimeData - ((nearestWord.start + nearestWord.end) / 2)) <= 3) {
+        console.log('🎯 getCurrentCaption: Palavra próxima encontrada:', nearestWord.text, 'no tempo', storeCurrentTimeData)
         return {
-          id: `word_near_${currentTime}`,
+          id: `word_near_${storeCurrentTimeData}`,
           text: nearestWord.text,
           start: nearestWord.start,
           end: nearestWord.end,
@@ -878,9 +884,9 @@ export function VideoEditorPage() {
     }
     
     if (currentWord) {
-      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', currentTime)
+      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', storeCurrentTimeData)
       return {
-        id: `word_${currentTime}`,
+        id: `word_${storeCurrentTimeData}`,
         text: currentWord.text,
         start: currentWord.start,
         end: currentWord.end,
@@ -888,7 +894,7 @@ export function VideoEditorPage() {
       }
     }
     
-    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', currentTime)
+    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', storeCurrentTimeData)
     return null
   }
 
@@ -1481,24 +1487,44 @@ export function VideoEditorPage() {
                 onTestCaptions={() => {
                   console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
                   
-                  // Criar legendas de teste
+                  // Criar legendas de teste mais robustas
                   const testCaptions = [
-                    { text: 'Teste', start: 0, end: 2, confidence: 0.9 },
-                    { text: 'de', start: 2, end: 3, confidence: 0.9 },
-                    { text: 'legendas', start: 3, end: 5, confidence: 0.9 },
-                    { text: 'funcionando', start: 5, end: 8, confidence: 0.9 }
+                    { text: 'TESTE', start: 0, end: 2, confidence: 0.9, highlight: true },
+                    { text: 'LEGENDAS', start: 2, end: 4, confidence: 0.9, highlight: true },
+                    { text: 'FUNCIONANDO', start: 4, end: 6, confidence: 0.9, highlight: true },
+                    { text: 'AGORA!', start: 6, end: 8, confidence: 0.9, highlight: true }
                   ]
                   
-                  // Forçar estados
-                  setGeneratedCaptions(testCaptions)
-                  setTranscriptionResult({ words: testCaptions })
-                  setCaptionsVisible(true)
-                  
-                  console.log('✅ Estados forçados:', {
-                    generatedCaptions: testCaptions.length,
-                    transcriptionResult: testCaptions.length,
-                    captionsVisible: true
+                  // ✅ FORÇAR TODOS OS ESTADOS DIRETAMENTE NO STORE
+                  console.log('🔄 Forçando estados no store...')
+                  useVideoEditorStore.setState({
+                    generatedCaptions: testCaptions,
+                    transcriptionResult: { 
+                      words: testCaptions,
+                      text: testCaptions.map(c => c.text).join(' '),
+                      confidence: 0.9,
+                      language: 'pt-BR'
+                    },
+                    captionsVisible: true,
+                    currentTime: 1 // Forçar tempo onde há legenda
                   })
+                  
+                  // ✅ VERIFICAÇÃO IMEDIATA
+                  setTimeout(() => {
+                    const state = useVideoEditorStore.getState()
+                    console.log('✅ VERIFICAÇÃO IMEDIATA:', {
+                      generatedCaptions: state.generatedCaptions?.length,
+                      transcriptionWords: state.transcriptionResult?.words?.length,
+                      captionsVisible: state.captionsVisible,
+                      currentTime: state.currentTime
+                    })
+                    
+                    // ✅ TESTAR getCurrentCaption
+                    const currentCaption = getCurrentCaption()
+                    console.log('🎯 getCurrentCaption resultado:', currentCaption)
+                  }, 100)
+                  
+                  console.log('✅ Estados forçados no store!')
                 }}
                 
                 // Canvas ref para efeitos
