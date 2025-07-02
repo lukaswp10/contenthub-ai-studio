@@ -38,6 +38,22 @@ import { transcriptionService } from '../../services/transcriptionService'
 import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
 import { formatTime, formatTimeAgo } from '../../utils/timeUtils'
 
+// 🏪 ZUSTAND IMPORTS - MIGRAÇÃO FASE 3
+import { 
+  useVideoEditorStore,
+  useVideoData, 
+  useVideoTime, 
+  useVideoPlayback,
+  useCaptions,
+  useCaptionStyling,
+  useTimeline,
+  useUIState,
+  useTranscription,
+  useEffects,
+  useCommands
+} from '../../stores/videoEditorStore'
+import { Caption } from '../../types/caption.types'
+
 interface VideoData {
   file?: File | null
   url?: string
@@ -102,10 +118,39 @@ export function VideoEditorPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
-  const timelineProRef = useRef<any>(null) // ➕ NOVO: Ref para TimelinePro
+  const timelineProRef = useRef<any>(null)
+
+  // 🏪 ZUSTAND HOOKS - MIGRAÇÃO GRADUAL
+  const storeVideoData = useVideoData()
+  const { currentTime: storeCurrentTime, duration: storeDuration } = useVideoTime()
+  const { isPlaying: storeIsPlaying, togglePlayPause: storeTogglePlayPause, seekTo: storeSeekTo } = useVideoPlayback()
+  const { captionsVisible: storeCaptionsVisible, generatedCaptions: storeGeneratedCaptions, activeCaptionStyle: storeActiveCaptionStyle, toggleCaptionsVisibility: storeToggleCaptionsVisibility } = useCaptions()
+  const storeCaptionStyling = useCaptionStyling()
+  const { cutPoints: storeCutPoints, timelineLayers: storeTimelineLayers, razorToolActive: storeRazorToolActive, selectedLayer: storeSelectedLayer } = useTimeline()
+  const { mobileView: storeMobileView, leftSidebarOpen: storeLeftSidebarOpen, rightSidebarOpen: storeRightSidebarOpen, galleryModalOpen: storeGalleryModalOpen, activeGalleryTab: storeActiveGalleryTab } = useUIState()
+  const storeTranscription = useTranscription()
+  const { activeEffects: storeActiveEffects, addEffect: storeAddEffect, removeEffect: storeRemoveEffect } = useEffects()
+  const { canUndo: storeCanUndo, canRedo: storeCanRedo, lastCommand: storeLastCommand } = useCommands()
   
-  // Estados principais visionários
-  const [mobileView, setMobileView] = useState(false)
+  // 🏪 ZUSTAND ACTIONS
+  const storeSetVideoData = useVideoEditorStore(state => state.setVideoData)
+  const storeSetCurrentTime = useVideoEditorStore(state => state.setCurrentTime)
+  const storeSetDuration = useVideoEditorStore(state => state.setDuration)
+  const storeSetIsPlaying = useVideoEditorStore(state => state.setIsPlaying)
+  const storeSetCaptionsVisible = useVideoEditorStore(state => state.setCaptionsVisible)
+  const storeSetGeneratedCaptions = useVideoEditorStore(state => state.setGeneratedCaptions)
+  const storeSetActiveCaptionStyle = useVideoEditorStore(state => state.setActiveCaptionStyle)
+  const storeSetCutPoints = useVideoEditorStore(state => state.setCutPoints)
+  const storeSetTimelineLayers = useVideoEditorStore(state => state.setTimelineLayers)
+  const storeSetRazorToolActive = useVideoEditorStore(state => state.setRazorToolActive)
+  const storeSetSelectedLayer = useVideoEditorStore(state => state.setSelectedLayer)
+  const storeSetMobileView = useVideoEditorStore(state => state.setMobileView)
+  const storeSetLeftSidebarOpen = useVideoEditorStore(state => state.setLeftSidebarOpen)
+  const storeSetRightSidebarOpen = useVideoEditorStore(state => state.setRightSidebarOpen)
+  const storeSetGalleryModalOpen = useVideoEditorStore(state => state.setGalleryModalOpen)
+  const storeSetActiveGalleryTab = useVideoEditorStore(state => state.setActiveGalleryTab)
+
+  // Estados principais visionários (TEMPORÁRIO - será migrado)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
   const [activeGalleryTab, setActiveGalleryTab] = useState<'videos' | 'clips'>('videos')
@@ -234,12 +279,12 @@ export function VideoEditorPage() {
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
-      setMobileView(mobile)
+      storeSetMobileView(mobile)
       
       // Ajustar sidebars baseado no tamanho da tela
       if (mobile) {
-        setLeftSidebarOpen(false)
-        setRightSidebarOpen(false)
+        storeSetLeftSidebarOpen(false)
+        storeSetRightSidebarOpen(false)
       }
     }
 
@@ -275,11 +320,15 @@ export function VideoEditorPage() {
       const incomingVideoData = location.state.videoData
       console.log('🎬 Carregando vídeo do dashboard:', incomingVideoData.name)
       
+      // ✅ MIGRAÇÃO: Usar store para videoData
+      storeSetVideoData(incomingVideoData)
       setVideoData(incomingVideoData)
       
       // Se temos uma URL do Cloudinary, usar ela
       if (incomingVideoData.cloudinaryUrl || incomingVideoData.url) {
         console.log('☁️ Usando URL permanente do Cloudinary')
+        // ✅ MIGRAÇÃO: Usar store para duration
+        storeSetDuration(incomingVideoData.duration || 30)
         setDuration(incomingVideoData.duration || 30)
         
         // Inicializar layers padrão para este vídeo
@@ -288,7 +337,7 @@ export function VideoEditorPage() {
         }, 100)
       }
     }
-  }, [location.state, videoData])
+  }, [location.state, videoData, storeSetVideoData, storeSetDuration])
 
   // Keyboard shortcuts profissionais
   useEffect(() => {
@@ -327,7 +376,7 @@ export function VideoEditorPage() {
           break
         case 'c':
           if (e.ctrlKey || e.metaKey) return
-          setRazorToolActive(!razorToolActive)
+          storeSetRazorToolActive(!razorToolActive)
           console.log(razorToolActive ? '✂️ Ferramenta Razor ativada' : 'Ferramenta Razor desativada')
           break
         case 's':
@@ -352,8 +401,8 @@ export function VideoEditorPage() {
         case 'delete':
         case 'backspace':
           if (selectedLayer) {
-            setTimelineLayers(prev => prev.filter(l => l.id !== selectedLayer))
-            setSelectedLayer(null)
+            storeSetTimelineLayers(prev => prev.filter(l => l.id !== selectedLayer))
+            storeSetSelectedLayer(null)
             console.log('🗑️ Clip removido')
           }
           break
@@ -404,7 +453,7 @@ export function VideoEditorPage() {
       items: []
     }
     
-    setTimelineLayers([videoLayer])
+    storeSetTimelineLayers([videoLayer])
     
     return () => {
       if (videoData?.url && videoData.url.startsWith('blob:')) {
@@ -415,7 +464,7 @@ export function VideoEditorPage() {
 
   // Adicionar vídeo à timeline quando carregado
   useEffect(() => {
-    if (videoData && duration > 0 && timelineLayers.length === 0) {
+    if (videoData && duration > 0 && storeTimelineLayers.length === 0) {
       const videoLayer: TimelineLayer = {
         id: `video_${Date.now()}`,
         type: 'video',
@@ -429,7 +478,7 @@ export function VideoEditorPage() {
         items: []
       }
       
-      setTimelineLayers([videoLayer])
+      storeSetTimelineLayers([videoLayer])
       console.log('📹 Vídeo adicionado à timeline:', videoLayer.name)
     }
   }, [videoData, duration])
@@ -439,7 +488,7 @@ export function VideoEditorPage() {
       const videoDuration = videoRef.current.duration
       setDuration(videoDuration)
       
-      setTimelineLayers(prev => prev.map(layer => 
+      storeSetTimelineLayers(prev => prev.map(layer => 
         layer.id === 'main-video' 
           ? { ...layer, duration: videoDuration }
           : layer
@@ -482,7 +531,7 @@ export function VideoEditorPage() {
       } else {
         videoRef.current.play()
       }
-      setIsPlaying(!isPlaying)
+      storeSetIsPlaying(!isPlaying)
     }
   }
 
@@ -507,7 +556,10 @@ export function VideoEditorPage() {
 
   const removeEffect = (effectId: string) => {
     setActiveEffects(prev => prev.filter(id => id !== effectId))
-    applyRealTimeEffects()
+    setEffectIntensity((prev: any) => {
+      const { [effectId]: removed, ...rest } = prev
+      return rest
+    })
   }
 
   const formatTime = (seconds: number) => {
@@ -544,8 +596,8 @@ export function VideoEditorPage() {
       file: video.file || null
     }
     
-    setVideoData(videoData)
-    setDuration(video.duration)
+    storeSetVideoData(videoData)
+    storeSetDuration(video.duration)
     
     console.log('✅ Vídeo carregado no editor:', videoData)
   }
@@ -591,7 +643,7 @@ export function VideoEditorPage() {
     // ✅ NOVA LÓGICA: O corte agora é processado diretamente no TimelinePro
     // Esta função é mantida apenas para compatibilidade com atalhos de teclado
     
-    const layer = timelineLayers.find(l => l.id === layerId)
+    const layer = storeTimelineLayers.find(l => l.id === layerId)
     if (!layer || layer.locked) {
       console.log('❌ Layer não encontrado ou está bloqueado')
       return
@@ -620,7 +672,7 @@ export function VideoEditorPage() {
 
   // Função para inicializar layers padrão
   const initializeDefaultLayers = () => {
-    if (timelineLayers.length === 0 && videoData) {
+    if (storeTimelineLayers.length === 0 && videoData) {
       const defaultLayer: TimelineLayer = {
         id: 'main_video_layer',
         type: 'video',
@@ -633,7 +685,7 @@ export function VideoEditorPage() {
         visible: true,
         items: []
       }
-      setTimelineLayers([defaultLayer])
+      storeSetTimelineLayers([defaultLayer])
     }
   }
 
@@ -646,7 +698,7 @@ export function VideoEditorPage() {
 
   // Dividir clip no tempo atual
   const splitClipAt = (time: number) => {
-    const affectedLayer = timelineLayers.find(layer => 
+    const affectedLayer = storeTimelineLayers.find(layer => 
       layer.start !== undefined && layer.duration !== undefined && 
       time >= layer.start && time <= layer.start + layer.duration
     )
@@ -721,12 +773,12 @@ export function VideoEditorPage() {
   // Função para obter legenda atual baseada no tempo - CORRIGIDA
   const getCurrentCaption = () => {
     // ✅ CORRIGIDO: Usar AMBOS os arrays para garantir que funcione
-    const wordsArray = transcriptionResult?.words || generatedCaptions
+    const wordsArray = transcriptionResult?.words || storeGeneratedCaptions
     
     // ✅ DEBUG DETALHADO
     console.log('🔍 DEBUG getCurrentCaption:', {
       transcriptionResultWords: transcriptionResult?.words?.length || 0,
-      generatedCaptionsLength: generatedCaptions?.length || 0,
+      generatedCaptionsLength: storeGeneratedCaptions?.length || 0,
       wordsArrayLength: wordsArray?.length || 0,
       captionsVisible,
       currentTime,
@@ -843,14 +895,14 @@ export function VideoEditorPage() {
       highlight: word.highlight || false
     }))
     
-    setGeneratedCaptions(captions)
+    storeSetGeneratedCaptions(captions)
     console.log('✅ Captions processadas:', captions.length)
   }
 
   // ✅ FUNÇÃO MELHORADA: Alternar visibilidade das captions com feedback visual
   const toggleCaptionsVisibility = () => {
     const newVisibility = !captionsVisible
-    setCaptionsVisible(newVisibility)
+    storeSetCaptionsVisible(newVisibility)
     
     // ✅ Feedback visual melhorado
     if (newVisibility) {
@@ -871,7 +923,7 @@ export function VideoEditorPage() {
 
   // Função para aplicar estilo de caption
   const applyCaptionStyle = (styleId: string) => {
-    setActiveCaptionStyle(styleId)
+    storeSetActiveCaptionStyle(styleId)
     console.log(`🎨 Estilo de caption aplicado: ${styleId}`)
   }
 
@@ -879,7 +931,7 @@ export function VideoEditorPage() {
   useEffect(() => {
     if (location.state?.videoData) {
       const data = location.state.videoData as VideoData
-      setDuration(data.duration || 30)
+      storeSetDuration(data.duration || 30)
       
       // Capturar arquivo se disponível
       if (location.state.videoFile) {
@@ -890,7 +942,7 @@ export function VideoEditorPage() {
 
   // Função para resetar cortes
   const resetAllCuts = () => {
-    setCutPoints([])
+    storeSetCutPoints([])
     console.log('🔄 Todos os cortes foram resetados')
   }
 
@@ -935,7 +987,7 @@ export function VideoEditorPage() {
 
       console.log('🎉 Transcrição real concluída:', result)
       
-      setGeneratedCaptions(result.words)
+      storeSetGeneratedCaptions(result.words)
       
       console.log('✅ Legendas geradas com sucesso!', result.words.length, 'palavras')
     } catch (error) {
@@ -953,7 +1005,7 @@ export function VideoEditorPage() {
             { text: 'gerada', start: 2, end: 4, confidence: 0.9 },
             { text: 'automaticamente', start: 4, end: 6, confidence: 0.9 }
           ]
-          setGeneratedCaptions(fallbackCaptions)
+          storeSetGeneratedCaptions(fallbackCaptions)
           console.log('✅ Fallback aplicado com sucesso!')
         } else {
           throw new Error('Speech Recognition não disponível')
@@ -1122,11 +1174,11 @@ export function VideoEditorPage() {
     
     // Atualizar tanto o estado local quanto a timeline
     setTranscriptionResult(transcriptionData)
-    setGeneratedCaptions(transcriptionData.words || [])
+    storeSetGeneratedCaptions(transcriptionData.words || [])
     setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
     
     // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
-    setCaptionsVisible(true)
+    storeSetCaptionsVisible(true)
     
     console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
     console.log('👁️ Legendas ativadas automaticamente')
@@ -1208,9 +1260,9 @@ export function VideoEditorPage() {
       
       // ✅ FORÇAR atualização da interface - MELHORADO
       console.log('🔄 ATUALIZANDO ESTADOS...')
-      setGeneratedCaptions(result.words || [])
+      storeSetGeneratedCaptions(result.words || [])
       setTranscriptionResult(result)
-      setCaptionsVisible(true)
+      storeSetCaptionsVisible(true)
       
       setTranscriptionProgress('✅ Transcrição concluída e aplicada à timeline!')
       
@@ -1224,8 +1276,8 @@ export function VideoEditorPage() {
       setTimeout(() => {
         console.log('🔍 VERIFICAÇÃO FINAL DOS ESTADOS:')
         console.log('- Estado transcriptionResult:', transcriptionResult)
-        console.log('- Estado generatedCaptions:', generatedCaptions)
-        console.log('- Estado captionsVisible:', captionsVisible)
+        console.log('- Estado generatedCaptions:', storeGeneratedCaptions)
+        console.log('- Estado captionsVisible:', storeCaptionsVisible)
       }, 1000)
 
     } catch (error) {
@@ -1287,7 +1339,7 @@ export function VideoEditorPage() {
   const [captionShadowIntensity, setCaptionShadowIntensity] = useState(3)
   const [captionOpacity, setCaptionOpacity] = useState(100)
   const [captionAnimation, setCaptionAnimation] = useState('fadeIn')
-  const [captionPosition, setCaptionPosition] = useState<'bottom' | 'center' | 'top'>('bottom')
+  const [captionPosition, setCaptionPosition] = useState('bottom')
   const [showCaptionPreview, setShowCaptionPreview] = useState(true)
 
   return (
@@ -1339,7 +1391,7 @@ export function VideoEditorPage() {
           </Button>
           
           {/* Menu Mobile */}
-          {mobileView && (
+          {storeMobileView && (
             <Button
               variant="ghost"
               onClick={() => setGalleryModalOpen(true)}
@@ -1371,21 +1423,8 @@ export function VideoEditorPage() {
             <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
               {/* ✅ NOVO COMPONENTE VIDEOPLAYER REFATORADO */}
               <VideoPlayer
-                // Video data
-                videoData={videoData}
-                currentTime={currentTime}
-                duration={duration}
-                isPlaying={isPlaying}
-                
-                // Handlers
-                onTimeUpdate={setCurrentTime}
-                onTogglePlayPause={togglePlayPause}
-                onVideoLoad={handleVideoLoad}
-                
-                // Captions
+                // Captions específicas
                 currentCaption={getCurrentCaption()}
-                captionsVisible={captionsVisible}
-                onToggleCaptions={toggleCaptionsVisibility}
                 hasTranscription={!!transcriptionResult?.words?.length}
                 transcriptionWordsCount={transcriptionResult?.words?.length || 0}
                 onTestCaptions={() => {
@@ -1411,53 +1450,43 @@ export function VideoEditorPage() {
                   })
                 }}
                 
-                // Caption styling
-                captionPosition={captionPosition}
-                captionFontSize={captionFontSize}
-                captionTextColor={captionTextColor}
-                captionShadowIntensity={captionShadowIntensity}
-                captionShadowColor={captionShadowColor}
-                captionOpacity={captionOpacity}
-                captionBackgroundColor={captionBackgroundColor}
-                captionFontFamily={captionFontFamily}
-                captionAnimation={captionAnimation}
-                
-                // Canvas ref for effects
+                // Canvas ref para efeitos
                 canvasRef={canvasRef}
               />
             </div>
 
             {/* TIMELINE PROFISSIONAL - Embaixo do Vídeo */}
             <TimelinePro
-              videoData={videoData}
-              currentTime={currentTime}
-              duration={duration}
-              onSeek={seekTo}
+              videoData={storeVideoData || videoData}
+              currentTime={storeCurrentTime || currentTime}
+              duration={storeDuration || duration}
+              onSeek={storeSeekTo || seekTo}
               onCut={(cutTime) => {
                 console.log('✂️ VideoEditor: Corte processado no tempo:', formatTime(cutTime));
                 // Usar o primeiro layer disponível como padrão
-                const defaultLayerId = timelineLayers.length > 0 ? timelineLayers[0].id : 'main_video_layer';
+                const layers = storeTimelineLayers.length > 0 ? storeTimelineLayers : timelineLayers;
+                const defaultLayerId = layers.length > 0 ? layers[0].id : 'main_video_layer';
                 handleRazorCut(defaultLayerId, cutTime);
               }}
-              razorToolActive={razorToolActive}
-              setRazorToolActive={setRazorToolActive}
-              timelineLayers={timelineLayers}
-              setTimelineLayers={setTimelineLayers}
-              cutPoints={cutPoints}
-              setCutPoints={setCutPoints}
+              razorToolActive={storeRazorToolActive !== undefined ? storeRazorToolActive : razorToolActive}
+              setRazorToolActive={storeSetRazorToolActive || setRazorToolActive}
+              timelineLayers={storeTimelineLayers.length > 0 ? storeTimelineLayers : timelineLayers}
+              setTimelineLayers={storeSetTimelineLayers || setTimelineLayers}
+              cutPoints={storeCutPoints.length > 0 ? storeCutPoints : cutPoints}
+              setCutPoints={storeSetCutPoints || setCutPoints}
               onPreviewClip={undefined}
               onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
-              transcriptionData={transcriptionResult} // ➕ NOVO: Dados de transcrição
-              showTranscriptTrack={showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
+              transcriptionData={storeTranscription.transcriptionResult || transcriptionResult} // ➕ NOVO: Dados de transcrição
+              showTranscriptTrack={storeTranscription.showTranscriptTimeline !== undefined ? storeTranscription.showTranscriptTimeline : showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
               updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
             />
           </div>
 
           {/* Right Sidebar - Effects Panel */}
           {rightSidebarOpen && (
-            <div className={`${mobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
+            <div className={`${storeMobileView ? 'absolute top-0 right-0 h-full w-80 z-20' : 'w-[320px] flex-shrink-0'} sidebar-visionario bg-black/10 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl`}>
               {/* Header dos Controles */}
               <div className="p-6 border-b border-white/10">
                 <div className="flex items-center justify-between mb-4">
@@ -1465,10 +1494,10 @@ export function VideoEditorPage() {
                     <span className="mr-2">🎨</span>
                     Estilos de Legendas
                   </h2>
-                  {mobileView && (
+                  {storeMobileView && (
                     <Button
                       variant="ghost"
-                      onClick={() => setRightSidebarOpen(false)}
+                      onClick={() => storeSetRightSidebarOpen(false)}
                       className="text-gray-400 hover:text-white p-1"
                     >
                       ✕
@@ -1484,7 +1513,7 @@ export function VideoEditorPage() {
                       <div>
                         <p className="text-sm font-semibold text-purple-300">Status: ✅ Editor Ativo</p>
                         <p className="text-xs text-gray-400">
-                          {generatedCaptions.length || 0} palavras com estilo
+                          {storeGeneratedCaptions.length || 0} palavras com estilo
                         </p>
                       </div>
                     </div>
@@ -1748,7 +1777,7 @@ export function VideoEditorPage() {
                     <label className="block text-sm text-gray-300 mb-2">Posição da Legenda:</label>
                     <select
                       value={captionPosition}
-                      onChange={(e) => setCaptionPosition(e.target.value as 'bottom' | 'center' | 'top')}
+                      onChange={(e) => setCaptionPosition(e.target.value)}
                       className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
                       <option value="top">Topo</option>
@@ -1987,12 +2016,12 @@ export function VideoEditorPage() {
       )}
 
       {/* Mobile Overlay */}
-      {mobileView && (leftSidebarOpen || rightSidebarOpen) && (
+      {storeMobileView && (storeLeftSidebarOpen || storeRightSidebarOpen) && (
         <div 
           className="fixed inset-0 bg-black/50 z-10"
           onClick={() => {
-            setLeftSidebarOpen(false)
-            setRightSidebarOpen(false)
+            storeSetLeftSidebarOpen(false)
+            storeSetRightSidebarOpen(false)
           }}
         />
       )}
@@ -2018,7 +2047,7 @@ export function VideoEditorPage() {
             <div className="text-xs text-gray-400">Duração Total</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-yellow-400">{cutPoints.length}</div>
+            <div className="text-lg font-bold text-yellow-400">{storeCutPoints.length}</div>
             <div className="text-xs text-gray-400">Cortes Feitos</div>
           </div>
           <div className="text-center">

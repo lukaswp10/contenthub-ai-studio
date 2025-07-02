@@ -1,5 +1,6 @@
 import { useCallback, useEffect, RefObject } from 'react'
 import { formatTime } from '../../../utils/timeUtils'
+import { useVideoEditorStore, useVideoData, useVideoTime, useVideoPlayback } from '../../../stores/videoEditorStore'
 
 interface VideoData {
   file?: File | null
@@ -13,56 +14,47 @@ interface VideoData {
 
 interface UseVideoPlayerProps {
   videoRef: RefObject<HTMLVideoElement>
-  videoData: VideoData | null
-  currentTime: number
-  duration: number
-  isPlaying: boolean
-  onTimeUpdate: (time: number) => void
-  onTogglePlayPause: () => void
-  onVideoLoad: () => void
 }
 
-export const useVideoPlayer = ({
-  videoRef,
-  videoData,
-  currentTime,
-  duration,
-  isPlaying,
-  onTimeUpdate,
-  onTogglePlayPause,
-  onVideoLoad
-}: UseVideoPlayerProps) => {
+export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
+  
+  // 🏪 Zustand selectors para performance otimizada
+  const videoData = useVideoData()
+  const { currentTime, duration } = useVideoTime()
+  const { isPlaying, togglePlayPause, seekTo } = useVideoPlayback()
+  const setCurrentTime = useVideoEditorStore(state => state.setCurrentTime)
+  const setDuration = useVideoEditorStore(state => state.setDuration)
   
   // 🎯 Função para buscar posição específica no vídeo
-  const seekTo = useCallback((percentage: number) => {
+  const handleSeekTo = useCallback((percentage: number) => {
     if (videoRef.current && duration > 0) {
       const time = (percentage / 100) * duration
       videoRef.current.currentTime = time
-      onTimeUpdate(time)
+      setCurrentTime(time)
       
       console.log('🎯 VideoPlayer: Seek para', percentage + '%', '=', time + 's')
     }
-  }, [videoRef, duration, onTimeUpdate])
+  }, [videoRef, duration, setCurrentTime])
 
   // 🎯 Handler para atualização de tempo
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
       const newTime = videoRef.current.currentTime
-      onTimeUpdate(newTime)
+      setCurrentTime(newTime)
     }
-  }, [videoRef, onTimeUpdate])
+  }, [videoRef, setCurrentTime])
 
   // 🎯 Handler para carregamento do vídeo
   const handleVideoLoad = useCallback(() => {
     if (videoRef.current) {
       const videoDuration = videoRef.current.duration
+      setDuration(videoDuration)
       console.log('🎬 VideoPlayer: Vídeo carregado, duração:', videoDuration)
-      onVideoLoad()
     }
-  }, [videoRef, onVideoLoad])
+  }, [videoRef, setDuration])
 
-  // 🎯 Toggle play/pause
-  const togglePlayPause = useCallback(() => {
+  // 🎯 Toggle play/pause integrado com store
+  const handleTogglePlayPause = useCallback(() => {
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause()
@@ -71,9 +63,9 @@ export const useVideoPlayer = ({
         videoRef.current.play()
         console.log('▶️ VideoPlayer: Reproduzindo')
       }
-      onTogglePlayPause()
+      togglePlayPause()
     }
-  }, [videoRef, isPlaying, onTogglePlayPause])
+  }, [videoRef, isPlaying, togglePlayPause])
 
   // 🎯 Configurar event listeners
   useEffect(() => {
@@ -93,18 +85,23 @@ export const useVideoPlayer = ({
 
   return {
     // Funções
-    seekTo,
-    togglePlayPause,
+    seekTo: handleSeekTo,
+    togglePlayPause: handleTogglePlayPause,
     formatTime,
     
-    // Estados derivados
+    // Estados derivados do store
     currentTimeFormatted: formatTime(currentTime),
     durationFormatted: formatTime(duration),
     progressPercentage: duration > 0 ? (currentTime / duration) * 100 : 0,
     
-    // Dados do vídeo
+    // Dados do vídeo do store
     hasVideo: !!videoData?.url,
     videoUrl: videoData?.url,
-    videoName: videoData?.name || 'Video'
+    videoName: videoData?.name || 'Video',
+    
+    // Estados diretos do store
+    currentTime,
+    duration,
+    isPlaying
   }
 } 

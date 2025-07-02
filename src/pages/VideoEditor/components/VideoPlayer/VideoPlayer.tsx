@@ -3,96 +3,35 @@ import { useVideoPlayer } from '../../hooks/useVideoPlayer'
 import { VideoControls } from './VideoControls'
 import { VideoOverlay } from './VideoOverlay'
 import { Button } from '../../../../components/ui/button'
-
-interface VideoData {
-  file?: File | null
-  url?: string
-  name: string
-  size: number
-  duration?: number
-  id?: string
-  videoData?: any
-}
-
-interface Caption {
-  id: string
-  text: string
-  start: number
-  end: number
-  confidence: number
-}
+import { useCaptions, useCaptionStyling } from '../../../../stores/videoEditorStore'
+import { Caption } from '../../../../types/caption.types'
 
 interface VideoPlayerProps {
-  // Video data
-  videoData: VideoData | null
-  currentTime: number
-  duration: number
-  isPlaying: boolean
-  
-  // Handlers
-  onTimeUpdate: (time: number) => void
-  onTogglePlayPause: () => void
-  onVideoLoad: () => void
-  
-  // Captions
+  // Captions específicas
   currentCaption: Caption | null
-  captionsVisible: boolean
-  onToggleCaptions: () => void
   hasTranscription: boolean
   transcriptionWordsCount: number
   onTestCaptions: () => void
   
-  // Caption styling
-  captionPosition: 'top' | 'center' | 'bottom'
-  captionFontSize: number
-  captionTextColor: string
-  captionShadowIntensity: number
-  captionShadowColor: string
-  captionOpacity: number
-  captionBackgroundColor: string
-  captionFontFamily: string
-  captionAnimation: string
-  
-  // Canvas ref for effects
+  // Canvas ref para efeitos
   canvasRef: React.RefObject<HTMLCanvasElement>
 }
 
 export const VideoPlayer = memo(({
-  videoData,
-  currentTime,
-  duration,
-  isPlaying,
-  onTimeUpdate,
-  onTogglePlayPause,
-  onVideoLoad,
   currentCaption,
-  captionsVisible,
-  onToggleCaptions,
   hasTranscription,
   transcriptionWordsCount,
   onTestCaptions,
-  captionPosition,
-  captionFontSize,
-  captionTextColor,
-  captionShadowIntensity,
-  captionShadowColor,
-  captionOpacity,
-  captionBackgroundColor,
-  captionFontFamily,
-  captionAnimation,
   canvasRef
 }: VideoPlayerProps) => {
   
   const videoRef = useRef<HTMLVideoElement>(null)
   
-  console.log('🎬 VideoPlayer: Renderizando player', {
-    hasVideo: !!videoData?.url,
-    currentTime,
-    isPlaying,
-    hasCaption: !!currentCaption
-  })
-
-  // ✅ Hook customizado para lógica do player
+  // 🏪 Zustand hooks para state management
+  const { captionsVisible, toggleCaptionsVisibility } = useCaptions()
+  const captionStyling = useCaptionStyling()
+  
+  // ✅ Hook customizado integrado com Zustand
   const {
     seekTo,
     togglePlayPause,
@@ -101,16 +40,17 @@ export const VideoPlayer = memo(({
     durationFormatted,
     progressPercentage,
     hasVideo,
-    videoUrl
-  } = useVideoPlayer({
-    videoRef,
-    videoData,
+    videoUrl,
     currentTime,
     duration,
+    isPlaying
+  } = useVideoPlayer({ videoRef })
+
+  console.log('🎬 VideoPlayer: Renderizando player', {
+    hasVideo,
+    currentTime,
     isPlaying,
-    onTimeUpdate,
-    onTogglePlayPause,
-    onVideoLoad
+    hasCaption: !!currentCaption
   })
 
   return (
@@ -120,7 +60,6 @@ export const VideoPlayer = memo(({
       <video
         ref={videoRef}
         src={videoUrl}
-        onLoadedData={onVideoLoad}
         className="video-player-visionario w-full h-full object-contain rounded-2xl"
         style={{ 
           filter: 'none',
@@ -139,15 +78,7 @@ export const VideoPlayer = memo(({
       <VideoOverlay
         currentCaption={currentCaption}
         captionsVisible={captionsVisible}
-        captionPosition={captionPosition}
-        captionFontSize={captionFontSize}
-        captionTextColor={captionTextColor}
-        captionShadowIntensity={captionShadowIntensity}
-        captionShadowColor={captionShadowColor}
-        captionOpacity={captionOpacity}
-        captionBackgroundColor={captionBackgroundColor}
-        captionFontFamily={captionFontFamily}
-        captionAnimation={captionAnimation}
+        {...captionStyling}
       />
       
       {/* ✅ PLAY/PAUSE OVERLAY */}
@@ -162,16 +93,8 @@ export const VideoPlayer = memo(({
       
       {/* ✅ CONTROLES DO VÍDEO */}
       <VideoControls
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        progressPercentage={progressPercentage}
-        currentTimeFormatted={currentTimeFormatted}
-        durationFormatted={durationFormatted}
-        onTogglePlayPause={togglePlayPause}
         onSeek={seekTo}
-        captionsVisible={captionsVisible}
-        onToggleCaptions={onToggleCaptions}
+        onToggleCaptions={toggleCaptionsVisibility}
         hasTranscription={hasTranscription}
         transcriptionWordsCount={transcriptionWordsCount}
         onTestCaptions={onTestCaptions}

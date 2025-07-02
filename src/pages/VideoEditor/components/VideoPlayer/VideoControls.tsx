@@ -1,23 +1,13 @@
 import React, { memo } from 'react'
 import { Button } from '../../../../components/ui/button'
+import { useVideoTime, useVideoPlayback, useCaptions } from '../../../../stores/videoEditorStore'
+import { formatTime } from '../../../../utils/timeUtils'
 
 interface VideoControlsProps {
-  // Estado do vídeo
-  isPlaying: boolean
-  currentTime: number
-  duration: number
-  progressPercentage: number
-  
-  // Formatação
-  currentTimeFormatted: string
-  durationFormatted: string
-  
   // Controles
-  onTogglePlayPause: () => void
   onSeek: (percentage: number) => void
   
   // Legendas
-  captionsVisible: boolean
   onToggleCaptions: () => void
   hasTranscription: boolean
   transcriptionWordsCount: number
@@ -27,20 +17,22 @@ interface VideoControlsProps {
 }
 
 export const VideoControls = memo(({
-  isPlaying,
-  currentTime,
-  duration,
-  progressPercentage,
-  currentTimeFormatted,
-  durationFormatted,
-  onTogglePlayPause,
   onSeek,
-  captionsVisible,
   onToggleCaptions,
   hasTranscription,
   transcriptionWordsCount,
   onTestCaptions
 }: VideoControlsProps) => {
+  
+  // 🏪 Zustand hooks para state management
+  const { currentTime, duration } = useVideoTime()
+  const { isPlaying, togglePlayPause } = useVideoPlayback()
+  const { captionsVisible } = useCaptions()
+  
+  // Estados derivados
+  const currentTimeFormatted = formatTime(currentTime)
+  const durationFormatted = formatTime(duration)
+  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0
   
   console.log('🎮 VideoControls: Renderizando controles', {
     isPlaying,
@@ -57,7 +49,7 @@ export const VideoControls = memo(({
         <div className="flex items-center gap-4">
           {/* Play/Pause Button */}
           <Button
-            onClick={onTogglePlayPause}
+            onClick={togglePlayPause}
             className="control-btn text-white hover:text-blue-300 transition-colors text-xl bg-white/10 hover:bg-white/20 rounded-full w-12 h-12 flex items-center justify-center"
           >
             {isPlaying ? '⏸️' : '▶️'}
