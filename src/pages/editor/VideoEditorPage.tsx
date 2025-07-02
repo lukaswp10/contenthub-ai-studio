@@ -246,6 +246,11 @@ export function VideoEditorPage() {
   const showTranscriptTimeline = storeTranscription.showTranscriptTimeline
   const galleryModalOpen = storeGalleryModalOpen
   const setGalleryModalOpen = storeSetGalleryModalOpen
+  
+  // ✅ ALIASES PARA TRANSCRIÇÃO - FALTANTES
+  const setTranscriptionProvider = useVideoEditorStore(state => state.setTranscriptionProvider)
+  const setOpenaiApiKey = useVideoEditorStore(state => state.setOpenaiApiKey)
+  const setAssemblyaiApiKey = useVideoEditorStore(state => state.setAssemblyaiApiKey)
 
   // ✅ FUNÇÕES DO STORE
   const togglePlayPause = storeTogglePlayPause
