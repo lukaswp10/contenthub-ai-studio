@@ -35,6 +35,7 @@ import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
 import { transcriptionService } from '../../services/transcriptionService'
+import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
 
 interface VideoData {
   file?: File | null
@@ -1370,154 +1371,62 @@ export function VideoEditorPage() {
           <div className="flex-1 flex flex-col min-w-0">
             {/* Video Preview Container */}
             <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="video-container-visionario relative w-full max-w-6xl h-full max-h-[65vh] bg-black/40 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  src={videoData?.url}
-                  onLoadedData={handleVideoLoad}
-                  onTimeUpdate={handleTimeUpdate}
-                  className="video-player-visionario w-full h-full object-contain rounded-2xl"
-                  style={{ 
-                    filter: 'none',
-                    transition: 'filter 0.3s ease'
-                  }}
-                />
+              {/* ✅ NOVO COMPONENTE VIDEOPLAYER REFATORADO */}
+              <VideoPlayer
+                // Video data
+                videoData={videoData}
+                currentTime={currentTime}
+                duration={duration}
+                isPlaying={isPlaying}
                 
-                {/* Canvas para efeitos */}
-                <canvas
-                  ref={canvasRef}
-                  className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-0 rounded-2xl"
-                  style={{ mixBlendMode: 'overlay' }}
-                />
+                // Handlers
+                onTimeUpdate={setCurrentTime}
+                onTogglePlayPause={togglePlayPause}
+                onVideoLoad={handleVideoLoad}
                 
-                {/* OVERLAY DE LEGENDAS VISIONÁRIO */}
-                <div 
-                  className={`caption-overlay-visionario absolute left-8 right-8 text-center pointer-events-none z-10 ${
-                    captionPosition === 'top' ? 'top-8' : 
-                    captionPosition === 'center' ? 'top-1/2 transform -translate-y-1/2' : 
-                    'bottom-8'
-                  }`}
-                  style={{
-                    fontSize: `${captionFontSize}px`,
-                    fontWeight: 'bold',
-                    color: captionTextColor,
-                    textShadow: `${captionShadowIntensity}px ${captionShadowIntensity}px 0px ${captionShadowColor}`,
-                    wordWrap: 'break-word'
-                  }}
-                >
-                  {/* Legendas funcionais com estilo personalizado */}
-                  {getCurrentCaption() && renderCaptionWithStyle(getCurrentCaption())}
-                </div>
+                // Captions
+                currentCaption={getCurrentCaption()}
+                captionsVisible={captionsVisible}
+                onToggleCaptions={toggleCaptionsVisibility}
+                hasTranscription={!!transcriptionResult?.words?.length}
+                transcriptionWordsCount={transcriptionResult?.words?.length || 0}
+                onTestCaptions={() => {
+                  console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
+                  
+                  // Criar legendas de teste
+                  const testCaptions = [
+                    { text: 'Teste', start: 0, end: 2, confidence: 0.9 },
+                    { text: 'de', start: 2, end: 3, confidence: 0.9 },
+                    { text: 'legendas', start: 3, end: 5, confidence: 0.9 },
+                    { text: 'funcionando', start: 5, end: 8, confidence: 0.9 }
+                  ]
+                  
+                  // Forçar estados
+                  setGeneratedCaptions(testCaptions)
+                  setTranscriptionResult({ words: testCaptions })
+                  setCaptionsVisible(true)
+                  
+                  console.log('✅ Estados forçados:', {
+                    generatedCaptions: testCaptions.length,
+                    transcriptionResult: testCaptions.length,
+                    captionsVisible: true
+                  })
+                }}
                 
-                {/* Play/Pause Overlay */}
-                <div className="play-overlay-visionario absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-all duration-300 bg-black/10 rounded-2xl backdrop-blur-sm">
-                  <Button
-                    onClick={togglePlayPause}
-                    className="play-btn-visionario bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white rounded-full w-24 h-24 flex items-center justify-center text-4xl border-2 border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-110 shadow-2xl"
-                  >
-                    {isPlaying ? '⏸️' : '▶️'}
-                  </Button>
-                </div>
+                // Caption styling
+                captionPosition={captionPosition}
+                captionFontSize={captionFontSize}
+                captionTextColor={captionTextColor}
+                captionShadowIntensity={captionShadowIntensity}
+                captionShadowColor={captionShadowColor}
+                captionOpacity={captionOpacity}
+                captionBackgroundColor={captionBackgroundColor}
+                captionFontFamily={captionFontFamily}
+                captionAnimation={captionAnimation}
                 
-                {/* ✅ CONTROLES SEMPRE VISÍVEIS - Melhorados */}
-                <div className="video-controls-visionario absolute bottom-6 left-6 right-6 transition-all duration-300">
-                  <div className="bg-black/70 backdrop-blur-xl rounded-2xl px-8 py-4 flex items-center justify-between border border-white/20 shadow-2xl">
-                    <div className="flex items-center gap-4">
-                      <Button
-                        onClick={togglePlayPause}
-                        className="control-btn text-white hover:text-blue-300 transition-colors text-xl bg-white/10 hover:bg-white/20 rounded-full w-12 h-12 flex items-center justify-center"
-                      >
-                        {isPlaying ? '⏸️' : '▶️'}
-                      </Button>
-                      
-                      {/* ✅ BOTÃO CC SEMPRE VISÍVEL E DESTACADO */}
-                      <Button
-                        onClick={toggleCaptionsVisibility}
-                        className={`cc-btn transition-all duration-300 text-sm px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                          transcriptionResult?.words?.length > 0
-                            ? captionsVisible 
-                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' 
-                              : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white border border-white/20'
-                            : 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
-                        }`}
-                        disabled={!transcriptionResult?.words?.length}
-                        title={
-                          !transcriptionResult?.words?.length 
-                            ? 'Faça transcrição primeiro' 
-                            : captionsVisible 
-                              ? 'Ocultar legendas' 
-                              : 'Mostrar legendas'
-                        }
-                      >
-                        <span className="text-lg">📝</span>
-                        <span>CC</span>
-                        {transcriptionResult?.words?.length > 0 && (
-                          <div className={`w-2 h-2 rounded-full ${captionsVisible ? 'bg-green-400' : 'bg-gray-400'}`} />
-                        )}
-                      </Button>
-
-                      {/* ✅ INDICADOR DE STATUS DAS LEGENDAS */}
-                      {transcriptionResult?.words?.length > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-gray-300">
-                          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                          <span>{transcriptionResult.words.length} palavras</span>
-                        </div>
-                      )}
-                      
-                      {/* ✅ BOTÃO DE TESTE URGENTE */}
-                      <Button
-                        onClick={() => {
-                          console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
-                          
-                          // Criar legendas de teste
-                          const testCaptions = [
-                            { text: 'Teste', start: 0, end: 2, confidence: 0.9 },
-                            { text: 'de', start: 2, end: 3, confidence: 0.9 },
-                            { text: 'legendas', start: 3, end: 5, confidence: 0.9 },
-                            { text: 'funcionando', start: 5, end: 8, confidence: 0.9 }
-                          ]
-                          
-                          // Forçar estados
-                          setGeneratedCaptions(testCaptions)
-                          setTranscriptionResult({ words: testCaptions })
-                          setCaptionsVisible(true)
-                          
-                          console.log('✅ Estados forçados:', {
-                            generatedCaptions: testCaptions.length,
-                            transcriptionResult: testCaptions.length,
-                            captionsVisible: true
-                          })
-                        }}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs rounded"
-                        title="TESTE URGENTE: Forçar legendas"
-                      >
-                        🚨 TESTE
-                      </Button>
-                    </div>
-                    
-                    <div className="flex-1 mx-6">
-                      <div className="text-sm text-gray-300 mb-2 text-center font-medium">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max={duration || 100}
-                        value={currentTime}
-                        onChange={(e) => {
-                          const percentage = parseFloat(e.target.value)
-                          seekTo((percentage / (duration || 100)) * 100)
-                        }}
-                        className="w-full h-2 bg-white/20 rounded-full appearance-none cursor-pointer slider-visionario"
-                      />
-                    </div>
-                    
-                    <div className="text-sm text-gray-300 font-medium">
-                      {Math.round((currentTime / duration) * 100) || 0}%
-                    </div>
-                  </div>
-                </div>
-              </div>
+                // Canvas ref for effects
+                canvasRef={canvasRef}
+              />
             </div>
 
             {/* TIMELINE PROFISSIONAL - Embaixo do Vídeo */}
