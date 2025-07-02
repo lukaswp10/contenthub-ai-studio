@@ -26,9 +26,11 @@ interface TimelineLayer {
   id: string;
   type: 'video' | 'audio' | 'text' | 'effect';
   name: string;
-  start: number;
-  duration: number;
-  data: any;
+  visible: boolean;
+  items: any[];
+  start?: number;
+  duration?: number;
+  data?: any;
   color: string;
   locked: boolean;
 }
@@ -1291,6 +1293,191 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     return categories;
   }, [keyboardShortcuts]);
 
+  // ➕ NOVOS ESTADOS para sistema de corte avançado
+  const [inPoint, setInPoint] = useState<number | null>(null);
+  const [outPoint, setOutPoint] = useState<number | null>(null);
+  const [selectedSections, setSelectedSections] = useState<{id: string, start: number, end: number}[]>([]);
+  const [previewMode, setPreviewMode] = useState<'original' | 'cut-only'>('original');
+  const [currentPreviewSection, setCurrentPreviewSection] = useState<number>(0);
+  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+  const [selectionStartX, setSelectionStartX] = useState<number>(0);
+
+  // ➕ FUNÇÃO para marcar ponto IN (início da seleção)
+  const markInPoint = useCallback(() => {
+    setInPoint(currentTime);
+    console.log(`📍 IN marcado em ${formatTime(currentTime)}`);
+    
+    // Se já tem OUT, criar seleção automaticamente
+    if (outPoint !== null && outPoint > currentTime) {
+      const newSelection = {
+        id: `selection-${Date.now()}`,
+        start: currentTime,
+        end: outPoint
+      };
+      setSelectedSections(prev => [...prev, newSelection]);
+      setInPoint(null);
+      setOutPoint(null);
+      console.log(`✂️ Seleção criada: ${formatTime(currentTime)} - ${formatTime(outPoint)}`);
+    }
+  }, [currentTime, outPoint]);
+
+  // ➕ FUNÇÃO para marcar ponto OUT (fim da seleção)
+  const markOutPoint = useCallback(() => {
+    setOutPoint(currentTime);
+    console.log(`📍 OUT marcado em ${formatTime(currentTime)}`);
+    
+    // Se já tem IN, criar seleção automaticamente
+    if (inPoint !== null && inPoint < currentTime) {
+      const newSelection = {
+        id: `selection-${Date.now()}`,
+        start: inPoint,
+        end: currentTime
+      };
+      setSelectedSections(prev => [...prev, newSelection]);
+      setInPoint(null);
+      setOutPoint(null);
+      console.log(`✂️ Seleção criada: ${formatTime(inPoint)} - ${formatTime(currentTime)}`);
+    }
+  }, [currentTime, inPoint]);
+
+  // ➕ FUNÇÃO para limpar seleção atual
+  const clearCurrentSelection = useCallback(() => {
+    setInPoint(null);
+    setOutPoint(null);
+    console.log('🔄 Seleção atual limpa');
+  }, []);
+
+  // ➕ FUNÇÃO para remover uma seleção específica
+  const removeSelection = useCallback((selectionId: string) => {
+    setSelectedSections(prev => prev.filter(s => s.id !== selectionId));
+    console.log(`❌ Seleção removida: ${selectionId}`);
+  }, []);
+
+  // ➕ FUNÇÃO para calcular duração total das partes selecionadas
+  const calculateSelectedDuration = useCallback(() => {
+    return selectedSections.reduce((total, section) => {
+      return total + (section.end - section.start);
+    }, 0);
+  }, [selectedSections]);
+
+  // ➕ FUNÇÃO para gerar sequência de preview (só partes selecionadas)
+  const generatePreviewSequence = useCallback(() => {
+    if (selectedSections.length === 0) {
+      return [{start: 0, end: duration}];
+    }
+    
+    // Ordenar seleções por tempo
+    const sortedSections = [...selectedSections].sort((a, b) => a.start - b.start);
+    return sortedSections;
+  }, [selectedSections, duration]);
+
+  // ➕ FUNÇÃO para play só das partes cortadas
+  const playSelectedSectionsOnly = useCallback(() => {
+    const sequence = generatePreviewSequence();
+    if (sequence.length === 0) return;
+    
+    setPreviewMode('cut-only');
+    setCurrentPreviewSection(0);
+    
+    // Começar na primeira seção
+    onSeek(sequence[0].start);
+    
+    console.log(`▶️ Reproduzindo ${sequence.length} seções selecionadas`);
+    console.log(`📊 Duração total: ${formatTime(calculateSelectedDuration())}`);
+  }, [generatePreviewSequence, onSeek, calculateSelectedDuration]);
+
+  // ➕ FUNÇÃO para voltar ao modo normal
+  const playOriginalVideo = useCallback(() => {
+    setPreviewMode('original');
+    setCurrentPreviewSection(0);
+    console.log('🔄 Voltando ao modo original');
+  }, []);
+
+  // ➕ LISTENER para controlar preview de seções
+  useEffect(() => {
+    if (previewMode === 'cut-only') {
+      const sequence = generatePreviewSequence();
+      const currentSection = sequence[currentPreviewSection];
+      
+      if (currentSection && currentTime >= currentSection.end) {
+        // Ir para próxima seção ou parar
+        if (currentPreviewSection < sequence.length - 1) {
+          setCurrentPreviewSection(prev => prev + 1);
+          onSeek(sequence[currentPreviewSection + 1].start);
+        } else {
+          // Fim da sequência - voltar ao início ou parar
+          setCurrentPreviewSection(0);
+          onSeek(sequence[0].start);
+          console.log('🔄 Fim da sequência - voltando ao início');
+        }
+      }
+    }
+  }, [currentTime, previewMode, currentPreviewSection, generatePreviewSequence, onSeek]);
+
+  // ➕ FUNÇÃO para seleção via arraste na timeline
+  const handleTimelineMouseDown = useCallback((e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const timePosition = (x / rect.width) * duration;
+    
+    setIsDraggingSelection(true);
+    setSelectionStartX(x);
+    setInPoint(timePosition);
+    setOutPoint(null);
+    
+    console.log(`🖱️ Iniciando seleção por arraste em ${formatTime(timePosition)}`);
+  }, [duration]);
+
+  const handleTimelineMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingSelection) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const timePosition = (x / rect.width) * duration;
+    
+    if (inPoint !== null) {
+      setOutPoint(timePosition);
+    }
+  }, [isDraggingSelection, inPoint, duration]);
+
+  const handleTimelineMouseUp = useCallback(() => {
+    if (isDraggingSelection && inPoint !== null && outPoint !== null) {
+      const start = Math.min(inPoint, outPoint);
+      const end = Math.max(inPoint, outPoint);
+      
+      if (end - start > 0.1) { // Mínimo 0.1 segundos
+        const newSelection = {
+          id: `selection-${Date.now()}`,
+          start,
+          end
+        };
+        setSelectedSections(prev => [...prev, newSelection]);
+        console.log(`✂️ Seleção por arraste criada: ${formatTime(start)} - ${formatTime(end)}`);
+      }
+      
+      setInPoint(null);
+      setOutPoint(null);
+    }
+    
+    setIsDraggingSelection(false);
+  }, [isDraggingSelection, inPoint, outPoint]);
+
+  // ➕ FUNÇÃO para snap nos cortes existentes
+  const snapToNearestCut = useCallback((time: number, tolerance: number = 0.5) => {
+    const nearestCut = cutPoints.find(cut => Math.abs(cut.time - time) < tolerance);
+    return nearestCut ? nearestCut.time : time;
+  }, [cutPoints]);
+
+  // ➕ ATUALIZAR ATALHOS DE TECLADO para incluir novos comandos
+  const enhancedKeyboardShortcuts = {
+    ...keyboardShortcuts,
+    'i': { action: 'markIn', description: '📍 Marcar ponto IN', category: 'Marks' },
+    'o': { action: 'markOut', description: '📍 Marcar ponto OUT', category: 'Marks' },
+    'x': { action: 'clearSelection', description: '🔄 Limpar seleção', category: 'Marks' },
+    'p': { action: 'previewCuts', description: '▶️ Preview só cortes', category: 'Playback' },
+    'r': { action: 'resetPreview', description: '🔄 Reset preview', category: 'Playback' },
+  };
+
   return (
     <div className={`timeline-pro-container bg-black/30 backdrop-blur-xl border-t border-white/10 shadow-2xl ${isDragging ? 'dragging' : ''}`} style={{ height: 'auto', minHeight: '350px', maxHeight: '500px' }}>
       {/* Header da Timeline */}
@@ -2192,6 +2379,218 @@ const TimelinePro: React.FC<TimelineProProps> = ({
           </ul>
           <li><strong>RESULTADO:</strong> Um vídeo contínuo otimizado, não múltiplos clips</li>
         </ul>
+      </div>
+
+      {/* ➕ SISTEMA DE CORTE AVANÇADO */}
+      <div className="cutting-system bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-semibold flex items-center gap-2">
+            ✂️ Sistema de Corte Avançado
+            <span className="text-sm text-gray-400">
+              ({selectedSections.length} seleção(ões) | {formatTime(calculateSelectedDuration())} total)
+            </span>
+          </h3>
+          
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded text-xs font-medium ${
+              previewMode === 'cut-only' 
+                ? 'bg-green-600/20 text-green-300 border border-green-500/30' 
+                : 'bg-gray-600/20 text-gray-300'
+            }`}>
+              {previewMode === 'cut-only' ? '▶️ Preview Cortes' : '📹 Original'}
+            </span>
+          </div>
+        </div>
+
+        {/* Controles IN/OUT */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <button
+            onClick={markInPoint}
+            className={`px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+              inPoint !== null 
+                ? 'bg-green-600 text-white shadow-lg shadow-green-600/50' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+            title="Marcar início da seleção (I)"
+          >
+            📍 IN
+            {inPoint !== null && (
+              <span className="text-xs">({formatTime(inPoint)})</span>
+            )}
+          </button>
+          
+          <button
+            onClick={markOutPoint}
+            className={`px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+              outPoint !== null 
+                ? 'bg-green-600 text-white shadow-lg shadow-green-600/50' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+            title="Marcar fim da seleção (O)"
+          >
+            📍 OUT
+            {outPoint !== null && (
+              <span className="text-xs">({formatTime(outPoint)})</span>
+            )}
+          </button>
+          
+          <button
+            onClick={clearCurrentSelection}
+            className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all"
+            title="Limpar seleção atual (X)"
+          >
+            🔄 Limpar
+          </button>
+          
+          <button
+            onClick={playSelectedSectionsOnly}
+            disabled={selectedSections.length === 0}
+            className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Preview só partes selecionadas (P)"
+          >
+            ▶️ Preview
+          </button>
+        </div>
+
+        {/* Barra de seleção visual */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-300 mb-2">🎯 Seleção Precisa - Clique e arraste na timeline:</div>
+          <div 
+            className="timeline-selection-bar relative h-16 bg-gray-800 rounded-lg border-2 border-gray-600 cursor-crosshair overflow-hidden"
+            onMouseDown={handleTimelineMouseDown}
+            onMouseMove={handleTimelineMouseMove}
+            onMouseUp={handleTimelineMouseUp}
+          >
+            {/* Régua de tempo */}
+            <div className="absolute top-0 left-0 right-0 h-6 bg-gray-700/50 flex items-center px-2">
+              {Array.from({ length: Math.ceil(duration / 10) }, (_, i) => (
+                <div 
+                  key={i}
+                  className="absolute text-xs text-gray-400"
+                  style={{ left: `${(i * 10 / duration) * 100}%` }}
+                >
+                  {formatTime(i * 10)}
+                </div>
+              ))}
+            </div>
+            
+            {/* Seleções existentes */}
+            {selectedSections.map((section) => (
+              <div
+                key={section.id}
+                className="absolute top-6 bottom-0 bg-green-500/30 border-2 border-green-400 rounded cursor-pointer hover:bg-green-500/40"
+                style={{
+                  left: `${(section.start / duration) * 100}%`,
+                  width: `${((section.end - section.start) / duration) * 100}%`,
+                }}
+                title={`Seleção: ${formatTime(section.start)} - ${formatTime(section.end)}`}
+                onClick={() => removeSelection(section.id)}
+              >
+                <div className="absolute top-1 left-1 text-xs text-green-200 font-bold">
+                  ✂️ {formatTime(section.end - section.start)}
+                </div>
+              </div>
+            ))}
+            
+            {/* Seleção atual (IN/OUT) */}
+            {inPoint !== null && outPoint !== null && (
+              <div
+                className="absolute top-6 bottom-0 bg-blue-500/30 border-2 border-blue-400 border-dashed rounded animate-pulse"
+                style={{
+                  left: `${(Math.min(inPoint, outPoint) / duration) * 100}%`,
+                  width: `${(Math.abs(outPoint - inPoint) / duration) * 100}%`,
+                }}
+              >
+                <div className="absolute top-1 left-1 text-xs text-blue-200 font-bold">
+                  📏 {formatTime(Math.abs(outPoint - inPoint))}
+                </div>
+              </div>
+            )}
+            
+            {/* Playhead */}
+            <div
+              className="absolute top-0 bottom-0 w-1 bg-yellow-400 z-10"
+              style={{ left: `${(currentTime / duration) * 100}%` }}
+            >
+              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 text-yellow-400">▼</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Lista de seleções */}
+        {selectedSections.length > 0 && (
+          <div>
+            <div className="text-sm text-gray-300 mb-2">📋 Seleções Ativas:</div>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {selectedSections.map((section, index) => (
+                <div key={section.id} className="flex items-center justify-between bg-gray-800 rounded p-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-400 font-bold">#{index + 1}</span>
+                    <span className="text-white text-sm">
+                      {formatTime(section.start)} → {formatTime(section.end)}
+                    </span>
+                    <span className="text-gray-400 text-xs">
+                      (duração: {formatTime(section.end - section.start)})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removeSelection(section.id)}
+                    className="text-red-400 hover:text-red-300 px-2 py-1 rounded transition-colors"
+                    title="Remover seleção"
+                  >
+                    ❌
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            {/* Controles finais */}
+            <div className="flex items-center justify-between mt-4 p-3 bg-gray-800/50 rounded-lg">
+              <div className="text-sm">
+                <div className="text-green-300 font-semibold">
+                  ✅ {selectedSections.length} seleção(ões) ativa(s)
+                </div>
+                <div className="text-gray-400">
+                  Duração total: {formatTime(calculateSelectedDuration())} 
+                  ({((calculateSelectedDuration() / duration) * 100).toFixed(1)}% do vídeo)
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={playOriginalVideo}
+                  className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition-all"
+                >
+                  📹 Original
+                </button>
+                <button
+                  onClick={playSelectedSectionsOnly}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition-all"
+                >
+                  ▶️ Preview Cortes
+                </button>
+                <button
+                  onClick={() => setSelectedSections([])}
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-all"
+                >
+                  🗑️ Limpar Tudo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instruções */}
+        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+          <div className="text-sm text-blue-300 font-medium mb-2">🎯 Como usar o Sistema de Corte Avançado:</div>
+          <div className="text-xs text-blue-200 space-y-1">
+            <div><kbd className="bg-gray-700 px-1 rounded">I</kbd> + <kbd className="bg-gray-700 px-1 rounded">O</kbd> - Marcar pontos IN e OUT</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">Arrastar</kbd> - Selecionar região diretamente na barra</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">P</kbd> - Preview só das partes selecionadas</div>
+            <div><kbd className="bg-gray-700 px-1 rounded">X</kbd> - Limpar seleção atual</div>
+            <div>🎵 <strong>Áudio incluído:</strong> As seleções afetam vídeo e áudio simultaneamente</div>
+          </div>
+        </div>
       </div>
     </div>
   );
