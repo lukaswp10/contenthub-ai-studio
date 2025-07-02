@@ -251,6 +251,11 @@ export function VideoEditorPage() {
   const setTranscriptionProvider = useVideoEditorStore(state => state.setTranscriptionProvider)
   const setOpenaiApiKey = useVideoEditorStore(state => state.setOpenaiApiKey)
   const setAssemblyaiApiKey = useVideoEditorStore(state => state.setAssemblyaiApiKey)
+  const setIsTranscribing = useVideoEditorStore(state => state.setIsTranscribing)
+  const setTranscriptionProgress = useVideoEditorStore(state => state.setTranscriptionProgress)
+  const setTranscriptionResult = useVideoEditorStore(state => state.setTranscriptionResult)
+  const setShowTranscriptionConfig = useVideoEditorStore(state => state.setShowTranscriptionConfig)
+  const setShowTranscriptTimeline = useVideoEditorStore(state => state.setShowTranscriptTimeline)
 
   // ✅ FUNÇÕES DO STORE
   const togglePlayPause = storeTogglePlayPause
@@ -525,7 +530,7 @@ export function VideoEditorPage() {
       }
       
       storeSetTimelineLayers([videoLayer])
-      console.log('📹 Vídeo adicionado à timeline:', videoLayer.name)
+      console.log('�� Vídeo adicionado à timeline:', videoLayer.name)
     }
   }, [videoData, duration])
 
