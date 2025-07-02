@@ -149,7 +149,12 @@ export function VideoEditorPage() {
   const storeSetRightSidebarOpen = useVideoEditorStore(state => state.setRightSidebarOpen)
   const storeSetGalleryModalOpen = useVideoEditorStore(state => state.setGalleryModalOpen)
   const storeSetActiveGalleryTab = useVideoEditorStore(state => state.setActiveGalleryTab)
-
+  
+  // ✅ COMANDOS - FUNÇÕES SETTERS FALTANTES
+  const storeSetCanUndo = useVideoEditorStore(state => state.setCanUndo)
+  const storeSetCanRedo = useVideoEditorStore(state => state.setCanRedo)
+  const storeSetLastCommand = useVideoEditorStore(state => state.setLastCommand)
+  
   // Estados principais visionários (TEMPORÁRIO - será migrado)
   // ✅ MIGRADOS PARA STORE - REMOVIDOS
   // const [mobileView, setMobileView] = useState(false)
@@ -225,6 +230,12 @@ export function VideoEditorPage() {
   const canUndo = storeCanUndo
   const canRedo = storeCanRedo
   const lastCommand = storeLastCommand
+  
+  // ✅ ALIASES PARA COMANDOS - FALTANTES
+  const setCanUndo = storeSetCanUndo
+  const setCanRedo = storeSetCanRedo
+  const setLastCommand = storeSetLastCommand
+  
   const transcriptionProvider = storeTranscription.transcriptionProvider
   const openaiApiKey = storeTranscription.openaiApiKey
   const assemblyaiApiKey = storeTranscription.assemblyaiApiKey
@@ -350,11 +361,11 @@ export function VideoEditorPage() {
   // ➕ USEEFFECT: Conectar CommandManager aos estados
   useEffect(() => {
     const updateCommandStates = () => {
-      setCanUndo(commandManager.canUndo())
-      setCanRedo(commandManager.canRedo())
+      storeSetCanUndo(commandManager.canUndo())
+      storeSetCanRedo(commandManager.canRedo())
       
       const lastCmd = commandManager.getLastCommand()
-      setLastCommand(lastCmd ? lastCmd.description : null)
+      storeSetLastCommand(lastCmd ? lastCmd.description : null)
     }
 
     // Estado inicial
