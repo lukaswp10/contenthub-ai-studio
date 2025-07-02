@@ -1674,39 +1674,7 @@ export function VideoEditorPage() {
                   </div>
                 </div>
 
-                {/* ===== SEÇÃO 5: CONTROLES DE TRANSCRIÇÃO ===== */}
-                <div className="control-section-visionario">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                    <span className="mr-2">🎯</span>
-                    Transcrição Automática
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <Button
-                      onClick={generateAdvancedCaptions}
-                      disabled={!videoData || isTranscribing}
-                      className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-700 hover:via-pink-700 hover:to-purple-700 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {isTranscribing ? (
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Transcrevendo...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center space-x-2">
-                          <span className="text-xl">🎯</span>
-                          <span>Gerar Legendas Automáticas</span>
-                        </div>
-                      )}
-                    </Button>
-
-                    {transcriptionProgress && (
-                      <div className="bg-purple-600/20 border border-purple-500/30 rounded-lg p-3">
-                        <p className="text-purple-300 text-sm">{transcriptionProgress}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {/* SEÇÃO DE TRANSCRIÇÃO REMOVIDA - Agora só na timeline */}
               </div>
             </div>
           )}
