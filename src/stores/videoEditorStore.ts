@@ -164,7 +164,7 @@ interface VideoEditorState {
   
   // 🎨 LEGACY CAPTION STATES (para compatibilidade)
   isGenerating: boolean
-  captionStyle: 'tiktok' | 'youtube' | 'instagram' | 'podcast' | 'phrase'
+  captionStyle: 'phrase' | 'youtube' | 'instagram' | 'podcast' | 'tiktok'
   apiKey: string
 }
 
@@ -272,7 +272,7 @@ interface VideoEditorActions {
   
   // 🎨 LEGACY ACTIONS
   setIsGenerating: (generating: boolean) => void
-  setCaptionStyle: (style: 'tiktok' | 'youtube' | 'instagram' | 'podcast' | 'phrase') => void
+  setCaptionStyle: (style: 'phrase' | 'youtube' | 'instagram' | 'podcast' | 'tiktok') => void
   setApiKey: (key: string) => void
   
   // 🧹 UTILITY ACTIONS

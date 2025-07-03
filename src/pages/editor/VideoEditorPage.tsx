@@ -1756,7 +1756,7 @@ export function VideoEditorPage() {
     }
   }, [storeGeneratedCaptions, storeSetGeneratedCaptions])
 
-  // ✅ NOVA FUNÇÃO: Obter legenda baseada no estilo selecionado
+  // ✅ NOVA FUNÇÃO: Obter legenda baseada no estilo selecionado - CORRIGIDA
   const getCurrentCaptionByStyle = () => {
     const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
     const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
@@ -1773,57 +1773,47 @@ export function VideoEditorPage() {
     
     const currentTime = storeCurrentTimeData
     
-    // ✅ BUSCAR LEGENDA ATUAL POR TEMPO (respeitando edições)
-    const currentCaption = wordsArray.find((caption: TranscriptionWord) => 
-      currentTime >= caption.start && currentTime <= caption.end
-    )
+    // ✅ MÉTODO OTIMIZADO: Buscar legenda por tempo com tolerância
+    let wordIndex = -1
+    let bestMatch: TranscriptionWord | null = null
+    let bestDistance = Infinity
     
-    // Se encontrou uma legenda editada, usar ela diretamente
-    if (currentCaption) {
-      return {
-        text: currentCaption.text,
-        start: currentCaption.start,
-        end: currentCaption.end,
-        confidence: currentCaption.confidence || 0.9
+    // Primeiro, procurar palavra exata no tempo atual
+    for (let i = 0; i < wordsArray.length; i++) {
+      const word = wordsArray[i]
+      if (currentTime >= word.start && currentTime <= word.end) {
+        wordIndex = i
+        bestMatch = word
+        break
       }
-    }
-    
-    // ✅ FALLBACK: Se não encontrou legenda exata, buscar por proximidade
-    let wordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
-      currentTime >= word.start && currentTime <= word.end
-    )
-    
-    if (wordIndex === -1) {
-      wordIndex = wordsArray.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
-        if (closestIndex === -1) return index
-        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
-        return currentDistance < closestDistance ? index : closestIndex
-      }, -1)
       
-      if (wordIndex !== -1) {
-        const nearestWord = wordsArray[wordIndex]
-        if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 3) return null
+      // Calcular distância para fallback
+      const wordMidpoint = (word.start + word.end) / 2
+      const distance = Math.abs(currentTime - wordMidpoint)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestMatch = word
+        wordIndex = i
       }
     }
     
-    if (wordIndex === -1) return null
+    // Se não encontrou palavra próxima (> 2 segundos), não mostrar legenda
+    if (bestDistance > 2.0) return null
     
-    // ✅ LÓGICA BASEADA NO ESTILO SELECIONADO (apenas para palavras originais)
+    if (wordIndex === -1 || !bestMatch) return null
+    
+    // ✅ LÓGICA BASEADA NO ESTILO SELECIONADO - SIMPLIFICADA
     let wordsPerPhrase: number
     
     switch (storeCaptionStyle) {
-      case 'tiktok': {
+      case 'tiktok':
         // 🎵 ESTILO TIKTOK: 1 palavra por vez
-        const currentWord = wordsArray[wordIndex]
-        
         return {
-          text: currentWord.text,
-          start: currentWord.start,
-          end: currentWord.end,
-          confidence: currentWord.confidence || 0.9
+          text: bestMatch.text,
+          start: bestMatch.start,
+          end: bestMatch.end,
+          confidence: bestMatch.confidence || 0.9
         }
-      }
         
       case 'instagram':
         // 📸 ESTILO INSTAGRAM: 2-3 palavras
@@ -1836,31 +1826,29 @@ export function VideoEditorPage() {
         break
         
       case 'podcast':
-        // 🎙️ ESTILO PODCAST: 8-10 palavras
-        wordsPerPhrase = 9
+        // 🎙️ ESTILO PODCAST: 6-8 palavras
+        wordsPerPhrase = 7
         break
         
       case 'phrase':
       default:
-        // 📄 ESTILO FRASE: 6 palavras
-        wordsPerPhrase = 6
+        // 📄 ESTILO FRASE: 5-6 palavras
+        wordsPerPhrase = 5
         break
     }
     
-    // Criar frase com número de palavras baseado no estilo
+    // ✅ CRIAR FRASE OTIMIZADA - Centrar ao redor da palavra atual
     const halfPhrase = Math.floor(wordsPerPhrase / 2)
-    
-    let phraseStart = Math.max(0, wordIndex - halfPhrase)
+    const phraseStart = Math.max(0, wordIndex - halfPhrase)
     const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
     
-    if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
-      phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
-    }
-    
     const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
+    
+    if (phraseWords.length === 0) return null
+    
     const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
     const startTime = phraseWords[0]?.start || currentTime
-    const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
+    const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 2
     const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
     
     return {

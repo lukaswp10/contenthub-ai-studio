@@ -404,6 +404,9 @@ export const VideoControls = memo(({
           </div>
           
           {/* ✅ BOTÃO TOGGLE ORIGINAL/EDITADA */}
+          
+          
+          {/* ✅ BOTÃO DE LEGENDAS ORIGINAIS VS EDITADAS - APENAS SE HOUVER EDIÇÕES */}
           {hasTranscription && hasEditedCaptions && onToggleCaptionMode && (
             <Button
               onClick={onToggleCaptionMode}
