@@ -244,37 +244,6 @@ export const VideoControls = memo(({
         </div>
       )}
       
-      {/* ➕ NOVA SEÇÃO: Controle de Estilo de Legenda */}
-      {hasTranscription && (
-        <div className="caption-style-controls mb-4 flex items-center justify-center gap-2">
-          <span className="text-white text-sm font-medium">📝 Estilo da Legenda:</span>
-          
-          <Button
-            onClick={() => setCaptionStyle('phrase')}
-            className={`px-3 py-1 text-sm transition-all ${
-              captionStyle === 'phrase' 
-                ? 'bg-purple-500 text-white shadow-lg' 
-                : 'bg-white/20 text-white hover:bg-white/30'
-            }`}
-            title="Legendas com frases grandes (5-7 palavras)"
-          >
-            📄 Frase Grande
-          </Button>
-          
-          <Button
-            onClick={() => setCaptionStyle('tiktok')}
-            className={`px-3 py-1 text-sm transition-all ${
-              captionStyle === 'tiktok' 
-                ? 'bg-pink-500 text-white shadow-lg' 
-                : 'bg-white/20 text-white hover:bg-white/30'
-            }`}
-            title="Legendas estilo TikTok (1 palavra por vez)"
-          >
-            🎵 TikTok (1 palavra)
-          </Button>
-        </div>
-      )}
-      
       {/* ✅ CONTROLES PRINCIPAIS */}
       <div className="main-controls flex items-center justify-between">
         <div className="flex items-center gap-4">
