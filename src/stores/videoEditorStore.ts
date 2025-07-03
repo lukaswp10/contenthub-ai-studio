@@ -164,7 +164,7 @@ interface VideoEditorState {
   
   // 🎨 LEGACY CAPTION STATES (para compatibilidade)
   isGenerating: boolean
-  captionStyle: 'tiktok' | 'youtube' | 'instagram' | 'podcast'
+  captionStyle: 'tiktok' | 'youtube' | 'instagram' | 'podcast' | 'phrase'
   apiKey: string
 }
 
@@ -272,7 +272,7 @@ interface VideoEditorActions {
   
   // 🎨 LEGACY ACTIONS
   setIsGenerating: (generating: boolean) => void
-  setCaptionStyle: (style: 'tiktok' | 'youtube' | 'instagram' | 'podcast') => void
+  setCaptionStyle: (style: 'tiktok' | 'youtube' | 'instagram' | 'podcast' | 'phrase') => void
   setApiKey: (key: string) => void
   
   // 🧹 UTILITY ACTIONS
@@ -368,7 +368,7 @@ const initialState: VideoEditorState = {
   
   // 🎨 LEGACY STATES
   isGenerating: false,
-  captionStyle: 'tiktok',
+  captionStyle: 'phrase',
   apiKey: '',
 }
 

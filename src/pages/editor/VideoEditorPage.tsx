@@ -1601,6 +1601,78 @@ export function VideoEditorPage() {
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null)
   const [speechAnalysis, setSpeechAnalysis] = useState<SpeechAnalysis | null>(null)
 
+  // ✅ NOVA FUNÇÃO: Obter legenda baseada no estilo selecionado
+  const getCurrentCaptionByStyle = () => {
+    const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
+    const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
+    const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
+    const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
+    const storeCaptionStyle = useVideoEditorStore.getState().captionStyle
+    
+    const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+    
+    if (!wordsArray?.length || !storeCaptionsVisibleData) return null
+    
+    const currentTime = storeCurrentTimeData
+    
+    // Encontrar palavra atual
+    let wordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
+      currentTime >= word.start && currentTime <= word.end
+    )
+    
+    if (wordIndex === -1) {
+      wordIndex = wordsArray.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
+        if (closestIndex === -1) return index
+        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+        return currentDistance < closestDistance ? index : closestIndex
+      }, -1)
+      
+      if (wordIndex !== -1) {
+        const nearestWord = wordsArray[wordIndex]
+        if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 3) return null
+      }
+    }
+    
+    if (wordIndex === -1) return null
+    
+    // ✅ LÓGICA BASEADA NO ESTILO
+    if (storeCaptionStyle === 'tiktok') {
+      // 🎵 ESTILO TIKTOK: 1 palavra por vez
+      const currentWord = wordsArray[wordIndex]
+      return {
+        text: currentWord.text,
+        start: currentWord.start,
+        end: currentWord.end,
+        confidence: currentWord.confidence || 0.9
+      }
+    } else {
+      // 📄 ESTILO FRASE: 5-7 palavras
+      const wordsPerPhrase = 6
+      const halfPhrase = Math.floor(wordsPerPhrase / 2)
+      
+      let phraseStart = Math.max(0, wordIndex - halfPhrase)
+      const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+      
+      if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
+        phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
+      }
+      
+      const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
+      const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
+      const startTime = phraseWords[0]?.start || currentTime
+      const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
+      const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+      
+      return {
+        text: phraseText,
+        start: startTime,
+        end: endTime,
+        confidence: avgConfidence
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
@@ -1809,64 +1881,8 @@ export function VideoEditorPage() {
               
               {/* ✅ VIDEOPLAYER COM SISTEMA DE CLIPS INTEGRADO */}
               <VideoPlayer
-                // Captions específicas - USANDO LEGENDAS CONTÍNUAS
-                currentCaption={(() => {
-                  const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
-                  const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
-                  const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
-                  const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
-                  
-                  const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
-                  
-                  if (!wordsArray?.length || !storeCaptionsVisibleData) return null
-                  
-                  const currentTime = storeCurrentTimeData
-                  
-                  // Encontrar palavra atual
-                  let wordIndex = wordsArray.findIndex((word: any) => 
-                    currentTime >= word.start && currentTime <= word.end
-                  )
-                  
-                  if (wordIndex === -1) {
-                    wordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
-                      if (closestIndex === -1) return index
-                      const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-                      const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
-                      return currentDistance < closestDistance ? index : closestIndex
-                    }, -1)
-                    
-                    if (wordIndex !== -1) {
-                      const nearestWord = wordsArray[wordIndex]
-                      if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 3) return null
-                    }
-                  }
-                  
-                  if (wordIndex === -1) return null
-                  
-                  // ✅ CRIAR FRASES CONTÍNUAS (5 palavras)
-                  const wordsPerPhrase = 5
-                  const halfPhrase = Math.floor(wordsPerPhrase / 2)
-                  
-                  let phraseStart = Math.max(0, wordIndex - halfPhrase)
-                  const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
-                  
-                  if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
-                    phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
-                  }
-                  
-                  const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
-                  const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
-                  const startTime = phraseWords[0]?.start || currentTime
-                  const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
-                  const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
-                  
-                  return {
-                    text: phraseText,
-                    start: startTime,
-                    end: endTime,
-                    confidence: avgConfidence
-                  }
-                })()}
+                // Captions específicas - USANDO NOVA FUNÇÃO COM ESTILO
+                currentCaption={getCurrentCaptionByStyle()}
                 hasTranscription={!!storeTranscription.transcriptionResult?.words?.length}
                 transcriptionWordsCount={storeTranscription.transcriptionResult?.words?.length || 0}
                 onTestCaptions={() => {
