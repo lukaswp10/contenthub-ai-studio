@@ -4,7 +4,7 @@ import { VideoControls } from './VideoControls'
 import { VideoOverlay } from './VideoOverlay'
 import { CaptionSyncControls } from './CaptionSyncControls'
 import { Button } from '../../../../components/ui/button'
-import { useCaptions, useCaptionStyling } from '../../../../stores/videoEditorStore'
+import { useCaptions, useCaptionStyling, useVideoEditorStore } from '../../../../stores/videoEditorStore'
 import { Caption, CaptionSegment } from '../../../../types/caption.types'
 import { CaptionEditor } from '../../../../components/editor/CaptionEditor'
 import { InlineCaptionEditor } from '../../../../components/editor/InlineCaptionEditor'
@@ -71,15 +71,19 @@ export const VideoPlayer = memo(({
   }, [generatedCaptions])
   
   // ✅ Função para atualizar legendas no store
+  const { setGeneratedCaptions } = useVideoEditorStore()
+  
   const updateCaptionsInStore = (newSegments: CaptionSegment[]) => {
     const updatedCaptions = newSegments.map(segment => ({
       text: segment.text,
       start: segment.start,
       end: segment.end,
-      confidence: segment.confidence
+      confidence: segment.confidence || 0.8
     }))
-    // Aqui você pode adicionar a ação do store para atualizar as legendas
-    console.log('🔄 Atualizando legendas no store:', updatedCaptions)
+    
+    // Atualizar as legendas no store Zustand
+    setGeneratedCaptions(updatedCaptions)
+    console.log('✅ Legendas atualizadas no store:', updatedCaptions.length, 'legendas')
   }
   
   // 🏪 Zustand hooks para state management

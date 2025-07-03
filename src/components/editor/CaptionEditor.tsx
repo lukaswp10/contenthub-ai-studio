@@ -70,7 +70,9 @@ export const CaptionEditor: React.FC<CaptionEditorProps> = ({
 
   // Lidar com teclas
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.ctrlKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      // Enter simples salva, Shift+Enter quebra linha
+      e.preventDefault()
       saveEditing()
     } else if (e.key === 'Escape') {
       cancelEditing()
@@ -192,8 +194,10 @@ export const CaptionEditor: React.FC<CaptionEditorProps> = ({
                     onChange={(e) => setEditText(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
-                    rows={3}
-                    placeholder="Digite o texto da legenda..."
+                    rows={4}
+                    placeholder="Digite o texto da legenda... (Enter para salvar, Shift+Enter para nova linha)"
+                    spellCheck={false}
+                    autoComplete="off"
                   />
                   <div className="flex justify-end space-x-2">
                     <Button
@@ -238,7 +242,7 @@ export const CaptionEditor: React.FC<CaptionEditorProps> = ({
                 ➕ Adicionar Legenda
               </Button>
               <span className="text-sm text-gray-400">
-                ⌨️ Ctrl+Enter para salvar, Esc para cancelar
+                ⌨️ Enter para salvar, Shift+Enter para nova linha, Esc para cancelar
               </span>
             </div>
             <div className="text-sm text-gray-400">
