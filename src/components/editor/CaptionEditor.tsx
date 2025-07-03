@@ -91,7 +91,7 @@ export const CaptionEditor: React.FC<CaptionEditorProps> = ({
   const handleDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault()
     if (draggedItem && draggedItem !== targetId) {
-      console.log('Reordenando legendas:', draggedItem, 'para posição de', targetId)
+      // Reordenar legendas implementado no futuro
     }
     setDraggedItem(null)
   }
