@@ -1407,12 +1407,12 @@ export function VideoEditorPage() {
   }
 
   // ➕ NOVA FUNÇÃO: Conectar transcrição com timeline - CORRIGIDA
-  const updateTimelineTranscript = useCallback((transcriptionData: any) => {
+  const updateTimelineTranscript = useCallback((transcriptionData: Record<string, unknown>) => {
     console.log('🔗 Dados recebidos para timeline:', transcriptionData)
     
     // Atualizar tanto o estado local quanto a timeline
     setTranscriptionResult(transcriptionData)
-    storeSetGeneratedCaptions(transcriptionData.words || [])
+    storeSetGeneratedCaptions((transcriptionData.words as TranscriptionWord[]) || [])
     setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
     
     // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
@@ -1420,7 +1420,7 @@ export function VideoEditorPage() {
     
     console.log('🔗 Transcrição conectada à timeline:', transcriptionData)
     console.log('👁️ Legendas ativadas automaticamente')
-    console.log('📊 Palavras processadas:', transcriptionData.words?.length || 0)
+    console.log('📊 Palavras processadas:', (transcriptionData.words as TranscriptionWord[])?.length || 0)
   }, [])
 
   // ➕ NOVA FUNÇÃO: Transcrição Avançada com conexão à timeline - CORRIGIDA
@@ -2647,7 +2647,7 @@ export function VideoEditorPage() {
           </label>
           <select
             value={transcriptionProvider}
-            onChange={(e) => setTranscriptionProvider(e.target.value as any)}
+            onChange={(e) => setTranscriptionProvider(e.target.value as 'whisper' | 'assemblyai' | 'webspeech')}
             className="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="whisper">🎯 OpenAI Whisper (Melhor)</option>
