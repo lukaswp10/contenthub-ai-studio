@@ -81,12 +81,8 @@ export const VideoPlayer = memo(({
       confidence: segment.confidence || 0.8
     }))
     
-    console.log('💾 DEBUG - Atualizando store com:', updatedCaptions.map(c => ({ text: c.text, start: c.start })))
-    
     // Atualizar as legendas no store Zustand
     setGeneratedCaptions(updatedCaptions)
-    
-    console.log('✅ DEBUG - Store atualizado')
   }
   
   // 🏪 Zustand hooks para state management
@@ -147,15 +143,12 @@ export const VideoPlayer = memo(({
   }
 
   const handleCaptionUpdate = (captionId: string, newText: string) => {
-    console.log('🔄 DEBUG - handleCaptionUpdate chamado:', { captionId, newText })
-    
     const updatedSegments = captionSegments.map(segment => 
       segment.id === captionId 
         ? { ...segment, text: newText }
         : segment
     )
     
-    console.log('🔄 DEBUG - Segmentos atualizados:', updatedSegments.map(s => ({ id: s.id, text: s.text })))
     updateCaptionsInStore(updatedSegments)
   }
 
@@ -189,28 +182,16 @@ export const VideoPlayer = memo(({
   // ✅ Handlers para editor inline
   const handleInlineEditorSave = (newText: string) => {
     if (inlineEditorCaption && inlineEditorCaption.start !== undefined) {
-      // Debug: Log para verificar dados
-      console.log('🔍 DEBUG - Salvando legenda inline:', {
-        captionStart: inlineEditorCaption.start,
-        newText,
-        captionSegmentsCount: captionSegments.length,
-        captionSegments: captionSegments.map(s => ({ id: s.id, start: s.start, text: s.text }))
-      })
-      
       // Encontrar o segmento correspondente baseado no tempo de início
       const matchingSegment = captionSegments.find(segment => 
         Math.abs(segment.start - inlineEditorCaption.start) < 0.1 // Tolerância de 100ms
       )
       
-      console.log('🔍 DEBUG - Segmento encontrado:', matchingSegment)
-      
       if (matchingSegment) {
         // Usar o ID do segmento para atualização mais precisa
-        console.log('✅ DEBUG - Atualizando via handleCaptionUpdate:', matchingSegment.id, newText)
         handleCaptionUpdate(matchingSegment.id, newText)
       } else {
         // Fallback para o método anterior
-        console.log('⚠️ DEBUG - Usando fallback updateCaptionText:', inlineEditorCaption.start, newText)
         updateCaptionText(inlineEditorCaption.start, newText)
       }
     }

@@ -1619,12 +1619,7 @@ export function VideoEditorPage() {
     // Atualizar legendas em tempo real quando estilos mudarem
     const updateCaptionStyles = () => {
       if (storeGeneratedCaptions.length > 0) {
-        console.log('🎨 Estilos de legenda atualizados em tempo real:', {
-          fontFamily: captionFontFamily,
-          fontSize: captionFontSize,
-          color: captionTextColor,
-          position: captionPosition
-        })
+        // Estilos de legenda atualizados
       }
     }
 
@@ -1637,7 +1632,7 @@ export function VideoEditorPage() {
     if (storeGeneratedCaptions.length > 0 && !speechAnalysis) {
       const analyzeAndOptimize = async () => {
         try {
-          console.log('🧠 Iniciando análise de sincronização...')
+          // Iniciando análise de sincronização
           
           // Simular análise de fala
           const mockAnalysis: SpeechAnalysis = {
@@ -1661,11 +1656,7 @@ export function VideoEditorPage() {
           
           setSyncConfig(optimizedConfig)
           
-          console.log('✅ Análise de sincronização concluída:', {
-            speechRate: mockAnalysis.speechRate,
-            recommendedWords: mockAnalysis.recommendedWordsPerCaption,
-            config: optimizedConfig
-          })
+          // Análise de sincronização concluída
           
         } catch (error) {
           console.warn('⚠️ Erro na análise de sincronização:', error)
@@ -1728,8 +1719,6 @@ export function VideoEditorPage() {
     
     // Aplicar configurações em tempo real
     if (storeGeneratedCaptions.length > 0) {
-      console.log('🎛️ Aplicando configurações de sincronização:', newConfig)
-      
       // Reprocessar legendas com nova configuração
       const reprocessedCaptions = storeGeneratedCaptions.map((caption, index) => {
         const start = caption.start || index * 0.5
@@ -1746,7 +1735,6 @@ export function VideoEditorPage() {
       })
       
       storeSetGeneratedCaptions(reprocessedCaptions)
-      console.log('✅ Legendas reprocessadas com nova sincronização')
     }
   }, [storeGeneratedCaptions, storeSetGeneratedCaptions])
 
@@ -1758,13 +1746,31 @@ export function VideoEditorPage() {
     const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
     const storeCaptionStyle = useVideoEditorStore.getState().captionStyle
     
-    const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+    // ✅ PRIORIZAR LEGENDAS EDITADAS: Se existem generatedCaptions, usar elas (podem ter edições)
+    const wordsArray = storeGeneratedCaptionsData?.length > 0 
+      ? storeGeneratedCaptionsData 
+      : storeTranscriptionData?.words || []
     
     if (!wordsArray?.length || !storeCaptionsVisibleData) return null
     
     const currentTime = storeCurrentTimeData
     
-    // Encontrar palavra atual
+    // ✅ BUSCAR LEGENDA ATUAL POR TEMPO (respeitando edições)
+    const currentCaption = wordsArray.find((caption: TranscriptionWord) => 
+      currentTime >= caption.start && currentTime <= caption.end
+    )
+    
+    // Se encontrou uma legenda editada, usar ela diretamente
+    if (currentCaption) {
+      return {
+        text: currentCaption.text,
+        start: currentCaption.start,
+        end: currentCaption.end,
+        confidence: currentCaption.confidence || 0.9
+      }
+    }
+    
+    // ✅ FALLBACK: Se não encontrou legenda exata, buscar por proximidade
     let wordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
       currentTime >= word.start && currentTime <= word.end
     )
@@ -1785,15 +1791,13 @@ export function VideoEditorPage() {
     
     if (wordIndex === -1) return null
     
-    // ✅ LÓGICA BASEADA NO ESTILO SELECIONADO
+    // ✅ LÓGICA BASEADA NO ESTILO SELECIONADO (apenas para palavras originais)
     let wordsPerPhrase: number
-    let styleName: string
     
     switch (storeCaptionStyle) {
       case 'tiktok': {
         // 🎵 ESTILO TIKTOK: 1 palavra por vez
         const currentWord = wordsArray[wordIndex]
-        console.log('🎵 TikTok Style: Mostrando palavra única:', currentWord.text)
         
         return {
           text: currentWord.text,
@@ -1806,26 +1810,22 @@ export function VideoEditorPage() {
       case 'instagram':
         // 📸 ESTILO INSTAGRAM: 2-3 palavras
         wordsPerPhrase = 3
-        styleName = 'Instagram'
         break
         
       case 'youtube':
         // 🎬 ESTILO YOUTUBE: 3-4 palavras
         wordsPerPhrase = 4
-        styleName = 'YouTube'
         break
         
       case 'podcast':
         // 🎙️ ESTILO PODCAST: 8-10 palavras
         wordsPerPhrase = 9
-        styleName = 'Podcast'
         break
         
       case 'phrase':
       default:
         // 📄 ESTILO FRASE: 6 palavras
         wordsPerPhrase = 6
-        styleName = 'Frase Completa'
         break
     }
     
@@ -1844,8 +1844,6 @@ export function VideoEditorPage() {
     const startTime = phraseWords[0]?.start || currentTime
     const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
     const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
-    
-    console.log(`📝 ${styleName} Style: Mostrando frase:`, phraseText, `(${phraseWords.length} palavras)`)
     
     return {
       text: phraseText,

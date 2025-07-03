@@ -71,7 +71,7 @@ export class ConfigService {
   private cacheExpiration = 5 * 60 * 1000 // 5 minutos
 
   constructor() {
-    console.log('⚙️ Config Service inicializado')
+    // Config Service inicializado
     this.initializeProviders()
     this.loadConfiguration()
   }
@@ -114,11 +114,7 @@ export class ConfigService {
       await this.loadFromEnvironment()
       await this.validateAllKeys()
       
-      console.log('📥 Configuração carregada:', {
-        totalKeys: this.stats.totalKeys,
-        validKeys: this.stats.validKeys,
-        activeProvider: this.stats.activeProvider
-      })
+      // Configuração carregada
     } catch (error) {
       console.error('❌ Erro ao carregar configuração:', error)
     }
@@ -237,7 +233,7 @@ export class ConfigService {
    */
   private async validateAllKeys(): Promise<void> {
     try {
-      console.log('🧪 Validando todas as API keys...')
+      // Validando todas as API keys
       
       const validationPromises = Array.from(this.cache.values()).map(async (config) => {
         try {
@@ -263,11 +259,7 @@ export class ConfigService {
       const results = await Promise.all(validationPromises)
       this.stats.lastValidation = Date.now()
       
-      console.log('✅ Validação concluída:', {
-        válidas: this.stats.validKeys,
-        inválidas: this.stats.invalidKeys,
-        total: this.stats.totalKeys
-      })
+      // Validação concluída
 
       // Atualizar Supabase com resultados
       await this.saveValidationResults(results)
@@ -565,7 +557,7 @@ export class ConfigService {
         this.stats.totalUsage++
         this.stats.cacheHits++
         
-        console.log(`🔑 API key obtida: ${provider}`)
+        // API key obtida
         return config
       }
 
@@ -622,7 +614,7 @@ export class ConfigService {
     this.cache.clear()
     this.stats.cacheHits = 0
     this.stats.cacheSize = 0
-    console.log('🧹 Cache limpo')
+    // Cache limpo
   }
 
   /**

@@ -106,7 +106,7 @@ export class CaptionSyncService {
       ...config
     }
     
-    console.log('🎯 CaptionSyncService inicializado:', this.config)
+    // CaptionSyncService inicializado
   }
   
   /**
@@ -287,16 +287,7 @@ export class CaptionSyncService {
       pauseAdjusted: pauseAdjusted.adjusted
     }
     
-    console.log('🎯 Legenda CONSERVADORA sincronizada:', {
-      text: text.substring(0, 40) + '...',
-      timing: `${start.toFixed(2)}s - ${syncedCaption.end.toFixed(2)}s`,
-      duration: `${displayDuration.toFixed(2)}s`,
-      wordsCount: captionWords.length,
-      speechRate: `${analysis.speechRate.toFixed(2)} w/s`,
-      conservative: this.config.conservativeMode ? '✅' : '❌',
-      readingTime: `${readingTime.toFixed(2)}s`,
-      pauseAdjusted: pauseAdjusted.adjusted ? '✅' : '❌'
-    })
+    // Legenda sincronizada
     
     return syncedCaption
   }
@@ -306,7 +297,7 @@ export class CaptionSyncService {
    */
   adjustGlobalOffset(offsetMs: number): void {
     this.config.globalOffset += offsetMs
-    console.log(`⏰ Offset ajustado: ${this.config.globalOffset}ms`)
+    // Offset ajustado
   }
   
   /**
@@ -314,7 +305,7 @@ export class CaptionSyncService {
    */
   updateConfig(newConfig: Partial<SyncConfig>): void {
     this.config = { ...this.config, ...newConfig }
-    console.log('🎛️ Configuração atualizada (modo conservador):', this.config)
+    // Configuração atualizada
   }
   
   /**

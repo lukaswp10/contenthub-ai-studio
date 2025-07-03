@@ -109,7 +109,7 @@ export class TranscriptionCacheService {
       ...config
     }
 
-    console.log('💾 Cache Service inicializado:', this.config)
+    // Cache Service inicializado
   }
 
   /**
@@ -164,21 +164,12 @@ export class TranscriptionCacheService {
       const hash = await this.generateVideoHash(file)
       const cacheKey = `${hash}_${provider}`
       
-      console.log('🔍 Verificando cache:', {
-        file: file.name,
-        provider,
-        cacheKey: cacheKey.substring(0, 20) + '...'
-      })
+      // Verificando cache
 
       // 1. Tentar localStorage primeiro
       const localCached = this.getFromLocalStorage(cacheKey)
       if (localCached && localCached.expiresAt > Date.now()) {
-        console.log('✅ CACHE HIT (localStorage):', {
-          file: file.name,
-          provider,
-          age: Math.round((Date.now() - localCached.createdAt) / (1000 * 60 * 60)) + 'h',
-          wordCount: localCached.result.words?.length || 0
-        })
+        // Cache hit (localStorage)
         
         this.recordCacheHit(provider, localCached.metadata.cost || 0)
         return localCached
@@ -188,11 +179,7 @@ export class TranscriptionCacheService {
       if (this.config.backupToSupabase) {
         const supabaseCached = await this.getFromSupabase(hash, provider)
         if (supabaseCached && supabaseCached.expiresAt > Date.now()) {
-          console.log('✅ CACHE HIT (Supabase):', {
-            file: file.name,
-            provider,
-            age: Math.round((Date.now() - supabaseCached.createdAt) / (1000 * 60 * 60)) + 'h'
-          })
+          // Cache hit (Supabase)
           
           // Restaurar no localStorage para próximas consultas
           this.saveToLocalStorage(cacheKey, supabaseCached)
@@ -206,7 +193,7 @@ export class TranscriptionCacheService {
         this.removeFromLocalStorage(cacheKey)
       }
 
-      console.log('❌ CACHE MISS:', { file: file.name, provider })
+      // Cache miss
       this.recordCacheMiss(provider)
       return null
 
@@ -471,10 +458,7 @@ export class TranscriptionCacheService {
         })
       }
 
-      console.log('🧹 Cleanup realizado:', {
-        expired: expired.length,
-        totalRemoved: expired.length + Math.max(0, valid.length - this.config.maxEntries)
-      })
+      // Cleanup realizado
     } catch (error) {
       console.error('❌ Erro no cleanup:', error)
     }
