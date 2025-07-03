@@ -503,13 +503,23 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     return colors[trackId] || 'rgba(107, 114, 128, 0.3)';
   };
 
-  // Handle click na timeline para seek
+  // Handle click na timeline para seek COM PRECISÃO MELHORADA
   const handleTimelineClick = (e: React.MouseEvent) => {
     if (timelineRef.current) {
       const rect = timelineRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left - 128; // Subtrair largura do header
       const timelineWidth = rect.width - 128;
-      const clickTime = Math.max(0, Math.min(duration, (clickX / timelineWidth) * duration));
+      
+      // ➕ MELHOR PRECISÃO: Garantir que o cálculo seja preciso
+      let clickTime = (clickX / timelineWidth) * duration;
+      
+      // ➕ SNAP GRID: Arredondar para 0.1s de precisão
+      clickTime = Math.round(clickTime * 10) / 10;
+      
+      // ➕ BOUNDS CHECK: Garantir que está dentro dos limites
+      clickTime = Math.max(0.1, Math.min(duration - 0.1, clickTime));
+      
+      console.log(`🎯 Click na timeline: X=${clickX}px, Tempo=${formatTime(clickTime)}, Precisão=0.1s`);
       
       if (razorToolActive) {
         handleCut(clickTime);
@@ -1589,10 +1599,30 @@ const TimelinePro: React.FC<TimelineProProps> = ({
         
         {/* Controles de Reprodução */}
         <div className="flex items-center space-x-3">
-          {/* ➕ Informações dos Clips */}
-          {availableClips.length > 0 && (
-            <div className="text-sm text-gray-300 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
-              📽️ {availableClips.length} clips prontos
+          {/* ➕ Informações dos Clips COM CONTROLES */}
+          {cutPoints.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-gray-300 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
+                ✂️ {cutPoints.length} corte{cutPoints.length !== 1 ? 's' : ''}
+              </div>
+              
+              {availableClips.length > 0 && (
+                <div className="text-sm text-green-300 bg-green-600/20 px-3 py-1 rounded-lg backdrop-blur-sm border border-green-500/30">
+                  📽️ {availableClips.length} clip{availableClips.length !== 1 ? 's' : ''}
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  setCutPoints([]);
+                  setAvailableClips([]);
+                  console.log('🗑️ Todos os cortes removidos');
+                }}
+                className="text-xs text-red-300 bg-red-600/20 hover:bg-red-600/30 px-2 py-1 rounded border border-red-500/30 transition-all"
+                title="Limpar todos os cortes"
+              >
+                🗑️ Limpar
+              </button>
             </div>
           )}
           
@@ -1634,16 +1664,38 @@ const TimelinePro: React.FC<TimelineProProps> = ({
             );
           })}
           
-          {/* ➕ Marcadores de Corte */}
+          {/* ➕ Marcadores de Corte COM OPÇÃO DE DELETAR */}
           {cutPoints.map((cut, index) => {
             const left = (cut.time / duration) * 100;
             return (
               <div
                 key={cut.id}
-                className="cut-point absolute"
+                className="cut-point absolute group cursor-pointer hover:scale-110 transition-all"
                 style={{ left: `calc(128px + ${left}% - 1px)` }}
-                title={`Corte ${index + 1}: ${formatTime(cut.time)}`}
-              />
+                title={`Corte ${index + 1}: ${formatTime(cut.time)} - Clique duplo para deletar`}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  // Deletar corte
+                  const newCutPoints = cutPoints.filter(c => c.id !== cut.id);
+                  setCutPoints(newCutPoints);
+                  console.log(`🗑️ Corte deletado: ${formatTime(cut.time)}`);
+                }}
+              >
+                {/* Botão de deletar visível no hover */}
+                <div className="absolute -top-6 -left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    className="bg-red-500 text-white text-xs px-1 py-0.5 rounded hover:bg-red-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newCutPoints = cutPoints.filter(c => c.id !== cut.id);
+                      setCutPoints(newCutPoints);
+                      console.log(`🗑️ Corte deletado: ${formatTime(cut.time)}`);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>

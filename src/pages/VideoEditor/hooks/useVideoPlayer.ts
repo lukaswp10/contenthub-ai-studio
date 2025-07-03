@@ -67,29 +67,25 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
     }
   }, [videoRef, duration, setCurrentTime, playbackState.playbackMode, playbackState.clipBounds])
 
-  // ➕ NOVA FUNÇÃO: Controle de reprodução inteligente
+  // ➕ FUNÇÃO CORRIGIDA: Controle de reprodução inteligente (sem auto-pause)
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
       const newTime = videoRef.current.currentTime
       
-      // ➕ VERIFICAR SE estamos no modo clip e se chegamos ao final
-      if (playbackState.playbackMode !== 'full' && playbackState.clipBounds && newTime >= playbackState.clipBounds.end) {
-        if (playbackState.loopClip) {
+      // ➕ APENAS ATUALIZAR TEMPO - NÃO PAUSAR AUTOMATICAMENTE
+      setCurrentTime(newTime)
+      
+      // ➕ VERIFICAR BOUNDS DO CLIP APENAS PARA LOOP
+      if (playbackState.playbackMode !== 'full' && playbackState.clipBounds && playbackState.loopClip) {
+        if (newTime >= playbackState.clipBounds.end) {
           // Loop: voltar ao início do clip
           videoRef.current.currentTime = playbackState.clipBounds.start
           setCurrentTime(playbackState.clipBounds.start)
           console.log(`🔄 Loop do clip: voltando para ${playbackState.clipBounds.start}s`)
-        } else {
-          // Pausar no final do clip
-          videoRef.current.pause()
-          setIsPlaying(false)
-          console.log(`⏸️ Fim do clip: pausando em ${playbackState.clipBounds.end}s`)
         }
-      } else {
-        setCurrentTime(newTime)
       }
     }
-  }, [videoRef, setCurrentTime, playbackState.playbackMode, playbackState.clipBounds, playbackState.loopClip, setIsPlaying])
+  }, [videoRef, setCurrentTime, playbackState.playbackMode, playbackState.clipBounds, playbackState.loopClip])
 
   // 🎯 Handler para carregamento do vídeo
   const handleVideoLoad = useCallback(() => {
