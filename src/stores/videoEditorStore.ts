@@ -6,6 +6,7 @@
 
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
+import { formatTime } from '../utils/timeUtils'
 
 // ===== INTERFACES =====
 
@@ -38,6 +39,19 @@ export interface TimelineLayer {
   locked: boolean
 }
 
+// ➕ NOVA INTERFACE: Clip de vídeo cortado
+export interface VideoClip {
+  id: string
+  name: string
+  startTime: number
+  endTime: number
+  duration: number
+  originalVideoData: VideoData
+}
+
+// ➕ NOVA INTERFACE: Modo de reprodução
+export type PlaybackMode = 'full' | 'clip' | 'loop-clip'
+
 // ===== STORE STATE =====
 
 interface VideoEditorState {
@@ -46,6 +60,13 @@ interface VideoEditorState {
   currentTime: number
   duration: number
   isPlaying: boolean
+  
+  // ➕ NOVOS ESTADOS: Controle de reprodução avançado
+  playbackMode: PlaybackMode
+  activeClip: VideoClip | null
+  clipBounds: { start: number; end: number } | null
+  loopClip: boolean
+  autoSeekToClipStart: boolean
   
   // 🎨 CAPTIONS
   captionsVisible: boolean
@@ -63,6 +84,13 @@ interface VideoEditorState {
   captionBorderColor: string
   captionBorderWidth: number
   showCaptionPreview: boolean
+  
+  // ➕ NOVOS ESTADOS: Controle de legenda avançado
+  captionPlaybackSpeed: number
+  captionSyncMode: 'auto' | 'manual'
+  captionDelayOffset: number
+  captionMinDuration: number
+  captionMaxDuration: number
   
   // ✂️ TIMELINE
   cutPoints: CutPoint[]
@@ -112,6 +140,16 @@ interface VideoEditorActions {
   togglePlayPause: () => void
   seekTo: (percentage: number) => void
   
+  // ➕ NOVOS ACTIONS: Controle de reprodução avançado
+  setPlaybackMode: (mode: PlaybackMode) => void
+  setActiveClip: (clip: VideoClip | null) => void
+  setClipBounds: (bounds: { start: number; end: number } | null) => void
+  setLoopClip: (loop: boolean) => void
+  setAutoSeekToClipStart: (autoSeek: boolean) => void
+  playClip: (startTime: number, endTime: number, loop?: boolean) => void
+  playFullVideo: () => void
+  createClipFromCuts: (cutPoints: CutPoint[]) => VideoClip[]
+  
   // 🎨 CAPTION ACTIONS
   setCaptionsVisible: (visible: boolean) => void
   toggleCaptionsVisibility: () => void
@@ -129,6 +167,14 @@ interface VideoEditorActions {
   setCaptionBorderColor: (color: string) => void
   setCaptionBorderWidth: (width: number) => void
   setShowCaptionPreview: (show: boolean) => void
+  
+  // ➕ NOVOS ACTIONS: Controle de legenda avançado
+  setCaptionPlaybackSpeed: (speed: number) => void
+  setCaptionSyncMode: (mode: 'auto' | 'manual') => void
+  setCaptionDelayOffset: (offset: number) => void
+  setCaptionMinDuration: (duration: number) => void
+  setCaptionMaxDuration: (duration: number) => void
+  optimizeCaptionTiming: () => void
   
   // ✂️ TIMELINE ACTIONS
   setCutPoints: (points: CutPoint[]) => void
@@ -188,6 +234,13 @@ const initialState: VideoEditorState = {
   duration: 30,
   isPlaying: false,
   
+  // ➕ NOVOS ESTADOS: Controle de reprodução avançado
+  playbackMode: 'full',
+  activeClip: null,
+  clipBounds: null,
+  loopClip: false,
+  autoSeekToClipStart: false,
+  
   // 🎨 CAPTIONS
   captionsVisible: true,
   generatedCaptions: [],
@@ -205,6 +258,13 @@ const initialState: VideoEditorState = {
   captionBorderWidth: 2,
   showCaptionPreview: true,
   
+  // ➕ NOVOS ESTADOS: Controle de legenda avançado
+  captionPlaybackSpeed: 1.0,
+  captionSyncMode: 'auto',
+  captionDelayOffset: 0,
+  captionMinDuration: 0,
+  captionMaxDuration: 0,
+  
   // ✂️ TIMELINE
   cutPoints: [],
   timelineLayers: [],
@@ -219,8 +279,8 @@ const initialState: VideoEditorState = {
   transcriptionProvider: 'whisper',
   isTranscribing: false,
   transcriptionProgress: '',
-  openaiApiKey: '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',
-  assemblyaiApiKey: '8f2a3b4c5d6e7f8g9h0i1j2k3l4m5n6o',
+  openaiApiKey: '', // ✅ REMOVIDO: API Key hardcoded
+  assemblyaiApiKey: '', // ✅ REMOVIDO: API Key hardcoded
   showTranscriptionConfig: false,
   showTranscriptTimeline: true,
   
@@ -262,6 +322,96 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
       set({ currentTime: time })
     },
     
+    // ➕ NOVOS ACTIONS: Controle de reprodução avançado
+    setPlaybackMode: (mode) => set({ playbackMode: mode }),
+    setActiveClip: (clip) => set({ activeClip: clip }),
+    setClipBounds: (bounds) => set({ clipBounds: bounds }),
+    setLoopClip: (loop) => set({ loopClip: loop }),
+    setAutoSeekToClipStart: (autoSeek) => set({ autoSeekToClipStart: autoSeek }),
+    
+    playClip: (startTime, endTime, loop = false) => {
+      const { videoData } = get()
+      if (!videoData) return
+      
+      const clipId = `clip-${Date.now()}`
+      const clip: VideoClip = {
+        id: clipId,
+        name: `Clip ${formatTime(startTime)}-${formatTime(endTime)}`,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        originalVideoData: videoData
+      }
+      
+      set({
+        playbackMode: loop ? 'loop-clip' : 'clip',
+        activeClip: clip,
+        clipBounds: { start: startTime, end: endTime },
+        loopClip: loop,
+        currentTime: startTime,
+        autoSeekToClipStart: true
+      })
+      
+      console.log(`🎬 Reproduzindo clip: ${formatTime(startTime)} - ${formatTime(endTime)}`)
+    },
+    
+    playFullVideo: () => {
+      set({
+        playbackMode: 'full',
+        activeClip: null,
+        clipBounds: null,
+        loopClip: false,
+        autoSeekToClipStart: false
+      })
+      console.log('🎬 Reproduzindo vídeo completo')
+    },
+    
+    createClipFromCuts: (cutPoints) => {
+      const { videoData, duration } = get()
+      if (!videoData || cutPoints.length === 0) return []
+      
+      const sortedCuts = [...cutPoints].sort((a, b) => a.time - b.time)
+      const clips: VideoClip[] = []
+      
+      // Primeiro clip (início até primeiro corte)
+      if (sortedCuts[0].time > 0) {
+        clips.push({
+          id: `clip-0`,
+          name: `Clip 1`,
+          startTime: 0,
+          endTime: sortedCuts[0].time,
+          duration: sortedCuts[0].time,
+          originalVideoData: videoData
+        })
+      }
+      
+      // Clips intermediários
+      for (let i = 0; i < sortedCuts.length - 1; i++) {
+        clips.push({
+          id: `clip-${i + 1}`,
+          name: `Clip ${i + 2}`,
+          startTime: sortedCuts[i].time,
+          endTime: sortedCuts[i + 1].time,
+          duration: sortedCuts[i + 1].time - sortedCuts[i].time,
+          originalVideoData: videoData
+        })
+      }
+      
+      // Último clip (último corte até final)
+      if (sortedCuts[sortedCuts.length - 1].time < duration) {
+        clips.push({
+          id: `clip-${sortedCuts.length}`,
+          name: `Clip ${sortedCuts.length + 1}`,
+          startTime: sortedCuts[sortedCuts.length - 1].time,
+          endTime: duration,
+          duration: duration - sortedCuts[sortedCuts.length - 1].time,
+          originalVideoData: videoData
+        })
+      }
+      
+      return clips.filter(clip => clip.duration > 0.1) // Mínimo 0.1s
+    },
+    
     // 🎨 CAPTION ACTIONS
     setCaptionsVisible: (visible) => set({ captionsVisible: visible }),
     toggleCaptionsVisibility: () => set((state) => ({ captionsVisible: !state.captionsVisible })),
@@ -279,6 +429,37 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
     setCaptionBorderColor: (color) => set({ captionBorderColor: color }),
     setCaptionBorderWidth: (width) => set({ captionBorderWidth: width }),
     setShowCaptionPreview: (show) => set({ showCaptionPreview: show }),
+    
+    // ➕ NOVOS ACTIONS: Controle de legenda avançado
+    setCaptionPlaybackSpeed: (speed) => set({ captionPlaybackSpeed: speed }),
+    setCaptionSyncMode: (mode) => set({ captionSyncMode: mode }),
+    setCaptionDelayOffset: (offset) => set({ captionDelayOffset: offset }),
+    setCaptionMinDuration: (duration) => set({ captionMinDuration: duration }),
+    setCaptionMaxDuration: (duration) => set({ captionMaxDuration: duration }),
+    
+    optimizeCaptionTiming: () => {
+      const { generatedCaptions, captionPlaybackSpeed, captionMinDuration, captionMaxDuration } = get()
+      
+      if (!generatedCaptions || generatedCaptions.length === 0) return
+      
+      // Otimizar timing das legendas baseado na velocidade e duração
+      const optimizedCaptions = generatedCaptions.map((caption, index) => {
+        const baseDuration = caption.end - caption.start
+        const optimizedDuration = Math.max(
+          captionMinDuration || 0.5,
+          Math.min(captionMaxDuration || 5, baseDuration * captionPlaybackSpeed)
+        )
+        
+        return {
+          ...caption,
+          duration: optimizedDuration,
+          optimized: true
+        }
+      })
+      
+      set({ generatedCaptions: optimizedCaptions })
+      console.log('🎨 Timing das legendas otimizado')
+    },
     
     // ✂️ TIMELINE ACTIONS
     setCutPoints: (points) => set({ cutPoints: points }),

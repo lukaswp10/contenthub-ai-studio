@@ -1,7 +1,7 @@
 import { AssemblyAI } from 'assemblyai'
 import { transcriptionCache, type CachedTranscription } from './transcription/cache.service'
 import { configService } from './security/config.service'
-import { intelligentFallback, type FallbackResult } from './fallback'
+import { IntelligentFallback, type FallbackResult } from './fallback'
 
 export interface TranscriptionWord {
   text: string
@@ -568,7 +568,8 @@ class TranscriptionService {
       }
 
       // Executar com fallback inteligente
-      const fallbackResult = await intelligentFallback.executeWithFallback(
+      const fallbackService = new IntelligentFallback()
+      const fallbackResult = await fallbackService.executeWithFallback(
         operations,
         provider === 'whisper' ? ['openai', 'assemblyai', 'webspeech'] :
         provider === 'assemblyai' ? ['assemblyai', 'openai', 'webspeech'] :
@@ -578,7 +579,7 @@ class TranscriptionService {
       const result = fallbackResult.result as TranscriptionResult
       const usedProvider = fallbackResult.providerId
       const attempts = fallbackResult.attempts
-      const fallbackUsed = fallbackResult.fallbackUsed
+      const fallbackUsed = attempts > 1
 
       console.log('✅ TRANSCRIBE: Sucesso com fallback inteligente!')
       console.log('📊 TRANSCRIBE: Resultado:', {
