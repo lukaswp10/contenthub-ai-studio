@@ -568,14 +568,14 @@ class TranscriptionService {
       }
 
       // Executar com fallback inteligente
-      const fallbackResult: FallbackResult<TranscriptionResult> = await intelligentFallback.executeWithFallback(
+      const fallbackResult = await intelligentFallback.executeWithFallback(
         operations,
         provider === 'whisper' ? ['openai', 'assemblyai', 'webspeech'] :
         provider === 'assemblyai' ? ['assemblyai', 'openai', 'webspeech'] :
         ['webspeech', 'openai', 'assemblyai']
       )
 
-      const result = fallbackResult.result
+      const result = fallbackResult.result as TranscriptionResult
       const usedProvider = fallbackResult.providerId
       const attempts = fallbackResult.attempts
       const fallbackUsed = fallbackResult.fallbackUsed
