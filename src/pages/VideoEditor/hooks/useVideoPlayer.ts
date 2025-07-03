@@ -16,7 +16,7 @@ interface VideoData {
   size: number
   duration?: number
   id?: string
-  videoData?: any
+  videoData?: Record<string, unknown>
 }
 
 interface UseVideoPlayerProps {

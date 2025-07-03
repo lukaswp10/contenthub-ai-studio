@@ -341,7 +341,7 @@ export class FallbackService {
     const now = Date.now()
 
     switch (breaker.state) {
-      case 'open':
+      case 'open': {
         if (now > breaker.nextRetryTime) {
           // Transição para half-open
           breaker.state = 'half-open'
@@ -349,15 +349,19 @@ export class FallbackService {
           return false
         }
         return true
+      }
 
-      case 'half-open':
+      case 'half-open': {
         return false
+      }
 
-      case 'closed':
+      case 'closed': {
         return false
+      }
 
-      default:
+      default: {
         return false
+      }
     }
   }
 

@@ -17,7 +17,7 @@ export interface VideoData {
   size: number
   duration?: number
   id?: string
-  videoData?: any
+  videoData?: Record<string, unknown>
 }
 
 export interface CutPoint {
@@ -31,10 +31,10 @@ export interface TimelineLayer {
   type: 'video' | 'audio' | 'text' | 'effect'
   name: string
   visible: boolean
-  items: any[]
+  items: Array<Record<string, unknown>>
   start?: number
   duration?: number
-  data?: any
+  data?: Record<string, unknown>
   color: string
   locked: boolean
 }

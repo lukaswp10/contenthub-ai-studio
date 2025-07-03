@@ -15,6 +15,20 @@
 import { supabase } from '../../lib/supabase'
 
 // ✅ INTERFACES
+export interface WhisperSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  words?: WhisperWord[];
+}
+
+export interface WhisperWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
 export interface CachedTranscription {
   id: string
   videoHash: string
@@ -41,7 +55,7 @@ export interface TranscriptionResult {
   duration?: number
   speakers?: string[]
   continuousCaptions?: ContinuousCaption[]
-  segments?: any[]
+  segments?: WhisperSegment[]
 }
 
 export interface TranscriptionWord {
@@ -223,7 +237,7 @@ export class TranscriptionCacheService {
         videoHash: hash,
         fileName: file.name,
         fileSize: file.size,
-        provider: provider as any,
+        provider: provider as 'whisper' | 'assemblyai' | 'webspeech',
         result,
         createdAt: Date.now(),
         expiresAt: Date.now() + this.config.maxAge,
@@ -494,7 +508,7 @@ export class TranscriptionCacheService {
     }
   }
 
-  private getStatsFromStorage(): any {
+  private getStatsFromStorage(): { totalHits: number; totalMisses: number; costSaved: number; providers: Record<string, { hits: number; saves: number }> } {
     try {
       const statsStr = localStorage.getItem(this.statsKey)
       return statsStr ? JSON.parse(statsStr) : {

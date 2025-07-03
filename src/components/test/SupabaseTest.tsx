@@ -21,10 +21,10 @@ export function SupabaseTest() {
       setUsersCount(count || 0)
       setConnectionStatus('success')
       setTestResult('✅ Conexão com Supabase funcionando!')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro na conexão:', error)
       setConnectionStatus('error')
-      setTestResult('❌ Erro: ' + error.message)
+      setTestResult('❌ Erro: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     }
   }
 

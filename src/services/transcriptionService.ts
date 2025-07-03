@@ -396,7 +396,7 @@ class TranscriptionService {
       recognition.maxAlternatives = 3
 
       let finalTranscript = ''
-      let words: TranscriptionWord[] = []
+              const words: TranscriptionWord[] = []
       let startTime = 0
 
       recognition.onstart = () => {
@@ -404,7 +404,7 @@ class TranscriptionService {
         startTime = Date.now()
       }
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: { resultIndex: number; results: SpeechRecognitionResultList }) => {
         let interimTranscript = ''
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -441,7 +441,7 @@ class TranscriptionService {
         onProgress(`🎤 Transcrevendo: "${displayText}..."`)
       }
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: { error: string }) => {
         let errorMessage = 'Erro no reconhecimento de voz'
         
         // Mensagens de erro específicas (seguindo spec W3C)
@@ -527,7 +527,7 @@ class TranscriptionService {
         return {
           ...cachedResult.result,
           continuousCaptions: cachedResult.result.continuousCaptions || createContinuousCaptions(cachedResult.result.words),
-          segments: cachedResult.result.segments || []
+          segments: (cachedResult.result.segments as WhisperSegment[]) || []
         }
       } else {
         console.log('❌ CACHE MISS: Transcrição não encontrada, processando...')

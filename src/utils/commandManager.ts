@@ -17,10 +17,10 @@ export interface TimelineLayer {
   visible: boolean;
   color: string;
   locked: boolean;
-  items: any[];
+  items: Record<string, unknown>[];
   start?: number;
   duration?: number;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface CutPoint {

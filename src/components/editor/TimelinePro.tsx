@@ -6,7 +6,7 @@ import { commandManager, RazorCutCommand, TrimCommand } from '../../utils/comman
 import { formatTime, formatTimeToSRT } from '../../utils/timeUtils';
 
 interface TimelineProProps {
-  videoData?: any;
+  videoData?: Record<string, unknown>;
   currentTime: number;
   duration: number;
   onSeek: (time: number) => void;
@@ -21,9 +21,22 @@ interface TimelineProProps {
   onExportClip?: (clipData: ClipData) => void;
   isPreviewMode?: boolean;
   currentClipIndex?: number;
-  transcriptionData?: any; // ➕ NOVO: Dados de transcrição
+  transcriptionData?: TranscriptionData; // ➕ NOVO: Dados de transcrição
   showTranscriptTrack?: boolean; // ➕ NOVO: Controle de visibilidade
-  updateTimelineTranscript?: (data: any) => void; // ➕ NOVO: Função para atualizar transcrição na timeline
+  updateTimelineTranscript?: (data: TranscriptionData) => void; // ➕ NOVO: Função para atualizar transcrição na timeline
+}
+
+interface TranscriptionData {
+  text: string;
+  words: Array<{
+    text: string;
+    start: number;
+    end: number;
+    confidence?: number;
+  }>;
+  duration?: number;
+  language?: string;
+  confidence?: number;
 }
 
 interface TimelineLayer {
@@ -31,10 +44,10 @@ interface TimelineLayer {
   type: 'video' | 'audio' | 'text' | 'effect';
   name: string;
   visible: boolean;
-  items: any[];
+  items: Array<Record<string, unknown>>;
   start?: number;
   duration?: number;
-  data?: any;
+  data?: Record<string, unknown>;
   color: string;
   locked: boolean;
 }
@@ -50,7 +63,7 @@ interface TrackEffect {
   name: string;
   start: number;
   end: number;
-  source?: any;
+  source?: Record<string, unknown>;
 }
 
 interface Track {
@@ -68,6 +81,7 @@ interface ClipData {
   hasAudio: boolean;
   hasVideo: boolean;
   captions: CaptionSegment[];
+  format?: string;
 }
 
 // ➕ INTERFACE para segmentos de legenda por clip
@@ -255,7 +269,10 @@ const TimelinePro: React.FC<TimelineProProps> = ({
           normalize: true
         });
 
-        wavesurferRef.current.load(videoData.url);
+        const videoUrl = videoData?.url;
+        if (typeof videoUrl === 'string') {
+          wavesurferRef.current.load(videoUrl);
+        }
       } catch (error) {
         console.log('WaveSurfer error:', error);
       }
@@ -479,7 +496,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   const getCurrentTranscriptWord = useCallback(() => {
     if (!transcriptionData?.words || !Array.isArray(transcriptionData.words)) return '';
     
-    const currentWord = transcriptionData.words.find((word: any) => 
+    const currentWord = transcriptionData.words.find((word: { text: string; start: number; end: number; confidence?: number }) => 
       currentTime >= word.start && currentTime <= word.end
     );
     
@@ -666,7 +683,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   }, [availableClips, onExportClip]);
 
   // ➕ FUNÇÃO para adicionar legenda a um clip (FASE 5.0)
-  const addCaptionToClip = useCallback((clipIndex: number, captionData: Partial<any>) => {
+  const addCaptionToClip = useCallback((clipIndex: number, captionData: Partial<CaptionSegment>) => {
     if (clipIndex < 0 || clipIndex >= availableClips.length) return;
     
     const clip = availableClips[clipIndex];
@@ -690,12 +707,12 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   }, [availableClips]);
 
   // ➕ FUNÇÃO para editar legenda existente
-  const editCaption = useCallback((clipId: string, captionId: string, updates: any) => {
+  const editCaption = useCallback((clipId: string, captionId: string, updates: Partial<CaptionSegment>) => {
     const updatedClips = availableClips.map(clip => {
       if (clip.id === clipId) {
         return {
           ...clip,
-          captions: clip.captions.map((caption: any) => 
+          captions: clip.captions.map((caption: CaptionSegment) => 
             caption.id === captionId 
               ? { ...caption, ...updates }
               : caption
@@ -714,7 +731,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
       if (clip.id === clipId) {
         return {
           ...clip,
-          captions: clip.captions.filter((caption: any) => caption.id !== captionId)
+          captions: clip.captions.filter((caption: CaptionSegment) => caption.id !== captionId)
         };
       }
       return clip;
@@ -727,7 +744,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
   // ➕ FUNÇÃO para iniciar edição de legenda
   const startEditingCaption = useCallback((clipId: string, captionId: string) => {
     const clip = availableClips.find(c => c.id === clipId);
-    const caption = clip?.captions.find((c: any) => c.id === captionId);
+    const caption = clip?.captions.find((c: CaptionSegment) => c.id === captionId);
     
     if (caption) {
       setEditingCaption({ clipId, captionId });
@@ -1313,7 +1330,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
   // ➕ AGRUPAR ATALHOS POR CATEGORIA
   const shortcutCategories = useMemo(() => {
-    const categories: Record<string, Array<{key: string, shortcut: any}>> = {};
+    const categories: Record<string, Array<{key: string, shortcut: KeyboardShortcut}>> = {};
     
     Object.entries(keyboardShortcuts).forEach(([key, shortcut]) => {
       if (!categories[shortcut.category]) {
@@ -1974,7 +1991,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                       {clip.captions.length} legendas
                     </div>
                     <div className="space-y-1 max-h-16 overflow-y-auto">
-                      {clip.captions.map((caption: any) => (
+                      {clip.captions.map((caption: CaptionSegment) => (
                         <div 
                           key={caption.id}
                           className="text-xs bg-white/10 rounded px-1 py-0.5 flex items-center justify-between"
@@ -2690,7 +2707,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
           {/* Lista de palavras editáveis */}
           <div className="max-h-40 overflow-y-auto space-y-2">
-            {transcriptionData.words.map((word: any, index: number) => {
+            {transcriptionData.words.map((word: { text: string; start: number; end: number; confidence?: number }, index: number) => {
               const isCurrentWord = currentTime >= word.start && currentTime <= word.end;
               
               return (
@@ -2772,7 +2789,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
               <button
                 onClick={() => {
                   // Exportar legendas como SRT usando a função já definida
-                  const srtContent = transcriptionData.words.map((word: any, index: number) => {
+                  const srtContent = transcriptionData.words.map((word: { text: string; start: number; end: number; confidence?: number }, index: number) => {
                     const start = formatTimeToSRT(word.start);
                     const end = formatTimeToSRT(word.end);
                     return `${index + 1}\n${start} --> ${end}\n${word.text}\n`;
@@ -2793,7 +2810,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
               <button
                 onClick={() => {
                   // Aplicar auto-correção
-                  const correctedWords = transcriptionData.words.map((word: any) => ({
+                  const correctedWords = transcriptionData.words.map((word: { text: string; start: number; end: number; confidence?: number }) => ({
                     ...word,
                     text: word.text.charAt(0).toUpperCase() + word.text.slice(1).toLowerCase()
                   }));

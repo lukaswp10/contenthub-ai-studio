@@ -57,14 +57,14 @@ import {
 } from '../../stores/videoEditorStore'
 import { Caption } from '../../types/caption.types'
 
-interface VideoData {
+interface VideoData extends Record<string, unknown> {
   file?: File | null
   url?: string
   name: string
   size: number
   duration?: number
   id?: string
-  videoData?: any
+  videoData?: Record<string, unknown>
 }
 
 interface TimelineLayer {
@@ -72,10 +72,10 @@ interface TimelineLayer {
   type: 'video' | 'audio' | 'text' | 'effect'
   name: string
   visible: boolean // ➕ NOVO: Compatibilidade com TimelinePro
-  items: any[] // ➕ NOVO: Compatibilidade com TimelinePro
+  items: Record<string, unknown>[] // ➕ NOVO: Compatibilidade com TimelinePro
   start?: number // ➕ NOVO: Opcional para compatibilidade
   duration?: number // ➕ NOVO: Opcional para compatibilidade
-  data?: any // ➕ NOVO: Opcional para compatibilidade
+  data?: Record<string, unknown> // ➕ NOVO: Opcional para compatibilidade
   color: string
   locked: boolean
 }
@@ -121,7 +121,7 @@ export function VideoEditorPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
-  const timelineProRef = useRef<any>(null)
+  const timelineProRef = useRef<HTMLDivElement>(null)
 
   // 🏪 ZUSTAND HOOKS - MIGRAÇÃO GRADUAL
   const storeVideoData = useVideoData()
@@ -352,9 +352,9 @@ export function VideoEditorPage() {
   // Variáveis temporárias para corrigir erros
   const timelineZoom = 1
   const snapEnabled = true
-  const setPreviewCut = (_: any) => {}
-  const setCurrentVideoFile = (_: any) => {}
-  const setEffectIntensity = (_: any) => {}
+  const setPreviewCut = (_: unknown) => {}
+  const setCurrentVideoFile = (_: unknown) => {}
+  const setEffectIntensity = (_: unknown) => {}
   
   // Detectar mobile
   useEffect(() => {
@@ -528,7 +528,7 @@ export function VideoEditorPage() {
         name: videoData.name || 'Video Principal',
         start: 0,
         duration: duration,
-        data: videoData,
+        data: videoData as unknown as Record<string, unknown>,
         color: '#3b82f6',
         locked: false,
         visible: true,
@@ -747,7 +747,7 @@ export function VideoEditorPage() {
         name: videoData.name || 'Vídeo Principal',
         start: 0,
         duration: duration || 30,
-        data: videoData,
+        data: videoData as unknown as Record<string, unknown>,
         color: '#3b82f6',
         locked: false,
         visible: true,
@@ -1010,7 +1010,7 @@ export function VideoEditorPage() {
   }
 
   // Função melhorada para renderizar legenda com estilo avançado personalizado
-  const renderCaptionWithStyle = (caption: any) => {
+  const renderCaptionWithStyle = (caption: { text: string; start: number; end: number; confidence: number; id?: string }) => {
     if (!caption) return null
     
     // Usar os controles avançados ao invés dos estilos fixos
@@ -1050,7 +1050,7 @@ export function VideoEditorPage() {
   }
 
   // Callback melhorado para captions geradas
-  const handleCaptionsGenerated = (words: any[]) => {
+  const handleCaptionsGenerated = (words: { text: string; start: number; end: number; confidence: number; highlight?: boolean }[]) => {
     console.log('🎬 Captions recebidas:', words.length, 'palavras')
     
     // Converter palavras em captions com timestamps
@@ -1289,14 +1289,14 @@ export function VideoEditorPage() {
   }, [])
 
   // ➕ FUNÇÃO para exportar um clip específico (FASE 4.0)
-  const handleExportClip = async (clipData: any) => {
-    console.log(`📤 Iniciando exportação do ${clipData.name}...`);
+  const handleExportClip = async (clipData: { startTime: number; endTime: number; format?: string; name?: string; duration?: number }) => {
+    console.log(`📤 Iniciando exportação do ${clipData.name || 'clip'}...`);
     
     try {
       // Simular processo de exportação
       const exportProcess = async () => {
-        console.log(`🎬 Preparando ${clipData.name} para exportação...`);
-        console.log(`⏱️ Duração: ${formatTime(clipData.duration)}`);
+        console.log(`🎬 Preparando ${clipData.name || 'clip'} para exportação...`);
+        console.log(`⏱️ Duração: ${formatTime(clipData.duration || (clipData.endTime - clipData.startTime))}`);
         console.log(`🎯 Range: ${formatTime(clipData.startTime)} - ${formatTime(clipData.endTime)}`);
         
         // Aqui seria integração com FFmpeg ou serviço de processamento
@@ -1306,13 +1306,13 @@ export function VideoEditorPage() {
         return {
           success: true,
           downloadUrl: '#',
-          filename: `${clipData.name.replace(/\s+/g, '_')}_viral.mp4`
+          filename: `${(clipData.name || 'clip').replace(/\s+/g, '_')}_viral.mp4`
         };
       };
 
       alert(`🚀 Exportando ${clipData.name}... (Simulação)
       
-⏱️ Duração: ${formatTime(clipData.duration)}
+⏱️ Duração: ${formatTime(clipData.duration || (clipData.endTime - clipData.startTime))}
 🎯 Range: ${formatTime(clipData.startTime)} - ${formatTime(clipData.endTime)}
 🎬 Incluirá: Vídeo + Áudio + Legendas
 📱 Formato: MP4 (1080p, otimizado para viral)
@@ -1845,7 +1845,7 @@ export function VideoEditorPage() {
 
             {/* TIMELINE PROFISSIONAL - Embaixo do Vídeo */}
             <TimelinePro
-              videoData={storeVideoData || videoData}
+              videoData={(storeVideoData || videoData) as unknown as Record<string, unknown> | undefined}
               currentTime={storeCurrentTime || currentTime}
               duration={storeDuration || duration}
               onSeek={storeSeekTo || seekTo}
@@ -1866,7 +1866,7 @@ export function VideoEditorPage() {
               onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
-              transcriptionData={storeTranscription.transcriptionResult || transcriptionResult} // ➕ NOVO: Dados de transcrição
+              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as any} // ➕ NOVO: Dados de transcrição
               showTranscriptTrack={storeTranscription.showTranscriptTimeline !== undefined ? storeTranscription.showTranscriptTimeline : showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
               updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
             />

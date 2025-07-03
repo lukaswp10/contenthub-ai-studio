@@ -19,7 +19,7 @@ const CLOUDINARY_CONFIG = {
 }
 
 // Função para gerar assinatura SHA-1 para upload seguro
-const generateSignature = async (params: Record<string, any>, apiSecret: string): Promise<string> => {
+const generateSignature = async (params: Record<string, string | number>, apiSecret: string): Promise<string> => {
   // Ordenar parâmetros alfabeticamente e criar string
   const sortedParams = Object.keys(params)
     .sort()
@@ -162,7 +162,7 @@ export const isValidVideoFile = (file: File): boolean => {
 }
 
 // Obter informações do vídeo
-export const getVideoInfo = async (publicId: string): Promise<any> => {
+export const getVideoInfo = async (publicId: string): Promise<Record<string, unknown> | null> => {
   try {
     const response = await fetch(
       `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/video/upload/${publicId}.json`
