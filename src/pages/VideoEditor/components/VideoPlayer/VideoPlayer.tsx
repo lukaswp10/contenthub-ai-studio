@@ -5,7 +5,10 @@ import { VideoOverlay } from './VideoOverlay'
 import { CaptionSyncControls } from './CaptionSyncControls'
 import { Button } from '../../../../components/ui/button'
 import { useCaptions, useCaptionStyling } from '../../../../stores/videoEditorStore'
-import { Caption } from '../../../../types/caption.types'
+import { Caption, CaptionSegment } from '../../../../types/caption.types'
+import { CaptionEditor } from '../../../../components/editor/CaptionEditor'
+import { InlineCaptionEditor } from '../../../../components/editor/InlineCaptionEditor'
+import { CaptionHelp } from '../../../../components/editor/CaptionHelp'
 
 interface VideoPlayerProps {
   // Captions específicas
@@ -44,6 +47,40 @@ export const VideoPlayer = memo(({
   
   // 🔄 Local state para UI
   const [syncControlsVisible, setSyncControlsVisible] = useState(false)
+  const [captionEditorOpen, setCaptionEditorOpen] = useState(false)
+  const [isClickableMode, setIsClickableMode] = useState(false)
+  const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null)
+  const [inlineEditorVisible, setInlineEditorVisible] = useState(false)
+  const [inlineEditorCaption, setInlineEditorCaption] = useState<Caption | null>(null)
+  const [inlineEditorPosition, setInlineEditorPosition] = useState({ x: 0, y: 0 })
+  const [helpVisible, setHelpVisible] = useState(false)
+  
+  // ➕ INTEGRANDO COM LEGENDAS REAIS
+  const { generatedCaptions } = useCaptions()
+  
+  // ✅ Converter legendas para formato CaptionSegment
+  const captionSegments = React.useMemo(() => {
+    return generatedCaptions.map((caption, index) => ({
+      id: `caption-${index}`,
+      text: caption.text,
+      start: caption.start,
+      end: caption.end,
+      confidence: caption.confidence || 0.8,
+      words: []
+    }))
+  }, [generatedCaptions])
+  
+  // ✅ Função para atualizar legendas no store
+  const updateCaptionsInStore = (newSegments: CaptionSegment[]) => {
+    const updatedCaptions = newSegments.map(segment => ({
+      text: segment.text,
+      start: segment.start,
+      end: segment.end,
+      confidence: segment.confidence
+    }))
+    // Aqui você pode adicionar a ação do store para atualizar as legendas
+    console.log('🔄 Atualizando legendas no store:', updatedCaptions)
+  }
   
   // 🏪 Zustand hooks para state management
   const { captionsVisible, toggleCaptionsVisibility } = useCaptions()
@@ -75,12 +112,97 @@ export const VideoPlayer = memo(({
     clipProgressPercentage
   } = useVideoPlayer({ videoRef })
 
+  // ✅ Handlers para edição de legendas
+  const handleCaptionClick = (caption: Caption, event?: React.MouseEvent) => {
+    console.log('🎯 Legenda clicada:', caption.text)
+    setSelectedCaptionId(caption.start?.toString() || null)
+    
+    // Calcular posição do editor inline
+    const rect = event?.currentTarget.getBoundingClientRect()
+    const position = {
+      x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
+      y: rect ? rect.top : window.innerHeight / 2
+    }
+    
+    setInlineEditorCaption(caption)
+    setInlineEditorPosition(position)
+    setInlineEditorVisible(true)
+  }
+
+  const handleCaptionDoubleClick = (caption: Caption) => {
+    console.log('🎯 Legenda duplo clique:', caption.text)
+    setSelectedCaptionId(caption.start?.toString() || null)
+    setCaptionEditorOpen(true)
+  }
+
+  // ✅ Funções de gerenciamento de legendas
+  const updateCaptionText = (startTime: number, newText: string) => {
+    const updatedSegments = captionSegments.map(segment => 
+      segment.start === startTime 
+        ? { ...segment, text: newText }
+        : segment
+    )
+    updateCaptionsInStore(updatedSegments)
+  }
+
+  const handleCaptionUpdate = (captionId: string, newText: string) => {
+    const updatedSegments = captionSegments.map(segment => 
+      segment.id === captionId 
+        ? { ...segment, text: newText }
+        : segment
+    )
+    updateCaptionsInStore(updatedSegments)
+  }
+
+  const handleCaptionTimeUpdate = (captionId: string, start: number, end: number) => {
+    const updatedSegments = captionSegments.map(segment => 
+      segment.id === captionId 
+        ? { ...segment, start, end }
+        : segment
+    )
+    updateCaptionsInStore(updatedSegments)
+  }
+
+  const handleCaptionDelete = (captionId: string) => {
+    const updatedSegments = captionSegments.filter(segment => segment.id !== captionId)
+    updateCaptionsInStore(updatedSegments)
+  }
+
+  const handleCaptionAdd = (start: number, end: number, text: string) => {
+    const newCaption: CaptionSegment = {
+      id: Date.now().toString(),
+      text,
+      start,
+      end,
+      confidence: 1.0,
+      words: []
+    }
+    const updatedSegments = [...captionSegments, newCaption].sort((a, b) => a.start - b.start)
+    updateCaptionsInStore(updatedSegments)
+  }
+
+  // ✅ Handlers para editor inline
+  const handleInlineEditorSave = (newText: string) => {
+    if (inlineEditorCaption && inlineEditorCaption.start !== undefined) {
+      updateCaptionText(inlineEditorCaption.start, newText)
+    }
+    setInlineEditorVisible(false)
+    setInlineEditorCaption(null)
+  }
+
+  const handleInlineEditorCancel = () => {
+    setInlineEditorVisible(false)
+    setInlineEditorCaption(null)
+  }
+
   console.log('🎬 VideoPlayer: Renderizando player', {
     hasVideo,
     currentTime,
     isPlaying,
     hasCaption: !!currentCaption,
-    videoUrl
+    videoUrl,
+    isClickableMode,
+    captionSegmentsCount: captionSegments.length
   })
 
   // ✅ FALLBACK: Quando não há vídeo carregado
@@ -122,6 +244,9 @@ export const VideoPlayer = memo(({
         currentCaption={currentCaption}
         captionsVisible={captionsVisible}
         {...finalCaptionStyling}
+        onCaptionClick={handleCaptionClick}
+        onCaptionDoubleClick={handleCaptionDoubleClick}
+        isClickableMode={isClickableMode}
       />
       
       {/* ✅ PLAY/PAUSE OVERLAY */}
@@ -160,8 +285,70 @@ export const VideoPlayer = memo(({
           clipProgressPercentage
         }}
       />
-    </div>
-  )
+      
+      {/* ➕ CONTROLES DE EDIÇÃO DE LEGENDAS */}
+      <div className="absolute top-4 right-4 flex flex-col space-y-2 z-30">
+        <Button
+          onClick={() => setIsClickableMode(!isClickableMode)}
+          className={`
+            ${isClickableMode 
+              ? 'bg-blue-600 hover:bg-blue-500 text-white' 
+              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }
+            px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+          `}
+          title={isClickableMode ? 'Desativar edição de legendas' : 'Ativar edição de legendas'}
+        >
+          {isClickableMode ? '🔓' : '🔒'} Editar
+        </Button>
+        
+        <Button
+          onClick={() => setCaptionEditorOpen(true)}
+          className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+          title="Abrir editor avançado de legendas"
+        >
+          📝 Editor
+        </Button>
+        
+        <Button
+          onClick={() => setHelpVisible(true)}
+          className="bg-orange-600 hover:bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+          title="Como usar as legendas editáveis"
+        >
+          💡 Ajuda
+        </Button>
+      </div>
+      
+             {/* ➕ EDITOR DE LEGENDAS */}
+       <CaptionEditor
+         isOpen={captionEditorOpen}
+         onClose={() => setCaptionEditorOpen(false)}
+         captions={captionSegments}
+         currentTime={currentTime}
+         onCaptionUpdate={handleCaptionUpdate}
+         onCaptionTimeUpdate={handleCaptionTimeUpdate}
+         onCaptionDelete={handleCaptionDelete}
+         onCaptionAdd={handleCaptionAdd}
+         onSeekTo={(time) => seekTo((time / duration) * 100)}
+         selectedCaptionId={selectedCaptionId || undefined}
+       />
+       
+       {/* ➕ EDITOR INLINE DE LEGENDAS */}
+       <InlineCaptionEditor
+         caption={inlineEditorCaption}
+         isVisible={inlineEditorVisible}
+         onSave={handleInlineEditorSave}
+         onCancel={handleInlineEditorCancel}
+         position={inlineEditorPosition}
+       />
+       
+       {/* ➕ AJUDA DE LEGENDAS */}
+       <CaptionHelp
+         isVisible={helpVisible}
+         onClose={() => setHelpVisible(false)}
+       />
+     </div>
+   )
 })
 
 VideoPlayer.displayName = 'VideoPlayer' 

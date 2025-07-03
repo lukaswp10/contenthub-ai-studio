@@ -16,6 +16,11 @@ interface VideoOverlayProps {
   captionBackgroundColor: string
   captionFontFamily: string
   captionAnimation: string
+  
+  // ➕ NOVOS: Callbacks para interação
+  onCaptionClick?: (caption: Caption, event?: React.MouseEvent) => void
+  onCaptionDoubleClick?: (caption: Caption, event?: React.MouseEvent) => void
+  isClickableMode?: boolean
 }
 
 export const VideoOverlay = memo(({
@@ -29,7 +34,10 @@ export const VideoOverlay = memo(({
   captionOpacity,
   captionBackgroundColor,
   captionFontFamily,
-  captionAnimation
+  captionAnimation,
+  onCaptionClick,
+  onCaptionDoubleClick,
+  isClickableMode = false
 }: VideoOverlayProps) => {
   
   // ✅ Não mostrar overlay se não há legenda ou se está oculta
@@ -62,16 +70,43 @@ export const VideoOverlay = memo(({
     animation: captionAnimation === 'fadeIn' ? 'fadeIn 0.3s ease-in-out' : 'none'
   }
 
+  // ✅ Handlers para interação
+  const handleCaptionClick = (e: React.MouseEvent) => {
+    if (isClickableMode && onCaptionClick && currentCaption) {
+      e.preventDefault()
+      e.stopPropagation()
+      onCaptionClick(currentCaption, e)
+    }
+  }
+
+  const handleCaptionDoubleClick = (e: React.MouseEvent) => {
+    if (isClickableMode && onCaptionDoubleClick && currentCaption) {
+      e.preventDefault()
+      e.stopPropagation()
+      onCaptionDoubleClick(currentCaption, e)
+    }
+  }
+
   return (
     <div className={`
-      caption-overlay-visionario absolute inset-0 flex pointer-events-none z-20
+      caption-overlay-visionario absolute inset-0 flex z-20
       ${positionClasses[captionPosition]}
+      ${isClickableMode ? 'pointer-events-auto' : 'pointer-events-none'}
     `}>
       <div 
-        className="caption-text-visionario text-center font-bold leading-tight max-w-[90%] px-6 py-3 rounded-xl backdrop-blur-sm mx-auto"
+        className={`
+          caption-text-visionario text-center font-bold leading-tight max-w-[90%] px-6 py-3 rounded-xl backdrop-blur-sm mx-auto
+          ${isClickableMode ? 'cursor-pointer hover:bg-white/10 transition-all duration-200 border-2 border-transparent hover:border-blue-400/50' : ''}
+        `}
         style={captionStyles}
+        onClick={handleCaptionClick}
+        onDoubleClick={handleCaptionDoubleClick}
+        title={isClickableMode ? 'Clique para editar • Duplo clique para edição avançada' : undefined}
       >
         {currentCaption.text}
+        {isClickableMode && (
+          <div className="absolute top-1 right-1 w-2 h-2 bg-blue-400 rounded-full opacity-60 animate-pulse"></div>
+        )}
       </div>
     </div>
   )
