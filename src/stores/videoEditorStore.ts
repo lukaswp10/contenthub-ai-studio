@@ -28,10 +28,10 @@ export interface CutPoint {
 
 export interface TimelineLayer {
   id: string
-  type: 'video' | 'audio' | 'text' | 'effect'
+  type: 'video' | 'audio' | 'subtitle' | 'overlay'
   name: string
   visible: boolean
-  items: Array<Record<string, unknown>>
+  items: any[]
   start?: number
   duration?: number
   data?: Record<string, unknown>
@@ -831,6 +831,113 @@ export const useCaptionSyncActions = () => useVideoEditorStore(state => ({
   setCaptionPlaybackSpeed: state.setCaptionPlaybackSpeed,
   setCaptionSyncMode: state.setCaptionSyncMode,
   setCaptionDelayOffset: state.setCaptionDelayOffset
+}))
+
+// ===== HOOKS ESPECÍFICOS PARA VIDEOEDITOR =====
+
+// Hook para estado do player
+export const usePlayerState = () => useVideoEditorStore(state => ({
+  videoData: state.videoData,
+  currentTime: state.currentTime,
+  duration: state.duration,
+  isPlaying: state.isPlaying,
+  playbackMode: state.playbackMode,
+  activeClip: state.activeClip,
+  clipBounds: state.clipBounds,
+  loopClip: state.loopClip,
+  autoSeekToClipStart: state.autoSeekToClipStart
+}))
+
+// Hook para ações do player
+export const usePlayerActions = () => useVideoEditorStore(state => ({
+  setVideoData: state.setVideoData,
+  setCurrentTime: state.setCurrentTime,
+  setDuration: state.setDuration,
+  setIsPlaying: state.setIsPlaying,
+  togglePlayPause: state.togglePlayPause,
+  seekTo: state.seekTo,
+  setPlaybackMode: state.setPlaybackMode,
+  setActiveClip: state.setActiveClip,
+  setClipBounds: state.setClipBounds,
+  setLoopClip: state.setLoopClip,
+  setAutoSeekToClipStart: state.setAutoSeekToClipStart,
+  playClip: state.playClip,
+  playFullVideo: state.playFullVideo
+}))
+
+// Hook para estado da timeline
+export const useTimelineState = () => useVideoEditorStore(state => ({
+  cutPoints: state.cutPoints,
+  timelineLayers: state.timelineLayers,
+  razorToolActive: state.razorToolActive,
+  selectedLayer: state.selectedLayer,
+  currentTime: state.currentTime,
+  duration: state.duration
+}))
+
+// Hook para ações da timeline
+export const useTimelineActions = () => useVideoEditorStore(state => ({
+  setCutPoints: state.setCutPoints,
+  addCutPoint: state.addCutPoint,
+  removeCutPoint: state.removeCutPoint,
+  setTimelineLayers: state.setTimelineLayers,
+  setRazorToolActive: state.setRazorToolActive,
+  setSelectedLayer: state.setSelectedLayer,
+  setCurrentTime: state.setCurrentTime
+}))
+
+// Hook para ferramentas de edição
+export const useEditingTools = () => useVideoEditorStore(state => ({
+  razorToolActive: state.razorToolActive,
+  selectedLayer: state.selectedLayer,
+  cutPoints: state.cutPoints,
+  timelineLayers: state.timelineLayers,
+  setRazorToolActive: state.setRazorToolActive,
+  setSelectedLayer: state.setSelectedLayer,
+  setCutPoints: state.setCutPoints,
+  addCutPoint: state.addCutPoint,
+  removeCutPoint: state.removeCutPoint,
+  setTimelineLayers: state.setTimelineLayers
+}))
+
+// Hook para estado das ferramentas
+export const useToolsState = () => useVideoEditorStore(state => ({
+  razorToolActive: state.razorToolActive,
+  selectedLayer: state.selectedLayer,
+  activeEffects: state.activeEffects
+}))
+
+// Hook para ações das ferramentas
+export const useToolsActions = () => useVideoEditorStore(state => ({
+  setRazorToolActive: state.setRazorToolActive,
+  setSelectedLayer: state.setSelectedLayer,
+  setActiveEffects: state.setActiveEffects,
+  addEffect: state.addEffect,
+  removeEffect: state.removeEffect
+}))
+
+// Hook para navegação e UI
+export const useNavigation = () => useVideoEditorStore(state => ({
+  mobileView: state.mobileView,
+  leftSidebarOpen: state.leftSidebarOpen,
+  rightSidebarOpen: state.rightSidebarOpen,
+  galleryModalOpen: state.galleryModalOpen,
+  activeGalleryTab: state.activeGalleryTab,
+  setMobileView: state.setMobileView,
+  setLeftSidebarOpen: state.setLeftSidebarOpen,
+  setRightSidebarOpen: state.setRightSidebarOpen,
+  setGalleryModalOpen: state.setGalleryModalOpen,
+  setActiveGalleryTab: state.setActiveGalleryTab
+}))
+
+// Hook para sistema de comandos
+export const useCommandSystem = () => useVideoEditorStore(state => ({
+  canUndo: state.canUndo,
+  canRedo: state.canRedo,
+  lastCommand: state.lastCommand,
+  setCanUndo: state.setCanUndo,
+  setCanRedo: state.setCanRedo,
+  setLastCommand: state.setLastCommand
 }))
 
 console.log('🏪 VideoEditor Store COMPLETO criado com sucesso!') 

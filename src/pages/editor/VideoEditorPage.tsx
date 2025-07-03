@@ -55,7 +55,9 @@ import {
   useUIState,
   useTranscription,
   useEffects,
-  useCommands
+  useCommands,
+  useCaptionSync,
+  useCaptionSyncActions
 } from '../../stores/videoEditorStore'
 import { Caption } from '../../types/caption.types'
 
@@ -176,6 +178,18 @@ export function VideoEditorPage() {
   const storeTranscription = useTranscription()
   const { activeEffects: storeActiveEffects, addEffect: storeAddEffect, removeEffect: storeRemoveEffect } = useEffects()
   const { canUndo: storeCanUndo, canRedo: storeCanRedo, lastCommand: storeLastCommand } = useCommands()
+  const { 
+    captionSyncAccuracy, 
+    adaptiveSync, 
+    audioAnalysisEnabled, 
+    captionSmoothTransitions, 
+    captionWordThreshold,
+    captionAutoAdjust, 
+    realTimePreview, 
+    syncOffsetHistory, 
+    lastSyncTimestamp,
+    captionDelayOffset
+  } = useCaptionSync()
   
   // 🏪 ZUSTAND ACTIONS
   const storeSetVideoData = useVideoEditorStore(state => state.setVideoData)
@@ -434,11 +448,11 @@ export function VideoEditorPage() {
     // Estado inicial
     updateCommandStates()
 
-    // Listener para mudanças
-    commandManager.addListener(updateCommandStates)
+    // Atualizar periodicamente (polling simples)
+    const interval = setInterval(updateCommandStates, 100)
 
     return () => {
-      commandManager.removeListener(updateCommandStates)
+      clearInterval(interval)
     }
   }, [])
 
@@ -463,17 +477,14 @@ export function VideoEditorPage() {
     }
 
     // Inicializar camada principal do vídeo
-    const videoLayer: TimelineLayer = {
+    const videoLayer = {
       id: 'main-video',
-      type: 'video',
+      type: 'video' as const,
       name: videoData.name,
-      start: 0,
-      duration: videoData.duration || 60,
-      data: { url: videoData.url },
-      color: '#3B82F6',
-      locked: false,
       visible: true,
-      items: []
+      items: [],
+      color: '#3B82F6',
+      locked: false
     }
     
     storeSetTimelineLayers([videoLayer])
@@ -569,21 +580,18 @@ export function VideoEditorPage() {
   // Adicionar vídeo à timeline quando carregado
   useEffect(() => {
     if (videoData && duration > 0 && storeTimelineLayers.length === 0) {
-      const videoLayer: TimelineLayer = {
-        id: `video_${Date.now()}`,
-        type: 'video',
+      const videoLayer = {
+        id: 'main-video',
+        type: 'video' as const,
         name: videoData.name || 'Video Principal',
-        start: 0,
-        duration: duration,
-        data: videoData as unknown as Record<string, unknown>,
-        color: '#3b82f6',
-        locked: false,
         visible: true,
-        items: []
+        items: [],
+        color: '#3b82f6',
+        locked: false
       }
       
       storeSetTimelineLayers([videoLayer])
-      console.log('�� Vídeo adicionado à timeline:', videoLayer.name)
+      console.log(' Vídeo adicionado à timeline:', videoLayer.name)
     }
   }, [videoData, duration])
 
@@ -810,17 +818,14 @@ export function VideoEditorPage() {
   // Função para inicializar layers padrão
   const initializeDefaultLayers = () => {
     if (storeTimelineLayers.length === 0 && videoData) {
-      const defaultLayer: TimelineLayer = {
-        id: 'main_video_layer',
-        type: 'video',
-        name: videoData.name || 'Vídeo Principal',
-        start: 0,
-        duration: duration || 30,
-        data: videoData as unknown as Record<string, unknown>,
-        color: '#3b82f6',
-        locked: false,
+      const defaultLayer = {
+        id: 'default-layer',
+        type: 'video' as const,
+        name: 'Video Principal',
         visible: true,
-        items: []
+        items: [],
+        color: '#3B82F6',
+        locked: false
       }
       storeSetTimelineLayers([defaultLayer])
     }
@@ -1887,10 +1892,10 @@ export function VideoEditorPage() {
       start: startTime,
       end: endTime,
       confidence: avgConfidence
+          }
     }
-  }
-
-  return (
+    
+    return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
       <div className="header-visionario bg-black/20 backdrop-blur-xl border-b border-white/10 p-4 flex items-center justify-between shadow-2xl" style={{ height: '60px' }}>
@@ -2172,8 +2177,21 @@ export function VideoEditorPage() {
               }}
               razorToolActive={storeRazorToolActive !== undefined ? storeRazorToolActive : razorToolActive}
               setRazorToolActive={storeSetRazorToolActive || setRazorToolActive}
-              timelineLayers={storeTimelineLayers.length > 0 ? storeTimelineLayers : timelineLayers}
-              setTimelineLayers={storeSetTimelineLayers || setTimelineLayers}
+              timelineLayers={storeTimelineLayers.length > 0 ? storeTimelineLayers.map(layer => ({
+                ...layer,
+                type: layer.type === 'subtitle' ? 'text' as const : 
+                      layer.type === 'overlay' ? 'effect' as const : 
+                      layer.type as 'video' | 'audio'
+              })) : []}
+              setTimelineLayers={(layers) => {
+                const convertedLayers = layers.map(layer => ({
+                  ...layer,
+                  type: layer.type === 'text' ? 'subtitle' as const : 
+                        layer.type === 'effect' ? 'overlay' as const : 
+                        layer.type as 'video' | 'audio'
+                }));
+                storeSetTimelineLayers(convertedLayers);
+              }}
               cutPoints={storeCutPoints.length > 0 ? storeCutPoints : cutPoints}
               setCutPoints={storeSetCutPoints || setCutPoints}
               onPreviewClip={undefined}

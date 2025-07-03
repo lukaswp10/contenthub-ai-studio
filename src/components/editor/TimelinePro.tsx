@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '../ui/button';
 import './TimelinePro.css';
-import { commandManager, RazorCutCommand, TrimCommand } from '../../utils/commandManager';
+import { commandManager } from '../../utils/commandManager';
+import EditingTools from '../../utils/editingTools';
 import { formatTime, formatTimeToSRT } from '../../utils/timeUtils';
 
 interface TimelineProProps {
@@ -330,16 +331,16 @@ const TimelinePro: React.FC<TimelineProProps> = ({
     }
 
     // ✅ USAR COMANDO para undo/redo
-    const razorCommand = new RazorCutCommand(
-      time,
-      timelineLayers,
-      cutPoints,
-      setTimelineLayers,
-      setCutPoints
-    );
-
     try {
-      commandManager.executeCommand(razorCommand);
+      // Criar ponto de corte
+      const newCutPoint = {
+        id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        time: time,
+        type: 'cut' as const
+      };
+      
+      // Aplicar corte
+      setCutPoints([...cutPoints, newCutPoint]);
       
       // Callback para o componente pai
       onCut(time);
@@ -435,21 +436,11 @@ const TimelinePro: React.FC<TimelineProProps> = ({
 
     // ✅ USAR COMANDO para undo/redo (apenas se houve mudança significativa)
     if (Math.abs(currentValue - dragData.originalValue) > 0.05) { // Margem de 50ms
-      const trimCommand = new TrimCommand(
-        dragData.layerId,
-        dragData.type,
-        dragData.originalValue,
-        currentValue,
-        timelineLayers,
-        setTimelineLayers
-      );
-
       try {
-        // Aplicar comando (já foi aplicado visualmente, agora formalizar)
-        commandManager.executeCommand(trimCommand);
-        console.log(`📐 Comando trim criado: ${trimCommand.description}`);
+        // Log da operação de trim
+        console.log(`📐 Trim aplicado: ${dragData.type} de ${formatTime(dragData.originalValue)} para ${formatTime(currentValue)}`);
       } catch (error) {
-        console.error('❌ Erro ao criar comando de trim:', error);
+        console.error('❌ Erro ao aplicar trim:', error);
         // Reverter para valor original em caso de erro
         const revertedLayers = timelineLayers.map(l => {
           if (l.id === dragData.layerId && isValidLayer(l)) {
@@ -1559,7 +1550,7 @@ const TimelinePro: React.FC<TimelineProProps> = ({
                     ? 'bg-white/5 hover:bg-green-600/20 text-gray-300 hover:text-green-300 border-0 hover:border-green-500/50' 
                     : 'bg-white/2 text-gray-600 border-0 cursor-not-allowed'
                 }`}
-                title={`Desfazer ${commandManager.getLastCommand()?.description || ''} (Ctrl+Z)`}
+                title="Desfazer (Ctrl+Z)"
               >
                 <span className="mr-1">↩️</span>
                 Undo

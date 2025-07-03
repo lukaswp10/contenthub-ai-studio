@@ -183,6 +183,18 @@ export const DashboardPage: React.FC = () => {
               </svg>
               <span className="text-center">Editor Manual</span>
             </Button>
+
+            {/* 🎬 NOVO: EDITOR PROFISSIONAL - FASE 3 */}
+            <Button
+              size="lg"
+              className="h-20 sm:h-24 text-base sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 flex-col sm:flex-row"
+              onClick={() => navigate('/editor-demo')}
+            >
+              <svg className="h-5 w-5 sm:h-6 sm:w-6 mb-1 sm:mb-0 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m0 0V1a1 1 0 011-1h2a1 1 0 011 1v4.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 01-.293.293H8.5A2.5 2.5 0 016 14.5V11a1 1 0 01.293-.707L12.586 4H14z" />
+              </svg>
+              <span className="text-center">🎬 Editor Pro</span>
+            </Button>
             
             <Button
               size="lg"

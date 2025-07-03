@@ -1,340 +1,280 @@
-// 🔄 COMMAND MANAGER - Sistema Undo/Redo Profissional
-// Baseado no Command Pattern para operações atômicas
+/**
+ * 🎬 COMMAND MANAGER - ClipsForge Pro
+ * 
+ * Sistema profissional de comandos para undo/redo
+ * Implementa Command Pattern com merge de comandos
+ * 
+ * @version 1.0.0
+ * @author ClipsForge Team
+ */
 
-export interface Command {
-  execute(): void;
-  undo(): void;
-  redo?(): void;
-  description: string;
-  timestamp: number;
-  id: string;
-}
+import { 
+  EditorCommand, 
+  CommandHistory,
+  CutOperation,
+  TrimOperation,
+  SplitOperation,
+  MoveOperation,
+  DeleteOperation
+} from '../types/video-editor';
 
-export interface TimelineLayer {
-  id: string;
-  name: string;
-  type: 'video' | 'audio' | 'text' | 'effect';
-  visible: boolean;
-  color: string;
-  locked: boolean;
-  items: Record<string, unknown>[];
-  start?: number;
-  duration?: number;
-  data?: Record<string, unknown>;
-}
-
-export interface CutPoint {
-  id: string;
-  time: number;
-  type: 'cut' | 'split';
-}
+// ===== COMMAND MANAGER =====
 
 export class CommandManager {
-  private undoStack: Command[] = [];
-  private redoStack: Command[] = [];
-  private maxHistorySize: number = 50;
-  private listeners: ((manager: CommandManager) => void)[] = [];
-
-  // 🎯 Executar comando com undo/redo
-  executeCommand(command: Command): void {
-    console.log(`⚡ Executando comando: ${command.description}`);
-    
+  private history: CommandHistory;
+  private listeners: ((history: CommandHistory) => void)[] = [];
+  
+  constructor(maxHistorySize: number = 50) {
+    this.history = {
+      commands: [],
+      currentIndex: -1,
+      maxHistorySize,
+      canUndo: false,
+      canRedo: false
+    };
+  }
+  
+  // ===== EXECUTE COMMAND =====
+  
+  executeCommand(command: EditorCommand): void {
     try {
+      // Execute the command
       command.execute();
       
-      // Adicionar ao stack de undo
-      this.undoStack.push(command);
-      
-      // Limpar stack de redo (nova ação invalida o redo)
-      this.redoStack = [];
-      
-      // Limitar tamanho do histórico
-      if (this.undoStack.length > this.maxHistorySize) {
-        this.undoStack.shift();
-      }
-      
-      // Notificar listeners
-      this.notifyListeners();
-      
-      console.log(`✅ Comando executado: ${command.description}`);
-      console.log(`📚 Histórico: ${this.undoStack.length} undo, ${this.redoStack.length} redo`);
-      
-    } catch (error) {
-      console.error(`❌ Erro ao executar comando: ${command.description}`, error);
-    }
-  }
-
-  // ↩️ Desfazer última ação
-  undo(): boolean {
-    if (this.undoStack.length === 0) {
-      console.log('⚠️ Nada para desfazer');
-      return false;
-    }
-
-    const command = this.undoStack.pop()!;
-    console.log(`↩️ Desfazendo: ${command.description}`);
-
-    try {
-      command.undo();
-      this.redoStack.push(command);
-      this.notifyListeners();
-      
-      console.log(`✅ Desfeito: ${command.description}`);
-      return true;
-    } catch (error) {
-      console.error(`❌ Erro ao desfazer: ${command.description}`, error);
-      // Recolocar no stack em caso de erro
-      this.undoStack.push(command);
-      return false;
-    }
-  }
-
-  // ↪️ Refazer última ação desfeita
-  redo(): boolean {
-    if (this.redoStack.length === 0) {
-      console.log('⚠️ Nada para refazer');
-      return false;
-    }
-
-    const command = this.redoStack.pop()!;
-    console.log(`↪️ Refazendo: ${command.description}`);
-
-    try {
-      // Usar redo() se existir, senão execute()
-      if (command.redo) {
-        command.redo();
+      // Try to merge with previous command if possible
+      const lastCommand = this.getLastCommand();
+      if (lastCommand && lastCommand.canMerge && lastCommand.canMerge(command)) {
+        // Merge commands
+        const mergedCommand = lastCommand.merge!(command);
+        this.history.commands[this.history.currentIndex] = mergedCommand;
       } else {
-        command.execute();
+        // Add new command
+        this.addCommand(command);
       }
       
-      this.undoStack.push(command);
+      this.updateHistoryState();
       this.notifyListeners();
       
-      console.log(`✅ Refeito: ${command.description}`);
+      console.log('🎬 Command executed:', command.type, command.description);
+    } catch (error) {
+      console.error('❌ Command execution failed:', error);
+      throw error;
+    }
+  }
+  
+  // ===== UNDO =====
+  
+  undo(): boolean {
+    if (!this.canUndo()) return false;
+    
+    try {
+      const command = this.history.commands[this.history.currentIndex];
+      command.undo();
+      this.history.currentIndex--;
+      
+      this.updateHistoryState();
+      this.notifyListeners();
+      
+      console.log('↩️ Undo:', command.type, command.description);
       return true;
     } catch (error) {
-      console.error(`❌ Erro ao refazer: ${command.description}`, error);
-      // Recolocar no stack em caso de erro
-      this.redoStack.push(command);
+      console.error('❌ Undo failed:', error);
       return false;
     }
   }
-
-  // 📚 Informações do histórico
-  getHistory(): { undo: Command[], redo: Command[] } {
-    return {
-      undo: [...this.undoStack],
-      redo: [...this.redoStack]
-    };
-  }
-
-  // 🔔 Sistema de listeners para UI
-  addListener(listener: (manager: CommandManager) => void): void {
-    this.listeners.push(listener);
-  }
-
-  removeListener(listener: (manager: CommandManager) => void): void {
-    const index = this.listeners.indexOf(listener);
-    if (index > -1) {
-      this.listeners.splice(index, 1);
+  
+  // ===== REDO =====
+  
+  redo(): boolean {
+    if (!this.canRedo()) return false;
+    
+    try {
+      this.history.currentIndex++;
+      const command = this.history.commands[this.history.currentIndex];
+      command.execute();
+      
+      this.updateHistoryState();
+      this.notifyListeners();
+      
+      console.log('↪️ Redo:', command.type, command.description);
+      return true;
+    } catch (error) {
+      console.error('❌ Redo failed:', error);
+      this.history.currentIndex--;
+      return false;
     }
   }
-
+  
+  // ===== HELPERS =====
+  
+  private addCommand(command: EditorCommand): void {
+    // Remove any commands after current index (for new branch)
+    this.history.commands = this.history.commands.slice(0, this.history.currentIndex + 1);
+    
+    // Add new command
+    this.history.commands.push(command);
+    this.history.currentIndex++;
+    
+    // Trim history if too large
+    if (this.history.commands.length > this.history.maxHistorySize) {
+      this.history.commands.shift();
+      this.history.currentIndex--;
+    }
+  }
+  
+  /**
+   * Get the last executed command
+   */
+  public getLastCommand(): EditorCommand | null {
+    if (this.history.commands.length === 0) return null;
+    return this.history.commands[this.history.currentIndex - 1] || null;
+  }
+  
+  private updateHistoryState(): void {
+    this.history.canUndo = this.history.currentIndex >= 0;
+    this.history.canRedo = this.history.currentIndex < this.history.commands.length - 1;
+  }
+  
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this));
+    this.listeners.forEach(listener => listener(this.history));
   }
-
-  // 🧹 Limpar histórico
-  clear(): void {
-    this.undoStack = [];
-    this.redoStack = [];
-    this.notifyListeners();
-    console.log('🧹 Histórico limpo');
-  }
-
-  // 📊 Status do manager
+  
+  // ===== PUBLIC API =====
+  
   canUndo(): boolean {
-    return this.undoStack.length > 0;
+    return this.history.canUndo;
   }
-
+  
   canRedo(): boolean {
-    return this.redoStack.length > 0;
+    return this.history.canRedo;
   }
-
-  getLastCommand(): Command | null {
-    return this.undoStack[this.undoStack.length - 1] || null;
+  
+  getHistory(): CommandHistory {
+    return { ...this.history };
   }
-}
-
-// 🎬 COMANDO: Corte com Razor
-export class RazorCutCommand implements Command {
-  public id: string;
-  public timestamp: number;
-  public description: string;
-
-  private cutTime: number;
-  private originalLayers: TimelineLayer[];
-  private newLayers: TimelineLayer[];
-  private affectedLayerIds: string[];
-  private setTimelineLayers: (layers: TimelineLayer[]) => void;
-  private setCutPoints: (points: CutPoint[]) => void;
-  private originalCutPoints: CutPoint[];
-  private newCutPoint: CutPoint;
-
-  constructor(
-    cutTime: number,
-    timelineLayers: TimelineLayer[],
-    cutPoints: CutPoint[],
-    setTimelineLayers: (layers: TimelineLayer[]) => void,
-    setCutPoints: (points: CutPoint[]) => void
-  ) {
-    this.id = `razor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    this.timestamp = Date.now();
-    this.cutTime = cutTime;
-    this.originalLayers = [...timelineLayers];
-    this.originalCutPoints = [...cutPoints];
-    this.setTimelineLayers = setTimelineLayers;
-    this.setCutPoints = setCutPoints;
-    this.affectedLayerIds = [];
-    this.newLayers = [];
-    
-    this.description = `Corte Razor em ${this.formatTime(cutTime)}`;
-
-    this.newCutPoint = {
-      id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      time: cutTime,
-      type: 'cut'
+  
+  clear(): void {
+    this.history.commands = [];
+    this.history.currentIndex = -1;
+    this.updateHistoryState();
+    this.notifyListeners();
+  }
+  
+  onHistoryChange(listener: (history: CommandHistory) => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      const index = this.listeners.indexOf(listener);
+      if (index > -1) {
+        this.listeners.splice(index, 1);
+      }
     };
   }
+}
 
-  execute(): void {
-    // Encontrar layers afetados
-    const affectedLayers = this.originalLayers.filter(layer => 
-      layer.start !== undefined && 
-      layer.duration !== undefined &&
-      this.cutTime > layer.start && 
-      this.cutTime < (layer.start + layer.duration) && 
-      !layer.locked
-    );
+// ===== COMMAND FACTORY =====
 
-    if (affectedLayers.length === 0) {
-      throw new Error('Nenhum layer encontrado para corte');
-    }
-
-    this.affectedLayerIds = affectedLayers.map(l => l.id);
-    
-    // Criar novos layers
-    const newLayers: TimelineLayer[] = [];
-    const remainingLayers = this.originalLayers.filter(layer => !affectedLayers.includes(layer));
-
-    affectedLayers.forEach(layer => {
-      if (layer.start === undefined || layer.duration === undefined) return;
-      
-      const cutTime = this.cutTime - layer.start;
-      
-      if (cutTime > 0.1 && cutTime < layer.duration - 0.1) {
-        // Primeira parte
-        const firstPart: TimelineLayer = {
-          ...layer,
-          id: `${layer.id}_part1_${Date.now()}`,
-          duration: cutTime,
-          name: `${layer.name} (1/2)`
+export class CommandFactory {
+  static createCutCommand(
+    operation: CutOperation,
+    executeCallback: () => void,
+    undoCallback: () => void
+  ): EditorCommand {
+    return {
+      id: `cut-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'cut',
+      description: `Cut item at ${operation.cutTime}s`,
+      timestamp: Date.now(),
+      execute: executeCallback,
+      undo: undoCallback
+    };
+  }
+  
+  static createTrimCommand(
+    operation: TrimOperation,
+    executeCallback: () => void,
+    undoCallback: () => void
+  ): EditorCommand {
+    return {
+      id: `trim-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'trim',
+      description: `Trim ${operation.trimType} to ${operation.newTime}s`,
+      timestamp: Date.now(),
+      execute: executeCallback,
+      undo: undoCallback,
+      canMerge: (other) => {
+        return other.type === 'trim' && 
+               other.description.includes(operation.itemId) &&
+               Date.now() - other.timestamp < 1000; // 1 second merge window
+      },
+      merge: (other) => {
+        return {
+          ...other,
+          description: `Trim ${operation.trimType} (merged)`,
+          timestamp: Date.now()
         };
-
-        // Segunda parte  
-        const secondPart: TimelineLayer = {
-          ...layer,
-          id: `${layer.id}_part2_${Date.now()}`,
-          start: this.cutTime,
-          duration: layer.duration - cutTime,
-          name: `${layer.name} (2/2)`
-        };
-
-        newLayers.push(firstPart, secondPart);
       }
-    });
-
-    this.newLayers = [...remainingLayers, ...newLayers];
-    
-    // Aplicar mudanças
-    this.setTimelineLayers(this.newLayers);
-    this.setCutPoints([...this.originalCutPoints, this.newCutPoint]);
+    };
   }
-
-  undo(): void {
-    // Restaurar estado original
-    this.setTimelineLayers(this.originalLayers);
-    this.setCutPoints(this.originalCutPoints);
+  
+  static createSplitCommand(
+    operation: SplitOperation,
+    executeCallback: () => void,
+    undoCallback: () => void
+  ): EditorCommand {
+    return {
+      id: `split-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'split',
+      description: `Split item at ${operation.splitTime}s`,
+      timestamp: Date.now(),
+      execute: executeCallback,
+      undo: undoCallback
+    };
   }
-
-  private formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  
+  static createMoveCommand(
+    operation: MoveOperation,
+    executeCallback: () => void,
+    undoCallback: () => void
+  ): EditorCommand {
+    return {
+      id: `move-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'move',
+      description: `Move item from ${operation.fromTime}s to ${operation.toTime}s`,
+      timestamp: Date.now(),
+      execute: executeCallback,
+      undo: undoCallback,
+      canMerge: (other) => {
+        return other.type === 'move' && 
+               other.description.includes(operation.itemId) &&
+               Date.now() - other.timestamp < 500; // 500ms merge window for moves
+      },
+      merge: (other) => {
+        return {
+          ...other,
+          description: `Move item (merged)`,
+          timestamp: Date.now()
+        };
+      }
+    };
+  }
+  
+  static createDeleteCommand(
+    operation: DeleteOperation,
+    executeCallback: () => void,
+    undoCallback: () => void
+  ): EditorCommand {
+    return {
+      id: `delete-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'delete',
+      description: `Delete item`,
+      timestamp: Date.now(),
+      execute: executeCallback,
+      undo: undoCallback
+    };
   }
 }
 
-// 🎯 COMANDO: Trim de Clip
-export class TrimCommand implements Command {
-  public id: string;
-  public timestamp: number;
-  public description: string;
+// ===== GLOBAL INSTANCE =====
 
-  private layerId: string;
-  private trimType: 'start' | 'end';
-  private oldValue: number;
-  private newValue: number;
-  private originalLayers: TimelineLayer[];
-  private setTimelineLayers: (layers: TimelineLayer[]) => void;
-
-  constructor(
-    layerId: string,
-    trimType: 'start' | 'end',
-    oldValue: number,
-    newValue: number,
-    timelineLayers: TimelineLayer[],
-    setTimelineLayers: (layers: TimelineLayer[]) => void
-  ) {
-    this.id = `trim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    this.timestamp = Date.now();
-    this.layerId = layerId;
-    this.trimType = trimType;
-    this.oldValue = oldValue;
-    this.newValue = newValue;
-    this.originalLayers = [...timelineLayers];
-    this.setTimelineLayers = setTimelineLayers;
-    
-    const layer = timelineLayers.find(l => l.id === layerId);
-    this.description = `Trim ${trimType} do "${layer?.name || 'clip'}" para ${this.formatTime(newValue)}`;
-  }
-
-  execute(): void {
-    const updatedLayers = this.originalLayers.map(layer => {
-      if (layer.id === this.layerId && layer.start !== undefined && layer.duration !== undefined) {
-        if (this.trimType === 'start') {
-          const newDuration = (layer.start + layer.duration) - this.newValue;
-          return { ...layer, start: this.newValue, duration: newDuration };
-        } else {
-          const newDuration = this.newValue - layer.start;
-          return { ...layer, duration: newDuration };
-        }
-      }
-      return layer;
-    });
-
-    this.setTimelineLayers(updatedLayers);
-  }
-
-  undo(): void {
-    this.setTimelineLayers(this.originalLayers);
-  }
-
-  private formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-}
-
-// 📦 Instância global do CommandManager
-export const commandManager = new CommandManager(); 
+export const commandManager = new CommandManager();
+export default commandManager; 
