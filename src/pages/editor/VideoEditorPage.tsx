@@ -39,6 +39,7 @@ import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
 import { formatTime, formatTimeAgo } from '../../utils/timeUtils'
 import { CacheStats } from '../../components/editor/CacheStats'
 import ApiKeyManager from '../../components/editor/ApiKeyManager'
+import { SystemMonitor } from '../../components/dashboard/SystemMonitor'
 
 // 🏪 ZUSTAND IMPORTS - MIGRAÇÃO FASE 3
 import { 
@@ -346,6 +347,7 @@ export function VideoEditorPage() {
   const [captionStyle, setCaptionStyle] = useState<'tiktok' | 'youtube' | 'instagram' | 'podcast'>('tiktok')
   const [cacheStatsOpen, setCacheStatsOpen] = useState(false)
   const [apiKeyManagerOpen, setApiKeyManagerOpen] = useState(false)
+  const [systemMonitorOpen, setSystemMonitorOpen] = useState(false)
   
   // Variáveis temporárias para corrigir erros
   const timelineZoom = 1
@@ -1643,6 +1645,15 @@ export function VideoEditorPage() {
           >
             🔐 API Keys
           </Button>
+
+          {/* BOTÃO MONITOR DO SISTEMA - FASE 3 */}
+          <Button
+            onClick={() => setSystemMonitorOpen(true)}
+            className="monitor-btn bg-gradient-to-r from-orange-600/80 to-red-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
+            title="Monitoramento do Sistema em Tempo Real"
+          >
+            📊 Monitor
+          </Button>
         </div>
 
         {/* ÁREA PRINCIPAL - Vídeo + Sidebar */}
@@ -2670,6 +2681,12 @@ export function VideoEditorPage() {
             console.log(`✅ ${provider} configurado com sucesso!`)
           }
         }}
+      />
+
+      {/* ✅ SYSTEM MONITOR MODAL - FASE 3 */}
+      <SystemMonitor 
+        isOpen={systemMonitorOpen}
+        onClose={() => setSystemMonitorOpen(false)}
       />
     </div>
   )

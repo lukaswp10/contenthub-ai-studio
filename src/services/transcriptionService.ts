@@ -1,6 +1,7 @@
 import { AssemblyAI } from 'assemblyai'
 import { transcriptionCache, type CachedTranscription } from './transcription/cache.service'
 import { configService } from './security/config.service'
+import { intelligentFallback, type FallbackResult } from './fallback'
 
 export interface TranscriptionWord {
   text: string
@@ -491,7 +492,7 @@ class TranscriptionService {
     })
   }
 
-  // ➕ MÉTODO PRINCIPAL com suporte a 3 serviços + CACHE INTELIGENTE
+  // ➕ MÉTODO PRINCIPAL com FALLBACK INTELIGENTE - FASE 3
   async transcribe(
     videoFile: File,
     onProgress: (status: string) => void,
@@ -537,56 +538,86 @@ class TranscriptionService {
       onProgress('⚠️ Cache indisponível, processando normalmente...')
     }
 
-    // Tentativa com provedor escolhido
+    // ✅ FASE 3: FALLBACK INTELIGENTE com Circuit Breaker
     try {
-      let result: TranscriptionResult
-      
-      switch (provider) {
-        case 'whisper':
+      console.log('🚀 TRANSCRIBE: Usando sistema de fallback inteligente')
+      onProgress('🧠 Iniciando fallback inteligente...')
+
+      // Configurar operações para cada provedor
+      const operations = {
+        openai: async () => {
           if (!this.openaiApiKey) {
             throw new Error('Configure OpenAI API Key para usar Whisper')
           }
-          console.log('🎯 TRANSCRIBE: Chamando Whisper...')
-          onProgress('🎯 Iniciando OpenAI Whisper (Melhor qualidade)...')
-          result = await this.transcribeWithWhisper(videoFile, onProgress)
-          break
-          
-        case 'assemblyai':
+          onProgress('🎯 OpenAI Whisper (Melhor qualidade)...')
+          return await this.transcribeWithWhisper(videoFile, onProgress)
+        },
+        
+        assemblyai: async () => {
           if (!this.apiKey || !this.assemblyAI) {
             throw new Error('Configure AssemblyAI API Key primeiro')
           }
-          console.log('🤖 TRANSCRIBE: Chamando AssemblyAI...')
-          onProgress('🤖 Iniciando AssemblyAI (Rápido e confiável)...')
-          result = await this.transcribeWithAssemblyAI(videoFile, onProgress)
-          break
-          
-        case 'webspeech':
-          console.log('🎤 TRANSCRIBE: Chamando Web Speech...')
-          onProgress('🎤 Iniciando Web Speech API (Grátis, microfone)...')
-          result = await this.transcribeWithWebSpeech(videoFile, onProgress)
-          break
-          
-        default:
-          throw new Error(`Provedor não suportado: ${provider}`)
+          onProgress('🤖 AssemblyAI (Rápido e confiável)...')
+          return await this.transcribeWithAssemblyAI(videoFile, onProgress)
+        },
+        
+        webspeech: async () => {
+          onProgress('🎤 Web Speech API (Grátis, microfone)...')
+          return await this.transcribeWithWebSpeech(videoFile, onProgress)
+        }
       }
-      
-      console.log('✅ TRANSCRIBE: Sucesso com provider principal!')
+
+      // Executar com fallback inteligente
+      const fallbackResult: FallbackResult<TranscriptionResult> = await intelligentFallback.executeWithFallback(
+        operations,
+        provider === 'whisper' ? ['openai', 'assemblyai', 'webspeech'] :
+        provider === 'assemblyai' ? ['assemblyai', 'openai', 'webspeech'] :
+        ['webspeech', 'openai', 'assemblyai']
+      )
+
+      const result = fallbackResult.result
+      const usedProvider = fallbackResult.providerId
+      const attempts = fallbackResult.attempts
+      const fallbackUsed = fallbackResult.fallbackUsed
+
+      console.log('✅ TRANSCRIBE: Sucesso com fallback inteligente!')
       console.log('📊 TRANSCRIBE: Resultado:', {
+        provider: usedProvider,
+        attempts,
+        fallbackUsed,
         words: result.words?.length || 0,
         text: result.text?.substring(0, 100) + '...',
         confidence: result.confidence,
         language: result.language
       })
+
+      // Mostrar progresso do fallback
+      if (fallbackUsed) {
+        onProgress(`✅ Sucesso com ${usedProvider} (${attempts} tentativas)`)
+      } else {
+        onProgress(`✅ Sucesso direto com ${usedProvider}`)
+      }
       
       // ✅ SALVAR NO CACHE INTELIGENTE
       try {
         console.log('💾 CACHE: Salvando transcrição para futuras consultas...')
         onProgress('💾 Salvando no cache inteligente...')
         
-        // Calcular custo estimado
-        const estimatedCost = this.calculateTranscriptionCost(provider, videoFile.size, result.duration || 0)
+        // Calcular custo estimado baseado no provedor usado
+        const estimatedCost = this.calculateTranscriptionCost(
+          usedProvider === 'openai' ? 'whisper' : 
+          usedProvider === 'assemblyai' ? 'assemblyai' : 'webspeech',
+          videoFile.size, 
+          result.duration || 0
+        )
         
-        await transcriptionCache.saveToCache(videoFile, provider, result, estimatedCost)
+        await transcriptionCache.saveToCache(
+          videoFile, 
+          usedProvider === 'openai' ? 'whisper' : 
+          usedProvider === 'assemblyai' ? 'assemblyai' : 'webspeech',
+          result, 
+          estimatedCost
+        )
         console.log('✅ CACHE: Transcrição salva com sucesso!')
         console.log('💰 ECONOMIA: Próximas consultas serão instantâneas')
       } catch (cacheError) {
@@ -596,44 +627,10 @@ class TranscriptionService {
       return result
       
     } catch (error) {
-      console.error(`❌ TRANSCRIBE: Erro com ${provider}:`, error)
+      console.error('❌ TRANSCRIBE: Falha completa do sistema de fallback:', error)
       
-      // ➕ NOVO: Fallback inteligente baseado no tipo de erro
-      if (provider === 'whisper') {
-        // Se OpenAI falhou por rate limit, tentar AssemblyAI
-        if (error instanceof Error && (error.message.includes('rate') || error.message.includes('429'))) {
-          if (this.apiKey && this.assemblyAI) {
-            console.log('🔄 TRANSCRIBE: Tentando fallback AssemblyAI...')
-            onProgress('⚡ Rate limit OpenAI - Tentando AssemblyAI...')
-            try {
-              const result = await this.transcribeWithAssemblyAI(videoFile, onProgress)
-              console.log('✅ TRANSCRIBE: Sucesso com fallback AssemblyAI!')
-              return result
-            } catch (assemblyError) {
-              console.error('❌ TRANSCRIBE: Erro no fallback AssemblyAI:', assemblyError)
-              // Continuar para próximo fallback
-            }
-          }
-        }
-      }
-      
-      // Se AssemblyAI falhou, tentar Web Speech
-      if (provider === 'assemblyai' || (provider === 'whisper' && useWebSpeechFallback)) {
-        if (useWebSpeechFallback) {
-          console.log('🔄 TRANSCRIBE: Tentando fallback Web Speech...')
-          onProgress(`❌ Erro com ${provider}. Tentando Web Speech...`)
-          try {
-            const result = await this.transcribeWithWebSpeech(videoFile, onProgress)
-            console.log('✅ TRANSCRIBE: Sucesso com fallback Web Speech!')
-            return result
-          } catch (fallbackError) {
-            console.error('❌ TRANSCRIBE: Erro no fallback Web Speech:', fallbackError)
-          }
-        }
-      }
-      
-      // ➅ NOVO: Fallback para dados simulados se tudo falhar
-      console.log('🔄 TRANSCRIBE: Todos os providers falharam - gerando demo...')
+      // ➅ FALLBACK FINAL: Dados simulados
+      console.log('🔄 TRANSCRIBE: Gerando transcrição de demonstração como último recurso...')
       onProgress('🔄 Gerando transcrição de demonstração...')
       const demoResult = this.generateDemoTranscription(videoFile)
       console.log('✅ TRANSCRIBE: Demo gerada:', demoResult)
