@@ -14,12 +14,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { Button } from './ui/button'
-import { captionSyncService, SyncConfig, SpeechAnalysis } from '../services/captionSyncService'
+import { captionSyncService, SyncConfig, SpeechAnalysis, TranscriptionWord } from '../services/captionSyncService'
 
 interface CaptionSyncControlsProps {
   isVisible: boolean
   onClose: () => void
-  words: any[]
+  words: TranscriptionWord[]
   currentTime: number
   onSyncUpdate: (config: SyncConfig) => void
 }
@@ -70,17 +70,22 @@ export const CaptionSyncControls: React.FC<CaptionSyncControlsProps> = ({
   const getOptimizedConfig = (speechAnalysis: SpeechAnalysis): SyncConfig => {
     const currentConfig = { ...config }
     
-    // Ajustar baseado na velocidade de fala
+    // Ajustar baseado na velocidade de fala - sempre conservador
     if (speechAnalysis.speechRate > 3.5) {
-      // Fala rápida
-      currentConfig.wordsPerCaption = Math.max(2, currentConfig.wordsPerCaption - 1)
-      currentConfig.bufferTime = 0.15
-      currentConfig.minDisplayTime = 0.3
+      // Fala rápida - frases muito pequenas e mais tempo
+      currentConfig.wordsPerCaption = 1
+      currentConfig.bufferTime = 0.4
+      currentConfig.minDisplayTime = 0.8
     } else if (speechAnalysis.speechRate < 1.5) {
-      // Fala lenta
-      currentConfig.wordsPerCaption = Math.min(6, currentConfig.wordsPerCaption + 1)
-      currentConfig.bufferTime = 0.3
-      currentConfig.minDisplayTime = 0.6
+      // Fala lenta - frases pequenas com muito tempo
+      currentConfig.wordsPerCaption = 2
+      currentConfig.bufferTime = 0.7
+      currentConfig.minDisplayTime = 1.2
+    } else {
+      // Fala normal - configuração conservadora
+      currentConfig.wordsPerCaption = 2
+      currentConfig.bufferTime = 0.5
+      currentConfig.minDisplayTime = 1.0
     }
     
     // Ajustar para pausas frequentes
@@ -104,37 +109,37 @@ export const CaptionSyncControls: React.FC<CaptionSyncControlsProps> = ({
     switch (presetName) {
       case 'fast':
         presetConfig = {
-          wordsPerCaption: 2,
-          bufferTime: 0.1,
-          minDisplayTime: 0.2,
-          maxDisplayTime: 1.5,
+          wordsPerCaption: 1,
+          bufferTime: 0.3,
+          minDisplayTime: 0.8,
+          maxDisplayTime: 2.0,
           adaptToSpeechRate: true
         }
         break
       case 'normal':
         presetConfig = {
-          wordsPerCaption: 4,
-          bufferTime: 0.2,
-          minDisplayTime: 0.4,
-          maxDisplayTime: 2.5,
+          wordsPerCaption: 2,
+          bufferTime: 0.5,
+          minDisplayTime: 1.0,
+          maxDisplayTime: 3.0,
           adaptToSpeechRate: true
         }
         break
       case 'slow':
         presetConfig = {
-          wordsPerCaption: 6,
-          bufferTime: 0.4,
-          minDisplayTime: 0.8,
+          wordsPerCaption: 3,
+          bufferTime: 0.7,
+          minDisplayTime: 1.5,
           maxDisplayTime: 4.0,
           adaptToSpeechRate: true
         }
         break
       case 'precise':
         presetConfig = {
-          wordsPerCaption: 3,
-          bufferTime: 0.05,
-          minDisplayTime: 0.3,
-          maxDisplayTime: 2.0,
+          wordsPerCaption: 2,
+          bufferTime: 0.4,
+          minDisplayTime: 1.2,
+          maxDisplayTime: 3.5,
           adaptToSpeechRate: false
         }
         break
@@ -452,12 +457,12 @@ export const CaptionSyncControls: React.FC<CaptionSyncControlsProps> = ({
             <div className="flex gap-3">
               <Button
                 onClick={() => {
-                  // Reset para padrões
+                  // Reset para padrões conservadores
                   const defaultConfig: SyncConfig = {
-                    bufferTime: 0.2,
-                    minDisplayTime: 0.4,
-                    maxDisplayTime: 2.5,
-                    wordsPerCaption: 4,
+                    bufferTime: 0.5,
+                    minDisplayTime: 1.0,
+                    maxDisplayTime: 3.5,
+                    wordsPerCaption: 2,
                     adaptToSpeechRate: true,
                     pauseThreshold: 0.8,
                     speedThreshold: 4.0,

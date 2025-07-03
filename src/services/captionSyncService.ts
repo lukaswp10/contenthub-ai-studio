@@ -68,10 +68,10 @@ export class CaptionSyncService {
   
   constructor(config?: Partial<SyncConfig>) {
     this.config = {
-      bufferTime: 0.2,
-      minDisplayTime: 0.4,
-      maxDisplayTime: 2.5,
-      wordsPerCaption: 4,
+      bufferTime: 0.5,
+      minDisplayTime: 1.0,
+      maxDisplayTime: 3.5,
+      wordsPerCaption: 2,
       adaptToSpeechRate: true,
       pauseThreshold: 0.8,
       speedThreshold: 4.0,
@@ -135,10 +135,13 @@ export class CaptionSyncService {
     
     if (speechRate > 3.5) {
       // Fala rápida - menos palavras por legenda
-      recommendedWordsPerCaption = Math.max(2, this.config.wordsPerCaption - 1)
+      recommendedWordsPerCaption = Math.max(1, this.config.wordsPerCaption - 1)
     } else if (speechRate < 1.5) {
-      // Fala lenta - mais palavras por legenda
-      recommendedWordsPerCaption = Math.min(6, this.config.wordsPerCaption + 2)
+      // Fala lenta - manter poucas palavras para melhor legibilidade
+      recommendedWordsPerCaption = Math.max(2, this.config.wordsPerCaption)
+    } else {
+      // Fala normal - usar padrão conservador
+      recommendedWordsPerCaption = Math.max(2, this.config.wordsPerCaption)
     }
     
     const analysis: SpeechAnalysis = {
@@ -354,10 +357,10 @@ export class CaptionSyncService {
   
   private calculateOptimalDisplayDuration(captionWords: TranscriptionWord[], analysis: SpeechAnalysis): number {
     const naturalDuration = captionWords[captionWords.length - 1].end - captionWords[0].start
-    const readingTime = captionWords.length * 0.4 // 400ms por palavra para leitura
+    const readingTime = captionWords.length * 0.8 // 800ms por palavra para leitura confortável
     
-    // Usar o maior entre duração natural e tempo de leitura
-    const optimalDuration = Math.max(naturalDuration, readingTime)
+    // Usar o maior entre duração natural e tempo de leitura, com fator de segurança
+    const optimalDuration = Math.max(naturalDuration * 1.5, readingTime * 1.2)
     
     // Aplicar limites mínimos e máximos
     return Math.max(
