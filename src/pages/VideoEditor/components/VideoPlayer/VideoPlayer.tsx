@@ -9,13 +9,20 @@ import { Caption, CaptionSegment } from '../../../../types/caption.types'
 import { CaptionEditor } from '../../../../components/editor/CaptionEditor'
 import { InlineCaptionEditor } from '../../../../components/editor/InlineCaptionEditor'
 import { CaptionHelp } from '../../../../components/editor/CaptionHelp'
+import { saveEditedCaptions } from '../../../../utils/galleryStorage'
 
 interface VideoPlayerProps {
   // Captions específicas
   currentCaption: Caption | null
   hasTranscription: boolean
   transcriptionWordsCount: number
-  onTestCaptions: () => void
+  
+  // ✅ NOVO: Sistema de legendas originais vs editadas
+  videoId?: string // ID do vídeo para salvar na galeria
+  showingOriginalCaptions?: boolean
+  hasEditedCaptions?: boolean
+  onToggleCaptionMode?: () => void
+  onCaptionEdit?: (captions: any[]) => void // Callback quando legenda é editada
   
   // ✅ NOVO: Estilos de legenda em tempo real
   captionStyling?: {
@@ -38,7 +45,11 @@ export const VideoPlayer = memo(({
   currentCaption,
   hasTranscription,
   transcriptionWordsCount,
-  onTestCaptions,
+  videoId,
+  showingOriginalCaptions,
+  hasEditedCaptions,
+  onToggleCaptionMode,
+  onCaptionEdit,
   captionStyling: customCaptionStyling,
   canvasRef
 }: VideoPlayerProps) => {
@@ -83,6 +94,12 @@ export const VideoPlayer = memo(({
     
     // Atualizar as legendas no store Zustand
     setGeneratedCaptions(updatedCaptions)
+    
+    // ✅ SALVAMENTO AUTOMÁTICO: Salvar na galeria se tiver videoId
+    if (videoId && onCaptionEdit) {
+      saveEditedCaptions(videoId, updatedCaptions)
+      onCaptionEdit(updatedCaptions)
+    }
   }
   
   // 🏪 Zustand hooks para state management
@@ -272,7 +289,9 @@ export const VideoPlayer = memo(({
         onToggleCaptions={toggleCaptionsVisibility}
         hasTranscription={hasTranscription}
         transcriptionWordsCount={transcriptionWordsCount}
-        onTestCaptions={onTestCaptions}
+        showingOriginalCaptions={showingOriginalCaptions}
+        hasEditedCaptions={hasEditedCaptions}
+        onToggleCaptionMode={onToggleCaptionMode}
         onToggleSyncControls={() => setSyncControlsVisible(!syncControlsVisible)}
         syncControlsVisible={syncControlsVisible}
         // ➕ FASE 1: Passar funções do hook para controle direto do vídeo

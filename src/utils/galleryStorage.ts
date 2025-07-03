@@ -18,6 +18,13 @@ export interface GalleryVideo {
     provider?: 'whisper' | 'assemblyai' | 'webspeech'
     createdAt?: string
   }
+  // ✅ NOVO: Sistema de legendas originais vs editadas
+  captions?: {
+    original: TranscriptionWord[] // Legendas originais da transcrição
+    edited: TranscriptionWord[] // Legendas editadas pelo usuário
+    hasEdits: boolean // Se tem edições feitas
+    lastEditedAt?: string // Quando foi editado pela última vez
+  }
 }
 
 // ✅ NOVA INTERFACE: Palavra de transcrição
@@ -83,10 +90,7 @@ export const saveVideoToGallery = (videoData: {
       file: undefined // Não salvar o File object no localStorage
     }))))
     
-    console.log('✅ Vídeo salvo na galeria:', newVideo.name)
-    if (videoData.cloudinaryUrl) {
-      console.log('☁️ Vídeo disponível no Cloudinary:', videoData.cloudinaryUrl)
-    }
+    // Vídeo salvo na galeria
   } catch (error) {
     console.error('❌ Erro ao salvar vídeo na galeria:', error)
   }
@@ -123,7 +127,7 @@ export const deleteVideoFromGallery = (videoId: string): void => {
       file: undefined
     }))))
     
-    console.log('✅ Vídeo excluído da galeria:', videoId)
+    // Vídeo excluído da galeria
   } catch (error) {
     console.error('❌ Erro ao excluir vídeo da galeria:', error)
   }
@@ -146,7 +150,7 @@ export const saveClipToGallery = (clipData: Omit<GalleryClip, 'id' | 'createdAt'
       createdAt: clip.createdAt.toISOString()
     }))))
     
-    console.log('✅ Clip salvo na galeria:', newClip.name)
+    // Clip salvo na galeria
   } catch (error) {
     console.error('❌ Erro ao salvar clip na galeria:', error)
   }
@@ -182,7 +186,7 @@ export const deleteClipFromGallery = (clipId: string): void => {
       createdAt: clip.createdAt.toISOString()
     }))))
     
-    console.log('✅ Clip excluído da galeria:', clipId)
+    // Clip excluído da galeria
   } catch (error) {
     console.error('❌ Erro ao excluir clip da galeria:', error)
   }
@@ -224,12 +228,7 @@ export const saveTranscriptionToGallery = (videoId: string, transcription: {
         file: undefined
       }))))
       
-      console.log('✅ Transcrição salva na galeria:', {
-        videoId,
-        palavras: transcription.words.length,
-        provider: transcription.provider
-      })
-      
+      // Transcrição salva na galeria
       return true
     }
     
@@ -262,5 +261,150 @@ export const getTranscriptionFromGallery = (videoId: string) => {
   } catch (error) {
     console.error('❌ Erro ao carregar transcrição:', error)
     return null
+  }
+}
+
+// ✅ NOVAS FUNÇÕES: Sistema de legendas originais vs editadas
+
+// Salvar legendas originais (primeira vez que transcreve)
+export const saveOriginalCaptions = (videoId: string, captions: TranscriptionWord[]): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const videoIndex = videos.findIndex(v => v.id === videoId)
+    
+    if (videoIndex !== -1) {
+      if (!videos[videoIndex].captions) {
+        videos[videoIndex].captions = {
+          original: captions,
+          edited: [...captions], // Cópia inicial
+          hasEdits: false
+        }
+      } else {
+        // Atualizar apenas as originais se já existir
+        const captionsData = videos[videoIndex].captions
+        if (captionsData) {
+          captionsData.original = captions
+          if (!captionsData.hasEdits) {
+            captionsData.edited = [...captions]
+          }
+        }
+      }
+      
+      // Salvar no localStorage
+      localStorage.setItem(GALLERY_VIDEOS_KEY, JSON.stringify(videos.map(video => ({
+        ...video,
+        uploadedAt: video.uploadedAt.toISOString(),
+        file: undefined
+      }))))
+      
+      return true
+    }
+    
+    return false
+  } catch (error) {
+    return false
+  }
+}
+
+// Salvar legendas editadas
+export const saveEditedCaptions = (videoId: string, editedCaptions: TranscriptionWord[]): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const videoIndex = videos.findIndex(v => v.id === videoId)
+    
+    if (videoIndex !== -1) {
+      if (!videos[videoIndex].captions) {
+        // Se não tem legendas ainda, criar com as editadas
+        videos[videoIndex].captions = {
+          original: [...editedCaptions],
+          edited: editedCaptions,
+          hasEdits: false
+        }
+      } else {
+        // Atualizar legendas editadas
+        const captionsData = videos[videoIndex].captions
+        if (captionsData) {
+          captionsData.edited = editedCaptions
+          captionsData.hasEdits = true
+          captionsData.lastEditedAt = new Date().toISOString()
+        }
+      }
+      
+      // Salvar no localStorage
+      localStorage.setItem(GALLERY_VIDEOS_KEY, JSON.stringify(videos.map(video => ({
+        ...video,
+        uploadedAt: video.uploadedAt.toISOString(),
+        file: undefined
+      }))))
+      
+      return true
+    }
+    
+    return false
+  } catch (error) {
+    return false
+  }
+}
+
+// Obter legendas originais
+export const getOriginalCaptions = (videoId: string): TranscriptionWord[] | null => {
+  try {
+    const videos = getGalleryVideos()
+    const video = videos.find(v => v.id === videoId)
+    return video?.captions?.original || null
+  } catch (error) {
+    return null
+  }
+}
+
+// Obter legendas editadas
+export const getEditedCaptions = (videoId: string): TranscriptionWord[] | null => {
+  try {
+    const videos = getGalleryVideos()
+    const video = videos.find(v => v.id === videoId)
+    return video?.captions?.edited || null
+  } catch (error) {
+    return null
+  }
+}
+
+// Verificar se tem edições
+export const hasEditedCaptions = (videoId: string): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const video = videos.find(v => v.id === videoId)
+    return video?.captions?.hasEdits || false
+  } catch (error) {
+    return false
+  }
+}
+
+// Resetar para legendas originais
+export const resetToOriginalCaptions = (videoId: string): boolean => {
+  try {
+    const videos = getGalleryVideos()
+    const videoIndex = videos.findIndex(v => v.id === videoId)
+    
+    if (videoIndex !== -1 && videos[videoIndex].captions) {
+      const captionsData = videos[videoIndex].captions
+      if (captionsData) {
+        captionsData.edited = [...captionsData.original]
+        captionsData.hasEdits = false
+        captionsData.lastEditedAt = undefined
+        
+        // Salvar no localStorage
+        localStorage.setItem(GALLERY_VIDEOS_KEY, JSON.stringify(videos.map(video => ({
+          ...video,
+          uploadedAt: video.uploadedAt.toISOString(),
+          file: undefined
+        }))))
+        
+        return true
+      }
+    }
+    
+    return false
+  } catch (error) {
+    return false
   }
 } 

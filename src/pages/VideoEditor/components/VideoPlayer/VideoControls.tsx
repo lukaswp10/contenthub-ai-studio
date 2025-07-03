@@ -12,8 +12,10 @@ interface VideoControlsProps {
   hasTranscription: boolean
   transcriptionWordsCount: number
   
-  // Teste
-  onTestCaptions: () => void
+  // ✅ NOVO: Sistema de legendas originais vs editadas
+  showingOriginalCaptions?: boolean
+  hasEditedCaptions?: boolean
+  onToggleCaptionMode?: () => void
   
   // ➕ FASE 2: Sincronização
   onToggleSyncControls?: () => void
@@ -36,7 +38,9 @@ export const VideoControls = memo(({
   onToggleCaptions,
   hasTranscription,
   transcriptionWordsCount,
-  onTestCaptions,
+  showingOriginalCaptions,
+  hasEditedCaptions,
+  onToggleCaptionMode,
   onToggleSyncControls,
   syncControlsVisible,
   onPlayClip,
@@ -399,14 +403,18 @@ export const VideoControls = memo(({
             )}
           </div>
           
-          {/* ✅ BOTÃO DE TESTE SIMPLIFICADO */}
-          {hasTranscription && (
+          {/* ✅ BOTÃO TOGGLE ORIGINAL/EDITADA */}
+          {hasTranscription && hasEditedCaptions && onToggleCaptionMode && (
             <Button
-              onClick={onTestCaptions}
-              className="bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-1 text-sm rounded"
-              title="Testar legendas com dados de exemplo"
+              onClick={onToggleCaptionMode}
+              className={`px-3 py-1 text-sm rounded transition-all flex items-center gap-1 ${
+                showingOriginalCaptions 
+                  ? 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-300' 
+                  : 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-300'
+              }`}
+              title={showingOriginalCaptions ? 'Clique para ver legendas editadas' : 'Clique para ver legendas originais'}
             >
-              🧪 Testar
+              {showingOriginalCaptions ? '📄 Original' : '✏️ Editada'}
             </Button>
           )}
         </div>

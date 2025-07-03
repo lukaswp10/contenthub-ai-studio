@@ -900,13 +900,6 @@ export function VideoEditorPage() {
       const syncedCaption = captionSyncService.syncCaptions(wordsArray, storeCurrentTimeData)
       
       if (syncedCaption) {
-        console.log('🎯 Legenda sincronizada inteligentemente:', {
-          text: syncedCaption.text.substring(0, 30) + '...',
-          wordsCount: syncedCaption.words.length,
-          speechRate: syncedCaption.speechRate.toFixed(2) + ' w/s',
-          adaptedTiming: syncedCaption.adaptedTiming
-        })
-        
         return {
           text: syncedCaption.text,
           start: syncedCaption.start,
@@ -921,7 +914,7 @@ export function VideoEditorPage() {
       console.warn('⚠️ Fallback para sistema de legendas clássico:', error)
       
       // ✅ FALLBACK: Sistema clássico se serviço falhar
-      const currentTime = storeCurrentTimeData
+      const currentTime = storeCurrentTime
       
       // Encontrar palavra atual
       const currentWordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
@@ -1038,8 +1031,6 @@ export function VideoEditorPage() {
     const startTime = phraseWords[0]?.start || currentTime
     const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
     const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
-    
-    console.log('🎬 Legenda contínua:', phraseText, `(${phraseWords.length} palavras)`)
     
     return {
       text: phraseText,
@@ -2079,52 +2070,11 @@ export function VideoEditorPage() {
                   captionAnimation
                 }}
                 
-                onTestCaptions={() => {
-                  console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
-                  
-                  // Criar legendas de teste mais robustas
-                  const testCaptions = [
-                    { text: 'TESTE', start: 0, end: 2, confidence: 0.9, highlight: true },
-                    { text: 'LEGENDAS', start: 2, end: 4, confidence: 0.9, highlight: true },
-                    { text: 'FUNCIONANDO', start: 4, end: 6, confidence: 0.9, highlight: true },
-                    { text: 'AGORA!', start: 6, end: 8, confidence: 0.9, highlight: true }
-                  ]
-                  
-                  // ✅ FORÇAR TODOS OS ESTADOS DIRETAMENTE NO STORE
-                  console.log('🔄 Forçando estados no store...')
-                  useVideoEditorStore.setState({
-                    generatedCaptions: testCaptions,
-                    transcriptionResult: { 
-                      words: testCaptions,
-                      text: testCaptions.map(c => c.text).join(' '),
-                      confidence: 0.9,
-                      language: 'pt-BR'
-                    },
-                    captionsVisible: true,
-                    currentTime: 1 // Forçar tempo onde há legenda
-                  })
-                  
-                  // ✅ VERIFICAÇÃO IMEDIATA
-                  setTimeout(() => {
-                    const state = useVideoEditorStore.getState()
-                    console.log('✅ VERIFICAÇÃO IMEDIATA:', {
-                      generatedCaptions: state.generatedCaptions?.length,
-                      transcriptionWords: state.transcriptionResult?.words?.length,
-                      captionsVisible: state.captionsVisible,
-                      currentTime: state.currentTime
-                    })
-                    
-                    // ✅ TESTAR getCurrentCaption
-                    try {
-                      const currentCaption = getCurrentCaption()
-                      console.log('🎯 getCurrentCaption resultado:', currentCaption)
-                    } catch (error) {
-                      console.warn('⚠️ Erro no teste getCurrentCaption:', error)
-                    }
-                  }, 100)
-                  
-                  console.log('✅ Estados forçados no store!')
-                }}
+                showingOriginalCaptions={showingOriginalCaptions}
+                hasEditedCaptions={hasEditedCaptions}
+                onToggleCaptionMode={handleToggleCaptionMode}
+                onCaptionEdit={handleCaptionEdit}
+                videoId={currentVideoId || undefined}
                 
                 // Canvas ref para efeitos
                 canvasRef={canvasRef}
