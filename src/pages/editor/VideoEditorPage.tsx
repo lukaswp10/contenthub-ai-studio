@@ -1636,40 +1636,72 @@ export function VideoEditorPage() {
     
     if (wordIndex === -1) return null
     
-    // ✅ LÓGICA BASEADA NO ESTILO
-    if (storeCaptionStyle === 'tiktok') {
-      // 🎵 ESTILO TIKTOK: 1 palavra por vez
-      const currentWord = wordsArray[wordIndex]
-      return {
-        text: currentWord.text,
-        start: currentWord.start,
-        end: currentWord.end,
-        confidence: currentWord.confidence || 0.9
-      }
-    } else {
-      // 📄 ESTILO FRASE: 5-7 palavras
-      const wordsPerPhrase = 6
-      const halfPhrase = Math.floor(wordsPerPhrase / 2)
-      
-      let phraseStart = Math.max(0, wordIndex - halfPhrase)
-      const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
-      
-      if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
-        phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
-      }
-      
-      const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
-      const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
-      const startTime = phraseWords[0]?.start || currentTime
-      const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
-      const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
-      
-      return {
-        text: phraseText,
-        start: startTime,
-        end: endTime,
-        confidence: avgConfidence
-      }
+    // ✅ LÓGICA BASEADA NO ESTILO SELECIONADO
+    let wordsPerPhrase: number
+    let styleName: string
+    
+    switch (storeCaptionStyle) {
+      case 'tiktok':
+        // 🎵 ESTILO TIKTOK: 1 palavra por vez
+        const currentWord = wordsArray[wordIndex]
+        console.log('🎵 TikTok Style: Mostrando palavra única:', currentWord.text)
+        
+        return {
+          text: currentWord.text,
+          start: currentWord.start,
+          end: currentWord.end,
+          confidence: currentWord.confidence || 0.9
+        }
+        
+      case 'instagram':
+        // 📸 ESTILO INSTAGRAM: 2-3 palavras
+        wordsPerPhrase = 3
+        styleName = 'Instagram'
+        break
+        
+      case 'youtube':
+        // 🎬 ESTILO YOUTUBE: 3-4 palavras
+        wordsPerPhrase = 4
+        styleName = 'YouTube'
+        break
+        
+      case 'podcast':
+        // 🎙️ ESTILO PODCAST: 8-10 palavras
+        wordsPerPhrase = 9
+        styleName = 'Podcast'
+        break
+        
+      case 'phrase':
+      default:
+        // 📄 ESTILO FRASE: 6 palavras
+        wordsPerPhrase = 6
+        styleName = 'Frase Completa'
+        break
+    }
+    
+    // Criar frase com número de palavras baseado no estilo
+    const halfPhrase = Math.floor(wordsPerPhrase / 2)
+    
+    let phraseStart = Math.max(0, wordIndex - halfPhrase)
+    const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+    
+    if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
+      phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
+    }
+    
+    const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
+    const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
+    const startTime = phraseWords[0]?.start || currentTime
+    const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
+    const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+    
+    console.log(`📝 ${styleName} Style: Mostrando frase:`, phraseText, `(${phraseWords.length} palavras)`)
+    
+    return {
+      text: phraseText,
+      start: startTime,
+      end: endTime,
+      confidence: avgConfidence
     }
   }
 
@@ -1960,7 +1992,7 @@ export function VideoEditorPage() {
               onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
-              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as Record<string, unknown>} // ➕ NOVO: Dados de transcrição
+              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as unknown as Record<string, unknown>} // ➕ NOVO: Dados de transcrição
               showTranscriptTrack={storeTranscription.showTranscriptTimeline !== undefined ? storeTranscription.showTranscriptTimeline : showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
               updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
             />

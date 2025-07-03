@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useState } from 'react'
 import { Button } from '../../../../components/ui/button'
 import { useVideoEditorStore, useTimeline } from '../../../../stores/videoEditorStore'
 import { formatTime } from '../../../../utils/timeUtils'
@@ -53,9 +53,13 @@ export const VideoControls = memo(({
   const clipBounds = useVideoEditorStore(state => state.clipBounds)
   const loopClip = useVideoEditorStore(state => state.loopClip)
   
-  // ➕ NOVOS ESTADOS: Estilo de legenda
+  // ➕ NOVOS ESTADOS: Estilo de legenda e dropdown
   const captionStyle = useVideoEditorStore(state => state.captionStyle || 'phrase')
   const setCaptionStyle = useVideoEditorStore(state => state.setCaptionStyle)
+  const captionsVisible = useVideoEditorStore(state => state.captionsVisible)
+  
+  // ➕ ESTADO LOCAL: Dropdown de legendas
+  const [captionDropdownOpen, setCaptionDropdownOpen] = useState(false)
   
   const { cutPoints } = useTimeline()
   
@@ -301,34 +305,139 @@ export const VideoControls = memo(({
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Controle de Legendas */}
-          <Button
-            onClick={onToggleCaptions}
-            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 text-sm rounded"
-          >
-            📝 Legendas
-          </Button>
-          
-          {/* ➕ FASE 2: Botão de Sincronização */}
-          {hasTranscription && onToggleSyncControls && (
+          {/* ✅ DROPDOWN DE LEGENDAS MELHORADO */}
+          <div className="relative">
             <Button
-              onClick={onToggleSyncControls}
-              className={`px-3 py-1 text-sm rounded transition-all ${
-                syncControlsVisible 
-                  ? 'bg-blue-500 text-white' 
+              onClick={() => setCaptionDropdownOpen(!captionDropdownOpen)}
+              className={`px-3 py-1 text-sm rounded transition-all flex items-center gap-1 ${
+                captionsVisible 
+                  ? 'bg-purple-500 text-white' 
                   : 'bg-white/20 hover:bg-white/30 text-white'
               }`}
             >
-              🎯 Sync
+              📝 Legendas {captionDropdownOpen ? '▼' : '▶'}
             </Button>
-          )}
+            
+            {/* Dropdown Menu */}
+            {captionDropdownOpen && (
+              <div className="absolute bottom-full left-0 mb-2 bg-black/90 backdrop-blur-xl border border-white/20 rounded-lg shadow-2xl min-w-[250px] z-50">
+                <div className="p-3">
+                  <div className="text-white text-sm font-medium mb-3">⚙️ Configurações de Legenda</div>
+                  
+                  {/* Toggle ON/OFF */}
+                  <div className="mb-3">
+                    <Button
+                      onClick={() => {
+                        onToggleCaptions()
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionsVisible 
+                          ? 'bg-green-600 text-white' 
+                          : 'bg-red-600/80 text-white'
+                      }`}
+                    >
+                      {captionsVisible ? '✅ Legendas Ativadas' : '❌ Legendas Desativadas'}
+                    </Button>
+                  </div>
+                  
+                  {/* Separador */}
+                  <div className="border-t border-white/10 my-3"></div>
+                  <div className="text-gray-300 text-xs mb-2">🎨 Estilos de Legenda:</div>
+                  
+                  {/* Opções de Estilo */}
+                  <div className="space-y-1">
+                    <Button
+                      onClick={() => {
+                        setCaptionStyle('phrase')
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionStyle === 'phrase' 
+                          ? 'bg-purple-500 text-white' 
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      📄 Frase Completa (6 palavras)
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setCaptionStyle('tiktok')
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionStyle === 'tiktok' 
+                          ? 'bg-pink-500 text-white' 
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      🎵 TikTok (1 palavra)
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setCaptionStyle('youtube')
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionStyle === 'youtube' 
+                          ? 'bg-red-500 text-white' 
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      🎬 YouTube (3-4 palavras)
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setCaptionStyle('instagram')
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionStyle === 'instagram' 
+                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      📸 Instagram (2-3 palavras)
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setCaptionStyle('podcast')
+                        setCaptionDropdownOpen(false)
+                      }}
+                      className={`w-full justify-start px-3 py-2 text-sm transition-all ${
+                        captionStyle === 'podcast' 
+                          ? 'bg-orange-500 text-white' 
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      🎙️ Podcast (8-10 palavras)
+                    </Button>
+                  </div>
+                  
+                  {/* Separador */}
+                  <div className="border-t border-white/10 my-3"></div>
+                  
+                  {/* Status */}
+                  <div className="text-xs text-gray-400">
+                    📊 {transcriptionWordsCount} palavras transcritas
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           
+          {/* ✅ BOTÃO DE TESTE SIMPLIFICADO */}
           {hasTranscription && (
             <Button
               onClick={onTestCaptions}
               className="bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-1 text-sm rounded"
+              title="Testar legendas com dados de exemplo"
             >
-              🎯 Testar ({transcriptionWordsCount} palavras)
+              🧪 Testar
             </Button>
           )}
         </div>
