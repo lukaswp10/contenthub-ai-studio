@@ -116,6 +116,21 @@ interface VideoEditorState {
   captionMinDuration: number
   captionMaxDuration: number
   
+  // ➕ FASE 2: Estados de sincronização avançada
+  captionSyncAccuracy: 'low' | 'medium' | 'high' | 'ultra'
+  adaptiveSync: boolean
+  audioAnalysisEnabled: boolean
+  captionSmoothTransitions: boolean
+  captionWordThreshold: number // Palavras por segundo
+  captionAutoAdjust: boolean
+  realTimePreview: boolean
+  syncOffsetHistory: Array<{
+    timestamp: number
+    offset: number
+    accuracy: number
+  }>
+  lastSyncTimestamp: number
+  
   // ✂️ TIMELINE
   cutPoints: CutPoint[]
   timelineLayers: TimelineLayer[]
@@ -206,6 +221,20 @@ interface VideoEditorActions {
   setCaptionMaxDuration: (duration: number) => void
   optimizeCaptionTiming: () => void
   
+  // ➕ FASE 2: Actions de sincronização avançada
+  setCaptionSyncAccuracy: (accuracy: 'low' | 'medium' | 'high' | 'ultra') => void
+  setAdaptiveSync: (enabled: boolean) => void
+  setAudioAnalysisEnabled: (enabled: boolean) => void
+  setCaptionSmoothTransitions: (enabled: boolean) => void
+  setCaptionWordThreshold: (threshold: number) => void
+  setCaptionAutoAdjust: (enabled: boolean) => void
+  setRealTimePreview: (enabled: boolean) => void
+  addSyncOffset: (timestamp: number, offset: number, accuracy: number) => void
+  analyzeCaptionTiming: () => Promise<void>
+  autoSyncCaptions: () => Promise<void>
+  resetCaptionSync: () => void
+  calculateOptimalSpeed: (audioLength: number, textLength: number) => number
+  
   // ✂️ TIMELINE ACTIONS
   setCutPoints: (points: CutPoint[]) => void
   addCutPoint: (point: CutPoint) => void
@@ -294,6 +323,17 @@ const initialState: VideoEditorState = {
   captionDelayOffset: 0,
   captionMinDuration: 0,
   captionMaxDuration: 0,
+  
+  // ➕ FASE 2: Estados de sincronização avançada
+  captionSyncAccuracy: 'low',
+  adaptiveSync: false,
+  audioAnalysisEnabled: false,
+  captionSmoothTransitions: false,
+  captionWordThreshold: 10,
+  captionAutoAdjust: false,
+  realTimePreview: false,
+  syncOffsetHistory: [],
+  lastSyncTimestamp: 0,
   
   // ✂️ TIMELINE
   cutPoints: [],
@@ -491,6 +531,118 @@ export const useVideoEditorStore = create<VideoEditorState & VideoEditorActions>
       console.log('🎨 Timing das legendas otimizado')
     },
     
+    // ➕ FASE 2: Actions de sincronização avançada
+    setCaptionSyncAccuracy: (accuracy) => set({ captionSyncAccuracy: accuracy }),
+    setAdaptiveSync: (enabled) => set({ adaptiveSync: enabled }),
+    setAudioAnalysisEnabled: (enabled) => set({ audioAnalysisEnabled: enabled }),
+    setCaptionSmoothTransitions: (enabled) => set({ captionSmoothTransitions: enabled }),
+    setCaptionWordThreshold: (threshold) => set({ captionWordThreshold: threshold }),
+    setCaptionAutoAdjust: (enabled) => set({ captionAutoAdjust: enabled }),
+    setRealTimePreview: (enabled) => set({ realTimePreview: enabled }),
+    addSyncOffset: (timestamp, offset, accuracy) => set((state) => ({
+      syncOffsetHistory: [...state.syncOffsetHistory, { timestamp, offset, accuracy }],
+      lastSyncTimestamp: timestamp
+    })),
+         analyzeCaptionTiming: async () => {
+       const { generatedCaptions, currentTime, captionSyncAccuracy } = get()
+       
+       if (!generatedCaptions.length) {
+         console.log('⚠️ Nenhuma legenda para analisar')
+         return
+       }
+       
+       console.log('🔍 Analisando timing das legendas...')
+       
+       // Analisar gaps e overlaps
+       const issues = []
+       for (let i = 0; i < generatedCaptions.length - 1; i++) {
+         const current = generatedCaptions[i]
+         const next = generatedCaptions[i + 1]
+         
+         const gap = next.start - current.end
+         if (gap < 0) {
+           issues.push({ type: 'overlap', time: current.end, severity: Math.abs(gap) })
+         } else if (gap > 2) {
+           issues.push({ type: 'gap', time: current.end, severity: gap })
+         }
+       }
+       
+       console.log(`📊 Análise completa: ${issues.length} problemas encontrados`)
+       
+       // Calcular accuracy score
+       const accuracy = Math.max(0, 100 - (issues.length * 10))
+       set((state) => ({
+         syncOffsetHistory: [...state.syncOffsetHistory, {
+           timestamp: currentTime,
+           offset: 0,
+           accuracy: accuracy
+         }]
+       }))
+     },
+     autoSyncCaptions: async () => {
+       const { 
+         generatedCaptions, 
+         captionSyncAccuracy, 
+         adaptiveSync,
+         captionWordThreshold,
+         duration 
+       } = get()
+       
+       if (!generatedCaptions.length) {
+         console.log('⚠️ Nenhuma legenda para sincronizar')
+         return
+       }
+       
+       console.log('🎯 Iniciando sincronização automática das legendas...')
+       
+       const multipliers = {
+         low: 1.0,
+         medium: 1.2,
+         high: 1.5,
+         ultra: 2.0
+       }
+       
+       const accuracyMultiplier = multipliers[captionSyncAccuracy]
+       const targetWordsPerSecond = captionWordThreshold / 10
+       
+       // Otimizar timing das legendas
+       const optimizedCaptions = generatedCaptions.map((caption, index) => {
+         const wordCount = caption.text.split(' ').length
+         const optimalDuration = (wordCount / targetWordsPerSecond) * accuracyMultiplier
+         
+         // Ajustar início e fim baseado na duração ótima
+         const start = caption.start
+         const end = Math.min(start + optimalDuration, duration)
+         
+         return {
+           ...caption,
+           start,
+           end,
+           confidence: Math.min(1.0, (caption.confidence || 0.8) * accuracyMultiplier)
+         }
+       })
+       
+       console.log('✅ Sincronização automática concluída')
+       set({ 
+         generatedCaptions: optimizedCaptions,
+         lastSyncTimestamp: Date.now()
+       })
+     },
+    resetCaptionSync: () => set({
+      syncOffsetHistory: [],
+      lastSyncTimestamp: 0
+    }),
+         calculateOptimalSpeed: (audioLength, textLength) => {
+       if (audioLength <= 0 || textLength <= 0) return 1.0
+       
+       // Calcular velocidade ótima baseada na duração do áudio e quantidade de texto
+       const wordsPerSecond = textLength / audioLength
+       const baseSpeed = Math.max(0.5, Math.min(2.0, wordsPerSecond / 3))
+       
+       console.log(`📊 Velocidade calculada: ${baseSpeed}x para ${textLength} palavras em ${audioLength}s`)
+       return baseSpeed
+     },
+    
     // ✂️ TIMELINE ACTIONS
     setCutPoints: (points) => set({ cutPoints: points }),
     addCutPoint: (point) => set((state) => ({ cutPoints: [...state.cutPoints, point] })),
@@ -645,6 +797,40 @@ export const useCommands = () => useVideoEditorStore(state => ({
   canUndo: state.canUndo,
   canRedo: state.canRedo,
   lastCommand: state.lastCommand
+}))
+
+// ➕ FASE 2: Hooks para sincronização de legendas
+export const useCaptionSync = () => useVideoEditorStore(state => ({
+  captionSyncAccuracy: state.captionSyncAccuracy,
+  adaptiveSync: state.adaptiveSync,
+  audioAnalysisEnabled: state.audioAnalysisEnabled,
+  captionSmoothTransitions: state.captionSmoothTransitions,
+  captionWordThreshold: state.captionWordThreshold,
+  captionAutoAdjust: state.captionAutoAdjust,
+  realTimePreview: state.realTimePreview,
+  syncOffsetHistory: state.syncOffsetHistory,
+  lastSyncTimestamp: state.lastSyncTimestamp,
+  captionPlaybackSpeed: state.captionPlaybackSpeed,
+  captionSyncMode: state.captionSyncMode,
+  captionDelayOffset: state.captionDelayOffset
+}))
+
+export const useCaptionSyncActions = () => useVideoEditorStore(state => ({
+  setCaptionSyncAccuracy: state.setCaptionSyncAccuracy,
+  setAdaptiveSync: state.setAdaptiveSync,
+  setAudioAnalysisEnabled: state.setAudioAnalysisEnabled,
+  setCaptionSmoothTransitions: state.setCaptionSmoothTransitions,
+  setCaptionWordThreshold: state.setCaptionWordThreshold,
+  setCaptionAutoAdjust: state.setCaptionAutoAdjust,
+  setRealTimePreview: state.setRealTimePreview,
+  addSyncOffset: state.addSyncOffset,
+  analyzeCaptionTiming: state.analyzeCaptionTiming,
+  autoSyncCaptions: state.autoSyncCaptions,
+  resetCaptionSync: state.resetCaptionSync,
+  calculateOptimalSpeed: state.calculateOptimalSpeed,
+  setCaptionPlaybackSpeed: state.setCaptionPlaybackSpeed,
+  setCaptionSyncMode: state.setCaptionSyncMode,
+  setCaptionDelayOffset: state.setCaptionDelayOffset
 }))
 
 console.log('🏪 VideoEditor Store COMPLETO criado com sucesso!') 

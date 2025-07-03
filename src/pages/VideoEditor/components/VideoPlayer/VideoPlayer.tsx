@@ -1,7 +1,8 @@
-import React, { memo, useRef } from 'react'
+import React, { memo, useRef, useState } from 'react'
 import { useVideoPlayer } from '../../hooks/useVideoPlayer'
 import { VideoControls } from './VideoControls'
 import { VideoOverlay } from './VideoOverlay'
+import { CaptionSyncControls } from './CaptionSyncControls'
 import { Button } from '../../../../components/ui/button'
 import { useCaptions, useCaptionStyling } from '../../../../stores/videoEditorStore'
 import { Caption } from '../../../../types/caption.types'
@@ -27,6 +28,9 @@ export const VideoPlayer = memo(({
   
   const videoRef = useRef<HTMLVideoElement>(null)
   
+  // 🔄 Local state para UI
+  const [syncControlsVisible, setSyncControlsVisible] = useState(false)
+  
   // 🏪 Zustand hooks para state management
   const { captionsVisible, toggleCaptionsVisibility } = useCaptions()
   const captionStyling = useCaptionStyling()
@@ -43,7 +47,15 @@ export const VideoPlayer = memo(({
     videoUrl,
     currentTime,
     duration,
-    isPlaying
+    isPlaying,
+    // ➕ FASE 1: Funções de clips
+    playClip,
+    playFullVideo,
+    isClipMode,
+    clipDuration,
+    clipCurrentTime,
+    clipRemainingTime,
+    clipProgressPercentage
   } = useVideoPlayer({ videoRef })
 
   console.log('🎬 VideoPlayer: Renderizando player', {
@@ -105,6 +117,12 @@ export const VideoPlayer = memo(({
         </Button>
       </div>
       
+      {/* ➕ CONTROLES DE SINCRONIZAÇÃO DE LEGENDAS */}
+      <CaptionSyncControls
+        isVisible={syncControlsVisible}
+        onToggle={() => setSyncControlsVisible(!syncControlsVisible)}
+      />
+      
       {/* ✅ CONTROLES DO VÍDEO */}
       <VideoControls
         onSeek={seekTo}
@@ -112,6 +130,18 @@ export const VideoPlayer = memo(({
         hasTranscription={hasTranscription}
         transcriptionWordsCount={transcriptionWordsCount}
         onTestCaptions={onTestCaptions}
+        onToggleSyncControls={() => setSyncControlsVisible(!syncControlsVisible)}
+        syncControlsVisible={syncControlsVisible}
+        // ➕ FASE 1: Passar funções do hook para controle direto do vídeo
+        onPlayClip={playClip}
+        onPlayFullVideo={playFullVideo}
+        clipData={{
+          isClipMode,
+          clipDuration,
+          clipCurrentTime,
+          clipRemainingTime,
+          clipProgressPercentage
+        }}
       />
     </div>
   )

@@ -14,6 +14,21 @@ interface VideoControlsProps {
   
   // Teste
   onTestCaptions: () => void
+  
+  // ➕ FASE 2: Sincronização
+  onToggleSyncControls?: () => void
+  syncControlsVisible?: boolean
+  
+  // ➕ FASE 1: Controle direto de clips
+  onPlayClip?: (startTime: number, endTime: number, loop?: boolean) => void
+  onPlayFullVideo?: () => void
+  clipData?: {
+    isClipMode: boolean
+    clipDuration: number
+    clipCurrentTime: number
+    clipRemainingTime: number
+    clipProgressPercentage: number
+  }
 }
 
 export const VideoControls = memo(({
@@ -21,7 +36,12 @@ export const VideoControls = memo(({
   onToggleCaptions,
   hasTranscription,
   transcriptionWordsCount,
-  onTestCaptions
+  onTestCaptions,
+  onToggleSyncControls,
+  syncControlsVisible,
+  onPlayClip,
+  onPlayFullVideo,
+  clipData
 }: VideoControlsProps) => {
   
   // Store states
@@ -37,19 +57,20 @@ export const VideoControls = memo(({
   
   // Actions
   const togglePlayPause = useVideoEditorStore(state => state.togglePlayPause)
-  const playFullVideo = useVideoEditorStore(state => state.playFullVideo)
   const setLoopClip = useVideoEditorStore(state => state.setLoopClip)
-  const playClip = useVideoEditorStore(state => state.playClip)
   
-  // ➕ DERIVAR PROPRIEDADES
+  // ➕ USAR DADOS DO HOOK AO INVÉS DE CALCULAR AQUI
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0
-  const isClipMode = playbackMode !== 'full'
-  const clipDuration = clipBounds ? clipBounds.end - clipBounds.start : 0
-  const clipCurrentTime = clipBounds ? Math.max(0, currentTime - clipBounds.start) : currentTime
-  const clipRemainingTime = clipBounds ? Math.max(0, clipBounds.end - currentTime) : 0
-  const clipProgressPercentage = clipBounds && clipBounds.end > clipBounds.start 
-    ? Math.max(0, Math.min(100, ((currentTime - clipBounds.start) / (clipBounds.end - clipBounds.start)) * 100))
-    : 0
+  
+  // ➕ DERIVAR PROPRIEDADES: Usar clipData se disponível, senão fallback para cálculo local
+  const isClipMode = clipData ? clipData.isClipMode : playbackMode !== 'full'
+  const clipDuration = clipData ? clipData.clipDuration : (clipBounds ? clipBounds.end - clipBounds.start : 0)
+  const clipCurrentTime = clipData ? clipData.clipCurrentTime : (clipBounds ? Math.max(0, currentTime - clipBounds.start) : currentTime)
+  const clipRemainingTime = clipData ? clipData.clipRemainingTime : (clipBounds ? Math.max(0, clipBounds.end - currentTime) : 0)
+  const clipProgressPercentage = clipData ? clipData.clipProgressPercentage : 
+    (clipBounds && clipBounds.end > clipBounds.start 
+      ? Math.max(0, Math.min(100, ((currentTime - clipBounds.start) / (clipBounds.end - clipBounds.start)) * 100))
+      : 0)
 
   // ➕ CALCULAR CLIPS DISPONÍVEIS
   const availableClips = React.useMemo(() => {
@@ -96,9 +117,9 @@ export const VideoControls = memo(({
 
   // ➕ HANDLER: Reproduzir clip específico
   const handlePlayClip = (clipIndex: number) => {
-    if (clipIndex >= 0 && clipIndex < availableClips.length) {
+    if (clipIndex >= 0 && clipIndex < availableClips.length && onPlayClip) {
       const clip = availableClips[clipIndex]
-      playClip(clip.startTime, clip.endTime, loopClip)
+      onPlayClip(clip.startTime, clip.endTime, loopClip)
     }
   }
 
@@ -135,7 +156,7 @@ export const VideoControls = memo(({
       <div className="playback-mode-controls mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button
-            onClick={playFullVideo}
+            onClick={onPlayFullVideo}
             className={`px-3 py-1 text-sm transition-all ${
               playbackMode === 'full' 
                 ? 'bg-blue-500 text-white' 
@@ -212,14 +233,6 @@ export const VideoControls = memo(({
               )}
             </span>
           </div>
-          
-          {/* Progress bar do clip */}
-          <div className="mt-2 w-full bg-gray-700 rounded-full h-1">
-            <div 
-              className="bg-gradient-to-r from-orange-500 to-red-500 h-1 rounded-full transition-all duration-200"
-              style={{ width: `${clipProgressPercentage}%` }}
-            />
-          </div>
         </div>
       )}
       
@@ -261,6 +274,20 @@ export const VideoControls = memo(({
             📝 Legendas
           </Button>
           
+          {/* ➕ FASE 2: Botão de Sincronização */}
+          {hasTranscription && onToggleSyncControls && (
+            <Button
+              onClick={onToggleSyncControls}
+              className={`px-3 py-1 text-sm rounded transition-all ${
+                syncControlsVisible 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-white/20 hover:bg-white/30 text-white'
+              }`}
+            >
+              🎯 Sync
+            </Button>
+          )}
+          
           {hasTranscription && (
             <Button
               onClick={onTestCaptions}
@@ -272,28 +299,70 @@ export const VideoControls = memo(({
         </div>
       </div>
       
-      {/* ✅ BARRA DE PROGRESSO */}
-      <div className="progress-bar mt-4">
+      {/* ✅ BARRA DE PROGRESSO UNIFICADA */}
+      <div className="progress-bar mt-4 relative">
+        {/* Barra Principal */}
         <div 
-          className="w-full bg-gray-700 rounded-full h-2 cursor-pointer"
+          className="w-full bg-gray-700 rounded-full h-2 cursor-pointer relative"
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
-            const percentage = ((e.clientX - rect.left) / rect.width) * 100
-            onSeek(percentage)
+            const clickPercentage = ((e.clientX - rect.left) / rect.width) * 100
+            
+            // ➕ SEEK INTELIGENTE: No modo clip, fazer seek dentro do clip
+            if (isClipMode && clipBounds) {
+              // Calcular a posição dentro do clip
+              const clipStartPercentage = (clipBounds.start / duration) * 100
+              const clipEndPercentage = (clipBounds.end / duration) * 100
+              
+              // Se o clique foi dentro da área do clip
+              if (clickPercentage >= clipStartPercentage && clickPercentage <= clipEndPercentage) {
+                // Fazer seek proporcional dentro do clip
+                const clipClickPercentage = ((clickPercentage - clipStartPercentage) / (clipEndPercentage - clipStartPercentage)) * 100
+                const targetTime = clipBounds.start + ((clipClickPercentage / 100) * (clipBounds.end - clipBounds.start))
+                const targetPercentage = (targetTime / duration) * 100
+                onSeek(targetPercentage)
+              } else {
+                // Clicou fora do clip, fazer seek normal
+                onSeek(clickPercentage)
+              }
+            } else {
+              // Modo vídeo completo, seek normal
+              onSeek(clickPercentage)
+            }
           }}
         >
+          {/* Progress do vídeo completo (sempre visível como base) */}
           <div 
-            className={`h-2 rounded-full transition-all duration-200 ${
-              isClipMode 
-                ? 'bg-gradient-to-r from-orange-500 to-red-500' 
-                : 'bg-gradient-to-r from-blue-500 to-purple-500'
-            }`}
-            style={{ width: `${isClipMode ? clipProgressPercentage : progressPercentage}%` }}
+            className="h-2 rounded-full transition-all duration-200 bg-gradient-to-r from-blue-500 to-purple-500 opacity-50"
+            style={{ width: `${progressPercentage}%` }}
           />
+          
+          {/* Progress do clip (sobreposto quando em modo clip) */}
+          {isClipMode && clipBounds && (
+            <>
+              {/* Área do clip destacada */}
+              <div 
+                className="absolute top-0 h-2 bg-white/10 rounded-full"
+                style={{ 
+                  left: `${(clipBounds.start / duration) * 100}%`,
+                  width: `${((clipBounds.end - clipBounds.start) / duration) * 100}%`
+                }}
+              />
+              
+              {/* Progress dentro do clip */}
+              <div 
+                className="absolute top-0 h-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-200"
+                style={{ 
+                  left: `${(clipBounds.start / duration) * 100}%`,
+                  width: `${((currentTime - clipBounds.start) / duration) * 100}%`
+                }}
+              />
+            </>
+          )}
         </div>
         
         {/* ➕ INDICADORES DE CORTE na barra de progresso */}
-        {!isClipMode && cutPoints.length > 0 && (
+        {cutPoints.length > 0 && (
           <div className="cut-indicators absolute inset-x-0 top-0 h-2 pointer-events-none">
             {cutPoints.map((cut, index) => (
               <div
