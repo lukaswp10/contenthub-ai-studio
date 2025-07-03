@@ -915,18 +915,24 @@ export function VideoEditorPage() {
     const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
     const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
     
-    // Prioridade: transcriptionResult.words > generatedCaptions
-    const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+    // ✅ PRIORIZAR LEGENDAS EDITADAS: Se existem generatedCaptions, usar elas (podem ter edições)
+    const wordsArray = storeGeneratedCaptionsData?.length > 0 
+      ? storeGeneratedCaptionsData 
+      : storeTranscriptionData?.words || []
     
     if (!wordsArray?.length || !storeCaptionsVisibleData) {
+      console.log(`📝 Nenhuma legenda disponível: words=${wordsArray?.length}, visible=${storeCaptionsVisibleData}`)
       return null
     }
+    
+    console.log(`🎯 Buscando legenda para tempo ${storeCurrentTimeData.toFixed(2)}s com ${wordsArray.length} palavras`)
     
     try {
       // ✅ USAR SERVIÇO DE SINCRONIZAÇÃO INTELIGENTE
       const syncedCaption = captionSyncService.syncCaptions(wordsArray, storeCurrentTimeData)
       
       if (syncedCaption) {
+        console.log(`✅ Legenda sincronizada encontrada: "${syncedCaption.text}"`)
         return {
           text: syncedCaption.text,
           start: syncedCaption.start,
@@ -936,9 +942,10 @@ export function VideoEditorPage() {
         }
       }
       
+      console.log('⚠️ Serviço de sincronização não retornou legenda, usando fallback...')
       return null
     } catch (error) {
-      console.warn('⚠️ Fallback para sistema de legendas clássico:', error)
+      console.warn('⚠️ Erro no serviço de sincronização, usando fallback:', error)
       
       // ✅ FALLBACK: Sistema clássico se serviço falhar
       const currentTime = storeCurrentTime
@@ -1412,6 +1419,13 @@ export function VideoEditorPage() {
         console.log('🎯 Provider usado anteriormente:', existingTranscription.provider)
         console.log('💸 Créditos da API preservados!')
         
+        // ✅ NOVO: Inicializar o serviço de sincronização com as legendas restauradas
+        console.log('🔧 Inicializando serviço de sincronização com legendas restauradas...')
+        setTimeout(() => {
+          captionSyncService.analyzeSpeechPatterns(existingTranscription.words)
+          console.log('✅ Serviço de sincronização inicializado com sucesso!')
+        }, 500)
+        
         // Mostrar feedback visual
         setTranscriptionProgress('✅ Transcrição carregada do cache!')
         setTimeout(() => setTranscriptionProgress(''), 2000)
@@ -1650,31 +1664,48 @@ export function VideoEditorPage() {
     if (storeGeneratedCaptions.length > 0 && !speechAnalysis) {
       const analyzeAndOptimize = async () => {
         try {
-          // Iniciando análise de sincronização
+          console.log('🧠 Iniciando análise inteligente de sincronização...')
+          console.log(`📊 Analisando ${storeGeneratedCaptions.length} legendas`)
           
-          // Simular análise de fala
-          const mockAnalysis: SpeechAnalysis = {
-            speechRate: 2.5, // palavras por segundo
-            recommendedWordsPerCaption: Math.max(3, Math.min(6, Math.floor(2.5 * 2))),
-            pauseCount: Math.floor(storeGeneratedCaptions.length / 8),
-            totalDuration: storeGeneratedCaptions.length * 0.8
+          // ✅ CORREÇÃO: Inicializar o serviço de sincronização com as legendas atuais
+          captionSyncService.analyzeSpeechPatterns(storeGeneratedCaptions)
+          
+          // Obter análise real do serviço
+          const serviceStats = captionSyncService.getSyncStats()
+          const realAnalysis = serviceStats.analysis
+          
+          if (realAnalysis) {
+            console.log('✅ Análise real obtida do serviço:', realAnalysis)
+            setSpeechAnalysis(realAnalysis)
+            
+            // Usar configuração do serviço
+            setSyncConfig(serviceStats.config)
+          } else {
+            // Fallback para análise simulada
+            console.log('⚠️ Usando análise simulada como fallback')
+            const mockAnalysis: SpeechAnalysis = {
+              speechRate: 2.5,
+              recommendedWordsPerCaption: Math.max(3, Math.min(6, Math.floor(2.5 * 2))),
+              pauseCount: Math.floor(storeGeneratedCaptions.length / 8),
+              totalDuration: storeGeneratedCaptions.length * 0.8
+            }
+            
+            setSpeechAnalysis(mockAnalysis)
+            
+            // Configuração otimizada baseada na análise
+            const optimizedConfig: SyncConfig = {
+              wordsPerCaption: mockAnalysis.recommendedWordsPerCaption,
+              minDisplayTime: mockAnalysis.speechRate > 3 ? 0.8 : 1.2,
+              maxDisplayTime: mockAnalysis.speechRate > 3 ? 2.5 : 4.0,
+              bufferTime: 0.5,
+              conservativeMode: true,
+              readingTimeMultiplier: mockAnalysis.speechRate > 3 ? 2.0 : 1.5
+            }
+            
+            setSyncConfig(optimizedConfig)
           }
           
-          setSpeechAnalysis(mockAnalysis)
-          
-          // Configuração otimizada baseada na análise
-          const optimizedConfig: SyncConfig = {
-            wordsPerCaption: mockAnalysis.recommendedWordsPerCaption,
-            minDisplayTime: mockAnalysis.speechRate > 3 ? 0.8 : 1.2,
-            maxDisplayTime: mockAnalysis.speechRate > 3 ? 2.5 : 4.0,
-            bufferTime: 0.3,
-            conservativeMode: true,
-            readingTimeMultiplier: mockAnalysis.speechRate > 3 ? 2.0 : 1.5
-          }
-          
-          setSyncConfig(optimizedConfig)
-          
-          // Análise de sincronização concluída
+          console.log('✅ Análise de sincronização concluída e serviço inicializado!')
           
         } catch (error) {
           console.warn('⚠️ Erro na análise de sincronização:', error)
@@ -1987,6 +2018,36 @@ export function VideoEditorPage() {
                 title="Sistema Avançado de Sincronização de Legendas"
               >
                 🎛️ Sincronização
+              </Button>
+              
+              {/* ✅ NOVO: Botão de Teste de Sincronização */}
+              <Button
+                onClick={() => {
+                  console.log('🧪 TESTE DE SINCRONIZAÇÃO INICIADO')
+                  console.log('📊 Dados atuais:', {
+                    currentTime: storeCurrentTime,
+                    generatedCaptions: storeGeneratedCaptions.length,
+                    captionsVisible: storeCaptionsVisible,
+                    hasTranscription: !!storeTranscription.transcriptionResult
+                  })
+                  
+                  // Forçar re-análise
+                  if (storeGeneratedCaptions.length > 0) {
+                    console.log('🔧 Forçando re-análise do serviço...')
+                    captionSyncService.analyzeSpeechPatterns(storeGeneratedCaptions)
+                    console.log('✅ Re-análise concluída')
+                    
+                    // Testar sincronização
+                    const testCaption = captionSyncService.syncCaptions(storeGeneratedCaptions, storeCurrentTime)
+                    console.log('🎯 Resultado do teste:', testCaption)
+                  } else {
+                    console.warn('⚠️ Nenhuma legenda disponível para teste')
+                  }
+                }}
+                className="bg-gradient-to-r from-orange-600/80 to-red-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
+                title="Testar Sistema de Sincronização (Debug)"
+              >
+                🧪 Teste Sync
               </Button>
               
               {/* Indicador de Status da Sincronização */}

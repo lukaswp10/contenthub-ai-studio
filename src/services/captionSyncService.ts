@@ -225,71 +225,84 @@ export class CaptionSyncService {
    * ⚡ Sincronizar legendas com timing CONSERVADOR inteligente
    */
   syncCaptions(words: TranscriptionWord[], currentTime: number): SyncedCaption | null {
-    if (!words.length) return null
-    
-    // Analisar padrões se ainda não foi feito
-    if (!this.speechAnalysis) {
-      this.analyzeSpeechPatterns(words)
+    if (!words.length) {
+      console.warn('⚠️ Nenhuma palavra disponível para sincronização')
+      return null
     }
     
-    const analysis = this.speechAnalysis!
-    const adjustedTime = currentTime + (this.config.globalOffset / 1000)
-    
-    // Buffer adaptativo CONSERVADOR
-    const bufferTime = this.config.adaptiveOffset ? 
-      this.calculateConservativeBuffer(analysis) : 
-      this.config.bufferTime
-    
-    // Buscar palavra atual com buffer inteligente
-    const wordIndex = this.findOptimalWordIndex(words, adjustedTime, bufferTime)
-    
-    if (wordIndex === -1) return null
-    
-    // Determinar quantas palavras incluir - MODO CONSERVADOR
-    const wordsPerCaption = this.config.adaptToSpeechRate ? 
-      analysis.recommendedWordsPerCaption : 
-      this.config.wordsPerCaption
-    
-    // ✅ CÁLCULO CONSERVADOR dos limites da legenda
-    const captionBounds = this.calculateConservativeCaptionBounds(
-      words, 
-      wordIndex, 
-      wordsPerCaption, 
-      analysis
-    )
-    
-    const captionWords = words.slice(captionBounds.startIndex, captionBounds.endIndex + 1)
-    const text = captionWords.map(w => w.text).join(' ')
-    const start = captionWords[0].start
-    const naturalEnd = captionWords[captionWords.length - 1].end
-    const confidence = captionWords.reduce((sum, w) => sum + (w.confidence || 0.9), 0) / captionWords.length
-    
-    // ✅ CÁLCULO CONSERVADOR da duração de exibição
-    const readingTime = this.calculateReadingTime(text)
-    const displayDuration = this.calculateConservativeDisplayDuration(captionWords, analysis, readingTime)
-    const adjustedEnd = Math.max(naturalEnd, start + displayDuration)
-    
-    // ✅ AJUSTE para pausas naturais
-    const pauseAdjusted = this.adjustForNaturalPauses(start, adjustedEnd, analysis.naturalPauses)
-    
-    const syncedCaption: SyncedCaption = {
-      id: `caption_${start}_${adjustedEnd}`,
-      text,
-      words: captionWords,
-      start,
-      end: pauseAdjusted.end,
-      confidence,
-      displayDuration,
-      adaptedTiming: this.config.adaptToSpeechRate,
-      speechRate: analysis.speechRate,
-      readingTime,
-      isConservative: this.config.conservativeMode,
-      pauseAdjusted: pauseAdjusted.adjusted
+    try {
+      // ✅ CORREÇÃO: Garantir que análise seja executada sempre
+      if (!this.speechAnalysis) {
+        console.log('🧠 Iniciando análise de padrões de fala...')
+        this.speechAnalysis = this.analyzeSpeechPatterns(words)
+        console.log('✅ Análise concluída:', this.speechAnalysis)
+      }
+      
+      const analysis = this.speechAnalysis
+      const adjustedTime = currentTime + (this.config.globalOffset / 1000)
+      
+      // Buffer adaptativo CONSERVADOR
+      const bufferTime = this.config.adaptiveOffset ? 
+        this.calculateConservativeBuffer(analysis) : 
+        this.config.bufferTime
+      
+      // ✅ CORREÇÃO: Buscar palavra atual com buffer inteligente
+      const wordIndex = this.findOptimalWordIndex(words, adjustedTime, bufferTime)
+      
+      if (wordIndex === -1) {
+        console.warn(`⚠️ Nenhuma palavra encontrada para o tempo ${adjustedTime.toFixed(2)}s`)
+        return null
+      }
+      
+      // Determinar quantas palavras incluir - MODO CONSERVADOR
+      const wordsPerCaption = this.config.adaptToSpeechRate ? 
+        analysis.recommendedWordsPerCaption : 
+        this.config.wordsPerCaption
+      
+      // ✅ CÁLCULO CONSERVADOR dos limites da legenda
+      const captionBounds = this.calculateConservativeCaptionBounds(
+        words, 
+        wordIndex, 
+        wordsPerCaption, 
+        analysis
+      )
+      
+      const captionWords = words.slice(captionBounds.startIndex, captionBounds.endIndex + 1)
+      const text = captionWords.map(w => w.text).join(' ')
+      const start = captionWords[0].start
+      const naturalEnd = captionWords[captionWords.length - 1].end
+      const confidence = captionWords.reduce((sum, w) => sum + (w.confidence || 0.9), 0) / captionWords.length
+      
+      // ✅ CÁLCULO CONSERVADOR da duração de exibição
+      const readingTime = this.calculateReadingTime(text)
+      const displayDuration = this.calculateConservativeDisplayDuration(captionWords, analysis, readingTime)
+      const adjustedEnd = Math.max(naturalEnd, start + displayDuration)
+      
+      // ✅ AJUSTE para pausas naturais
+      const pauseAdjusted = this.adjustForNaturalPauses(start, adjustedEnd, analysis.naturalPauses)
+      
+      const syncedCaption: SyncedCaption = {
+        id: `caption_${start}_${adjustedEnd}`,
+        text,
+        words: captionWords,
+        start,
+        end: pauseAdjusted.end,
+        confidence,
+        displayDuration,
+        adaptedTiming: this.config.adaptToSpeechRate,
+        speechRate: analysis.speechRate,
+        readingTime,
+        isConservative: this.config.conservativeMode,
+        pauseAdjusted: pauseAdjusted.adjusted
+      }
+      
+      console.log(`🎯 Legenda sincronizada: "${text}" (${start.toFixed(2)}s - ${pauseAdjusted.end.toFixed(2)}s)`)
+      
+      return syncedCaption
+    } catch (error) {
+      console.error('❌ Erro na sincronização avançada:', error)
+      return null
     }
-    
-    // Legenda sincronizada
-    
-    return syncedCaption
   }
   
   /**
@@ -420,33 +433,51 @@ export class CaptionSyncService {
   }
   
   private findOptimalWordIndex(words: TranscriptionWord[], currentTime: number, bufferTime: number): number {
-    // Buscar palavra atual
-    let wordIndex = words.findIndex((word: TranscriptionWord) => 
-      currentTime >= (word.start - bufferTime) && currentTime <= (word.end + bufferTime)
-    )
+    console.log(`🔍 Buscando palavra para tempo ${currentTime.toFixed(2)}s com buffer ${bufferTime.toFixed(2)}s`)
     
-    if (wordIndex === -1) {
-      // Buscar palavra mais próxima
-      wordIndex = words.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
-        if (closestIndex === -1) return index
-        
-        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((words[closestIndex].start + words[closestIndex].end) / 2))
-        
-        return currentDistance < closestDistance ? index : closestIndex
-      }, -1)
+    // ✅ CORREÇÃO 1: Buscar palavra atual com tolerância expandida
+    let wordIndex = words.findIndex((word: TranscriptionWord, index: number) => {
+      const wordStart = word.start - bufferTime
+      const wordEnd = word.end + bufferTime
+      const isInRange = currentTime >= wordStart && currentTime <= wordEnd
       
-      // Verificar se está muito longe
-      if (wordIndex !== -1) {
-        const nearestWord = words[wordIndex]
-        const distance = Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2))
-        if (distance > 3.0) { // AUMENTADO tolerância
-          return -1
-        }
+      if (index < 3) { // Log das primeiras palavras para debug
+        console.log(`  Palavra ${index}: "${word.text}" (${word.start.toFixed(2)}s-${word.end.toFixed(2)}s) -> range: ${wordStart.toFixed(2)}s-${wordEnd.toFixed(2)}s, match: ${isInRange}`)
       }
+      
+      return isInRange
+    })
+    
+    if (wordIndex !== -1) {
+      console.log(`✅ Palavra encontrada diretamente: ${wordIndex} - "${words[wordIndex].text}"`)
+      return wordIndex
     }
     
-    return wordIndex
+    // ✅ CORREÇÃO 2: Buscar palavra mais próxima com tolerância aumentada
+    console.log(`🔄 Buscando palavra mais próxima...`)
+    
+    let closestIndex = -1
+    let smallestDistance = Infinity
+    
+    words.forEach((word: TranscriptionWord, index: number) => {
+      const wordMidpoint = (word.start + word.end) / 2
+      const distance = Math.abs(currentTime - wordMidpoint)
+      
+      if (distance < smallestDistance) {
+        smallestDistance = distance
+        closestIndex = index
+      }
+    })
+    
+    // ✅ CORREÇÃO 3: Tolerância mais generosa (5 segundos ao invés de 3)
+    if (closestIndex !== -1 && smallestDistance <= 5.0) {
+      const nearestWord = words[closestIndex]
+      console.log(`✅ Palavra mais próxima encontrada: ${closestIndex} - "${nearestWord.text}" (distância: ${smallestDistance.toFixed(2)}s)`)
+      return closestIndex
+    }
+    
+    console.warn(`❌ Nenhuma palavra adequada encontrada. Menor distância: ${smallestDistance.toFixed(2)}s`)
+    return -1
   }
 }
 
