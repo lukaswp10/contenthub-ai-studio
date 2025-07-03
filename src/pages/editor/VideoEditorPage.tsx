@@ -59,6 +59,46 @@ import {
 } from '../../stores/videoEditorStore'
 import { Caption } from '../../types/caption.types'
 
+// ✅ INTERFACES TIPADAS PARA CORRIGIR LINT
+interface WordData {
+  text: string
+  start: number
+  end: number
+  confidence: number
+  highlight?: boolean
+}
+
+interface TranscriptionWord {
+  text: string
+  start: number
+  end: number
+  confidence?: number
+}
+
+interface CaptionData {
+  text: string
+  start: number
+  end: number
+  confidence: number
+  id?: string
+}
+
+interface SpeechAnalysis {
+  speechRate: number
+  recommendedWordsPerCaption: number
+  pauseCount: number
+  totalDuration: number
+}
+
+interface SyncConfig {
+  wordsPerCaption: number
+  minDisplayTime: number
+  maxDisplayTime: number
+  bufferTime: number
+  conservativeMode: boolean
+  readingTimeMultiplier: number
+}
+
 interface VideoData extends Record<string, unknown> {
   file?: File | null
   url?: string
@@ -884,13 +924,13 @@ export function VideoEditorPage() {
       const currentTime = storeCurrentTimeData
       
       // Encontrar palavra atual
-      const currentWordIndex = wordsArray.findIndex((word: any) => 
+      const currentWordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
         currentTime >= word.start && currentTime <= word.end
       )
       
       if (currentWordIndex === -1) {
         // Buscar palavra mais próxima
-        const nearestWordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+        const nearestWordIndex = wordsArray.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
           if (closestIndex === -1) return index
           
           const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
@@ -911,7 +951,7 @@ export function VideoEditorPage() {
       }
       
       const wordIndex = currentWordIndex !== -1 ? currentWordIndex : 
-        wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+        wordsArray.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
           if (closestIndex === -1) return index
           const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
           const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
@@ -920,17 +960,17 @@ export function VideoEditorPage() {
       
       if (wordIndex === -1) return null
       
-      // Agrupar palavras em frases menores (mais rápidas)
-      const wordsPerPhrase = 3 // Reduzido para legendas mais rápidas
+      // ✅ CORREÇÃO: Agrupar palavras em frases MAIORES (mais lentas)
+      const wordsPerPhrase = 6 // AUMENTADO para legendas mais lentas e legíveis
       const phraseStartIndex = Math.max(0, wordIndex - Math.floor(wordsPerPhrase / 2))
       const phraseEndIndex = Math.min(wordsArray.length - 1, phraseStartIndex + wordsPerPhrase - 1)
       
       // Extrair palavras da frase
       const phraseWords = wordsArray.slice(phraseStartIndex, phraseEndIndex + 1)
-      const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+      const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
       const phraseStart = phraseWords[0]?.start || currentTime
       const phraseEnd = phraseWords[phraseWords.length - 1]?.end || currentTime + 1.5 // Duração reduzida
-      const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+      const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
       
       return {
         text: phraseText,
@@ -957,12 +997,12 @@ export function VideoEditorPage() {
     const currentTime = storeCurrentTimeData
     
     // Encontrar palavra atual ou mais próxima
-    let wordIndex = wordsArray.findIndex((word: any) => 
+    let wordIndex = wordsArray.findIndex((word: TranscriptionWord) => 
       currentTime >= word.start && currentTime <= word.end
     )
     
     if (wordIndex === -1) {
-      wordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+      wordIndex = wordsArray.reduce((closestIndex: number, word: TranscriptionWord, index: number) => {
         if (closestIndex === -1) return index
         
         const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
@@ -981,12 +1021,12 @@ export function VideoEditorPage() {
     
     if (wordIndex === -1) return null
     
-    // ✅ CRIAR FRASES DE 4-6 PALAVRAS
-    const wordsPerPhrase = 5
+    // ✅ CRIAR FRASES DE 6-8 PALAVRAS (mais tempo para leitura)
+    const wordsPerPhrase = 7
     const halfPhrase = Math.floor(wordsPerPhrase / 2)
     
     let phraseStart = Math.max(0, wordIndex - halfPhrase)
-    let phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+    const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
     
     // Ajustar se necessário
     if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
@@ -994,10 +1034,10 @@ export function VideoEditorPage() {
     }
     
     const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
-    const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+    const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
     const startTime = phraseWords[0]?.start || currentTime
     const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
-    const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+    const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
     
     console.log('🎬 Legenda contínua:', phraseText, `(${phraseWords.length} palavras)`)
     
@@ -1558,8 +1598,8 @@ export function VideoEditorPage() {
 
   // ✅ NOVOS ESTADOS para Sistema de Sincronização Inteligente
   const [syncControlsOpen, setSyncControlsOpen] = useState(false)
-  const [syncConfig, setSyncConfig] = useState(null)
-  const [speechAnalysis, setSpeechAnalysis] = useState(null)
+  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null)
+  const [speechAnalysis, setSpeechAnalysis] = useState<SpeechAnalysis | null>(null)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
@@ -1808,17 +1848,17 @@ export function VideoEditorPage() {
                   const halfPhrase = Math.floor(wordsPerPhrase / 2)
                   
                   let phraseStart = Math.max(0, wordIndex - halfPhrase)
-                  let phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+                  const phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
                   
                   if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
                     phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
                   }
                   
                   const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
-                  const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+                  const phraseText = phraseWords.map((w: TranscriptionWord) => w.text).join(' ')
                   const startTime = phraseWords[0]?.start || currentTime
                   const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
-                  const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+                  const avgConfidence = phraseWords.reduce((sum: number, w: TranscriptionWord) => sum + (w.confidence || 0.9), 0) / phraseWords.length
                   
                   return {
                     text: phraseText,
@@ -1904,7 +1944,7 @@ export function VideoEditorPage() {
               onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
-              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as any} // ➕ NOVO: Dados de transcrição
+              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as Record<string, unknown>} // ➕ NOVO: Dados de transcrição
               showTranscriptTrack={storeTranscription.showTranscriptTimeline !== undefined ? storeTranscription.showTranscriptTimeline : showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
               updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
             />
