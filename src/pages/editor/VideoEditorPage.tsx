@@ -1641,7 +1641,7 @@ export function VideoEditorPage() {
     let styleName: string
     
     switch (storeCaptionStyle) {
-      case 'tiktok':
+      case 'tiktok': {
         // 🎵 ESTILO TIKTOK: 1 palavra por vez
         const currentWord = wordsArray[wordIndex]
         console.log('🎵 TikTok Style: Mostrando palavra única:', currentWord.text)
@@ -1652,6 +1652,7 @@ export function VideoEditorPage() {
           end: currentWord.end,
           confidence: currentWord.confidence || 0.9
         }
+      }
         
       case 'instagram':
         // 📸 ESTILO INSTAGRAM: 2-3 palavras
