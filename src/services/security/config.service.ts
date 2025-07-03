@@ -135,7 +135,6 @@ export class ConfigService {
         .order('priority', { ascending: false })
 
       if (error) {
-        console.warn('⚠️ Erro ao carregar do Supabase:', error)
         return
       }
 
@@ -215,7 +214,7 @@ export class ConfigService {
         this.stats.totalKeys++
       }
 
-      console.log('🌍 Keys de ambiente carregadas')
+
     } catch (error) {
       console.error('❌ Erro ao carregar do ambiente:', error)
     }

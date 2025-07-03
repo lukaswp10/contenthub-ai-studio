@@ -446,19 +446,19 @@ export function VideoEditorPage() {
   useEffect(() => {
     // ✅ CORRIGIDO: Permitir editor sem vídeo (não redirecionar)
     if (!videoData) {
-      console.log('📝 Editor iniciado sem vídeo - modo galeria ativo')
+
       return // Não redirecionar, permitir usar galeria
     }
     
     // Lógica de carregamento de vídeo
     if (videoData.url && videoData.url.startsWith('data:')) {
-      console.log('Usando data URL confiável')
+      
     } else if (videoData.file) {
-      console.log('Criando nova Blob URL a partir do arquivo preservado')
+      
       const newUrl = URL.createObjectURL(videoData.file)
       videoData.url = newUrl
     } else if (!videoData.url || videoData.url.includes('file-preserved')) {
-      console.log('⚠️ Vídeo sem URL válida - aguardando seleção na galeria')
+
       return // Não redirecionar, permitir usar galeria
     }
 
@@ -497,12 +497,12 @@ export function VideoEditorPage() {
             if (e.shiftKey) {
               // Ctrl+Shift+Z = Redo (alternativa)
               if (commandManager.redo()) {
-                console.log('↪️ Redo executado via Ctrl+Shift+Z')
+
               }
             } else {
               // Ctrl+Z = Undo
               if (commandManager.undo()) {
-                console.log('↩️ Undo executado via Ctrl+Z')
+
               }
             }
           }
@@ -512,7 +512,7 @@ export function VideoEditorPage() {
             e.preventDefault()
             // Ctrl+Y = Redo
             if (commandManager.redo()) {
-              console.log('↪️ Redo executado via Ctrl+Y')
+
             }
           }
           break
@@ -523,18 +523,18 @@ export function VideoEditorPage() {
         case 'c':
           if (e.ctrlKey || e.metaKey) return
           storeSetRazorToolActive(!razorToolActive)
-          console.log(razorToolActive ? '✂️ Ferramenta Razor ativada' : 'Ferramenta Razor desativada')
+
           break
         case 's':
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault()
-            console.log('💾 Projeto salvo automaticamente')
+
           } else {
             splitClipAt(currentTime)
           }
           break
         case 'm':
-          console.log('🧲 Snap toggle (função removida)')
+
           break
         case 'arrowleft':
           e.preventDefault()
@@ -549,15 +549,15 @@ export function VideoEditorPage() {
           if (selectedLayer) {
             storeSetTimelineLayers(storeTimelineLayers.filter(l => l.id !== selectedLayer))
             storeSetSelectedLayer(null)
-            console.log('🗑️ Clip removido')
+
           }
           break
         case '+':
         case '=':
-          console.log('🔍 Zoom in (função removida)')
+
           break
         case '-':
-          console.log('🔍 Zoom out (função removida)')
+
           break
       }
     }

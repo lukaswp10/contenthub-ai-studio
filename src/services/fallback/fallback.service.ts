@@ -63,7 +63,8 @@ export class FallbackService {
   constructor() {
     this.initializeProviders()
     this.initializeStrategies()
-    this.startHealthChecking()
+    // ✅ DESABILITADO: Health checking automático (causava erros 401 sem API keys)
+    // this.startHealthChecking()
     console.log('🔄 FallbackService inicializado')
   }
 
