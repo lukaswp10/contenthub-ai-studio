@@ -37,6 +37,8 @@ import { commandManager } from '../../utils/commandManager'
 import { transcriptionService } from '../../services/transcriptionService'
 import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
 import { formatTime, formatTimeAgo } from '../../utils/timeUtils'
+import { CacheStats } from '../../components/editor/CacheStats'
+import ApiKeyManager from '../../components/editor/ApiKeyManager'
 
 // 🏪 ZUSTAND IMPORTS - MIGRAÇÃO FASE 3
 import { 
@@ -342,6 +344,8 @@ export function VideoEditorPage() {
   })
   const [isGenerating, setIsGenerating] = useState(false)
   const [captionStyle, setCaptionStyle] = useState<'tiktok' | 'youtube' | 'instagram' | 'podcast'>('tiktok')
+  const [cacheStatsOpen, setCacheStatsOpen] = useState(false)
+  const [apiKeyManagerOpen, setApiKeyManagerOpen] = useState(false)
   
   // Variáveis temporárias para corrigir erros
   const timelineZoom = 1
@@ -854,18 +858,6 @@ export function VideoEditorPage() {
       lastWord: wordsArray?.[wordsArray.length - 1]
     })
     
-    // ✅ ADICIONAR LOG ESPECÍFICO PARA DEPURAÇÃO
-    console.log('🚨 DEPURAÇÃO CRÍTICA:', {
-      temTranscricao: !!storeTranscriptionData,
-      temWords: !!storeTranscriptionData?.words,
-      quantidadeWords: storeTranscriptionData?.words?.length,
-      temGeneratedCaptions: !!storeGeneratedCaptionsData,
-      quantidadeGenerated: storeGeneratedCaptionsData?.length,
-      captionsAtivadas: storeCaptionsVisibleData,
-      tempoAtual: storeCurrentTimeData,
-      arrayFinal: wordsArray?.length
-    })
-    
     if (!wordsArray?.length || !storeCaptionsVisibleData) {
       console.log('🔍 getCurrentCaption: Sem palavras ou legendas desativadas', {
         wordsLength: wordsArray?.length,
@@ -875,52 +867,144 @@ export function VideoEditorPage() {
       return null
     }
     
-    // ✅ NOVO: Buscar palavra atual com múltiplas estratégias
+    // ✅ NOVO: LEGENDAS CONTÍNUAS - Agrupar palavras em frases
     const currentTime = storeCurrentTimeData
     
-    // Estratégia 1: Busca exata com tolerância pequena
-    let currentWord = wordsArray.find((word: any) => 
+    // Encontrar palavra atual
+    const currentWordIndex = wordsArray.findIndex((word: any) => 
       currentTime >= word.start && currentTime <= word.end
     )
     
-    // Estratégia 2: Se não encontrou, buscar com tolerância maior
-    if (!currentWord) {
-      const tolerance = 0.3 // 300ms de tolerância
-      currentWord = wordsArray.find((word: any) => 
-        currentTime >= (word.start - tolerance) && currentTime <= (word.end + tolerance)
-      )
-    }
-    
-    // Estratégia 3: Se ainda não encontrou, buscar a palavra mais próxima
-    if (!currentWord) {
-      currentWord = wordsArray.reduce((closest: any, word: any) => {
-        if (!closest) return word
+    if (currentWordIndex === -1) {
+      // Buscar palavra mais próxima
+      const nearestWordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+        if (closestIndex === -1) return index
         
         const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((closest.start + closest.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
         
-        return currentDistance < closestDistance ? word : closest
-      }, null)
+        return currentDistance < closestDistance ? index : closestIndex
+      }, -1)
       
-      // Só usar se estiver muito próximo (dentro de 2 segundos)
-      if (currentWord && Math.abs(currentTime - ((currentWord.start + currentWord.end) / 2)) > 2) {
-        currentWord = null
+      // Se muito longe, não mostrar legenda
+      if (nearestWordIndex !== -1) {
+        const nearestWord = wordsArray[nearestWordIndex]
+        if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 2) {
+          return null
+        }
+      } else {
+        return null
       }
     }
     
-    if (currentWord) {
-      console.log('✅ getCurrentCaption: Palavra encontrada:', currentWord.text, 'no tempo', currentTime)
-      return {
-        text: currentWord.text,
-        start: currentWord.start,
-        end: currentWord.end,
-        confidence: currentWord.confidence || 0.9
+    const wordIndex = currentWordIndex !== -1 ? currentWordIndex : 
+      wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+        if (closestIndex === -1) return index
+        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+        return currentDistance < closestDistance ? index : closestIndex
+      }, -1)
+    
+    if (wordIndex === -1) return null
+    
+    // ✅ AGRUPAR PALAVRAS EM FRASES BONITAS (3-6 palavras)
+    const wordsPerPhrase = 4 // Ideal para legibilidade
+    const phraseStartIndex = Math.max(0, wordIndex - Math.floor(wordsPerPhrase / 2))
+    const phraseEndIndex = Math.min(wordsArray.length - 1, phraseStartIndex + wordsPerPhrase - 1)
+    
+    // Ajustar início se necessário
+    const adjustedStartIndex = Math.max(0, phraseEndIndex - wordsPerPhrase + 1)
+    
+    // Extrair palavras da frase
+    const phraseWords = wordsArray.slice(adjustedStartIndex, phraseEndIndex + 1)
+    const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+    const phraseStart = phraseWords[0]?.start || currentTime
+    const phraseEnd = phraseWords[phraseWords.length - 1]?.end || currentTime + 2
+    const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+    
+    console.log('✅ getCurrentCaption: Frase encontrada:', {
+      text: phraseText,
+      wordsCount: phraseWords.length,
+      currentTime: currentTime,
+      phraseStart: phraseStart,
+      phraseEnd: phraseEnd,
+      wordIndex: wordIndex
+    })
+    
+    return {
+      text: phraseText,
+      start: phraseStart,
+      end: phraseEnd,
+      confidence: avgConfidence
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Legendas Contínuas Bonitas
+  const getCurrentContinuousCaption = () => {
+    const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
+    const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
+    const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
+    const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
+    
+    const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+    
+    if (!wordsArray?.length || !storeCaptionsVisibleData) {
+      return null
+    }
+    
+    const currentTime = storeCurrentTimeData
+    
+    // Encontrar palavra atual ou mais próxima
+    let wordIndex = wordsArray.findIndex((word: any) => 
+      currentTime >= word.start && currentTime <= word.end
+    )
+    
+    if (wordIndex === -1) {
+      wordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+        if (closestIndex === -1) return index
+        
+        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+        
+        return currentDistance < closestDistance ? index : closestIndex
+      }, -1)
+      
+      if (wordIndex !== -1) {
+        const nearestWord = wordsArray[wordIndex]
+        if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 3) {
+          return null
+        }
       }
     }
     
-    console.log('🔍 getCurrentCaption: Nenhuma palavra no tempo atual', currentTime)
-    console.log('🚨 PALAVRAS DISPONÍVEIS:', wordsArray?.slice(0, 5).map((w: any, i: number) => `${i}: "${w.text}" (${w.start.toFixed(1)}-${w.end.toFixed(1)})`))
-    return null
+    if (wordIndex === -1) return null
+    
+    // ✅ CRIAR FRASES DE 4-6 PALAVRAS
+    const wordsPerPhrase = 5
+    const halfPhrase = Math.floor(wordsPerPhrase / 2)
+    
+    let phraseStart = Math.max(0, wordIndex - halfPhrase)
+    let phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+    
+    // Ajustar se necessário
+    if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
+      phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
+    }
+    
+    const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
+    const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+    const startTime = phraseWords[0]?.start || currentTime
+    const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
+    const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+    
+    console.log('🎬 Legenda contínua:', phraseText, `(${phraseWords.length} palavras)`)
+    
+    return {
+      text: phraseText,
+      start: startTime,
+      end: endTime,
+      confidence: avgConfidence
+    }
   }
 
   // Função melhorada para renderizar legenda com estilo avançado personalizado
@@ -1534,12 +1618,30 @@ export function VideoEditorPage() {
       {/* LAYOUT PRINCIPAL - Estrutura Profissional */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* BOTÃO GALERIA - Posição fixa */}
-        <div className="absolute top-20 left-4 z-30">
+        <div className="absolute top-20 left-4 z-30 flex gap-3">
           <Button
             onClick={() => setGalleryModalOpen(true)}
             className="gallery-btn-visionario bg-gradient-to-r from-blue-600/80 to-purple-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
           >
             📁 Galeria ({uploadedVideos.length + generatedClips.length})
+          </Button>
+          
+          {/* BOTÃO CACHE STATS - NOVO */}
+          <Button
+            onClick={() => setCacheStatsOpen(true)}
+            className="cache-stats-btn bg-gradient-to-r from-green-600/80 to-emerald-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
+            title="Ver estatísticas do cache inteligente"
+          >
+            💾 Cache
+          </Button>
+          
+          {/* BOTÃO API KEYS - NOVO */}
+          <Button
+            onClick={() => setApiKeyManagerOpen(true)}
+            className="api-keys-btn bg-gradient-to-r from-blue-600/80 to-purple-600/80 backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20"
+            title="Gerenciar API Keys de forma segura"
+          >
+            🔐 API Keys
           </Button>
         </div>
 
@@ -1547,6 +1649,20 @@ export function VideoEditorPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* ÁREA CENTRAL - Video Preview */}
           <div className="flex-1 flex flex-col min-w-0">
+            {/* ✅ BOTÃO CONTROLES DE LEGENDAS - Posição fixa */}
+            <div className="absolute top-20 right-4 z-30">
+              <Button
+                onClick={() => storeSetRightSidebarOpen(!rightSidebarOpen)}
+                className={`legend-controls-btn bg-gradient-to-r backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 transform hover:scale-105 border border-white/20 ${
+                  rightSidebarOpen 
+                    ? 'from-purple-600/80 to-pink-600/80 hover:shadow-purple-500/25' 
+                    : 'from-gray-600/80 to-gray-700/80 hover:shadow-gray-500/25'
+                }`}
+              >
+                🎨 {rightSidebarOpen ? 'Fechar' : 'Editar'} Legendas
+              </Button>
+            </div>
+            
             {/* Video Preview Container */}
             <div className="video-preview-visionario flex-1 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
               {/* 🚨 BOTÃO DE TESTE CRÍTICO - REMOVER APÓS CORREÇÃO */}
@@ -1608,8 +1724,64 @@ export function VideoEditorPage() {
               
               {/* ✅ NOVO COMPONENTE VIDEOPLAYER REFATORADO */}
               <VideoPlayer
-                // Captions específicas
-                currentCaption={getCurrentCaption()}
+                // Captions específicas - USANDO LEGENDAS CONTÍNUAS
+                currentCaption={(() => {
+                  const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
+                  const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
+                  const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
+                  const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
+                  
+                  const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
+                  
+                  if (!wordsArray?.length || !storeCaptionsVisibleData) return null
+                  
+                  const currentTime = storeCurrentTimeData
+                  
+                  // Encontrar palavra atual
+                  let wordIndex = wordsArray.findIndex((word: any) => 
+                    currentTime >= word.start && currentTime <= word.end
+                  )
+                  
+                  if (wordIndex === -1) {
+                    wordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+                      if (closestIndex === -1) return index
+                      const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+                      const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+                      return currentDistance < closestDistance ? index : closestIndex
+                    }, -1)
+                    
+                    if (wordIndex !== -1) {
+                      const nearestWord = wordsArray[wordIndex]
+                      if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 3) return null
+                    }
+                  }
+                  
+                  if (wordIndex === -1) return null
+                  
+                  // ✅ CRIAR FRASES CONTÍNUAS (5 palavras)
+                  const wordsPerPhrase = 5
+                  const halfPhrase = Math.floor(wordsPerPhrase / 2)
+                  
+                  let phraseStart = Math.max(0, wordIndex - halfPhrase)
+                  let phraseEnd = Math.min(wordsArray.length - 1, phraseStart + wordsPerPhrase - 1)
+                  
+                  if (phraseEnd - phraseStart < wordsPerPhrase - 1) {
+                    phraseStart = Math.max(0, phraseEnd - wordsPerPhrase + 1)
+                  }
+                  
+                  const phraseWords = wordsArray.slice(phraseStart, phraseEnd + 1)
+                  const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+                  const startTime = phraseWords[0]?.start || currentTime
+                  const endTime = phraseWords[phraseWords.length - 1]?.end || currentTime + 3
+                  const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+                  
+                  return {
+                    text: phraseText,
+                    start: startTime,
+                    end: endTime,
+                    confidence: avgConfidence
+                  }
+                })()}
                 hasTranscription={!!storeTranscription.transcriptionResult?.words?.length}
                 transcriptionWordsCount={storeTranscription.transcriptionResult?.words?.length || 0}
                 onTestCaptions={() => {
@@ -2480,6 +2652,25 @@ export function VideoEditorPage() {
       {/* Removido: API key já configurada automaticamente */}
 
       {/* Painel de Transcrição Avançada existente */}
+      
+      {/* ✅ CACHE STATS MODAL - NOVO */}
+      <CacheStats 
+        isOpen={cacheStatsOpen} 
+        onClose={() => setCacheStatsOpen(false)} 
+      />
+      
+      {/* ✅ API KEY MANAGER MODAL - NOVO */}
+      <ApiKeyManager 
+        isOpen={apiKeyManagerOpen} 
+        onClose={() => setApiKeyManagerOpen(false)}
+        onApiKeyConfigured={(provider, isValid) => {
+          console.log(`🔐 API Key configurada: ${provider} - ${isValid ? 'Válida' : 'Inválida'}`)
+          if (isValid) {
+            // Recarregar configurações
+            console.log(`✅ ${provider} configurado com sucesso!`)
+          }
+        }}
+      />
     </div>
   )
 } 

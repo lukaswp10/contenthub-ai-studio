@@ -1,0 +1,1 @@
+# Cache Inteligente Setup

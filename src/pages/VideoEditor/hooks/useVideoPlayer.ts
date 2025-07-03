@@ -41,6 +41,7 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
     if (videoRef.current) {
       const newTime = videoRef.current.currentTime
       setCurrentTime(newTime)
+      console.log('⏰ VideoPlayer: Tempo atualizado:', newTime.toFixed(2) + 's')
     }
   }, [videoRef, setCurrentTime])
 
@@ -72,16 +73,77 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
     const video = videoRef.current
     if (!video) return
 
+    console.log('🔧 VideoPlayer: Configurando event listeners')
+
+    // ✅ HANDLER PARA PLAY/PAUSE AUTOMÁTICO
+    const handlePlay = () => {
+      console.log('▶️ VideoPlayer: Vídeo iniciou reprodução (automático)')
+      useVideoEditorStore.getState().setIsPlaying(true)
+    }
+
+    const handlePause = () => {
+      console.log('⏸️ VideoPlayer: Vídeo pausou (automático)')
+      useVideoEditorStore.getState().setIsPlaying(false)
+    }
+
+    // ✅ HANDLER PARA SYNC BIDIRECIONAL
+    const handleSeeked = () => {
+      console.log('🎯 VideoPlayer: Seek realizado, sincronizando tempo')
+      if (video.currentTime !== undefined) {
+        setCurrentTime(video.currentTime)
+      }
+    }
+
     // Adicionar listeners
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('loadeddata', handleVideoLoad)
+    video.addEventListener('loadedmetadata', handleVideoLoad)
+    video.addEventListener('canplay', handleVideoLoad)
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
+    video.addEventListener('seeked', handleSeeked)
+
+    // ✅ FORÇAR ATUALIZAÇÃO INICIAL
+    if (video.duration && !isNaN(video.duration)) {
+      handleVideoLoad()
+    }
+
+    // ✅ SINCRONIZAR ESTADO INICIAL
+    if (video.paused !== !isPlaying) {
+      if (isPlaying && video.paused) {
+        video.play().catch(console.error)
+      } else if (!isPlaying && !video.paused) {
+        video.pause()
+      }
+    }
 
     // Cleanup
     return () => {
+      console.log('🧹 VideoPlayer: Removendo event listeners')
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('loadeddata', handleVideoLoad)
+      video.removeEventListener('loadedmetadata', handleVideoLoad)
+      video.removeEventListener('canplay', handleVideoLoad)
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
+      video.removeEventListener('seeked', handleSeeked)
     }
-  }, [handleTimeUpdate, handleVideoLoad])
+  }, [handleTimeUpdate, handleVideoLoad, isPlaying])
+
+  // ✅ SINCRONIZAR STORE -> VIDEO HTML5
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    // Sincronizar play/pause
+    if (isPlaying && video.paused) {
+      console.log('🔄 VideoPlayer: Sincronizando play do store para vídeo')
+      video.play().catch(console.error)
+    } else if (!isPlaying && !video.paused) {
+      console.log('🔄 VideoPlayer: Sincronizando pause do store para vídeo')
+      video.pause()
+    }
+  }, [isPlaying])
 
   return {
     // Funções

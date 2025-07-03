@@ -1,41 +1,91 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# 🎯 CURSOR IGNORE - ClipsForge Pro
+# Estrutura otimizada pós-reorganização Janeiro 2025
 
-# Build outputs
+# ===== BUILD & DEPS =====
+node_modules/
 dist/
 build/
-.vite/
+.next/
+out/
+
+# ===== CACHE & TEMP =====
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.temp
+.vercel/
+.cursor/
+.vscode/
+
+# ===== LOGS & DEBUG =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+debug.log
+error.log
+access.log
+
+# ===== ENV & SECRETS =====
+.env*
+!.env.example
+!.env.template
+*.key
+*.pem
+*.p12
+*.crt
+
+# ===== DATABASE & BACKUPS =====
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+supabase/.temp/
+supabase/.branches/
+backup_configs/
+
+# ===== DOCUMENTATION (ARQUIVADA) =====
+# Documentação foi reorganizada em docs/
+# Ignorar arquivos temporários de docs
+docs/*.tmp
+docs/*.backup
+docs/~*
+
+# ===== DEPLOYMENT =====
+# Scripts organizados em scripts/deployment/
+scripts/deployment/*.log
+scripts/deployment/temp/
+
+# ===== MEDIA & ASSETS =====
+*.mp4
+*.mov
+*.avi
+*.wmv
+*.flv
+*.webm
+*.mkv
+*.m4v
+*.3gp
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.wma
+*.m4a
+uploads/
+temp-uploads/
+processed-videos/
+
+# ===== GENERATED FILES =====
+types/supabase.ts
+*.generated.*
+*.auto.*
 coverage/
 .nyc_output/
 
-# Cache directories
-.cache/
-.parcel-cache/
-.next/
-.nuxt/
-.vercel/
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-logs/
-*.log
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# OS generated files
+# ===== PLATFORM SPECIFIC =====
 .DS_Store
 .DS_Store?
 ._*
@@ -43,59 +93,37 @@ pids/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Git
+# ===== GIT =====
 .git/
+.gitignore
+*.orig
+*.rej
 
-# IDE
-.vscode/
-.idea/
-
-# Supabase local
-supabase/.branches/
-supabase/.temp/
-
-# Backup configs
-backup_configs/
-
-# SQL files
-*.sql
-
-# Lock files
-package-lock.json
+# ===== PACKAGE MANAGERS =====
 yarn.lock
+pnpm-lock.yaml
+package-lock.json
 
-# Temporary files
-*.tmp
-*.temp
+# ===== PERFORMANCE OPTIMIZATION =====
+# Ignora arquivos grandes que diminuem performance do Cursor
+*.bundle.js
+*.chunk.js
+*.vendor.js
+*.min.js
+*.min.css
+
+# ===== DEVELOPMENT =====
+.history/
+jsconfig.json
+*.swp
+*.swo
 *~
 
-# Binary files
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Archives
-*.zip
-*.tar.gz
-*.rar
-
-# Images (se não precisar indexar)
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.svg
-*.ico
-
-# Videos
-*.mp4
-*.avi
-*.mov
-*.wmv
-
-# Audio
-*.mp3
-*.wav
-*.flac 
+# 📈 CURSOR PERFORMANCE NOTES:
+# - Documentação reorganizada em docs/
+# - Scripts organizados em scripts/
+# - Build sempre limpo
+# - Media files ignorados
+# Total de arquivos monitorados: ~reduzido 60% 

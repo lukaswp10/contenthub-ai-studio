@@ -1,4 +1,6 @@
 import { AssemblyAI } from 'assemblyai'
+import { transcriptionCache, type CachedTranscription } from './transcription/cache.service'
+import { configService } from './security/config.service'
 
 export interface TranscriptionWord {
   text: string
@@ -16,6 +18,8 @@ export interface TranscriptionResult {
   language?: string
   duration?: number
   speakers?: string[]
+  continuousCaptions: ContinuousCaption[]
+  segments: WhisperSegment[]
 }
 
 export interface WhisperResponse {
@@ -81,14 +85,18 @@ class TranscriptionService {
     videoFile: File, 
     onProgress: (status: string) => void
   ): Promise<TranscriptionResult> {
-    if (!this.openaiApiKey) {
-      throw new Error('🔑 Configure sua API Key do OpenAI primeiro!\n\n📍 Onde obter: https://platform.openai.com/api-keys\n💰 Custo: $0.006/minuto\n🎯 Melhor qualidade de transcrição');
+    // 🔐 OBTER API KEY SEGURA
+    const openaiConfig = configService.getActiveApiKey('openai')
+    if (!openaiConfig) {
+      throw new Error('🔑 Configure sua API Key do OpenAI primeiro!\n\n📍 Onde obter: https://platform.openai.com/api-keys\n💰 Custo: $0.006/minuto\n🎯 Melhor qualidade de transcrição\n\n⚡ Use o Gerenciador de API Keys para configurar');
     }
+    
+    const apiKey = openaiConfig.key
 
     try {
       console.log('🚀 WHISPER: Iniciando transcrição')
       console.log('📁 WHISPER: Arquivo:', videoFile.name, videoFile.size, 'bytes')
-      console.log('🔑 WHISPER: API Key configurada:', this.openaiApiKey.substring(0, 10) + '...')
+      console.log('🔑 WHISPER: API Key configurada:', apiKey.substring(0, 10) + '...')
       
       onProgress('🎤 Preparando áudio para OpenAI Whisper...')
       
@@ -117,7 +125,7 @@ class TranscriptionService {
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: formData
       })
@@ -182,7 +190,10 @@ class TranscriptionService {
               words.push(processedWord)
               console.log(`🔤 WHISPER: Palavra ${wordIndex}:`, processedWord)
             })
-          } else {
+          }
+          
+          // ✅ SEMPRE executar fallback se não há words suficientes
+          if (!segment.words || segment.words.length === 0) {
             console.log(`📝 WHISPER: Segment ${segIndex} sem words - usando fallback`)
             
             // Fallback: dividir texto por palavras e estimar timestamps
@@ -219,7 +230,9 @@ class TranscriptionService {
         confidence: 0.95, // Whisper tem alta qualidade
         language: result.language || 'pt',
         duration,
-        speakers
+        speakers,
+        continuousCaptions: createContinuousCaptions(words),
+        segments: result.segments || []
       }
 
       console.log('✅ WHISPER: Resultado final processado!')
@@ -244,9 +257,14 @@ class TranscriptionService {
     videoFile: File, 
     onProgress: (status: string) => void
   ): Promise<TranscriptionResult> {
-    if (!this.assemblyAI) {
-      throw new Error('🔑 Configure sua API Key da AssemblyAI primeiro!\n\n📍 Onde obter: https://www.assemblyai.com/dashboard/signup\n🎁 5 horas grátis para testar\n💰 Custo: $0.37/hora');
+    // 🔐 OBTER API KEY SEGURA
+    const assemblyConfig = configService.getActiveApiKey('assemblyai')
+    if (!assemblyConfig) {
+      throw new Error('🔑 Configure sua API Key da AssemblyAI primeiro!\n\n📍 Onde obter: https://www.assemblyai.com/dashboard/signup\n🎁 5 horas grátis para testar\n💰 Custo: $0.37/hora\n\n⚡ Use o Gerenciador de API Keys para configurar');
     }
+    
+    const assemblyAI = new AssemblyAI({ apiKey: assemblyConfig.key })
+    const apiKey = assemblyConfig.key
 
     try {
       onProgress('📤 Enviando áudio para AssemblyAI...')
@@ -258,7 +276,7 @@ class TranscriptionService {
       const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
         method: 'POST',
         headers: {
-          'Authorization': this.apiKey,
+          'Authorization': apiKey,
         },
         body: uploadFormData
       })
@@ -281,8 +299,8 @@ class TranscriptionService {
       onProgress('🧠 Processando com IA...')
       
       // Configuração oficial AssemblyAI
-      const transcript = await this.assemblyAI.transcripts.create({
-        audio_url: await this.assemblyAI.files.upload(videoFile),
+      const transcript = await assemblyAI.transcripts.create({
+        audio_url: await assemblyAI.files.upload(videoFile),
         language_detection: true,
         speaker_labels: true,
         auto_highlights: true,
@@ -307,7 +325,7 @@ class TranscriptionService {
       
       while ((result.status === 'processing' || result.status === 'queued') && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 2000))
-        result = await this.assemblyAI.transcripts.get(transcript.id)
+        result = await assemblyAI.transcripts.get(transcript.id)
         onProgress(`🔄 Processando... (${result.status}) - ${attempts + 1}/${maxAttempts}`)
         attempts++
       }
@@ -334,7 +352,12 @@ class TranscriptionService {
       return {
         words,
         text: result.text || '',
-        confidence: result.confidence || 0
+        confidence: result.confidence || 0,
+        language: 'pt-BR',
+        duration: words.length > 0 ? Math.max(...words.map(w => w.end)) : 0,
+        speakers: [...new Set(words.map(w => w.speaker).filter((s): s is string => Boolean(s)))],
+        continuousCaptions: createContinuousCaptions(words),
+        segments: []
       }
 
     } catch (error) {
@@ -449,7 +472,12 @@ class TranscriptionService {
         resolve({
           words,
           text: finalTranscript.trim(),
-          confidence: 0.8
+          confidence: 0.8,
+          language: 'pt-BR',
+          duration: words.length > 0 ? Math.max(...words.map(w => w.end)) : 0,
+          speakers: [...new Set(words.map(w => w.speaker).filter((s): s is string => Boolean(s)))],
+          continuousCaptions: createContinuousCaptions(words),
+          segments: []
         })
       }
 
@@ -463,7 +491,7 @@ class TranscriptionService {
     })
   }
 
-  // ➕ MÉTODO PRINCIPAL com suporte a 3 serviços
+  // ➕ MÉTODO PRINCIPAL com suporte a 3 serviços + CACHE INTELIGENTE
   async transcribe(
     videoFile: File,
     onProgress: (status: string) => void,
@@ -478,6 +506,36 @@ class TranscriptionService {
       openai: !!this.openaiApiKey,
       assemblyai: !!this.apiKey
     })
+
+    // ✅ FASE 1: VERIFICAR CACHE INTELIGENTE
+    onProgress('🔍 Verificando cache inteligente...')
+    console.log('💾 CACHE: Verificando se transcrição já existe...')
+    
+    try {
+      const cachedResult = await transcriptionCache.checkCache(videoFile, provider)
+      if (cachedResult) {
+        console.log('✅ CACHE HIT: Transcrição encontrada no cache!')
+        console.log('💰 ECONOMIA: Evitando nova transcrição, economizando custos')
+        onProgress(`✅ Cache hit! Carregando transcrição salva (${provider})...`)
+        
+        // Simular um pequeno delay para UX
+        await new Promise(resolve => setTimeout(resolve, 500))
+        onProgress(`🎉 Transcrição carregada do cache!`)
+        
+        // Garantir compatibilidade de tipos
+        return {
+          ...cachedResult.result,
+          continuousCaptions: cachedResult.result.continuousCaptions || createContinuousCaptions(cachedResult.result.words),
+          segments: cachedResult.result.segments || []
+        }
+      } else {
+        console.log('❌ CACHE MISS: Transcrição não encontrada, processando...')
+        onProgress(`🔄 Processando nova transcrição com ${provider}...`)
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ CACHE: Erro na verificação (não crítico):', cacheError)
+      onProgress('⚠️ Cache indisponível, processando normalmente...')
+    }
 
     // Tentativa com provedor escolhido
     try {
@@ -519,6 +577,21 @@ class TranscriptionService {
         confidence: result.confidence,
         language: result.language
       })
+      
+      // ✅ SALVAR NO CACHE INTELIGENTE
+      try {
+        console.log('💾 CACHE: Salvando transcrição para futuras consultas...')
+        onProgress('💾 Salvando no cache inteligente...')
+        
+        // Calcular custo estimado
+        const estimatedCost = this.calculateTranscriptionCost(provider, videoFile.size, result.duration || 0)
+        
+        await transcriptionCache.saveToCache(videoFile, provider, result, estimatedCost)
+        console.log('✅ CACHE: Transcrição salva com sucesso!')
+        console.log('💰 ECONOMIA: Próximas consultas serão instantâneas')
+      } catch (cacheError) {
+        console.warn('⚠️ CACHE: Erro ao salvar (não crítico):', cacheError)
+      }
       
       return result
       
@@ -594,7 +667,9 @@ class TranscriptionService {
       confidence: 0.95,
       language: 'pt-BR',
       duration: 10,
-      speakers: ['Demonstração']
+      speakers: ['Demonstração'],
+      continuousCaptions: [],
+      segments: []
     }
   }
 
@@ -650,6 +725,91 @@ class TranscriptionService {
       localStorage.setItem('assemblyai_rate_limits', JSON.stringify(limits.assemblyai))
     }
   }
+
+  // ➕ NOVO: Calcular custo estimado da transcrição
+  private calculateTranscriptionCost(provider: string, fileSize: number, duration: number): number {
+    // Estimativas conservadoras baseadas nos preços oficiais
+    switch (provider) {
+      case 'whisper':
+        // OpenAI Whisper: $0.006 por minuto
+        return Math.round((duration / 60) * 0.006 * 100) / 100
+      case 'assemblyai':
+        // AssemblyAI: $0.37 por hora
+        return Math.round((duration / 3600) * 0.37 * 100) / 100
+      case 'webspeech':
+        return 0 // Grátis
+      default:
+        return 0
+    }
+  }
+
+  // ➕ NOVO: Obter estatísticas do cache
+  async getCacheStats() {
+    try {
+      return await transcriptionCache.getStats()
+    } catch (error) {
+      console.error('❌ Erro ao obter estatísticas do cache:', error)
+      return {
+        totalCached: 0,
+        totalHits: 0,
+        totalMisses: 0,
+        costSaved: 0,
+        providers: {},
+        hitRate: 0
+      }
+    }
+  }
+
+  // ➕ NOVO: Limpar cache
+  async clearCache() {
+    try {
+      await transcriptionCache.clearCache()
+      console.log('🧹 Cache limpo com sucesso')
+      return true
+    } catch (error) {
+      console.error('❌ Erro ao limpar cache:', error)
+      return false
+    }
+  }
+}
+
+// ✅ FUNÇÃO PARA CRIAR LEGENDAS CONTÍNUAS BONITAS
+function createContinuousCaptions(words: TranscriptionWord[]): Array<{
+  text: string
+  start: number
+  end: number
+  confidence: number
+}> {
+  if (!words.length) return []
+  
+  const captions = []
+  const wordsPerCaption = 5 // 5 palavras por legenda = legibilidade ideal
+  
+  for (let i = 0; i < words.length; i += wordsPerCaption) {
+    const captionWords = words.slice(i, i + wordsPerCaption)
+    const text = captionWords.map(w => w.text).join(' ')
+    const start = captionWords[0].start
+    const end = captionWords[captionWords.length - 1].end
+    const confidence = captionWords.reduce((sum, w) => sum + (w.confidence || 0.9), 0) / captionWords.length
+    
+    captions.push({
+      text,
+      start,
+      end,
+      confidence
+    })
+  }
+  
+  console.log('🎬 Legendas contínuas criadas:', captions.length, 'frases')
+  return captions
+}
+
+// ✅ INTERFACE PARA LEGENDAS CONTÍNUAS
+interface ContinuousCaption {
+  text: string
+  start: number
+  end: number
+  confidence: number
 }
 
 export const transcriptionService = new TranscriptionService() 
