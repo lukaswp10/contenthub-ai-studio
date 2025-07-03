@@ -14,6 +14,19 @@ interface VideoPlayerProps {
   transcriptionWordsCount: number
   onTestCaptions: () => void
   
+  // ✅ NOVO: Estilos de legenda em tempo real
+  captionStyling?: {
+    captionPosition: 'top' | 'center' | 'bottom'
+    captionFontSize: number
+    captionTextColor: string
+    captionShadowIntensity: number
+    captionShadowColor: string
+    captionOpacity: number
+    captionBackgroundColor: string
+    captionFontFamily: string
+    captionAnimation: string
+  }
+  
   // Canvas ref para efeitos
   canvasRef: React.RefObject<HTMLCanvasElement>
 }
@@ -23,6 +36,7 @@ export const VideoPlayer = memo(({
   hasTranscription,
   transcriptionWordsCount,
   onTestCaptions,
+  captionStyling: customCaptionStyling,
   canvasRef
 }: VideoPlayerProps) => {
   
@@ -33,7 +47,10 @@ export const VideoPlayer = memo(({
   
   // 🏪 Zustand hooks para state management
   const { captionsVisible, toggleCaptionsVisibility } = useCaptions()
-  const captionStyling = useCaptionStyling()
+  const storeCaptionStyling = useCaptionStyling()
+  
+  // ✅ PRIORIZAR estilos customizados se fornecidos
+  const finalCaptionStyling = customCaptionStyling || storeCaptionStyling
   
   // ✅ Hook customizado integrado com Zustand
   const {
@@ -104,7 +121,7 @@ export const VideoPlayer = memo(({
       <VideoOverlay
         currentCaption={currentCaption}
         captionsVisible={captionsVisible}
-        {...captionStyling}
+        {...finalCaptionStyling}
       />
       
       {/* ✅ PLAY/PAUSE OVERLAY */}

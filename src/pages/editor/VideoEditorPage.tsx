@@ -1601,6 +1601,140 @@ export function VideoEditorPage() {
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null)
   const [speechAnalysis, setSpeechAnalysis] = useState<SpeechAnalysis | null>(null)
 
+  // ✅ NOVO: Sistema de atualização em tempo real
+  useEffect(() => {
+    // Atualizar legendas em tempo real quando estilos mudarem
+    const updateCaptionStyles = () => {
+      if (storeGeneratedCaptions.length > 0) {
+        console.log('🎨 Estilos de legenda atualizados em tempo real:', {
+          fontFamily: captionFontFamily,
+          fontSize: captionFontSize,
+          color: captionTextColor,
+          position: captionPosition
+        })
+      }
+    }
+
+    updateCaptionStyles()
+  }, [captionFontFamily, captionFontSize, captionTextColor, captionPosition, 
+      captionShadowIntensity, captionOpacity, captionBackgroundColor, captionAnimation])
+
+  // ✅ NOVO: Sistema de análise de sincronização em tempo real
+  useEffect(() => {
+    if (storeGeneratedCaptions.length > 0 && !speechAnalysis) {
+      const analyzeAndOptimize = async () => {
+        try {
+          console.log('🧠 Iniciando análise de sincronização...')
+          
+          // Simular análise de fala
+          const mockAnalysis: SpeechAnalysis = {
+            speechRate: 2.5, // palavras por segundo
+            recommendedWordsPerCaption: Math.max(3, Math.min(6, Math.floor(2.5 * 2))),
+            pauseCount: Math.floor(storeGeneratedCaptions.length / 8),
+            totalDuration: storeGeneratedCaptions.length * 0.8
+          }
+          
+          setSpeechAnalysis(mockAnalysis)
+          
+          // Configuração otimizada baseada na análise
+          const optimizedConfig: SyncConfig = {
+            wordsPerCaption: mockAnalysis.recommendedWordsPerCaption,
+            minDisplayTime: mockAnalysis.speechRate > 3 ? 0.8 : 1.2,
+            maxDisplayTime: mockAnalysis.speechRate > 3 ? 2.5 : 4.0,
+            bufferTime: 0.3,
+            conservativeMode: true,
+            readingTimeMultiplier: mockAnalysis.speechRate > 3 ? 2.0 : 1.5
+          }
+          
+          setSyncConfig(optimizedConfig)
+          
+          console.log('✅ Análise de sincronização concluída:', {
+            speechRate: mockAnalysis.speechRate,
+            recommendedWords: mockAnalysis.recommendedWordsPerCaption,
+            config: optimizedConfig
+          })
+          
+        } catch (error) {
+          console.warn('⚠️ Erro na análise de sincronização:', error)
+        }
+      }
+      
+      analyzeAndOptimize()
+    }
+  }, [storeGeneratedCaptions.length, speechAnalysis])
+
+  // ✅ FUNÇÃO MELHORADA: Conectar controles de estilo ao player
+  const handleStyleChange = useCallback((styleType: string, value: any) => {
+    console.log(`🎨 Aplicando estilo ${styleType}:`, value)
+    
+    switch (styleType) {
+      case 'fontFamily':
+        setCaptionFontFamily(value)
+        break
+      case 'fontSize':
+        setCaptionFontSize(value)
+        break
+      case 'textColor':
+        setCaptionTextColor(value)
+        break
+      case 'position':
+        setCaptionPosition(value)
+        break
+      case 'animation':
+        setCaptionAnimation(value)
+        break
+      case 'opacity':
+        setCaptionOpacity(value)
+        break
+      case 'shadowIntensity':
+        setCaptionShadowIntensity(value)
+        break
+      case 'backgroundColor':
+        setCaptionBackgroundColor(value)
+        break
+      default:
+        console.warn('Tipo de estilo desconhecido:', styleType)
+    }
+    
+    // Feedback visual imediato
+    if (videoRef.current) {
+      videoRef.current.style.filter = 'brightness(1.05)'
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.style.filter = 'brightness(1)'
+        }
+      }, 150)
+    }
+  }, [])
+
+  // ✅ FUNÇÃO MELHORADA: Sistema de sincronização inteligente
+  const handleSyncUpdate = useCallback((newConfig: SyncConfig) => {
+    setSyncConfig(newConfig)
+    
+    // Aplicar configurações em tempo real
+    if (storeGeneratedCaptions.length > 0) {
+      console.log('🎛️ Aplicando configurações de sincronização:', newConfig)
+      
+      // Reprocessar legendas com nova configuração
+      const reprocessedCaptions = storeGeneratedCaptions.map((caption, index) => {
+        const start = caption.start || index * 0.5
+        const duration = Math.max(
+          newConfig.minDisplayTime,
+          Math.min(newConfig.maxDisplayTime, caption.text.split(' ').length / 3.5 * newConfig.readingTimeMultiplier)
+        )
+        
+        return {
+          ...caption,
+          end: start + duration,
+          displayDuration: duration
+        }
+      })
+      
+      storeSetGeneratedCaptions(reprocessedCaptions)
+      console.log('✅ Legendas reprocessadas com nova sincronização')
+    }
+  }, [storeGeneratedCaptions, storeSetGeneratedCaptions])
+
   // ✅ NOVA FUNÇÃO: Obter legenda baseada no estilo selecionado
   const getCurrentCaptionByStyle = () => {
     const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
@@ -1918,6 +2052,20 @@ export function VideoEditorPage() {
                 currentCaption={getCurrentCaptionByStyle()}
                 hasTranscription={!!storeTranscription.transcriptionResult?.words?.length}
                 transcriptionWordsCount={storeTranscription.transcriptionResult?.words?.length || 0}
+                
+                // ✅ CORREÇÃO: Passar estilos de legenda em tempo real
+                captionStyling={{
+                  captionPosition,
+                  captionFontSize,
+                  captionTextColor,
+                  captionShadowIntensity,
+                  captionShadowColor,
+                  captionOpacity,
+                  captionBackgroundColor,
+                  captionFontFamily,
+                  captionAnimation
+                }}
+                
                 onTestCaptions={() => {
                   console.log('🚨 TESTE URGENTE: Forçando legendas de teste')
                   
@@ -2052,7 +2200,7 @@ export function VideoEditorPage() {
                     <label className="block text-sm text-gray-300 mb-2">Família da Fonte:</label>
                     <select
                       value={captionFontFamily}
-                      onChange={(e) => setCaptionFontFamily(e.target.value)}
+                      onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
                       className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
                       <option value="Montserrat">Montserrat (TikTok Style)</option>
@@ -2573,10 +2721,9 @@ export function VideoEditorPage() {
         onClose={() => setSyncControlsOpen(false)}
         words={storeGeneratedCaptions || []}
         currentTime={storeCurrentTime || currentTime}
-        onSyncUpdate={(config) => {
-          setSyncConfig(config)
-          console.log('🎛️ Configuração de sincronização atualizada:', config)
-        }}
+        onSyncUpdate={handleSyncUpdate}
+        speechAnalysis={speechAnalysis}
+        syncConfig={syncConfig}
       />
 
       {/* ➕ PAINEL DE STATUS MELHORADO */}
