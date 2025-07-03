@@ -45,11 +45,7 @@ export const VideoOverlay = memo(({
     return null
   }
 
-  console.log('📝 VideoOverlay: Renderizando legenda', {
-    text: currentCaption.text,
-    position: captionPosition,
-    visible: captionsVisible
-  })
+  // VideoOverlay renderizado com legenda ativa
 
   // ✅ Posicionamento dinâmico CORRIGIDO
   const positionClasses = {
