@@ -1664,33 +1664,33 @@ export function VideoEditorPage() {
   }, [storeGeneratedCaptions.length, speechAnalysis])
 
   // ✅ FUNÇÃO MELHORADA: Conectar controles de estilo ao player
-  const handleStyleChange = useCallback((styleType: string, value: any) => {
+  const handleStyleChange = useCallback((styleType: string, value: string | number) => {
     console.log(`🎨 Aplicando estilo ${styleType}:`, value)
     
     switch (styleType) {
       case 'fontFamily':
-        setCaptionFontFamily(value)
+        setCaptionFontFamily(value as string)
         break
       case 'fontSize':
-        setCaptionFontSize(value)
+        setCaptionFontSize(value as number)
         break
       case 'textColor':
-        setCaptionTextColor(value)
+        setCaptionTextColor(value as string)
         break
       case 'position':
-        setCaptionPosition(value)
+        setCaptionPosition(value as 'top' | 'center' | 'bottom')
         break
       case 'animation':
-        setCaptionAnimation(value)
+        setCaptionAnimation(value as string)
         break
       case 'opacity':
-        setCaptionOpacity(value)
+        setCaptionOpacity(value as number)
         break
       case 'shadowIntensity':
-        setCaptionShadowIntensity(value)
+        setCaptionShadowIntensity(value as number)
         break
       case 'backgroundColor':
-        setCaptionBackgroundColor(value)
+        setCaptionBackgroundColor(value as string)
         break
       default:
         console.warn('Tipo de estilo desconhecido:', styleType)
@@ -2722,8 +2722,6 @@ export function VideoEditorPage() {
         words={storeGeneratedCaptions || []}
         currentTime={storeCurrentTime || currentTime}
         onSyncUpdate={handleSyncUpdate}
-        speechAnalysis={speechAnalysis}
-        syncConfig={syncConfig}
       />
 
       {/* ➕ PAINEL DE STATUS MELHORADO */}

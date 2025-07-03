@@ -164,7 +164,7 @@ export const CaptionSyncControls = memo(({ isVisible, onToggle }: CaptionSyncCon
           <label className="block text-sm text-gray-300 mb-2">Precisão:</label>
           <select
             value={captionSyncAccuracy}
-            onChange={(e) => setCaptionSyncAccuracy(e.target.value as any)}
+            onChange={(e) => setCaptionSyncAccuracy(e.target.value as 'low' | 'medium' | 'high' | 'ultra')}
             className="w-full bg-black/20 border border-white/20 rounded-lg p-2 text-white text-sm"
           >
             <option value="low">🟢 Baixa (Rápida)</option>
