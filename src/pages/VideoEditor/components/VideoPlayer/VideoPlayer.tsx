@@ -83,7 +83,6 @@ export const VideoPlayer = memo(({
     
     // Atualizar as legendas no store Zustand
     setGeneratedCaptions(updatedCaptions)
-    console.log('✅ Legendas atualizadas no store:', updatedCaptions.length, 'legendas')
   }
   
   // 🏪 Zustand hooks para state management
@@ -97,10 +96,6 @@ export const VideoPlayer = memo(({
   const {
     seekTo,
     togglePlayPause,
-    formatTime,
-    currentTimeFormatted,
-    durationFormatted,
-    progressPercentage,
     hasVideo,
     videoUrl,
     currentTime,
@@ -118,7 +113,6 @@ export const VideoPlayer = memo(({
 
   // ✅ Handlers para edição de legendas
   const handleCaptionClick = (caption: Caption, event?: React.MouseEvent) => {
-    console.log('🎯 Legenda clicada:', caption.text)
     setSelectedCaptionId(caption.start?.toString() || null)
     
     // Calcular posição do editor inline
@@ -134,7 +128,6 @@ export const VideoPlayer = memo(({
   }
 
   const handleCaptionDoubleClick = (caption: Caption) => {
-    console.log('🎯 Legenda duplo clique:', caption.text)
     setSelectedCaptionId(caption.start?.toString() || null)
     setCaptionEditorOpen(true)
   }
@@ -199,15 +192,7 @@ export const VideoPlayer = memo(({
     setInlineEditorCaption(null)
   }
 
-  console.log('🎬 VideoPlayer: Renderizando player', {
-    hasVideo,
-    currentTime,
-    isPlaying,
-    hasCaption: !!currentCaption,
-    videoUrl,
-    isClickableMode,
-    captionSegmentsCount: captionSegments.length
-  })
+  // VideoPlayer renderizado com sucesso
 
   // ✅ FALLBACK: Quando não há vídeo carregado
   if (!hasVideo || !videoUrl) {
