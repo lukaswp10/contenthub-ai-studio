@@ -36,6 +36,8 @@ import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
 import { transcriptionService } from '../../services/transcriptionService'
 import { VideoPlayer } from '../VideoEditor/components/VideoPlayer'
+import CaptionSyncControls from '../../components/CaptionSyncControls'
+import { captionSyncService } from '../../services/captionSyncService'
 import { formatTime, formatTimeAgo } from '../../utils/timeUtils'
 import { CacheStats } from '../../components/editor/CacheStats'
 import ApiKeyManager from '../../components/editor/ApiKeyManager'
@@ -838,106 +840,104 @@ export function VideoEditorPage() {
           segments.map(s => `• ${s.name}`).join('\n'))
   }
 
-  // Função para obter legenda atual baseada no tempo - CORRIGIDA
+  // ✅ NOVO: Sistema de Sincronização Inteligente de Legendas
   const getCurrentCaption = () => {
-    // ✅ CORRIGIDO: Usar diretamente o store para evitar dessincronia
+    // Obter dados do store
     const storeTranscriptionData = useVideoEditorStore.getState().transcriptionResult
     const storeGeneratedCaptionsData = useVideoEditorStore.getState().generatedCaptions
     const storeCaptionsVisibleData = useVideoEditorStore.getState().captionsVisible
     const storeCurrentTimeData = useVideoEditorStore.getState().currentTime
     
-    // ✅ PRIORIDADE: transcriptionResult.words > generatedCaptions
+    // Prioridade: transcriptionResult.words > generatedCaptions
     const wordsArray = storeTranscriptionData?.words || storeGeneratedCaptionsData
     
-    // ✅ DEBUG DETALHADO CORRIGIDO
-    console.log('🔍 DEBUG getCurrentCaption:', {
-      storeTranscriptionWords: storeTranscriptionData?.words?.length || 0,
-      storeGeneratedCaptionsLength: storeGeneratedCaptionsData?.length || 0,
-      wordsArrayLength: wordsArray?.length || 0,
-      captionsVisible: storeCaptionsVisibleData,
-      currentTime: storeCurrentTimeData,
-      firstWord: wordsArray?.[0],
-      lastWord: wordsArray?.[wordsArray.length - 1]
-    })
-    
     if (!wordsArray?.length || !storeCaptionsVisibleData) {
-      console.log('🔍 getCurrentCaption: Sem palavras ou legendas desativadas', {
-        wordsLength: wordsArray?.length,
-        captionsVisible: storeCaptionsVisibleData,
-        currentTime: storeCurrentTimeData
-      })
       return null
     }
     
-    // ✅ NOVO: LEGENDAS CONTÍNUAS - Agrupar palavras em frases
-    const currentTime = storeCurrentTimeData
-    
-    // Encontrar palavra atual
-    const currentWordIndex = wordsArray.findIndex((word: any) => 
-      currentTime >= word.start && currentTime <= word.end
-    )
-    
-    if (currentWordIndex === -1) {
-      // Buscar palavra mais próxima
-      const nearestWordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
-        if (closestIndex === -1) return index
-        
-        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
-        
-        return currentDistance < closestDistance ? index : closestIndex
-      }, -1)
+    try {
+      // ✅ USAR SERVIÇO DE SINCRONIZAÇÃO INTELIGENTE
+      const syncedCaption = captionSyncService.syncCaptions(wordsArray, storeCurrentTimeData)
       
-      // Se muito longe, não mostrar legenda
-      if (nearestWordIndex !== -1) {
-        const nearestWord = wordsArray[nearestWordIndex]
-        if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 2) {
+      if (syncedCaption) {
+        console.log('🎯 Legenda sincronizada inteligentemente:', {
+          text: syncedCaption.text.substring(0, 30) + '...',
+          wordsCount: syncedCaption.words.length,
+          speechRate: syncedCaption.speechRate.toFixed(2) + ' w/s',
+          adaptedTiming: syncedCaption.adaptedTiming
+        })
+        
+        return {
+          text: syncedCaption.text,
+          start: syncedCaption.start,
+          end: syncedCaption.end,
+          confidence: syncedCaption.confidence,
+          id: syncedCaption.id
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.warn('⚠️ Fallback para sistema de legendas clássico:', error)
+      
+      // ✅ FALLBACK: Sistema clássico se serviço falhar
+      const currentTime = storeCurrentTimeData
+      
+      // Encontrar palavra atual
+      const currentWordIndex = wordsArray.findIndex((word: any) => 
+        currentTime >= word.start && currentTime <= word.end
+      )
+      
+      if (currentWordIndex === -1) {
+        // Buscar palavra mais próxima
+        const nearestWordIndex = wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+          if (closestIndex === -1) return index
+          
+          const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+          const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+          
+          return currentDistance < closestDistance ? index : closestIndex
+        }, -1)
+        
+        // Se muito longe, não mostrar legenda
+        if (nearestWordIndex !== -1) {
+          const nearestWord = wordsArray[nearestWordIndex]
+          if (Math.abs(currentTime - ((nearestWord.start + nearestWord.end) / 2)) > 2) {
+            return null
+          }
+        } else {
           return null
         }
-      } else {
-        return null
       }
-    }
-    
-    const wordIndex = currentWordIndex !== -1 ? currentWordIndex : 
-      wordsArray.reduce((closestIndex: number, word: any, index: number) => {
-        if (closestIndex === -1) return index
-        const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
-        const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
-        return currentDistance < closestDistance ? index : closestIndex
-      }, -1)
-    
-    if (wordIndex === -1) return null
-    
-    // ✅ AGRUPAR PALAVRAS EM FRASES BONITAS (3-6 palavras)
-    const wordsPerPhrase = 4 // Ideal para legibilidade
-    const phraseStartIndex = Math.max(0, wordIndex - Math.floor(wordsPerPhrase / 2))
-    const phraseEndIndex = Math.min(wordsArray.length - 1, phraseStartIndex + wordsPerPhrase - 1)
-    
-    // Ajustar início se necessário
-    const adjustedStartIndex = Math.max(0, phraseEndIndex - wordsPerPhrase + 1)
-    
-    // Extrair palavras da frase
-    const phraseWords = wordsArray.slice(adjustedStartIndex, phraseEndIndex + 1)
-    const phraseText = phraseWords.map((w: any) => w.text).join(' ')
-    const phraseStart = phraseWords[0]?.start || currentTime
-    const phraseEnd = phraseWords[phraseWords.length - 1]?.end || currentTime + 2
-    const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
-    
-    console.log('✅ getCurrentCaption: Frase encontrada:', {
-      text: phraseText,
-      wordsCount: phraseWords.length,
-      currentTime: currentTime,
-      phraseStart: phraseStart,
-      phraseEnd: phraseEnd,
-      wordIndex: wordIndex
-    })
-    
-    return {
-      text: phraseText,
-      start: phraseStart,
-      end: phraseEnd,
-      confidence: avgConfidence
+      
+      const wordIndex = currentWordIndex !== -1 ? currentWordIndex : 
+        wordsArray.reduce((closestIndex: number, word: any, index: number) => {
+          if (closestIndex === -1) return index
+          const currentDistance = Math.abs(currentTime - ((word.start + word.end) / 2))
+          const closestDistance = Math.abs(currentTime - ((wordsArray[closestIndex].start + wordsArray[closestIndex].end) / 2))
+          return currentDistance < closestDistance ? index : closestIndex
+        }, -1)
+      
+      if (wordIndex === -1) return null
+      
+      // Agrupar palavras em frases menores (mais rápidas)
+      const wordsPerPhrase = 3 // Reduzido para legendas mais rápidas
+      const phraseStartIndex = Math.max(0, wordIndex - Math.floor(wordsPerPhrase / 2))
+      const phraseEndIndex = Math.min(wordsArray.length - 1, phraseStartIndex + wordsPerPhrase - 1)
+      
+      // Extrair palavras da frase
+      const phraseWords = wordsArray.slice(phraseStartIndex, phraseEndIndex + 1)
+      const phraseText = phraseWords.map((w: any) => w.text).join(' ')
+      const phraseStart = phraseWords[0]?.start || currentTime
+      const phraseEnd = phraseWords[phraseWords.length - 1]?.end || currentTime + 1.5 // Duração reduzida
+      const avgConfidence = phraseWords.reduce((sum: number, w: any) => sum + (w.confidence || 0.9), 0) / phraseWords.length
+      
+      return {
+        text: phraseText,
+        start: phraseStart,
+        end: phraseEnd,
+        confidence: avgConfidence
+      }
     }
   }
 
@@ -1556,6 +1556,11 @@ export function VideoEditorPage() {
   const [captionPosition, setCaptionPosition] = useState('bottom')
   const [showCaptionPreview, setShowCaptionPreview] = useState(true)
 
+  // ✅ NOVOS ESTADOS para Sistema de Sincronização Inteligente
+  const [syncControlsOpen, setSyncControlsOpen] = useState(false)
+  const [syncConfig, setSyncConfig] = useState(null)
+  const [speechAnalysis, setSpeechAnalysis] = useState(null)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#151529] to-[#1a1a2e] text-white flex flex-col overflow-hidden">
       {/* Header Responsivo com Navegação */}
@@ -1660,8 +1665,8 @@ export function VideoEditorPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* ÁREA CENTRAL - Video Preview */}
           <div className="flex-1 flex flex-col min-w-0">
-            {/* ✅ BOTÃO CONTROLES DE LEGENDAS - Posição fixa */}
-            <div className="absolute top-20 right-4 z-30">
+            {/* ✅ CONTROLES DE LEGENDAS - Posição fixa */}
+            <div className="absolute top-20 right-4 z-30 flex flex-col gap-2">
               <Button
                 onClick={() => storeSetRightSidebarOpen(!rightSidebarOpen)}
                 className={`legend-controls-btn bg-gradient-to-r backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 transform hover:scale-105 border border-white/20 ${
@@ -1672,6 +1677,31 @@ export function VideoEditorPage() {
               >
                 🎨 {rightSidebarOpen ? 'Fechar' : 'Editar'} Legendas
               </Button>
+              
+              {/* ✅ NOVO: Botão de Sincronização Inteligente */}
+              <Button
+                onClick={() => setSyncControlsOpen(true)}
+                className={`sync-controls-btn bg-gradient-to-r backdrop-blur-xl text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 transform hover:scale-105 border border-white/20 ${
+                  syncControlsOpen 
+                    ? 'from-blue-600/80 to-cyan-600/80 hover:shadow-blue-500/25' 
+                    : 'from-gray-600/80 to-gray-700/80 hover:shadow-gray-500/25'
+                }`}
+                title="Sistema Avançado de Sincronização de Legendas"
+              >
+                🎛️ Sincronização
+              </Button>
+              
+              {/* Indicador de Status da Sincronização */}
+              {speechAnalysis && (
+                <div className="bg-green-600/20 border border-green-500/50 rounded-lg px-3 py-2 text-center">
+                  <div className="text-xs text-green-300 font-medium">
+                    ⚡ {speechAnalysis.speechRate?.toFixed(1)} w/s
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {speechAnalysis.recommendedWordsPerCaption} palavras/legenda
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Video Preview Container */}
@@ -1713,7 +1743,7 @@ export function VideoEditorPage() {
                     })
                     
                     // ✅ VERIFICAR ESTADO DEPOIS
-                    setTimeout(() => {
+                    setTimeout(async () => {
                       const estadoDepois = useVideoEditorStore.getState()
                       console.log('📊 Estado DEPOIS:', {
                         transcriptionWords: estadoDepois.transcriptionResult?.words?.length,
@@ -1723,8 +1753,12 @@ export function VideoEditorPage() {
                       })
                       
                       // ✅ TESTAR getCurrentCaption
-                      const caption = getCurrentCaption()
-                      console.log('🎯 getCurrentCaption resultado:', caption)
+                      try {
+                        const caption = getCurrentCaption()
+                        console.log('🎯 getCurrentCaption resultado:', caption)
+                      } catch (error) {
+                        console.warn('⚠️ Erro no teste getCurrentCaption:', error)
+                      }
                     }, 100)
                   }}
                   className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded shadow-lg"
@@ -1831,8 +1865,12 @@ export function VideoEditorPage() {
                     })
                     
                     // ✅ TESTAR getCurrentCaption
-                    const currentCaption = getCurrentCaption()
-                    console.log('🎯 getCurrentCaption resultado:', currentCaption)
+                    try {
+                      const currentCaption = getCurrentCaption()
+                      console.log('🎯 getCurrentCaption resultado:', currentCaption)
+                    } catch (error) {
+                      console.warn('⚠️ Erro no teste getCurrentCaption:', error)
+                    }
                   }, 100)
                   
                   console.log('✅ Estados forçados no store!')
@@ -2439,6 +2477,18 @@ export function VideoEditorPage() {
           }}
         />
       )}
+
+      {/* ➕ CONTROLES DE SINCRONIZAÇÃO AVANÇADA */}
+      <CaptionSyncControls
+        isVisible={syncControlsOpen}
+        onClose={() => setSyncControlsOpen(false)}
+        words={storeGeneratedCaptions || []}
+        currentTime={storeCurrentTime || currentTime}
+        onSyncUpdate={(config) => {
+          setSyncConfig(config)
+          console.log('🎛️ Configuração de sincronização atualizada:', config)
+        }}
+      />
 
       {/* ➕ PAINEL DE STATUS MELHORADO */}
       <div className="mb-4 p-4 bg-gray-900/80 border border-gray-700 rounded-lg">
