@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import './VideoEditorStyles.css'
 import '../../components/editor/AutoCaptions.css'
-import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip, saveTranscriptionToGallery, hasTranscription, getTranscriptionFromGallery } from '@/utils/galleryStorage'
+import { getGalleryVideos, getGalleryClips, deleteVideoFromGallery, deleteClipFromGallery, type GalleryVideo, type GalleryClip, saveTranscriptionToGallery, hasTranscription, getTranscriptionFromGallery, hasEditedCaptions as checkHasEditedCaptions } from '@/utils/galleryStorage'
 import { deleteVideoFromCloudinary } from '@/services/cloudinaryService'
 import TimelinePro from '../../components/editor/TimelinePro'
 import { commandManager } from '../../utils/commandManager'
@@ -306,6 +306,11 @@ export function VideoEditorPage() {
   const togglePlayPause = storeTogglePlayPause
   const seekTo = storeSeekTo
   const toggleCaptionsVisibility = storeToggleCaptionsVisibility
+
+  // ✅ ESTADOS PARA SISTEMA DE LEGENDAS ORIGINAIS VS EDITADAS
+  const [showingOriginalCaptions, setShowingOriginalCaptions] = useState(true)
+  const [hasEditedCaptions, setHasEditedCaptions] = useState(false)
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null)
 
   // Presets de efeitos profissionais
   const effectPresets: EffectPreset[] = [
@@ -710,6 +715,28 @@ export function VideoEditorPage() {
     }
     
     console.log('✅ Vídeo carregado no editor:', videoData)
+    
+    // ✅ SISTEMA DE LEGENDAS ORIGINAIS VS EDITADAS
+    setCurrentVideoId(video.id || null)
+    checkVideoForEditedCaptions(video.id || '')
+  }
+
+  // ✅ FUNÇÕES DO SISTEMA DE LEGENDAS ORIGINAIS VS EDITADAS
+  const handleToggleCaptionMode = () => {
+    setShowingOriginalCaptions(!showingOriginalCaptions)
+  }
+
+  const handleCaptionEdit = () => {
+    if (!hasEditedCaptions) {
+      setHasEditedCaptions(true)
+    }
+  }
+
+  const checkVideoForEditedCaptions = (videoId: string) => {
+    if (videoId) {
+      const hasEdits = checkHasEditedCaptions(videoId)
+      setHasEditedCaptions(hasEdits)
+    }
   }
 
   const openClip = (clip: GeneratedClip) => {
