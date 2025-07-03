@@ -326,7 +326,8 @@ export class ConfigService {
       }
 
       // Adicionar ao cache
-      this.cache.set(newConfig.id, newConfig)
+      const finalId = newConfig.id!
+      this.cache.set(finalId, newConfig)
       this.stats.totalKeys++
       
       if (isValid) {
@@ -336,12 +337,12 @@ export class ConfigService {
       }
 
       console.log('✅ API key adicionada:', {
-        id: newConfig.id,
+        id: finalId,
         provider: newConfig.provider,
         isValid: isValid
       })
 
-      return newConfig.id
+      return finalId
     } catch (error) {
       console.error('❌ Erro ao adicionar API key:', error)
       throw error

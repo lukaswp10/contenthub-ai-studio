@@ -188,6 +188,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         (status) => {
           setTranscriptionStatus(status)
         },
+        'whisper', // Usar Whisper como padrão
         true // Usar Web Speech como fallback
       )
 

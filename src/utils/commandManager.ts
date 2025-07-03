@@ -210,6 +210,8 @@ export class RazorCutCommand implements Command {
   execute(): void {
     // Encontrar layers afetados
     const affectedLayers = this.originalLayers.filter(layer => 
+      layer.start !== undefined && 
+      layer.duration !== undefined &&
       this.cutTime > layer.start && 
       this.cutTime < (layer.start + layer.duration) && 
       !layer.locked
@@ -226,6 +228,8 @@ export class RazorCutCommand implements Command {
     const remainingLayers = this.originalLayers.filter(layer => !affectedLayers.includes(layer));
 
     affectedLayers.forEach(layer => {
+      if (layer.start === undefined || layer.duration === undefined) return;
+      
       const cutTime = this.cutTime - layer.start;
       
       if (cutTime > 0.1 && cutTime < layer.duration - 0.1) {
@@ -306,7 +310,7 @@ export class TrimCommand implements Command {
 
   execute(): void {
     const updatedLayers = this.originalLayers.map(layer => {
-      if (layer.id === this.layerId) {
+      if (layer.id === this.layerId && layer.start !== undefined && layer.duration !== undefined) {
         if (this.trimType === 'start') {
           const newDuration = (layer.start + layer.duration) - this.newValue;
           return { ...layer, start: this.newValue, duration: newDuration };

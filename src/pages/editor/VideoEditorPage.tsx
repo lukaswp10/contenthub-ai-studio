@@ -498,7 +498,7 @@ export function VideoEditorPage() {
         case 'delete':
         case 'backspace':
           if (selectedLayer) {
-            storeSetTimelineLayers(prev => prev.filter(l => l.id !== selectedLayer))
+            storeSetTimelineLayers(storeTimelineLayers.filter(l => l.id !== selectedLayer))
             storeSetSelectedLayer(null)
             console.log('🗑️ Clip removido')
           }
@@ -543,7 +543,7 @@ export function VideoEditorPage() {
       const videoDuration = videoRef.current.duration
       setDuration(videoDuration)
       
-      storeSetTimelineLayers(prev => prev.map(layer => 
+            storeSetTimelineLayers(storeTimelineLayers.map(layer =>
         layer.id === 'main-video' 
           ? { ...layer, duration: videoDuration }
           : layer
