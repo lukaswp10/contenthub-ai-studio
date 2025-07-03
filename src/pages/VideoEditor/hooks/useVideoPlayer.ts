@@ -25,19 +25,23 @@ interface UseVideoPlayerProps {
 
 export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
   
-  // 🏪 Zustand selectors para performance otimizada
+  // 🏪 Zustand selectors otimizados com shallow compare
   const videoData = useVideoData()
   const { currentTime, duration } = useVideoTime()
   const { isPlaying, togglePlayPause, seekTo } = useVideoPlayback()
   
-  // ➕ NOVOS SELECTORS: Sistema de reprodução inteligente
-  const playbackMode = useVideoEditorStore(state => state.playbackMode)
-  const activeClip = useVideoEditorStore(state => state.activeClip)
-  const clipBounds = useVideoEditorStore(state => state.clipBounds)
-  const loopClip = useVideoEditorStore(state => state.loopClip)
-  const autoSeekToClipStart = useVideoEditorStore(state => state.autoSeekToClipStart)
+  // ➕ SELECTOR OTIMIZADO: Sistema de reprodução inteligente (combinado para performance)
+  const playbackState = useVideoEditorStore(
+    state => ({
+      playbackMode: state.playbackMode,
+      activeClip: state.activeClip,
+      clipBounds: state.clipBounds,
+      loopClip: state.loopClip,
+      autoSeekToClipStart: state.autoSeekToClipStart
+    })
+  )
   
-  // Actions do store
+  // Actions do store (estáveis, não recriam)
   const setCurrentTime = useVideoEditorStore(state => state.setCurrentTime)
   const setDuration = useVideoEditorStore(state => state.setDuration)
   const setIsPlaying = useVideoEditorStore(state => state.setIsPlaying)
@@ -50,18 +54,18 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
       const time = (percentage / 100) * duration
       
       // ➕ VERIFICAR BOUNDS do clip ativo
-      if (playbackMode !== 'full' && clipBounds) {
-        const clampedTime = Math.max(clipBounds.start, Math.min(clipBounds.end, time))
+      if (playbackState.playbackMode !== 'full' && playbackState.clipBounds) {
+        const clampedTime = Math.max(playbackState.clipBounds.start, Math.min(playbackState.clipBounds.end, time))
         videoRef.current.currentTime = clampedTime
         setCurrentTime(clampedTime)
-        console.log(`🎯 Seek no clip: ${percentage}% = ${clampedTime}s (limitado entre ${clipBounds.start}-${clipBounds.end}s)`)
+        console.log(`🎯 Seek no clip: ${percentage}% = ${clampedTime}s (limitado entre ${playbackState.clipBounds.start}-${playbackState.clipBounds.end}s)`)
       } else {
         videoRef.current.currentTime = time
         setCurrentTime(time)
         console.log(`🎯 Seek no vídeo: ${percentage}% = ${time}s`)
       }
     }
-  }, [videoRef, duration, setCurrentTime, playbackMode, clipBounds])
+  }, [videoRef, duration, setCurrentTime, playbackState.playbackMode, playbackState.clipBounds])
 
   // ➕ NOVA FUNÇÃO: Controle de reprodução inteligente
   const handleTimeUpdate = useCallback(() => {
@@ -69,23 +73,23 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
       const newTime = videoRef.current.currentTime
       
       // ➕ VERIFICAR SE estamos no modo clip e se chegamos ao final
-      if (playbackMode !== 'full' && clipBounds && newTime >= clipBounds.end) {
-        if (loopClip) {
+      if (playbackState.playbackMode !== 'full' && playbackState.clipBounds && newTime >= playbackState.clipBounds.end) {
+        if (playbackState.loopClip) {
           // Loop: voltar ao início do clip
-          videoRef.current.currentTime = clipBounds.start
-          setCurrentTime(clipBounds.start)
-          console.log(`🔄 Loop do clip: voltando para ${clipBounds.start}s`)
+          videoRef.current.currentTime = playbackState.clipBounds.start
+          setCurrentTime(playbackState.clipBounds.start)
+          console.log(`🔄 Loop do clip: voltando para ${playbackState.clipBounds.start}s`)
         } else {
           // Pausar no final do clip
           videoRef.current.pause()
           setIsPlaying(false)
-          console.log(`⏸️ Fim do clip: pausando em ${clipBounds.end}s`)
+          console.log(`⏸️ Fim do clip: pausando em ${playbackState.clipBounds.end}s`)
         }
       } else {
         setCurrentTime(newTime)
       }
     }
-  }, [videoRef, setCurrentTime, playbackMode, clipBounds, loopClip, setIsPlaying])
+  }, [videoRef, setCurrentTime, playbackState.playbackMode, playbackState.clipBounds, playbackState.loopClip, setIsPlaying])
 
   // 🎯 Handler para carregamento do vídeo
   const handleVideoLoad = useCallback(() => {
@@ -95,13 +99,13 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
       console.log('🎬 Vídeo carregado, duração:', videoDuration)
       
       // ➕ AUTO-SEEK para início do clip se necessário
-      if (autoSeekToClipStart && clipBounds) {
-        videoRef.current.currentTime = clipBounds.start
-        setCurrentTime(clipBounds.start)
-        console.log(`🎯 Auto-seek para início do clip: ${clipBounds.start}s`)
+      if (playbackState.autoSeekToClipStart && playbackState.clipBounds) {
+        videoRef.current.currentTime = playbackState.clipBounds.start
+        setCurrentTime(playbackState.clipBounds.start)
+        console.log(`🎯 Auto-seek para início do clip: ${playbackState.clipBounds.start}s`)
       }
     }
-  }, [videoRef, setDuration, autoSeekToClipStart, clipBounds, setCurrentTime])
+  }, [videoRef, setDuration, playbackState.autoSeekToClipStart, playbackState.clipBounds, setCurrentTime])
 
   // 🎯 Toggle play/pause integrado com sistema de clips
   const handleTogglePlayPause = useCallback(() => {
@@ -111,12 +115,12 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
         console.log('⏸️ Pausado')
       } else {
         // ➕ VERIFICAR SE precisamos ir para o início do clip
-        if (playbackMode !== 'full' && clipBounds) {
+        if (playbackState.playbackMode !== 'full' && playbackState.clipBounds) {
           const currentVideoTime = videoRef.current.currentTime
-          if (currentVideoTime < clipBounds.start || currentVideoTime >= clipBounds.end) {
-            videoRef.current.currentTime = clipBounds.start
-            setCurrentTime(clipBounds.start)
-            console.log(`🎯 Reposicionando para início do clip: ${clipBounds.start}s`)
+          if (currentVideoTime < playbackState.clipBounds.start || currentVideoTime >= playbackState.clipBounds.end) {
+            videoRef.current.currentTime = playbackState.clipBounds.start
+            setCurrentTime(playbackState.clipBounds.start)
+            console.log(`🎯 Reposicionando para início do clip: ${playbackState.clipBounds.start}s`)
           }
         }
         
@@ -125,7 +129,7 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
       }
       togglePlayPause()
     }
-  }, [videoRef, isPlaying, togglePlayPause, playbackMode, clipBounds, setCurrentTime])
+  }, [videoRef, isPlaying, togglePlayPause, playbackState.playbackMode, playbackState.clipBounds, setCurrentTime])
 
   // ➕ NOVA FUNÇÃO: Reproduzir clip específico
   const handlePlayClip = useCallback((startTime: number, endTime: number, loop: boolean = false) => {
@@ -207,72 +211,44 @@ export const useVideoPlayer = ({ videoRef }: UseVideoPlayerProps) => {
     }
   }, [handleTimeUpdate, handleVideoLoad, isPlaying, setIsPlaying, setCurrentTime])
 
-  // ✅ SINCRONIZAR STORE -> VIDEO HTML5
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    // Sincronizar play/pause
-    if (isPlaying && video.paused) {
-      console.log('🔄 Sincronizando play do store para vídeo')
-      video.play().catch(console.error)
-    } else if (!isPlaying && !video.paused) {
-      console.log('🔄 Sincronizando pause do store para vídeo')
-      video.pause()
-    }
-  }, [isPlaying])
-
-  // ➕ NOVO EFFECT: Sincronização com mudanças de clip
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !clipBounds) return
-
-    // Se o tempo atual está fora dos bounds do clip, reposicionar
-    if (currentTime < clipBounds.start || currentTime >= clipBounds.end) {
-      video.currentTime = clipBounds.start
-      setCurrentTime(clipBounds.start)
-      console.log(`🎯 Reposicionando para bounds do clip: ${clipBounds.start}s`)
-    }
-  }, [clipBounds, currentTime, setCurrentTime])
+  // ➕ RETORNOS APRIMORADOS para a nova interface
+  const hasVideo = Boolean(videoData?.url || videoData?.file)
+  const videoUrl = videoData?.url || (videoData?.file ? URL.createObjectURL(videoData.file) : null)
+  
+  // Derived states otimizados
+  const isClipMode = playbackState.playbackMode !== 'full'
+  const clipDuration = playbackState.clipBounds ? playbackState.clipBounds.end - playbackState.clipBounds.start : 0
+  const clipCurrentTime = playbackState.clipBounds ? Math.max(0, currentTime - playbackState.clipBounds.start) : currentTime
+  const clipRemainingTime = playbackState.clipBounds ? Math.max(0, playbackState.clipBounds.end - currentTime) : 0
+  const clipProgressPercentage = playbackState.clipBounds && playbackState.clipBounds.end > playbackState.clipBounds.start 
+    ? Math.max(0, Math.min(100, ((currentTime - playbackState.clipBounds.start) / (playbackState.clipBounds.end - playbackState.clipBounds.start)) * 100))
+    : 0
 
   return {
+    // Estados básicos
+    hasVideo,
+    videoUrl,
+    currentTime,
+    duration,
+    isPlaying,
+    
+    // ➕ NOVOS RETORNOS: Sistema de clips
+    playClip: handlePlayClip,
+    playFullVideo: handlePlayFullVideo,
+    isClipMode,
+    clipDuration,
+    clipCurrentTime,
+    clipRemainingTime,
+    clipProgressPercentage,
+    
     // Funções
     seekTo: handleSeekTo,
     togglePlayPause: handleTogglePlayPause,
     formatTime,
     
-    // ➕ NOVAS FUNÇÕES: Sistema de clips
-    playClip: handlePlayClip,
-    playFullVideo: handlePlayFullVideo,
-    
-    // Estados derivados do store
+    // Formatters úteis
     currentTimeFormatted: formatTime(currentTime),
     durationFormatted: formatTime(duration),
-    progressPercentage: duration > 0 ? (currentTime / duration) * 100 : 0,
-    
-    // ➕ NOVO: Progresso relativo ao clip
-    clipProgressPercentage: clipBounds && clipBounds.end > clipBounds.start 
-      ? Math.max(0, Math.min(100, ((currentTime - clipBounds.start) / (clipBounds.end - clipBounds.start)) * 100))
-      : 0,
-    
-    // ✅ CORRIGIDO: Dados do vídeo considerando file E url
-    hasVideo: !!(videoData?.url || videoData?.file),
-    videoUrl: videoData?.url || (videoData?.file ? URL.createObjectURL(videoData.file) : undefined),
-    videoName: videoData?.name || 'Video',
-    
-    // Estados diretos do store
-    currentTime,
-    duration,
-    isPlaying,
-    
-    // ➕ NOVOS ESTADOS: Sistema de clips
-    playbackMode,
-    activeClip,
-    clipBounds,
-    loopClip,
-    isClipMode: playbackMode !== 'full',
-    clipDuration: clipBounds ? clipBounds.end - clipBounds.start : 0,
-    clipCurrentTime: clipBounds ? Math.max(0, currentTime - clipBounds.start) : currentTime,
-    clipRemainingTime: clipBounds ? Math.max(0, clipBounds.end - currentTime) : 0
+    progressPercentage: duration > 0 ? (currentTime / duration) * 100 : 0
   }
 } 

@@ -52,6 +52,24 @@ export interface VideoClip {
 // ➕ NOVA INTERFACE: Modo de reprodução
 export type PlaybackMode = 'full' | 'clip' | 'loop-clip'
 
+// ➕ INTERFACE MELHORADA: Resultado de transcrição (flexível)
+export interface TranscriptionResult {
+  words: Array<{
+    text: string
+    start: number
+    end: number
+    confidence?: number
+  }>
+  text: string
+  confidence?: number
+  language?: string
+  // Campos opcionais para compatibilidade
+  duration?: number
+  speakers?: string[]
+  provider?: 'whisper' | 'assemblyai' | 'webspeech'
+  createdAt?: string
+}
+
 // ===== STORE STATE =====
 
 interface VideoEditorState {
@@ -70,7 +88,13 @@ interface VideoEditorState {
   
   // 🎨 CAPTIONS
   captionsVisible: boolean
-  generatedCaptions: any[]
+  generatedCaptions: Array<{
+    text: string
+    start: number
+    end: number
+    confidence?: number
+    highlight?: boolean
+  }>
   activeCaptionStyle: string
   captionPosition: 'top' | 'center' | 'bottom'
   captionFontSize: number
@@ -102,7 +126,7 @@ interface VideoEditorState {
   activeEffects: string[]
   
   // 📝 TRANSCRIPTION
-  transcriptionResult: any
+  transcriptionResult: TranscriptionResult | null
   transcriptionProvider: 'whisper' | 'assemblyai' | 'webspeech'
   isTranscribing: boolean
   transcriptionProgress: string
@@ -153,7 +177,13 @@ interface VideoEditorActions {
   // 🎨 CAPTION ACTIONS
   setCaptionsVisible: (visible: boolean) => void
   toggleCaptionsVisibility: () => void
-  setGeneratedCaptions: (captions: any[]) => void
+  setGeneratedCaptions: (captions: Array<{
+    text: string
+    start: number
+    end: number
+    confidence?: number
+    highlight?: boolean
+  }>) => void
   setActiveCaptionStyle: (style: string) => void
   setCaptionPosition: (position: 'top' | 'center' | 'bottom') => void
   setCaptionFontSize: (size: number) => void
@@ -190,7 +220,7 @@ interface VideoEditorActions {
   removeEffect: (effectId: string) => void
   
   // 📝 TRANSCRIPTION ACTIONS
-  setTranscriptionResult: (result: any) => void
+  setTranscriptionResult: (result: TranscriptionResult | null) => void
   setTranscriptionProvider: (provider: 'whisper' | 'assemblyai' | 'webspeech') => void
   setIsTranscribing: (transcribing: boolean) => void
   setTranscriptionProgress: (progress: string) => void

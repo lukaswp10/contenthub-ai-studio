@@ -1733,7 +1733,7 @@ export function VideoEditorPage() {
                 </Button>
               </div>
               
-              {/* ✅ NOVO COMPONENTE VIDEOPLAYER REFATORADO */}
+              {/* ✅ VIDEOPLAYER COM SISTEMA DE CLIPS INTEGRADO */}
               <VideoPlayer
                 // Captions específicas - USANDO LEGENDAS CONTÍNUAS
                 currentCaption={(() => {
