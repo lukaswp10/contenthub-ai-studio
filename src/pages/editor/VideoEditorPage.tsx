@@ -1411,8 +1411,15 @@ export function VideoEditorPage() {
     console.log('🔗 Dados recebidos para timeline:', transcriptionData)
     
     // Atualizar tanto o estado local quanto a timeline
-    setTranscriptionResult(transcriptionData)
-    storeSetGeneratedCaptions((transcriptionData.words as TranscriptionWord[]) || [])
+    const transcriptionResult = {
+      words: (transcriptionData.words as TranscriptionWord[]) || [],
+      text: transcriptionData.text as string || '',
+      confidence: transcriptionData.confidence as number,
+      language: transcriptionData.language as string,
+      duration: transcriptionData.duration as number
+    }
+    setTranscriptionResult(transcriptionResult)
+    storeSetGeneratedCaptions(transcriptionResult.words)
     setShowTranscriptTimeline(true) // ➕ Mostrar timeline de transcript
     
     // ✅ NOVO: Ativar legendas automaticamente quando transcrição chegar
@@ -1494,7 +1501,13 @@ export function VideoEditorPage() {
 
       // ✅ CONECTAR à timeline E forçar atualização visual
       console.log('🔗 CONECTANDO À TIMELINE...')
-      updateTimelineTranscript(result)
+      updateTimelineTranscript({
+        words: result.words || [],
+        text: result.text || '',
+        confidence: result.confidence,
+        language: result.language,
+        duration: result.duration
+      })
       
       // ✅ FORÇAR atualização da interface - MELHORADO
       console.log('🔄 ATUALIZANDO ESTADOS...')
@@ -1593,7 +1606,7 @@ export function VideoEditorPage() {
   const [captionShadowIntensity, setCaptionShadowIntensity] = useState(3)
   const [captionOpacity, setCaptionOpacity] = useState(100)
   const [captionAnimation, setCaptionAnimation] = useState('fadeIn')
-  const [captionPosition, setCaptionPosition] = useState('bottom')
+  const [captionPosition, setCaptionPosition] = useState<'top' | 'center' | 'bottom'>('bottom')
   const [showCaptionPreview, setShowCaptionPreview] = useState(true)
 
   // ✅ NOVOS ESTADOS para Sistema de Sincronização Inteligente
@@ -1678,7 +1691,9 @@ export function VideoEditorPage() {
         setCaptionTextColor(value as string)
         break
       case 'position':
-        setCaptionPosition(value as 'top' | 'center' | 'bottom')
+        if (value === 'top' || value === 'center' || value === 'bottom') {
+          setCaptionPosition(value)
+        }
         break
       case 'animation':
         setCaptionAnimation(value as string)
@@ -2141,9 +2156,9 @@ export function VideoEditorPage() {
               onExportClip={handleExportClip}
               isPreviewMode={false}
               currentClipIndex={-1}
-              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as unknown as Record<string, unknown>} // ➕ NOVO: Dados de transcrição
+              transcriptionData={(storeTranscription.transcriptionResult || transcriptionResult) as any} // ➕ NOVO: Dados de transcrição
               showTranscriptTrack={storeTranscription.showTranscriptTimeline !== undefined ? storeTranscription.showTranscriptTimeline : showTranscriptTimeline} // ➕ NOVO: Controle de visibilidade
-              updateTimelineTranscript={updateTimelineTranscript} // ➕ NOVO: Função de atualização
+              updateTimelineTranscript={(data) => updateTimelineTranscript(data as any)} // ➕ NOVO: Função de atualização
             />
           </div>
 
@@ -2440,7 +2455,10 @@ export function VideoEditorPage() {
                     <label className="block text-sm text-gray-300 mb-2">Posição da Legenda:</label>
                     <select
                       value={captionPosition}
-                      onChange={(e) => setCaptionPosition(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value as 'top' | 'center' | 'bottom'
+                        setCaptionPosition(value)
+                      }}
                       className="w-full bg-black/20 border border-white/20 rounded-lg p-3 text-white"
                     >
                       <option value="top">Topo</option>

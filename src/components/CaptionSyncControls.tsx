@@ -467,7 +467,10 @@ export const CaptionSyncControls: React.FC<CaptionSyncControlsProps> = ({
                     pauseThreshold: 0.8,
                     speedThreshold: 4.0,
                     globalOffset: 0,
-                    adaptiveOffset: true
+                    adaptiveOffset: true,
+                    conservativeMode: true,
+                    readingTimeMultiplier: 1.5,
+                    minimumPhraseGap: 0.3
                   }
                   setConfig(defaultConfig)
                   captionSyncService.updateConfig(defaultConfig)
