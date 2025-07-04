@@ -17,20 +17,22 @@ export const DashboardPage: React.FC = () => {
   // Estado para destacar vídeo recém-enviado
   const [highlightedVideoId, setHighlightedVideoId] = React.useState<string | null>(null)
   
-  // Callback quando upload é concluído
+  // Função chamada quando upload compacto é concluído
   const handleUploadComplete = (videoId: string) => {
-    console.log('🎉 Upload concluído no dashboard, destacando vídeo:', videoId)
+    console.log('📤 Upload concluído, destacando vídeo:', videoId)
+    
+    // Destacar o vídeo na galeria
     setHighlightedVideoId(videoId)
     
-    // Atualizar galeria
+    // Remover destaque após 5 segundos
+    setTimeout(() => {
+      setHighlightedVideoId(null)
+    }, 5000)
+    
+    // Refresh da galeria para mostrar o novo vídeo
     if ((window as any).refreshVideoGallery) {
       (window as any).refreshVideoGallery()
     }
-    
-    // Remover destaque após 10 segundos
-    setTimeout(() => {
-      setHighlightedVideoId(null)
-    }, 10000)
   }
 
   const handleLogout = async () => {

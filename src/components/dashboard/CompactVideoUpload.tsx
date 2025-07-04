@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
-import { useAuth } from '@/contexts/AuthContext'
-import { saveVideoToGallery } from '@/utils/galleryStorage'
-import { uploadVideoToCloudinary, isValidVideoFile } from '@/services/cloudinaryService'
+import { Button } from '@/components/ui/button'
 import { Upload, X, Check, AlertCircle } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { uploadVideoToCloudinary, isValidVideoFile } from '@/services/cloudinaryService'
+import { saveVideoToGallery } from '@/utils/galleryStorage'
 
 interface CompactVideoUploadProps {
   onUploadComplete?: (videoId: string) => void
@@ -16,6 +17,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
   className = ''
 }) => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -23,6 +25,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [successVideoId, setSuccessVideoId] = useState<string | null>(null)
+  const [galleryVideoData, setGalleryVideoData] = useState<any | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -55,6 +58,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     setError(null)
     setUploadSuccess(false)
     setSuccessVideoId(null)
+    setGalleryVideoData(null)
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -90,9 +94,32 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     setUploadProgress(0)
     setUploadSuccess(false)
     setSuccessVideoId(null)
+    setGalleryVideoData(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+  }
+
+  // ✨ NOVA FUNÇÃO: Navegar para o editor
+  const navigateToEditor = () => {
+    if (!galleryVideoData) {
+      console.error('❌ Dados do vídeo não disponíveis para navegação')
+      return
+    }
+
+    console.log('🎬 Navegando para o editor com vídeo:', galleryVideoData.name)
+    
+    navigate('/editor', {
+      state: {
+        url: galleryVideoData.cloudinaryUrl || galleryVideoData.url,
+        name: galleryVideoData.name,
+        size: galleryVideoData.size,
+        duration: galleryVideoData.duration,
+        id: galleryVideoData.id,
+        cloudinaryPublicId: galleryVideoData.cloudinaryPublicId,
+        cloudinaryUrl: galleryVideoData.cloudinaryUrl,
+      }
+    })
   }
 
   const startUpload = async () => {
@@ -133,6 +160,17 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         cloudinaryUrl: cloudinaryResponse.secure_url
       })
       
+      // ✨ CORREÇÃO: Salvar dados para navegação
+      setGalleryVideoData({
+        id: galleryVideo.id,
+        name: galleryVideo.name,
+        size: selectedFile.size, // Usar tamanho real em bytes
+        duration: cloudinaryResponse.duration || 0,
+        url: cloudinaryResponse.secure_url,
+        cloudinaryPublicId: cloudinaryResponse.public_id,
+        cloudinaryUrl: cloudinaryResponse.secure_url
+      })
+      
       // Sucesso
       setUploadSuccess(true)
       setSuccessVideoId(galleryVideo.id)
@@ -143,10 +181,11 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       // Notificar componente pai
       onUploadComplete?.(galleryVideo.id)
       
-      // Limpar após 3 segundos
+      // ✨ CORREÇÃO: Auto-navegação para o editor após 2 segundos
       setTimeout(() => {
-        clearSelection()
-      }, 3000)
+        console.log('🎬 Auto-navegando para o editor...')
+        navigateToEditor()
+      }, 2000)
       
     } catch (err) {
       console.error('❌ Erro no upload compacto:', err)
@@ -158,31 +197,46 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     }
   }
 
-  // Estado de sucesso
+  // ✨ MELHORADO: Estado de sucesso com botão para editar
   if (uploadSuccess) {
     return (
       <Card className={`p-4 bg-green-50 border-green-200 ${className}`}>
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <Check className="h-8 w-8 text-green-600" />
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-green-800">
+                🎉 Upload concluído!
+              </h3>
+              <p className="text-xs text-green-600 mt-1">
+                {selectedFile?.name} foi salvo na galeria
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                ⏱️ Redirecionando para o editor...
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-medium text-green-800">
-              🎉 Upload concluído!
-            </h3>
-            <p className="text-xs text-green-600 mt-1">
-              {selectedFile?.name} foi salvo na galeria
-            </p>
+          
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              onClick={navigateToEditor}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+            >
+              🎬 Editar Manual
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="text-green-600 border-green-300 hover:bg-green-100"
+            >
+              <Upload className="h-3 w-3 mr-1" />
+              Novo
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={clearSelection}
-            className="text-green-600 border-green-300 hover:bg-green-100"
-          >
-            <Upload className="h-3 w-3 mr-1" />
-            Novo
-          </Button>
         </div>
       </Card>
     )
