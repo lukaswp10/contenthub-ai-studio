@@ -14,7 +14,7 @@
 
 import React, { forwardRef, useRef, useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
-import Timeline from './Timeline';
+// import Timeline from './Timeline'; // Temporarily removed
 import EffectsPanel from './EffectsPanel';
 import TransitionsPanel from './TransitionsPanel';
 import { useVideoEditorStore } from '../../stores/videoEditorStore';
@@ -364,21 +364,28 @@ const VideoEditor = forwardRef<VideoEditorRef, VideoEditorProps>(({
             />
           </div>
           
-          {/* Timeline */}
+          {/* Timeline - Temporarily disabled */}
           {showTimeline && (
             <div
               style={{
                 height: TIMELINE_HEIGHT,
                 backgroundColor: '#2a2a2a',
-                borderTop: '1px solid #444'
+                borderTop: '1px solid #444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              <Timeline
+              <div style={{ textAlign: 'center', color: '#888' }}>
+                <p style={{ fontSize: '16px', margin: '0 0 8px 0' }}>Timeline temporariamente desabilitada</p>
+                <p style={{ fontSize: '12px', margin: '0' }}>Sistema de corte integrado na nova versão</p>
+              </div>
+              {/* <Timeline
                 width={playerWidth}
                 height={TIMELINE_HEIGHT}
                 timeline={timelineData}
                 onSeek={handleSeek}
-              />
+              /> */}
             </div>
           )}
         </div>

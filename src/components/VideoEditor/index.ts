@@ -10,7 +10,7 @@
 // Main Components
 export { default as VideoEditor } from './VideoEditor';
 export { default as VideoPlayer } from './VideoPlayer';
-export { default as Timeline } from './Timeline';
+// export { default as Timeline } from './Timeline'; // Removed temporarily
 
 // Effects & Transitions (Phase 4)
 export { default as EffectsPanel } from './EffectsPanel';
