@@ -28,6 +28,8 @@ interface VideoLocationState {
   file?: File
   id?: string
   videoData?: any
+  cloudinaryPublicId?: string
+  cloudinaryUrl?: string
 }
 
 interface CutSegment {
@@ -910,13 +912,40 @@ const VideoEditorPage: React.FC = () => {
   const handleVideoCaption = useCallback(async () => {
     logger.log('📝 Gerando legenda do vídeo...')
     
-    if (!videoData || !videoData.file) {
+    if (!videoData) {
       alert('❌ Nenhum vídeo carregado para gerar legendas!')
       return
     }
 
     try {
       setIsGeneratingCaption(true)
+      setCaptionProgress('Preparando transcrição...')
+      
+      // Criar file object a partir da URL se não existir
+      let fileToTranscribe = videoData.file
+      
+      if (!fileToTranscribe && videoData.url) {
+        logger.log('🔄 File object não encontrado, criando a partir da URL...')
+        setCaptionProgress('Baixando vídeo para transcrição...')
+        
+        try {
+          const response = await fetch(videoData.url)
+          const blob = await response.blob()
+          fileToTranscribe = new File([blob], videoData.name, { type: blob.type })
+          logger.log('✅ File object criado com sucesso:', fileToTranscribe.name)
+        } catch (fetchError) {
+          logger.warn('⚠️ Erro ao criar file object da URL:', fetchError)
+          alert('❌ Erro ao acessar o vídeo para transcrição.\n\nPossíveis causas:\n• Vídeo não está mais disponível\n• Problemas de rede\n• URL inválida\n\nTente fazer upload novamente.')
+          return
+        }
+      }
+      
+      if (!fileToTranscribe) {
+        alert('❌ Não foi possível acessar o arquivo de vídeo para transcrição!')
+        return
+      }
+      
+      setCaptionProgress('Iniciando transcrição...')
       
       // Importar serviço de transcrição dinamicamente
       const { transcriptionService } = await import('@/services/transcriptionService')
@@ -926,10 +955,10 @@ const VideoEditorPage: React.FC = () => {
       
       // Executar transcrição
       const result = await transcriptionService.transcribe(
-        videoData.file,
+        fileToTranscribe,
         (status) => {
           logger.log(`📝 Status da transcrição: ${status}`)
-          // Aqui você pode atualizar um estado de progresso se quiser
+          setCaptionProgress(status)
         },
         'whisper', // Usar Whisper como padrão
         true // Usar Web Speech como fallback
@@ -951,9 +980,10 @@ const VideoEditorPage: React.FC = () => {
         errorMessage = error.message
       }
       
-      alert(`❌ Erro ao gerar legenda:\n\n${errorMessage}\n\n💡 Dicas:\n• Verifique sua conexão com a internet\n• Certifique-se de que o vídeo tem áudio\n• Tente novamente em alguns minutos`)
+      alert(`❌ Erro ao gerar legenda:\n\n${errorMessage}\n\n💡 Dicas:\n• Verifique sua conexão com a internet\n• Certifique-se de que o vídeo tem áudio\n• Tente novamente em alguns minutos\n• Se o problema persistir, faça upload novamente`)
     } finally {
       setIsGeneratingCaption(false)
+      setCaptionProgress('')
     }
   }, [videoData, logger])
   
@@ -989,7 +1019,9 @@ const VideoEditorPage: React.FC = () => {
         name: data.name,
         size: data.size,
         duration: data.duration,
-        id: data.id
+        id: data.id,
+        cloudinaryPublicId: data.cloudinaryPublicId,
+        cloudinaryUrl: data.cloudinaryUrl
         // Excluindo: file, videoData (objetos grandes que causam QuotaExceededError)
       }
       
@@ -1006,7 +1038,9 @@ const VideoEditorPage: React.FC = () => {
             name: data.name,
             size: data.size,
             duration: data.duration,
-            id: data.id
+            id: data.id,
+            cloudinaryPublicId: data.cloudinaryPublicId,
+            cloudinaryUrl: data.cloudinaryUrl
           }
           sessionStorage.setItem('currentVideoData', JSON.stringify(lightData))
           logger.log('💾 Dados salvos após limpeza do storage')
@@ -1688,11 +1722,16 @@ const VideoEditorPage: React.FC = () => {
                           variant="outline"
                           className="w-full justify-start text-left hover:bg-yellow-600/20"
                           onClick={handleVideoCaption}
+                          disabled={isGeneratingCaption}
                         >
                           <FileText size={16} className="mr-3 text-yellow-400" />
                           <div className="flex-1">
-                            <div className="font-medium">Legenda do Vídeo</div>
-                            <div className="text-xs text-gray-400">Transcrever áudio do vídeo</div>
+                            <div className="font-medium">
+                              {isGeneratingCaption ? 'Gerando legendas...' : 'Legenda do Vídeo'}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {isGeneratingCaption ? 'Aguarde o processamento' : 'Transcrever áudio do vídeo'}
+                            </div>
                           </div>
                         </Button>
                         
@@ -1712,9 +1751,32 @@ const VideoEditorPage: React.FC = () => {
                     
                     <div className="bg-gray-700 rounded-lg p-4">
                       <h4 className="text-white font-medium mb-2">Status</h4>
-                      <p className="text-gray-400 text-sm">
-                        Nenhuma legenda gerada ainda. Clique em uma das opções acima para começar.
-                      </p>
+                      {isGeneratingCaption ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
+                            <span className="text-yellow-400 text-sm font-medium">Gerando legendas...</span>
+                          </div>
+                          {captionProgress && (
+                            <p className="text-gray-300 text-xs">
+                              {captionProgress}
+                            </p>
+                          )}
+                        </div>
+                      ) : transcriptionWords.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-green-400 text-sm">
+                            ✅ Legendas geradas com sucesso!
+                          </p>
+                          <p className="text-gray-300 text-xs">
+                            {transcriptionWords.length} palavras detectadas
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 text-sm">
+                          Nenhuma legenda gerada ainda. Clique em uma das opções acima para começar.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
