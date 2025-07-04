@@ -285,17 +285,27 @@ export const VideoEditorDemo: React.FC = () => {
               </p>
             </div>
             
-            {/* Demo Mode Selector */}
-            <div className="flex items-center space-x-2 flex-wrap">
+            {/* Upload Button */}
+            <div className="flex items-center space-x-4">
               <Button
-                variant={demoMode === 'basic' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleDemoModeChange('basic')}
-                className="flex items-center space-x-2"
+                onClick={() => window.open('/upload', '_blank')}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
               >
-                <Play size={16} />
-                <span>Basic</span>
+                <Upload size={16} />
+                <span>Upload Video</span>
               </Button>
+              
+              {/* Demo Mode Selector */}
+              <div className="flex items-center space-x-2 flex-wrap">
+                <Button
+                  variant={demoMode === 'basic' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDemoModeChange('basic')}
+                  className="flex items-center space-x-2"
+                >
+                  <Play size={16} />
+                  <span>Basic</span>
+                </Button>
               
               <Button
                 variant={demoMode === 'effects' ? 'default' : 'outline'}

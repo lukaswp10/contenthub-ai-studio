@@ -25,7 +25,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
   Play, 
   Pause, 
@@ -49,17 +49,35 @@ import {
 
 import { useVideoEditorStore } from '../../stores/videoEditorStore'
 
+// ===== TYPES =====
+
+interface VideoLocationState {
+  url: string
+  name: string
+  size: number
+  duration: number
+  file?: File
+  id?: string
+  videoData?: any
+}
+
 // ===== COMPONENT =====
 
 const VideoEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // ===== VIDEO DATA =====
+  
+  const videoData = location.state as VideoLocationState | null
   
   // ===== STATE =====
   
   const [activeTab, setActiveTab] = useState('editor')
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [videoLoaded, setVideoLoaded] = useState(false)
   
   // ===== STORE =====
   
@@ -68,7 +86,8 @@ const VideoEditorPage: React.FC = () => {
     duration,
     isPlaying,
     setCurrentTime,
-    setIsPlaying
+    setIsPlaying,
+    setDuration
   } = useVideoEditorStore()
   
   // ===== REFS =====
@@ -79,7 +98,7 @@ const VideoEditorPage: React.FC = () => {
   // ===== HANDLERS =====
   
   const handleGoBack = () => {
-    navigate('/gallery')
+    navigate('/upload')
   }
   
   const handlePlay = () => {
@@ -132,24 +151,55 @@ const VideoEditorPage: React.FC = () => {
   
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
+    if (!video || !videoData?.url) return
+    
+    // Set video source
+    video.src = videoData.url
+    console.log('🎬 Video carregado no editor:', videoData.name)
     
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime)
     }
     
     const handleLoadedMetadata = () => {
-      // Video loaded
+      setDuration(video.duration)
+      setVideoLoaded(true)
+      console.log('🎬 Metadata carregada - Duração:', video.duration)
+    }
+    
+    const handleCanPlay = () => {
+      console.log('🎬 Vídeo pronto para reprodução')
     }
     
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('canplay', handleCanPlay)
     
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('canplay', handleCanPlay)
     }
-  }, [setCurrentTime])
+  }, [setCurrentTime, setDuration, videoData])
+  
+  // Redirect if no video data
+  useEffect(() => {
+    if (!videoData) {
+      console.log('❌ Nenhum dado de vídeo encontrado, redirecionando...')
+      navigate('/upload')
+    }
+  }, [videoData, navigate])
+  
+  if (!videoData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando editor...</p>
+        </div>
+      </div>
+    )
+  }
   
   // ===== RENDER =====
   
@@ -166,7 +216,15 @@ const VideoEditorPage: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
               Back to Gallery
             </button>
-            <h1 className="text-xl font-semibold">Video Editor</h1>
+            <div>
+              <h1 className="text-xl font-semibold">Video Editor</h1>
+              {videoData && (
+                <p className="text-sm text-gray-600">
+                  📹 {videoData.name} • {(videoData.size / (1024 * 1024)).toFixed(1)} MB
+                  {videoLoaded && duration > 0 && ` • ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}`}
+                </p>
+              )}
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
