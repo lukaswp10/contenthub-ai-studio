@@ -139,6 +139,13 @@ const VideoEditorPage: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // ===== LOGGER CONDICIONAL =====
+  const logger = {
+    log: process.env.NODE_ENV === 'development' ? console.log : () => {},
+    error: console.error, // Sempre mostrar erros
+    warn: console.warn   // Sempre mostrar warnings
+  }
   
   // ===== ESTADO PRINCIPAL =====
   const [videoData, setVideoData] = useState<VideoLocationState | null>(null)
@@ -627,6 +634,17 @@ const VideoEditorPage: React.FC = () => {
     console.log('🔄 Configurações da gravação atualizadas:', recordingId, updates)
   }, [])
   
+  // ===== VALIDAÇÃO DE URL =====
+  const validateVideoUrl = useCallback(async (url: string): Promise<boolean> => {
+    try {
+      const response = await fetch(url, { method: 'HEAD' })
+      return response.ok
+    } catch (error) {
+      console.error('❌ Erro ao validar URL do vídeo:', error)
+      return false
+    }
+  }, [])
+
   // ===== HANDLERS DO SISTEMA DE GALERIA =====
   const generateThumbnail = useCallback(async (): Promise<string> => {
     if (!videoRef.current || !canvasRef.current) {
@@ -693,7 +711,7 @@ const VideoEditorPage: React.FC = () => {
       setClipTags([])
       setClipCategory('general')
       
-      console.log('💾 Clipe salvo:', newClip)
+      logger.log('💾 Clipe salvo:', newClip)
       alert(`✅ Clipe "${newClip.name}" salvo com sucesso!\n\nSegmentos: ${newClip.segments.length}\nGravações: ${newClip.recordings.length}\nDuração: ${formatTime(newClip.duration)}`)
       
     } catch (error) {
@@ -721,7 +739,7 @@ const VideoEditorPage: React.FC = () => {
       c.id === clip.id ? { ...c, viewCount: c.viewCount + 1 } : c
     ))
     
-    console.log('📁 Clipe carregado:', clip.name)
+            logger.log('📁 Clipe carregado:', clip.name)
     alert(`📁 Clipe "${clip.name}" carregado com sucesso!`)
   }, [])
   
@@ -846,7 +864,7 @@ const VideoEditorPage: React.FC = () => {
     setProjects(prev => [...prev, newProject])
     setCurrentProject(newProject)
     
-    console.log('📁 Novo projeto criado:', newProject.name)
+          logger.log('📁 Novo projeto criado:', newProject.name)
   }, [projects])
   
   const saveProject = useCallback(() => {
@@ -870,12 +888,12 @@ const VideoEditorPage: React.FC = () => {
   
   // ===== HANDLERS DE LEGENDAS =====
   const handleVideoCaption = useCallback(() => {
-    console.log('📝 Gerando legenda do vídeo...')
+    logger.log('📝 Gerando legenda do vídeo...')
     alert('🎬 Funcionalidade: Legenda do Vídeo\n\nEsta função irá extrair o áudio do vídeo e gerar legendas automáticas usando IA.')
   }, [])
   
   const handleVoiceOver = useCallback(() => {
-    console.log('🎤 Adicionando voz de fora...')
+    logger.log('🎤 Adicionando voz de fora...')
     setActiveTool('narration')
     setActivePanel('narration')
     setSidebarOpen(true)
@@ -886,7 +904,7 @@ const VideoEditorPage: React.FC = () => {
   }, [initializeAudioContext, requestMicrophonePermission])
   
   const handleOpenGallery = useCallback(() => {
-    console.log('📁 Abrindo galeria de clipes...')
+    logger.log('📁 Abrindo galeria de clipes...')
     setActivePanel('gallery')
     setSidebarOpen(true)
   }, [])
@@ -900,15 +918,55 @@ const VideoEditorPage: React.FC = () => {
   useEffect(() => {
     const state = location.state as VideoLocationState
     if (state) {
-      setVideoData(state)
+      logger.log('📁 Dados de vídeo recebidos via navigation state:', state)
+      
+      // Validar URL do vídeo antes de definir dados
+      if (state.url) {
+        validateVideoUrl(state.url).then(isValid => {
+          if (isValid) {
+            setVideoData(state)
+            sessionStorage.setItem('currentVideoData', JSON.stringify(state))
+          } else {
+            logger.error('❌ URL do vídeo inválida:', state.url)
+            navigate('/upload')
+          }
+        })
+      } else {
+        setVideoData(state)
+        sessionStorage.setItem('currentVideoData', JSON.stringify(state))
+      }
+    } else {
+      // Tentar recuperar do sessionStorage se não veio pelo state
+      const savedVideoData = sessionStorage.getItem('currentVideoData')
+      if (savedVideoData) {
+        try {
+          const parsedData = JSON.parse(savedVideoData)
+          logger.log('📁 Dados de vídeo recuperados do sessionStorage:', parsedData)
+          setVideoData(parsedData)
+        } catch (error) {
+          logger.error('❌ Erro ao recuperar dados do sessionStorage:', error)
+        }
+      }
     }
-  }, [location.state])
+  }, [location.state, validateVideoUrl, navigate])
   
   useEffect(() => {
     if (!videoData) {
-      navigate('/upload')
+      // Verificar se há indicação de que dados estão chegando
+      const urlParams = new URLSearchParams(window.location.search)
+      const hasVideoParam = urlParams.has('video') || location.state
+      
+      if (!hasVideoParam && !sessionStorage.getItem('currentVideoData')) {
+        // Só redirecionar se claramente não há dados
+        const timeout = setTimeout(() => {
+          logger.log('❌ Nenhum dado de vídeo encontrado após timeout, redirecionando...')
+          navigate('/upload')
+        }, 5000) // Aguardar 5 segundos
+        
+        return () => clearTimeout(timeout)
+      }
     }
-  }, [videoData, navigate])
+  }, [videoData, navigate, location.state])
   
   useEffect(() => {
     const video = videoRef.current
@@ -971,7 +1029,7 @@ const VideoEditorPage: React.FC = () => {
     if (autoSave && unsavedChanges && currentProject) {
       interval = setInterval(() => {
         saveProject()
-        console.log('💾 Auto-save executado')
+        logger.log('💾 Auto-save executado')
       }, 30000) // Auto-save a cada 30 segundos
     }
     
