@@ -98,16 +98,19 @@ const VideoEditorPage: React.FC = () => {
         console.log('🎬 Inicializando engines das Fases 1-8...')
         
         // Inicializar Effects Engine (Fase 4)
-        const canvas = document.createElement('canvas')
-        canvas.width = 1920
-        canvas.height = 1080
-        await effectsEngine.initialize(canvas)
+        const effectsCanvas = document.createElement('canvas')
+        effectsCanvas.width = 1920
+        effectsCanvas.height = 1080
+        await effectsEngine.initialize(effectsCanvas)
         
         // Inicializar Audio Engine (Fase 5)
         await audioEngine.initialize()
         
-        // Inicializar Motion Engine (Fase 5)
-        await motionEngine.initialize()
+        // Inicializar Motion Engine (Fase 5) - CORRIGIDO
+        const motionCanvas = document.createElement('canvas')
+        motionCanvas.width = 1920
+        motionCanvas.height = 1080
+        await motionEngine.initialize(motionCanvas)
         
         // Inicializar Render Engine (Fase 8)
         await renderEngine.initialize()
@@ -607,14 +610,15 @@ const VideoEditorPage: React.FC = () => {
         {/* Área Principal */}
         <div className="flex-1 flex flex-col">
           {/* Player */}
-          <div className="flex-1 bg-black flex items-center justify-center">
+          <div className="flex-1 bg-black flex items-center justify-center relative min-h-[400px]">
             <video
               ref={videoRef}
               src={videoData.url}
-              className="max-w-full max-h-full"
+              className="w-full h-full object-contain"
               controls={false}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
+              style={{ maxHeight: 'calc(100vh - 400px)' }}
             />
           </div>
           

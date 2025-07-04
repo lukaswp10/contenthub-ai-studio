@@ -263,24 +263,37 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         <div className="api-config">
           <div className="config-header">
             <span className="config-icon">🔑</span>
-            <span className="config-title">AssemblyAI API Key (Opcional)</span>
+            <span className="config-title">Configure sua API Key</span>
           </div>
           <div className="config-content">
-            <input
-              type="password"
-              placeholder="Cole sua AssemblyAI API Key aqui..."
-              value={apiKey}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
-              className="api-input"
-            />
+            <div className="api-options">
+              <div className="api-option">
+                <h4>🤖 OpenAI Whisper (Recomendado)</h4>
+                <p>$0.006/min • 98.9% precisão • 57 idiomas</p>
+                <Button
+                  onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
+                  className="config-btn primary"
+                >
+                  🔑 Configurar OpenAI API Key
+                </Button>
+              </div>
+              <div className="api-option">
+                <h4>🔊 AssemblyAI (Alternativa)</h4>
+                <p>$0.37/hora • 5h grátis/mês</p>
+                <input
+                  type="password"
+                  placeholder="Cole sua AssemblyAI API Key aqui..."
+                  value={apiKey}
+                  onChange={(e) => handleApiKeyChange(e.target.value)}
+                  className="api-input"
+                />
+              </div>
+            </div>
             <div className="config-help">
               <span className="help-text">
-                📝 Com API Key: Transcrição profissional AssemblyAI (5h grátis/mês)<br/>
+                💡 Você já pagou $5 no OpenAI - Configure sua API Key para usar o Whisper!<br/>
                 🆓 Sem API Key: Web Speech API gratuita (funciona no Chrome/Edge)
               </span>
-              <a href="https://assemblyai.com" target="_blank" rel="noopener noreferrer" className="help-link">
-                → Criar conta grátis AssemblyAI
-              </a>
             </div>
             <div className="config-actions">
               <Button
@@ -292,14 +305,13 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
               <Button
                 onClick={() => {
                   if (apiKey) {
-                    // Salvar API key no localStorage
                     handleApiKeySave(apiKey)
                   }
                 }}
                 disabled={!apiKey}
                 className="config-btn primary"
               >
-                💾 Salvar & Usar AssemblyAI
+                💾 Salvar AssemblyAI
               </Button>
             </div>
           </div>
