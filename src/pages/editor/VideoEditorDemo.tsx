@@ -26,20 +26,20 @@ export const VideoEditorDemo: React.FC = () => {
     setShowInstructions(true);
   }, []);
 
-  const handleProjectSave = useCallback(() => {
-    console.log('🎬 Project saved');
+  const handleProjectSave = useCallback((projectId: string) => {
+    console.log('🎬 Project saved:', projectId);
   }, []);
 
-  const handleProjectLoad = useCallback(() => {
-    console.log('🎬 Project loaded');
+  const handleProjectLoad = useCallback((projectId: string) => {
+    console.log('🎬 Project loaded:', projectId);
   }, []);
 
   const handleExportStart = useCallback(() => {
     console.log('🎬 Export started');
   }, []);
 
-  const handleExportComplete = useCallback(() => {
-    console.log('🎬 Export completed');
+  const handleExportComplete = useCallback((outputUrl: string) => {
+    console.log('🎬 Export completed:', outputUrl);
   }, []);
 
   const handleError = useCallback((error: string) => {
@@ -285,27 +285,17 @@ export const VideoEditorDemo: React.FC = () => {
               </p>
             </div>
             
-            {/* Upload Button */}
-            <div className="flex items-center space-x-4">
+            {/* Demo Mode Selector */}
+            <div className="flex items-center space-x-2 flex-wrap">
               <Button
-                onClick={() => window.open('/upload', '_blank')}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+                variant={demoMode === 'basic' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('basic')}
+                className="flex items-center space-x-2"
               >
-                <Upload size={16} />
-                <span>Upload Video</span>
+                <Play size={16} />
+                <span>Basic</span>
               </Button>
-              
-              {/* Demo Mode Selector */}
-              <div className="flex items-center space-x-2 flex-wrap">
-                <Button
-                  variant={demoMode === 'basic' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDemoModeChange('basic')}
-                  className="flex items-center space-x-2"
-                >
-                  <Play size={16} />
-                  <span>Basic</span>
-                </Button>
               
               <Button
                 variant={demoMode === 'effects' ? 'default' : 'outline'}

@@ -59,6 +59,16 @@ export interface VideoEditorProps {
   showSidebar?: boolean;
   enableKeyboardShortcuts?: boolean;
   showDebugOverlay?: boolean;
+  
+  // Video props
+  videoSrc?: string;
+  videoData?: {
+    url: string;
+    name: string;
+    duration: number;
+    size: number;
+  };
+  
   onProjectSave?: () => void;
   onProjectLoad?: () => void;
   onExportStart?: () => void;
