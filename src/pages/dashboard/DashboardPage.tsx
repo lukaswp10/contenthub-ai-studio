@@ -5,12 +5,33 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { VideoGallery } from '@/components/dashboard/VideoGallery'
+import { CompactVideoUpload } from '@/components/dashboard/CompactVideoUpload'
 import { getGalleryVideos } from '@/utils/galleryStorage'
 
 export const DashboardPage: React.FC = () => {
   const { user, signOut } = useAuth()
   const { clips, totalViews, totalEngagement, loading } = useClips()
   const navigate = useNavigate()
+  
+  // Estado para destacar vídeo recém-enviado
+  const [highlightedVideoId, setHighlightedVideoId] = React.useState<string | null>(null)
+  
+  // Callback quando upload é concluído
+  const handleUploadComplete = (videoId: string) => {
+    console.log('🎉 Upload concluído no dashboard, destacando vídeo:', videoId)
+    setHighlightedVideoId(videoId)
+    
+    // Atualizar galeria
+    if ((window as any).refreshVideoGallery) {
+      (window as any).refreshVideoGallery()
+    }
+    
+    // Remover destaque após 10 segundos
+    setTimeout(() => {
+      setHighlightedVideoId(null)
+    }, 10000)
+  }
 
   const handleLogout = async () => {
     try {
@@ -155,12 +176,35 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </div>
 
+        {/* Upload Rápido */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            📤 Upload Rápido
+          </h2>
+          <CompactVideoUpload 
+            onUploadComplete={handleUploadComplete}
+            className="w-full"
+          />
+        </div>
+
+        {/* Galeria de Vídeos */}
+        <VideoGallery 
+          className="mb-8" 
+          highlightedVideoId={highlightedVideoId}
+          onRefresh={() => {
+            // Callback quando galeria é atualizada
+            console.log('📁 Galeria atualizada')
+          }}
+        />
+
         {/* Ações Rápidas */}
         <Card className="p-6 sm:p-8 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4 sm:mb-6">
             Ações Rápidas
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {/* COMENTADO: Botão upload agora está integrado acima */}
+            {/* 
             <Button
               size="lg"
               className="h-20 sm:h-24 text-base sm:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex-col sm:flex-row"
@@ -171,6 +215,7 @@ export const DashboardPage: React.FC = () => {
               </svg>
               <span className="text-center">Upload de Vídeo</span>
             </Button>
+            */}
 
             {/* BOTÃO EDITOR MANUAL MELHORADO */}
             <Button
@@ -221,6 +266,9 @@ export const DashboardPage: React.FC = () => {
             </Button>
           </div>
         </Card>
+
+        {/* COMENTADO: Galeria agora está integrada acima */}
+        {/* <VideoGallery className="mb-8" /> */}
 
         {/* Clips Recentes ou Call to Action */}
         {recentClips.length > 0 ? (
