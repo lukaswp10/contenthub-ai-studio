@@ -113,9 +113,51 @@ const VideoEditorPage: React.FC = () => {
         await motionEngine.initialize(motionCanvas)
         
         // Inicializar Render Engine (Fase 8)
-        await renderEngine.initialize()
+        await renderEngine.initialize({
+          engine: {
+            threads: Math.min(navigator.hardwareConcurrency || 4, 8),
+            useGPU: true,
+            useWebWorkers: true,
+            memoryLimit: 2048,
+            cacheSize: 100,
+            quality: 'high'
+          },
+          output: {
+            defaultFormat: 'mp4',
+            defaultCodec: 'h264',
+            defaultQuality: 80,
+            defaultBitrate: 8000
+          },
+          performance: {
+            thermalThrottling: true,
+            batteryOptimization: false,
+            backgroundRendering: true,
+            priorityBoost: false
+          },
+          debugging: {
+            enabled: false,
+            logLevel: 'error',
+            profileMemory: false,
+            profileCPU: false
+          }
+        })
         
         console.log('✅ Todos os engines inicializados com sucesso!')
+        
+        // Configurar API key do OpenAI para legendas
+        try {
+          const { configService } = await import('../../services/security/config.service')
+          await configService.addApiKey({
+            provider: 'openai',
+            name: 'OpenAI Whisper API',
+            key: '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',
+            isActive: true,
+            priority: 10
+          })
+          console.log('🔑 API key do OpenAI configurada com sucesso!')
+        } catch (error) {
+          console.warn('⚠️ Erro ao configurar API key:', error)
+        }
       } catch (error) {
         console.error('❌ Erro ao inicializar engines:', error)
       }
