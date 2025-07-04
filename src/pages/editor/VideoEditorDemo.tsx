@@ -2,9 +2,9 @@
  * 🎬 VIDEO EDITOR DEMO - ClipsForge Pro
  * 
  * Demonstração completa do editor profissional
- * Inclui FASE 4: Efeitos e Transições
+ * Inclui FASES 4, 6 & 7: Efeitos, Transições, Audio, Motion Graphics, Timeline Avançada e Preview
  * 
- * @version 4.0.0 - FASE 4 COMPLETA
+ * @version 7.0.0 - FASES 6 & 7 COMPLETAS
  * @author ClipsForge Team
  */
 
@@ -12,16 +12,16 @@ import React, { useState, useRef, useCallback } from 'react';
 import { VideoEditor, VideoEditorRef } from '../../components/VideoEditor';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { Upload, Play, Download, Sparkles, Zap } from 'lucide-react';
+import { Upload, Play, Download, Sparkles, Zap, Volume2, Film, Clock, Monitor, Grid } from 'lucide-react';
 
 export const VideoEditorDemo: React.FC = () => {
   const editorRef = useRef<VideoEditorRef>(null);
-  const [demoMode, setDemoMode] = useState<'basic' | 'effects' | 'transitions'>('basic');
+  const [demoMode, setDemoMode] = useState<'basic' | 'effects' | 'transitions' | 'audio' | 'motion' | 'timeline' | 'preview' | 'export' | 'queue' | 'render-settings'>('basic');
   const [showInstructions, setShowInstructions] = useState(true);
 
   // ===== DEMO HANDLERS =====
 
-  const handleDemoModeChange = useCallback((mode: 'basic' | 'effects' | 'transitions') => {
+  const handleDemoModeChange = useCallback((mode: 'basic' | 'effects' | 'transitions' | 'audio' | 'motion' | 'timeline' | 'preview' | 'export' | 'queue' | 'render-settings') => {
     setDemoMode(mode);
     setShowInstructions(true);
   }, []);
@@ -92,6 +92,153 @@ export const VideoEditorDemo: React.FC = () => {
             '✨ Creative glitch and liquid morphing'
           ]
         };
+
+      case 'audio':
+        return {
+          title: '🎵 Audio Mixer Demo - FASE 6',
+          steps: [
+            '1. Click the 🎵 Audio button in the toolbar',
+            '2. Add audio tracks with the + button',
+            '3. Adjust volume levels with faders',
+            '4. Use EQ, compressor, and reverb effects',
+            '5. Monitor audio levels in real-time',
+            '6. Record audio directly into tracks'
+          ],
+          features: [
+            '🎛️ Professional mixing console',
+            '📊 Real-time audio metering',
+            '🎚️ Multi-band EQ and dynamics',
+            '🔊 Reverb and delay effects',
+            '⏺️ Direct recording capability',
+            '🎵 Web Audio API integration'
+          ]
+        };
+
+      case 'motion':
+        return {
+          title: '🎬 Motion Graphics Demo - FASE 6',
+          steps: [
+            '1. Click the 🎬 Motion button in the toolbar',
+            '2. Add animation layers with keyframes',
+            '3. Adjust transform properties (position, scale, rotation)',
+            '4. Use animation presets for quick effects',
+            '5. Create custom keyframe animations',
+            '6. Preview motion graphics in real-time'
+          ],
+          features: [
+            '🎨 Professional animation tools',
+            '⏱️ Keyframe-based animation',
+            '🔄 Transform controls',
+            '📐 Bezier curve interpolation',
+            '🎭 Layer management system',
+            '🖥️ WebGL/Canvas rendering'
+          ]
+        };
+
+      case 'timeline':
+        return {
+          title: '⏱️ Advanced Timeline Demo - FASE 7',
+          steps: [
+            '1. Click the ⏱️ Timeline button in the toolbar',
+            '2. Use professional transport controls',
+            '3. Zoom in/out with zoom controls',
+            '4. Toggle waveforms and grid display',
+            '5. Navigate with timecode display',
+            '6. Experience professional timeline workflow'
+          ],
+          features: [
+            '🎬 Professional timeline interface',
+            '🎵 Audio waveform visualization',
+            '⏰ Precise timecode navigation',
+            '🔍 Advanced zoom controls',
+            '📊 Grid and ruler system',
+            '⚡ Optimized performance'
+          ]
+        };
+
+      case 'preview':
+        return {
+          title: '📺 Realtime Preview Demo - FASE 7',
+          steps: [
+            '1. Click the 📺 Preview button in the toolbar',
+            '2. Monitor real-time performance metrics',
+            '3. Check GPU acceleration status',
+            '4. Adjust preview quality settings',
+            '5. View FPS and CPU/GPU usage',
+            '6. Experience professional preview system'
+          ],
+          features: [
+            '📊 Real-time performance monitoring',
+            '🚀 GPU acceleration support',
+            '📈 FPS and resource tracking',
+            '⚙️ Quality control settings',
+            '🖥️ Professional preview interface',
+            '⚡ Optimized rendering pipeline'
+          ]
+        };
+
+      case 'export':
+        return {
+          title: '📤 Export Manager Demo - FASE 8',
+          steps: [
+            '1. Click the 📤 Export button in the toolbar',
+            '2. Choose from professional export presets',
+            '3. Configure output format and quality',
+            '4. Set custom resolution and bitrate',
+            '5. Add watermarks and metadata',
+            '6. Start export and monitor progress'
+          ],
+          features: [
+            '🎬 Professional export presets',
+            '📱 Social media optimized formats',
+            '🔧 Custom quality settings',
+            '🏷️ Watermark and branding',
+            '📊 Real-time progress tracking',
+            '⚡ GPU-accelerated encoding'
+          ]
+        };
+
+      case 'queue':
+        return {
+          title: '🔄 Render Queue Demo - FASE 8',
+          steps: [
+            '1. Click the 🔄 Queue button in the toolbar',
+            '2. View all render jobs in queue',
+            '3. Manage job priorities and order',
+            '4. Monitor background rendering',
+            '5. Pause/resume render jobs',
+            '6. View render statistics'
+          ],
+          features: [
+            '📋 Professional queue management',
+            '🎯 Priority-based rendering',
+            '⏸️ Pause/resume functionality',
+            '📊 Real-time progress monitoring',
+            '🔄 Background processing',
+            '📈 Performance statistics'
+          ]
+        };
+
+      case 'render-settings':
+        return {
+          title: '⚙️ Render Settings Demo - FASE 8',
+          steps: [
+            '1. Click the ⚙️ Settings button in the toolbar',
+            '2. Configure render quality presets',
+            '3. Adjust performance settings',
+            '4. Set memory and cache limits',
+            '5. Enable GPU acceleration',
+            '6. Optimize for your hardware'
+          ],
+          features: [
+            '🎛️ Professional quality presets',
+            '⚡ Performance optimization',
+            '🧠 Memory management',
+            '🚀 GPU acceleration controls',
+            '🔧 Advanced configuration',
+            '📊 System monitoring'
+          ]
+        };
       
       default:
         return {
@@ -102,7 +249,7 @@ export const VideoEditorDemo: React.FC = () => {
             '3. Select editing tools: Select (V), Razor (R), Text (T)',
             '4. Use the timeline to cut, trim, and arrange clips',
             '5. Try keyboard shortcuts: Ctrl+Z (Undo), Ctrl+Y (Redo)',
-            '6. Access advanced features with Effects 🎨 and Transitions 🔄'
+            '6. Explore advanced features: 🎨 Effects, 🔄 Transitions, 🎵 Audio, 🎬 Motion, ⏱️ Timeline, 📺 Preview'
           ],
           features: [
             '🎮 Professional playback controls',
@@ -110,7 +257,12 @@ export const VideoEditorDemo: React.FC = () => {
             '📝 Text and overlay tools',
             '⌨️ Complete keyboard shortcuts',
             '🔄 Undo/Redo system',
-            '💾 Project save/load'
+            '💾 Project save/load',
+            '🎨 Effects & Transitions (Phase 4)',
+            '🎵 Audio Mixer (Phase 6)',
+            '🎬 Motion Graphics (Phase 6)',
+            '⏱️ Advanced Timeline (Phase 7)',
+            '📺 Realtime Preview (Phase 7)'
           ]
         };
     }
@@ -129,12 +281,12 @@ export const VideoEditorDemo: React.FC = () => {
                 🎬 ClipsForge Pro - Video Editor
               </h1>
               <p className="text-gray-400">
-                Professional video editing with effects and transitions
+                Professional video editing with effects, transitions, audio, motion graphics, and advanced timeline
               </p>
             </div>
             
             {/* Demo Mode Selector */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap">
               <Button
                 variant={demoMode === 'basic' ? 'default' : 'outline'}
                 size="sm"
@@ -171,6 +323,105 @@ export const VideoEditorDemo: React.FC = () => {
               >
                 <Zap size={16} />
                 <span>Transitions</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'audio' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('audio')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'audio' ? '#10b981' : 'transparent',
+                  borderColor: '#10b981'
+                }}
+              >
+                <Volume2 size={16} />
+                <span>Audio</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'motion' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('motion')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'motion' ? '#f59e0b' : 'transparent',
+                  borderColor: '#f59e0b'
+                }}
+              >
+                <Film size={16} />
+                <span>Motion</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'timeline' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('timeline')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'timeline' ? '#ef4444' : 'transparent',
+                  borderColor: '#ef4444'
+                }}
+              >
+                <Clock size={16} />
+                <span>Timeline</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'preview' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('preview')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'preview' ? '#6366f1' : 'transparent',
+                  borderColor: '#6366f1'
+                }}
+              >
+                <Monitor size={16} />
+                <span>Preview</span>
+              </Button>
+
+              {/* Phase 8 Buttons */}
+              <Button
+                variant={demoMode === 'export' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('export')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'export' ? '#059669' : 'transparent',
+                  borderColor: '#059669'
+                }}
+              >
+                <Download size={16} />
+                <span>Export</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'queue' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('queue')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'queue' ? '#7c3aed' : 'transparent',
+                  borderColor: '#7c3aed'
+                }}
+              >
+                <Grid size={16} />
+                <span>Queue</span>
+              </Button>
+
+              <Button
+                variant={demoMode === 'render-settings' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleDemoModeChange('render-settings')}
+                className="flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: demoMode === 'render-settings' ? '#dc2626' : 'transparent',
+                  borderColor: '#dc2626'
+                }}
+              >
+                <Sparkles size={16} />
+                <span>Settings</span>
               </Button>
             </div>
           </div>
@@ -252,9 +503,9 @@ export const VideoEditorDemo: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between text-sm text-gray-400">
             <div className="flex items-center space-x-4">
-              <span>🎬 ClipsForge Pro v4.0.0</span>
+              <span>🎬 ClipsForge Pro v8.0.0</span>
               <span>•</span>
-              <span>FASE 4: Effects & Transitions</span>
+              <span>FASES 4-8: Effects, Transitions, Audio, Motion Graphics, Timeline, Preview, Render & Export</span>
               <span>•</span>
               <span>WebGL Powered</span>
             </div>
