@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { transcriptionService, TranscriptionWord } from '../../services/transcriptionService'
+import { supabase } from '../../lib/supabase'
 
 interface CaptionStyle {
   id: string
@@ -29,18 +30,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [words, setWords] = useState<TranscriptionWord[]>([])
   const [selectedStyle, setSelectedStyle] = useState<string>('tiktok-bold')
-  const [apiKey, setApiKey] = useState(() => {
-    // Carregar API key salva do localStorage
-    return localStorage.getItem('assemblyai_api_key') || ''
-  })
-  const [showApiKeyInput, setShowApiKeyInput] = useState(() => {
-    // Mostrar input apenas se não tiver API key salva
-    return !localStorage.getItem('assemblyai_api_key')
-  })
   const [transcriptionStatus, setTranscriptionStatus] = useState('')
-  const [apiKeySaved, setApiKeySaved] = useState(() => {
-    return !!localStorage.getItem('assemblyai_api_key')
-  })
 
   // Estilos de legenda virais
   const captionStyles: CaptionStyle[] = [
@@ -124,36 +114,8 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
     }
   ]
 
-  // Função para salvar API key
-  const handleApiKeySave = (key: string) => {
-    if (key.trim()) {
-      localStorage.setItem('assemblyai_api_key', key.trim())
-      setApiKey(key.trim())
-      setApiKeySaved(true)
-      setShowApiKeyInput(false)
-      console.log('🔑 API Key salva com sucesso!')
-    }
-  }
-
-  // Função para remover API key
-  const handleApiKeyRemove = () => {
-    localStorage.removeItem('assemblyai_api_key')
-    setApiKey('')
-    setApiKeySaved(false)
-    setShowApiKeyInput(true)
-    console.log('🗑️ API Key removida')
-  }
-
-  // Auto-salvar quando API key é inserida
-  const handleApiKeyChange = (newKey: string) => {
-    setApiKey(newKey)
-    if (newKey.length > 10) { // Assumindo que API keys têm pelo menos 10 caracteres
-      handleApiKeySave(newKey)
-    }
-  }
-
-  // Transcrição REAL com APIs
-  const transcribeWithRealAPI = async () => {
+  // Transcrição com Edge Function (com fallback para configService)
+  const transcribeWithEdgeFunction = async () => {
     if (!videoFile && !videoUrl) {
       alert('⚠️ Nenhum vídeo carregado para transcrever')
       return
@@ -163,18 +125,13 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
     setTranscriptionStatus('🔄 Iniciando transcrição...')
 
     try {
-      // Configurar API Key se fornecida
-      if (apiKey) {
-        transcriptionService.setApiKey(apiKey)
-      }
-
       // Obter arquivo de vídeo
       let fileToTranscribe: File
       
       if (videoFile) {
         fileToTranscribe = videoFile
       } else if (videoUrl) {
-        // Converter URL em File
+        setTranscriptionStatus('📥 Baixando vídeo...')
         const response = await fetch(videoUrl)
         const blob = await response.blob()
         fileToTranscribe = new File([blob], 'video.mp4', { type: blob.type })
@@ -182,7 +139,77 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         throw new Error('Nenhum vídeo disponível')
       }
 
-      // Executar transcrição real
+      // Tentar Edge Function primeiro
+      try {
+        setTranscriptionStatus('🎤 Tentando Edge Function...')
+        
+        // Preparar FormData
+        const formData = new FormData()
+        formData.append('file', fileToTranscribe)
+
+        // Obter token de autenticação
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('Usuário não autenticado')
+        }
+
+        setTranscriptionStatus('🤖 Processando com OpenAI Whisper...')
+
+        // Chamar Edge Function
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        const response = await fetch(`${supabaseUrl}/functions/v1/transcribe`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData
+        })
+
+        if (!response.ok) {
+          throw new Error(`Edge Function falhou: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('🎉 Edge Function - Transcrição concluída:', result)
+
+        // Converter resultado para nosso formato
+        const transcriptionWords: TranscriptionWord[] = []
+        
+        if (result.segments) {
+          result.segments.forEach((segment: any) => {
+            if (segment.words && segment.words.length > 0) {
+              segment.words.forEach((word: any) => {
+                transcriptionWords.push({
+                  text: word.word.trim(),
+                  start: word.start,
+                  end: word.end,
+                  confidence: 0.95,
+                  highlight: word.word.length > 6
+                })
+              })
+            }
+          })
+        }
+
+        setWords(transcriptionWords)
+        onCaptionsGenerated(transcriptionWords)
+        setTranscriptionStatus(`✅ Transcrição concluída! ${transcriptionWords.length} palavras detectadas`)
+        return
+
+      } catch (edgeFunctionError) {
+        console.warn('⚠️ Edge Function falhou, usando fallback:', edgeFunctionError)
+        setTranscriptionStatus('🔄 Usando sistema de fallback...')
+      }
+
+      // Fallback: usar transcriptionService existente com API key hardcoded
+      setTranscriptionStatus('🔑 Configurando API key...')
+      
+      // Configurar API key diretamente no transcriptionService
+      transcriptionService.setOpenAIApiKey('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')
+
+      setTranscriptionStatus('🎤 Usando OpenAI Whisper direto...')
+
+      // Executar transcrição com o serviço existente
       const result = await transcriptionService.transcribe(
         fileToTranscribe,
         (status) => {
@@ -192,7 +219,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         true // Usar Web Speech como fallback
       )
 
-      console.log('🎉 Transcrição real concluída:', result)
+      console.log('🎉 Fallback - Transcrição concluída:', result)
       
       setWords(result.words)
       onCaptionsGenerated(result.words)
@@ -258,71 +285,11 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         </div>
       </div>
 
-      {/* Configuração da API Key */}
-      {showApiKeyInput && (
-        <div className="api-config">
-          <div className="config-header">
-            <span className="config-icon">🔑</span>
-            <span className="config-title">Configure sua API Key</span>
-          </div>
-          <div className="config-content">
-            <div className="api-options">
-              <div className="api-option">
-                <h4>🤖 OpenAI Whisper (Recomendado)</h4>
-                <p>$0.006/min • 98.9% precisão • 57 idiomas</p>
-                <Button
-                  onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
-                  className="config-btn primary"
-                >
-                  🔑 Configurar OpenAI API Key
-                </Button>
-              </div>
-              <div className="api-option">
-                <h4>🔊 AssemblyAI (Alternativa)</h4>
-                <p>$0.37/hora • 5h grátis/mês</p>
-                <input
-                  type="password"
-                  placeholder="Cole sua AssemblyAI API Key aqui..."
-                  value={apiKey}
-                  onChange={(e) => handleApiKeyChange(e.target.value)}
-                  className="api-input"
-                />
-              </div>
-            </div>
-            <div className="config-help">
-              <span className="help-text">
-                💡 Você já pagou $5 no OpenAI - Configure sua API Key para usar o Whisper!<br/>
-                🆓 Sem API Key: Web Speech API gratuita (funciona no Chrome/Edge)
-              </span>
-            </div>
-            <div className="config-actions">
-              <Button
-                onClick={() => setShowApiKeyInput(false)}
-                className="config-btn secondary"
-              >
-                Usar Web Speech (Grátis)
-              </Button>
-              <Button
-                onClick={() => {
-                  if (apiKey) {
-                    handleApiKeySave(apiKey)
-                  }
-                }}
-                disabled={!apiKey}
-                className="config-btn primary"
-              >
-                💾 Salvar AssemblyAI
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Controles de Transcrição */}
+      {/* Controles de Transcrição Simplificados */}
       <div className="transcription-controls">
         <div className="transcribe-main">
           <Button
-            onClick={transcribeWithRealAPI}
+            onClick={transcribeWithEdgeFunction}
             disabled={isTranscribing}
             className="transcribe-btn"
           >
@@ -333,20 +300,10 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
               </>
             ) : (
               <>
-                🎤 Gerar Legendas (API Real)
+                🎤 Gerar Legendas
               </>
             )}
           </Button>
-          
-          {!showApiKeyInput && apiKeySaved && (
-            <Button
-              onClick={handleApiKeyRemove}
-              className="config-btn secondary small"
-              title="Editar/Remover API Key"
-            >
-              🔑 Editar API Key
-            </Button>
-          )}
         </div>
         
         {transcriptionStatus && (
