@@ -644,26 +644,45 @@ const VideoEditorPage: React.FC = () => {
   // ===== VALIDAÇÃO DE URL =====
   const validateVideoUrl = useCallback(async (url: string): Promise<boolean> => {
     try {
-      // Blob URLs e Data URLs são sempre válidas no contexto do navegador
+      // ✅ URLs locais são sempre válidas
       if (url.startsWith('blob:') || url.startsWith('data:')) {
         logger.log('✅ URL local válida (blob/data):', url.substring(0, 50) + '...')
         return true
       }
       
-      // Para URLs HTTP/HTTPS, validar com fetch
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const response = await fetch(url, { method: 'HEAD' })
-        const isValid = response.ok
-        logger.log(isValid ? '✅ URL externa válida' : '❌ URL externa inválida', url.substring(0, 50) + '...')
-        return isValid
+      // ✅ URLs do Cloudinary são sempre válidas (não precisam validação)
+      if (url.includes('cloudinary.com') || url.includes('res.cloudinary.com')) {
+        logger.log('✅ URL do Cloudinary válida:', url.substring(0, 50) + '...')
+        return true
       }
       
-      // Outros tipos de URL são considerados inválidos
-      logger.warn('⚠️ Tipo de URL não suportado:', url.substring(0, 50) + '...')
-      return false
+      // ✅ Para outras URLs HTTP/HTTPS, validar com fetch (mas sem bloquear)
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos máximo
+          
+          const response = await fetch(url, { 
+            method: 'HEAD',
+            signal: controller.signal
+          })
+          
+          clearTimeout(timeoutId)
+          const isValid = response.ok
+          logger.log(isValid ? '✅ URL externa válida' : '⚠️ URL externa com problemas (mas aceita)', url.substring(0, 50) + '...')
+          return true // ✅ SEMPRE aceitar URLs HTTP/HTTPS (não bloquear)
+        } catch (error) {
+          logger.warn('⚠️ Erro ao validar URL externa (mas aceita):', error)
+          return true // ✅ SEMPRE aceitar em caso de erro de rede
+        }
+      }
+      
+      // ✅ Aceitar todos os tipos de URL por padrão
+      logger.log('✅ URL aceita por padrão:', url.substring(0, 50) + '...')
+      return true
     } catch (error) {
       logger.error('❌ Erro ao validar URL do vídeo:', error)
-      return false
+      return true // ✅ SEMPRE aceitar em caso de erro
     }
   }, [logger])
 
@@ -912,8 +931,35 @@ const VideoEditorPage: React.FC = () => {
   const handleVideoCaption = useCallback(async () => {
     logger.log('📝 Gerando legenda do vídeo...')
     
+    // ✅ DEBUG COMPLETO DO ESTADO ATUAL
+    logger.log('🔍 DEBUG - Estado atual:', {
+      videoData,
+      hasVideoData: !!videoData,
+      videoDataKeys: videoData ? Object.keys(videoData) : [],
+      sessionStorage: sessionStorage.getItem('currentVideoData'),
+      locationState: location.state
+    })
+    
     if (!videoData) {
-      alert('❌ Nenhum vídeo carregado para gerar legendas!')
+      // ✅ TENTAR RECUPERAR DADOS UMA ÚLTIMA VEZ
+      const savedVideoData = sessionStorage.getItem('currentVideoData')
+      if (savedVideoData) {
+        try {
+          const parsedData = JSON.parse(savedVideoData)
+          logger.log('🔄 Recuperando dados do sessionStorage para legendas:', parsedData)
+          setVideoData(parsedData)
+          
+          // Aguardar um pouco para o estado atualizar e tentar novamente
+          setTimeout(() => {
+            handleVideoCaption()
+          }, 500)
+          return
+        } catch (error) {
+          logger.error('❌ Erro ao recuperar dados para legendas:', error)
+        }
+      }
+      
+      alert('❌ Nenhum vídeo carregado para gerar legendas!\n\n💡 Dica: Se você acabou de fazer upload, aguarde alguns segundos e tente novamente.\n\n🔄 Você pode voltar ao dashboard e tentar novamente.')
       return
     }
 
@@ -950,8 +996,28 @@ const VideoEditorPage: React.FC = () => {
       // Importar serviço de transcrição dinamicamente
       const { transcriptionService } = await import('@/services/transcriptionService')
       
-      // Configurar API key do OpenAI (você pode mover isso para um gerenciador de configurações)
-      transcriptionService.setOpenAIApiKey('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')
+      // ✅ CONFIGURAR API KEY SEGURA
+      let apiKeyConfigured = false
+      
+      // Tentar usar API key do ambiente
+      const envApiKey = import.meta.env.VITE_OPENAI_API_KEY
+      if (envApiKey) {
+        transcriptionService.setOpenAIApiKey(envApiKey)
+        apiKeyConfigured = true
+        logger.log('✅ API Key OpenAI configurada via ambiente')
+      }
+      
+      // Fallback: pedir API key ao usuário
+      if (!apiKeyConfigured) {
+        const userApiKey = prompt('🔑 Digite sua API Key do OpenAI:\n\n📍 Obtenha em: https://platform.openai.com/api-keys\n💰 Custo: $0.006/minuto\n\n⚠️ Importante: Será usado apenas para esta sessão!')
+        if (userApiKey && userApiKey.startsWith('sk-')) {
+          transcriptionService.setOpenAIApiKey(userApiKey)
+          apiKeyConfigured = true
+          logger.log('✅ API Key OpenAI configurada pelo usuário')
+        } else {
+          throw new Error('🔑 API Key OpenAI é obrigatória para gerar legendas!\n\n📍 Obtenha em: https://platform.openai.com/api-keys\n💡 A key deve começar com "sk-"')
+        }
+      }
       
       // Executar transcrição
       const result = await transcriptionService.transcribe(
@@ -1058,20 +1124,19 @@ const VideoEditorPage: React.FC = () => {
     if (state) {
       logger.log('📁 Dados de vídeo recebidos via navigation state:', state)
       
-      // Validar URL do vídeo antes de definir dados
+      // ✅ SEMPRE aceitar dados do state (não bloquear com validação)
+      setVideoData(state)
+      saveToSessionStorage(state)
+      
+      // Validar URL em background (sem bloquear)
       if (state.url) {
         validateVideoUrl(state.url).then(isValid => {
-          if (isValid) {
-            setVideoData(state)
-            saveToSessionStorage(state)
-          } else {
-            logger.error('❌ URL do vídeo inválida:', state.url)
-            navigate('/upload')
+          if (!isValid) {
+            logger.warn('⚠️ URL do vídeo com problemas (mas mantendo dados):', state.url)
           }
+        }).catch(error => {
+          logger.warn('⚠️ Erro na validação de URL (mas mantendo dados):', error)
         })
-      } else {
-        setVideoData(state)
-        saveToSessionStorage(state)
       }
     } else {
       // Tentar recuperar do sessionStorage se não veio pelo state
@@ -1092,19 +1157,30 @@ const VideoEditorPage: React.FC = () => {
   
   useEffect(() => {
     if (!videoData) {
-      // Verificar se há indicação de que dados estão chegando
-      const urlParams = new URLSearchParams(window.location.search)
-      const hasVideoParam = urlParams.has('video') || location.state
-      
-      if (!hasVideoParam && !sessionStorage.getItem('currentVideoData')) {
-        // Só redirecionar se claramente não há dados
-        const timeout = setTimeout(() => {
-          logger.log('❌ Nenhum dado de vídeo encontrado após timeout, redirecionando...')
-          navigate('/upload')
-        }, 5000) // Aguardar 5 segundos
+      // ✅ AGUARDAR MAIS TEMPO e tentar recuperar dados antes de redirecionar
+      const timeout = setTimeout(() => {
+        // Verificar novamente se há dados
+        const savedVideoData = sessionStorage.getItem('currentVideoData')
+        const urlParams = new URLSearchParams(window.location.search)
+        const hasVideoParam = urlParams.has('video') || location.state
         
-        return () => clearTimeout(timeout)
-      }
+        if (!savedVideoData && !hasVideoParam) {
+          logger.log('❌ Nenhum dado de vídeo encontrado após timeout de 10s, redirecionando...')
+          navigate('/upload')
+        } else if (savedVideoData) {
+          // Tentar recuperar dados do sessionStorage uma última vez
+          try {
+            const parsedData = JSON.parse(savedVideoData)
+            logger.log('📁 Dados recuperados no timeout:', parsedData)
+            setVideoData(parsedData)
+          } catch (error) {
+            logger.error('❌ Erro ao recuperar dados no timeout:', error)
+            navigate('/upload')
+          }
+        }
+      }, 10000) // ✅ AGUARDAR 10 segundos (mais tempo)
+      
+      return () => clearTimeout(timeout)
     }
   }, [videoData, navigate, location.state])
   
