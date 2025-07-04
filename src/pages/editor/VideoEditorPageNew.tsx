@@ -637,13 +637,28 @@ const VideoEditorPage: React.FC = () => {
   // ===== VALIDAÇÃO DE URL =====
   const validateVideoUrl = useCallback(async (url: string): Promise<boolean> => {
     try {
-      const response = await fetch(url, { method: 'HEAD' })
-      return response.ok
+      // Blob URLs e Data URLs são sempre válidas no contexto do navegador
+      if (url.startsWith('blob:') || url.startsWith('data:')) {
+        logger.log('✅ URL local válida (blob/data):', url.substring(0, 50) + '...')
+        return true
+      }
+      
+      // Para URLs HTTP/HTTPS, validar com fetch
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const response = await fetch(url, { method: 'HEAD' })
+        const isValid = response.ok
+        logger.log(isValid ? '✅ URL externa válida' : '❌ URL externa inválida', url.substring(0, 50) + '...')
+        return isValid
+      }
+      
+      // Outros tipos de URL são considerados inválidos
+      logger.warn('⚠️ Tipo de URL não suportado:', url.substring(0, 50) + '...')
+      return false
     } catch (error) {
-      console.error('❌ Erro ao validar URL do vídeo:', error)
+      logger.error('❌ Erro ao validar URL do vídeo:', error)
       return false
     }
-  }, [])
+  }, [logger])
 
   // ===== HANDLERS DO SISTEMA DE GALERIA =====
   const generateThumbnail = useCallback(async (): Promise<string> => {
