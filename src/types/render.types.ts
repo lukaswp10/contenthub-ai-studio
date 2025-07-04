@@ -476,6 +476,7 @@ export interface RenderConfig {
     profileMemory: boolean;
     profileCPU: boolean;
   };
+  settings?: RenderSettings;
 }
 
 export interface SystemInfo {

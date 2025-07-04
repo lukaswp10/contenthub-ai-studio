@@ -94,21 +94,33 @@ const ExportManager: React.FC<ExportManagerProps> = ({
   ];
 
   const handleStartExport = useCallback(async () => {
-    if (!videoData) {
-      onExportError?.('Nenhum vídeo carregado');
-      return;
-    }
+    if (!videoData || !selectedPreset) return;
 
     const preset = exportPresets.find(p => p.id === selectedPreset);
-    if (!preset) {
-      onExportError?.('Preset não encontrado');
-      return;
-    }
+    if (!preset) return;
+
+    setIsExporting(true);
+    setExportProgress({
+      percentage: 0,
+      phase: 'preparing',
+      currentFrame: 0,
+      totalFrames: Math.floor(videoData.duration * 30),
+      framesPerSecond: 0,
+      timeElapsed: 0,
+      timeRemaining: 0,
+      bytesProcessed: 0,
+      bytesTotal: 0,
+      memoryUsage: 0,
+      cpuUsage: 0,
+      gpuUsage: 0,
+      temperature: 0,
+      message: 'Inicializando renderização...',
+      warnings: []
+    });
+
+    let renderJob: RenderJob | null = null;
 
     try {
-      setIsExporting(true);
-      setExportProgress(null);
-
       // Initialize render engine
       await renderEngine.initialize({
         engine: {
@@ -140,7 +152,7 @@ const ExportManager: React.FC<ExportManagerProps> = ({
       });
 
       // Create render job
-      const renderJob = createRenderJob({
+      renderJob = createRenderJob({
         name: `Export: ${videoData.name} - ${preset.name}`,
         source: {
           type: 'timeline',
@@ -196,10 +208,12 @@ const ExportManager: React.FC<ExportManagerProps> = ({
       });
 
       // Add to queue
-      setExportQueue(prev => [...prev, renderJob]);
+      if (renderJob) {
+        setExportQueue(prev => [...prev, renderJob]);
+      }
 
       // Start render
-      const result = await renderEngine.render(renderJob);
+      const result = await renderEngine.render(renderJob!);
 
       // Handle result
       if (result.status === 'success') {
@@ -225,7 +239,9 @@ const ExportManager: React.FC<ExportManagerProps> = ({
     } finally {
       setIsExporting(false);
       setExportProgress(null);
-      setExportQueue(prev => prev.filter(job => job.id !== renderJob.id));
+      if (renderJob) {
+        setExportQueue(prev => prev.filter(job => job.id !== renderJob.id));
+      }
     }
   }, [videoData, selectedPreset, onExportComplete, onExportError]);
 

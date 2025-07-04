@@ -254,7 +254,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     canvasWidth: number, 
     canvasHeight: number
   ) => {
-    const { x, y, width, height, rotation = 0, opacity = 1, data } = overlay;
+    const { x, y, width, height, rotation = 0, opacity = 1, text, src } = overlay;
     
     ctx.save();
     ctx.globalAlpha = opacity;
@@ -268,38 +268,22 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     
     switch (overlay.type) {
       case 'text':
-        if (data.text && data.style) {
-          ctx.font = `${data.style.fontWeight} ${data.style.fontSize}px ${data.style.fontFamily}`;
-          ctx.fillStyle = data.style.color;
-          ctx.fillText(data.text, rotation === 0 ? x : 0, rotation === 0 ? y : 0);
+        if (text && overlay.style) {
+          ctx.font = `16px Arial`; // Default font
+          ctx.fillStyle = overlay.style.backgroundColor || '#ffffff';
+          ctx.fillText(text, rotation === 0 ? x : 0, rotation === 0 ? y : 0);
         }
         break;
         
       case 'shape':
-        if (data.shape) {
-          ctx.fillStyle = data.fill || '#ffffff';
-          ctx.strokeStyle = data.stroke || '#000000';
-          ctx.lineWidth = data.strokeWidth || 1;
-          
-          switch (data.shape) {
-            case 'rectangle':
-              ctx.fillRect(rotation === 0 ? x : 0, rotation === 0 ? y : 0, width, height);
-              if (data.stroke) ctx.strokeRect(rotation === 0 ? x : 0, rotation === 0 ? y : 0, width, height);
-              break;
-              
-            case 'circle':
-              ctx.beginPath();
-              ctx.arc(
-                rotation === 0 ? x + width / 2 : width / 2, 
-                rotation === 0 ? y + height / 2 : height / 2, 
-                Math.min(width, height) / 2, 
-                0, 
-                2 * Math.PI
-              );
-              ctx.fill();
-              if (data.stroke) ctx.stroke();
-              break;
-          }
+        ctx.fillStyle = overlay.style?.backgroundColor || '#ffffff';
+        ctx.strokeStyle = overlay.style?.borderColor || '#000000';
+        ctx.lineWidth = overlay.style?.borderWidth || 1;
+        
+        // Simple rectangle shape
+        ctx.fillRect(rotation === 0 ? x : 0, rotation === 0 ? y : 0, width, height);
+        if (overlay.style?.borderColor) {
+          ctx.strokeRect(rotation === 0 ? x : 0, rotation === 0 ? y : 0, width, height);
         }
         break;
         

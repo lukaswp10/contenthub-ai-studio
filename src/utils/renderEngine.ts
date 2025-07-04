@@ -284,7 +284,19 @@ class ClipsForgeRenderEngine implements RenderEngine {
       jobId: job.id,
       status: 'error',
       error: this._errorHandler.createError('RENDER_FAILED', error),
-      statistics: this._state.statistics,
+      statistics: {
+        totalFrames: 0,
+        renderTime: 0,
+        averageFPS: 0,
+        peakMemoryUsage: 0,
+        averageCPUUsage: 0,
+        averageGPUUsage: 0,
+        cacheHitRate: 0,
+        compressionRatio: 0,
+        qualityScore: 0,
+        errorCount: 1,
+        warningCount: 0
+      },
       metadata: this._createResultMetadata(),
       createdAt: new Date(),
       completedAt: new Date()
@@ -308,11 +320,13 @@ class ClipsForgeRenderEngine implements RenderEngine {
       platform: navigator.platform,
       userAgent: navigator.userAgent,
       cores: navigator.hardwareConcurrency || 4,
-      memory: (navigator as any).deviceMemory || 'unknown',
+      memory: (navigator as any).deviceMemory || 4,
       gpu: this._getGPUInfo(),
-      webgl: this._capabilities.webgl2 ? 'WebGL2' : this._capabilities.webgl ? 'WebGL' : 'none',
-      webcodecs: this._capabilities.webcodecs,
-      audioContext: this._capabilities.audioContext
+      webWorkersSupport: typeof Worker !== 'undefined',
+      webCodecsSupport: this._capabilities.webCodecs || false,
+      hardwareAcceleration: this._capabilities.hardwareAcceleration || false,
+      maxTextureSize: this._capabilities.maxTextureSize || 4096,
+      webGLVersion: this._capabilities.webgl2 ? 'WebGL2' : this._capabilities.webgl ? 'WebGL' : 'none'
     };
   }
 
@@ -342,34 +356,71 @@ export const createRenderJob = (config: Partial<RenderJob>): RenderJob => {
   return {
     id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name: config.name || 'Untitled Render',
+    type: config.type || 'video',
+    priority: config.priority || 'normal',
+    status: config.status || 'queued',
     source: config.source || {
-      type: 'video',
-      url: '',
+      type: 'timeline',
+      assets: [],
       duration: 0,
-      metadata: {}
+      frameRate: 30,
+      resolution: { width: 1920, height: 1080 }
     },
     output: config.output || {
       format: 'mp4',
-      quality: 'high',
+      codec: 'h264',
+      audioCodec: 'aac',
+      quality: 80,
       resolution: { width: 1920, height: 1080 },
-      framerate: 30,
+      frameRate: 30,
       bitrate: 8000,
       audioBitrate: 128,
-      destination: 'download'
+      filename: 'export.mp4',
+      destination: 'download',
+      compressionLevel: 5,
+      keyframeInterval: 30,
+      bFrames: 2,
+      profile: 'high',
+      level: '4.1'
     },
     timeline: config.timeline || {
       duration: 0,
+      frameRate: 30,
+      startTime: 0,
+      endTime: 0,
       tracks: [],
       markers: []
     },
     effects: config.effects || [],
     audio: config.audio || {
+      enabled: true,
+      volume: 1,
+      pan: 0,
+      muted: false,
       tracks: [],
-      masterVolume: 1,
-      effects: []
+      masterEffects: [],
+      mixdown: 'stereo',
+      sampleRate: 44100,
+      bitDepth: 16
     },
     metadata: config.metadata || {},
-    priority: config.priority || 'normal',
+    progress: config.progress || {
+      phase: 'preparing',
+      percentage: 0,
+      currentFrame: 0,
+      totalFrames: 0,
+      framesPerSecond: 0,
+      timeElapsed: 0,
+      timeRemaining: 0,
+      bytesProcessed: 0,
+      bytesTotal: 0,
+      memoryUsage: 0,
+      cpuUsage: 0,
+      gpuUsage: 0,
+      temperature: 0,
+      message: '',
+      warnings: []
+    },
     createdAt: new Date(),
     ...config
   };

@@ -14,7 +14,6 @@ import {
   TimelineState, 
   TimelineTrack, 
   VideoSegment, 
-  AudioSegment, 
   Subtitle, 
   Overlay,
   TimelineMarker,
@@ -73,7 +72,7 @@ export interface TimelineRef {
   updateTrack: (trackId: string, updates: Partial<TimelineTrack>) => void;
   
   // Items
-  addItem: (trackId: string, item: VideoSegment | AudioSegment | Subtitle | Overlay) => void;
+  addItem: (trackId: string, item: VideoSegment | Subtitle | Overlay) => void;
   removeItem: (trackId: string, itemId: string) => void;
   updateItem: (trackId: string, itemId: string, updates: any) => void;
   
@@ -169,7 +168,7 @@ const Timeline = forwardRef<TimelineRef, TimelineProps>(({
     return rulerHeight + trackIndex * trackHeight;
   }, [rulerHeight, trackHeight]);
   
-  const getItemWidth = useCallback((item: VideoSegment | AudioSegment | Subtitle | Overlay) => {
+  const getItemWidth = useCallback((item: VideoSegment | Subtitle | Overlay) => {
     const duration = 'duration' in item ? item.duration : (item.endTime - item.startTime);
     return duration * pixelsPerSecond * currentTimeline.zoom;
   }, [pixelsPerSecond, currentTimeline.zoom]);
@@ -354,9 +353,9 @@ const Timeline = forwardRef<TimelineRef, TimelineProps>(({
           // Item text
           let itemText = '';
           if ('text' in item) {
-            itemText = item.text;
-          } else if ('name' in item) {
-            itemText = item.name || 'Untitled';
+            itemText = item.text || '';
+          } else if ('name' in item && item.name) {
+            itemText = item.name;
           } else {
             itemText = `${track.type} ${itemIndex + 1}`;
           }

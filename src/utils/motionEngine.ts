@@ -91,7 +91,8 @@ export class MotionEngine {
     
     // Try to get WebGL context first, fallback to 2D
     try {
-      this.webglContext = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      const webglContext = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      this.webglContext = webglContext as WebGLRenderingContext | null;
       if (this.webglContext) {
         console.log('🎨 Motion Engine initialized with WebGL');
         this.initializeWebGL();

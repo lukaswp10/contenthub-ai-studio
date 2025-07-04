@@ -23,7 +23,7 @@ interface VideoOverlayProps {
   isClickableMode?: boolean
 }
 
-export const VideoOverlay = memo(({
+const VideoOverlay = memo(({
   currentCaption,
   captionsVisible,
   captionPosition,
@@ -108,4 +108,6 @@ export const VideoOverlay = memo(({
   )
 })
 
-VideoOverlay.displayName = 'VideoOverlay' 
+VideoOverlay.displayName = 'VideoOverlay'
+
+export default VideoOverlay 

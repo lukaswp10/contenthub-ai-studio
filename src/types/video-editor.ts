@@ -7,7 +7,7 @@
  * @author ClipsForge Team
  */
 
-// ===== TIPOS BASE =====
+// ===== PHASE 1.2: BASE TYPES =====
 
 export interface VideoSegment {
   id: string;
@@ -15,10 +15,17 @@ export interface VideoSegment {
   endTime: number;
   duration: number;
   selected: boolean;
+  file?: File;
+  url?: string;
   name?: string;
-  color?: string;
-  locked?: boolean;
+  type?: 'video' | 'audio';
+  trimIn?: number;
+  trimOut?: number;
+  speed?: number;
+  volume?: number;
   muted?: boolean;
+  effects?: string[];
+  transitions?: string[];
 }
 
 export interface AudioSegment {
@@ -26,10 +33,32 @@ export interface AudioSegment {
   startTime: number;
   endTime: number;
   duration: number;
+  selected: boolean;
+  file?: File;
+  url?: string;
+  name?: string;
+  type: 'audio';
   volume: number;
+  muted: boolean;
   fadeIn?: number;
   fadeOut?: number;
-  selected: boolean;
+  pitch?: number;
+  speed?: number;
+  effects?: AudioEffect[];
+  waveform?: number[];
+  channels: number;
+  sampleRate: number;
+  bitrate?: number;
+}
+
+export interface AudioEffect {
+  id: string;
+  type: 'eq' | 'compressor' | 'reverb' | 'delay' | 'distortion' | 'chorus' | 'flanger';
+  name: string;
+  enabled: boolean;
+  parameters: Record<string, number>;
+  wet?: number; // Mix level (0-1)
+  dry?: number; // Original signal level (0-1)
 }
 
 export interface Subtitle {
@@ -39,82 +68,147 @@ export interface Subtitle {
   endTime: number;
   x: number;
   y: number;
-  width?: number;
-  height?: number;
   style: SubtitleStyle;
-  selected: boolean;
-  locked?: boolean;
+  animation?: {
+    type: 'fade' | 'slide' | 'scale' | 'bounce';
+    duration: number;
+    easing: string;
+  };
+  wordTimestamps?: WordTimestamp[];
+}
+
+export interface WordTimestamp {
+  word: string;
+  startTime: number;
+  endTime: number;
+  confidence: number;
 }
 
 export interface SubtitleStyle {
-  fontFamily: string;
   fontSize: number;
-  fontWeight: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
+  fontFamily: string;
   color: string;
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number;
-  textAlign: 'left' | 'center' | 'right';
-  textShadow?: {
+  shadow?: {
+    color: string;
     offsetX: number;
     offsetY: number;
     blur: number;
-    color: string;
   };
-  animation?: SubtitleAnimation;
-}
-
-export interface SubtitleAnimation {
-  type: 'fadeIn' | 'slideUp' | 'slideDown' | 'typewriter' | 'bounce' | 'zoom' | 'none';
-  duration: number; // em ms
-  delay?: number; // em ms
+  outline?: {
+    color: string;
+    width: number;
+  };
+  alignment: 'left' | 'center' | 'right';
+  textAlign?: 'left' | 'center' | 'right' | 'start' | 'end';
+  textShadow?: {
+    color: string;
+    offsetX: number;
+    offsetY: number;
+    blur: number;
+  };
+  padding: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  borderRadius?: number;
+  opacity?: number;
+  letterSpacing?: number;
+  lineHeight?: number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  fontWeight?: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
+  fontStyle?: 'normal' | 'italic' | 'oblique';
+  textDecoration?: 'none' | 'underline' | 'overline' | 'line-through';
 }
 
 export interface Overlay {
   id: string;
-  type: 'image' | 'text' | 'shape' | 'sticker';
+  type: 'image' | 'text' | 'shape' | 'video';
   startTime: number;
   endTime: number;
   x: number;
   y: number;
   width: number;
   height: number;
-  rotation?: number;
-  opacity?: number;
-  data: OverlayData;
-  selected: boolean;
+  rotation: number;
+  opacity: number;
+  zIndex: number;
+  src?: string; // For images/videos
+  text?: string; // For text overlays
+  style?: OverlayStyle;
+  animation?: OverlayAnimation;
+  interactive?: boolean;
+  resizable?: boolean;
+  draggable?: boolean;
   locked?: boolean;
 }
 
-export interface OverlayData {
-  // Para imagens
-  src?: string;
-  alt?: string;
-  
-  // Para texto
-  text?: string;
-  style?: SubtitleStyle;
-  
-  // Para formas
-  shape?: 'rectangle' | 'circle' | 'triangle' | 'arrow';
-  fill?: string;
-  stroke?: string;
-  strokeWidth?: number;
+export interface OverlayStyle {
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderStyle?: 'solid' | 'dashed' | 'dotted';
+  borderRadius?: number;
+  shadow?: {
+    color: string;
+    offsetX: number;
+    offsetY: number;
+    blur: number;
+    spread: number;
+  };
+  filter?: {
+    blur?: number;
+    brightness?: number;
+    contrast?: number;
+    saturate?: number;
+    hue?: number;
+    sepia?: number;
+    grayscale?: number;
+    invert?: number;
+  };
 }
 
-// ===== TIMELINE =====
+export interface OverlayAnimation {
+  type: 'fade' | 'slide' | 'scale' | 'rotate' | 'bounce' | 'elastic';
+  direction?: 'in' | 'out' | 'in-out';
+  duration: number;
+  delay?: number;
+  easing: string;
+  repeat?: number;
+  yoyo?: boolean;
+}
 
 export interface TimelineTrack {
   id: string;
-  type: 'video' | 'audio' | 'subtitle' | 'overlay';
+  type: 'video' | 'audio' | 'subtitle' | 'overlay' | 'effect' | 'transition';
   name: string;
-  height: number;
-  locked: boolean;
+  items: (VideoSegment | Subtitle | Overlay)[];
   visible: boolean;
-  muted?: boolean; // Para tracks de áudio
-  items: (VideoSegment | AudioSegment | Subtitle | Overlay)[];
+  locked: boolean;
+  muted?: boolean; // For audio tracks
+  solo?: boolean; // For audio tracks
+  height?: number;
   color?: string;
+  effects?: TrackEffect[];
+  volume?: number; // For audio tracks
+  pan?: number; // For audio tracks (-1 to 1)
 }
+
+export interface TrackEffect {
+  id: string;
+  type: string;
+  name: string;
+  enabled: boolean;
+  parameters: Record<string, any>;
+  startTime?: number;
+  endTime?: number;
+}
+
+// ===== TIMELINE =====
 
 export interface TimelineState {
   tracks: TimelineTrack[];
@@ -209,8 +303,8 @@ export interface CutOperation {
   trackId: string;
   itemId: string;
   cutTime: number;
-  beforeItem: VideoSegment | AudioSegment;
-  afterItem: VideoSegment | AudioSegment;
+  beforeItem: VideoSegment;
+  afterItem: VideoSegment;
 }
 
 export interface TrimOperation {
@@ -226,8 +320,8 @@ export interface SplitOperation {
   trackId: string;
   itemId: string;
   splitTime: number;
-  leftItem: VideoSegment | AudioSegment;
-  rightItem: VideoSegment | AudioSegment;
+  leftItem: VideoSegment;
+  rightItem: VideoSegment;
 }
 
 export interface MoveOperation {
@@ -243,7 +337,7 @@ export interface MoveOperation {
 export interface DeleteOperation {
   trackId: string;
   itemId: string;
-  deletedItem: VideoSegment | AudioSegment;
+  deletedItem: VideoSegment;
   rippleEdit?: boolean;
 }
 

@@ -26,20 +26,20 @@ export const VideoEditorDemo: React.FC = () => {
     setShowInstructions(true);
   }, []);
 
-  const handleProjectSave = useCallback((projectId: string) => {
-    console.log('🎬 Project saved:', projectId);
+  const handleProjectSave = useCallback(() => {
+    console.log('🎬 Project saved');
   }, []);
 
-  const handleProjectLoad = useCallback((projectId: string) => {
-    console.log('🎬 Project loaded:', projectId);
+  const handleProjectLoad = useCallback(() => {
+    console.log('🎬 Project loaded');
   }, []);
 
   const handleExportStart = useCallback(() => {
     console.log('🎬 Export started');
   }, []);
 
-  const handleExportComplete = useCallback((outputUrl: string) => {
-    console.log('🎬 Export completed:', outputUrl);
+  const handleExportComplete = useCallback(() => {
+    console.log('🎬 Export completed');
   }, []);
 
   const handleError = useCallback((error: string) => {

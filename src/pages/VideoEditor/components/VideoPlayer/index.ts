@@ -1,3 +1,3 @@
-export { VideoPlayer } from './VideoPlayer'
-export { VideoControls } from './VideoControls'
-export { VideoOverlay } from './VideoOverlay' 
+export { default as VideoPlayer } from './VideoPlayer'
+export { default as VideoControls } from './VideoControls'
+export { default as VideoOverlay } from './VideoOverlay' 
