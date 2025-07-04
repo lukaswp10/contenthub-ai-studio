@@ -31,6 +31,10 @@ import RenderQueue from '../../components/VideoEditor/render/RenderQueue'
 import RenderSettings from '../../components/VideoEditor/render/RenderSettings'
 import { PanelManager } from '../../components/VideoEditor/panels/PanelManager'
 
+// ===== COMPONENTES DE LEGENDAS =====
+import { AutoCaptions } from '../../components/editor/AutoCaptions'
+import { CaptionEditor } from '../../components/editor/CaptionEditor'
+
 // ===== ENGINES DAS FASES 1-8 =====
 import { effectsEngine } from '../../utils/effectsEngine'
 import { audioEngine } from '../../utils/audioEngine'
@@ -77,6 +81,11 @@ const VideoEditorPage: React.FC = () => {
   
   // ===== ESTADO RENDER =====
   const [renderJobs, setRenderJobs] = useState<RenderJob[]>([])
+  
+  // ===== ESTADO DE LEGENDAS =====
+  const [captionsGenerated, setCaptionsGenerated] = useState<any[]>([])
+  const [showCaptionEditor, setShowCaptionEditor] = useState(false)
+  const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null)
   
   // ===== REFS =====
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -251,6 +260,33 @@ const VideoEditorPage: React.FC = () => {
   const handleError = useCallback((error: string) => {
     console.error('❌ Erro no editor:', error)
     // TODO: Implementar tratamento de erro
+  }, [])
+  
+  // ===== HANDLERS DE LEGENDAS =====
+  const handleCaptionsGenerated = useCallback((captions: any[]) => {
+    setCaptionsGenerated(captions)
+    console.log('📝 Legendas geradas:', captions.length, 'palavras')
+  }, [])
+  
+  const handleCaptionUpdate = useCallback((captionId: string, newText: string) => {
+    setCaptionsGenerated(prev => prev.map(caption => 
+      caption.id === captionId ? { ...caption, text: newText } : caption
+    ))
+  }, [])
+  
+  const handleCaptionAdd = useCallback((startTime: number, endTime: number, text: string) => {
+    const newCaption = {
+      id: `caption_${Date.now()}`,
+      text,
+      start: startTime,
+      end: endTime,
+      confidence: 1.0
+    }
+    setCaptionsGenerated(prev => [...prev, newCaption])
+  }, [])
+  
+  const handleCaptionDelete = useCallback((captionId: string) => {
+    setCaptionsGenerated(prev => prev.filter(caption => caption.id !== captionId))
   }, [])
   
   // ===== VERIFICAÇÕES =====
@@ -538,6 +574,17 @@ const VideoEditorPage: React.FC = () => {
             </Button>
             
             <Button
+              variant={activePanel === 'captions' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => handlePanelToggle('captions')}
+              className="text-white hover:bg-gray-600"
+              style={{ backgroundColor: activePanel === 'captions' ? '#6b7280' : 'transparent' }}
+              title="Legendas Automáticas (Whisper API)"
+            >
+              📝
+            </Button>
+            
+            <Button
               variant={activePanel === 'settings' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => handlePanelToggle('settings')}
@@ -687,6 +734,17 @@ const VideoEditorPage: React.FC = () => {
                   onJobCancel={(jobId) => console.log('Job cancelled:', jobId)}
                   onJobRemove={(jobId) => console.log('Job removed:', jobId)}
                   className="h-full"
+                />
+              </div>
+            )}
+            
+            {activePanel === 'captions' && (
+              <div className="h-full">
+                <AutoCaptions
+                  videoFile={videoData.file}
+                  videoUrl={videoData.url}
+                  duration={duration}
+                  onCaptionsGenerated={handleCaptionsGenerated}
                 />
               </div>
             )}
