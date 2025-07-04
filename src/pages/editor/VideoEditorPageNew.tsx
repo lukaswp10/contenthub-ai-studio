@@ -213,6 +213,11 @@ const VideoEditorPage: React.FC = () => {
   const [autoSave, setAutoSave] = useState(true)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [unsavedChanges, setUnsavedChanges] = useState(false)
+  
+  // ===== ESTADO DO SISTEMA DE LEGENDAS =====
+  const [transcriptionWords, setTranscriptionWords] = useState<any[]>([])
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false)
+  const [captionProgress, setCaptionProgress] = useState('')
 
   // ===== HANDLERS DO PLAYER =====
   const handlePlay = useCallback(() => {
@@ -902,10 +907,55 @@ const VideoEditorPage: React.FC = () => {
   }, [currentProject, clips])
   
   // ===== HANDLERS DE LEGENDAS =====
-  const handleVideoCaption = useCallback(() => {
+  const handleVideoCaption = useCallback(async () => {
     logger.log('📝 Gerando legenda do vídeo...')
-    alert('🎬 Funcionalidade: Legenda do Vídeo\n\nEsta função irá extrair o áudio do vídeo e gerar legendas automáticas usando IA.')
-  }, [])
+    
+    if (!videoData || !videoData.file) {
+      alert('❌ Nenhum vídeo carregado para gerar legendas!')
+      return
+    }
+
+    try {
+      setIsGeneratingCaption(true)
+      
+      // Importar serviço de transcrição dinamicamente
+      const { transcriptionService } = await import('@/services/transcriptionService')
+      
+      // Configurar API key do OpenAI (você pode mover isso para um gerenciador de configurações)
+      transcriptionService.setOpenAIApiKey('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')
+      
+      // Executar transcrição
+      const result = await transcriptionService.transcribe(
+        videoData.file,
+        (status) => {
+          logger.log(`📝 Status da transcrição: ${status}`)
+          // Aqui você pode atualizar um estado de progresso se quiser
+        },
+        'whisper', // Usar Whisper como padrão
+        true // Usar Web Speech como fallback
+      )
+
+      logger.log('🎉 Transcrição concluída:', result)
+      
+      // Atualizar estado com as palavras transcritas
+      setTranscriptionWords(result.words)
+      
+      // Mostrar resultado
+      alert(`✅ Legenda gerada com sucesso!\n\n📊 Estatísticas:\n• ${result.words.length} palavras detectadas\n• ${result.duration?.toFixed(1)}s de duração\n• ${(result.confidence * 100).toFixed(1)}% de confiança\n• Idioma: ${result.language}\n\n🎯 As legendas foram carregadas no editor!`)
+      
+    } catch (error) {
+      logger.error('❌ Erro ao gerar legenda:', error)
+      
+      let errorMessage = 'Erro ao gerar legenda'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      alert(`❌ Erro ao gerar legenda:\n\n${errorMessage}\n\n💡 Dicas:\n• Verifique sua conexão com a internet\n• Certifique-se de que o vídeo tem áudio\n• Tente novamente em alguns minutos`)
+    } finally {
+      setIsGeneratingCaption(false)
+    }
+  }, [videoData, logger])
   
   const handleVoiceOver = useCallback(() => {
     logger.log('🎤 Adicionando voz de fora...')
@@ -930,6 +980,45 @@ const VideoEditorPage: React.FC = () => {
   }
   
   // ===== EFFECTS =====
+  // ===== FUNÇÃO PARA SALVAR DADOS LEVES NO SESSIONSTORAGE =====
+  const saveToSessionStorage = useCallback((data: VideoLocationState) => {
+    try {
+      // Salvar apenas dados essenciais (sem file object para evitar QuotaExceededError)
+      const lightData = {
+        url: data.url,
+        name: data.name,
+        size: data.size,
+        duration: data.duration,
+        id: data.id
+        // Excluindo: file, videoData (objetos grandes que causam QuotaExceededError)
+      }
+      
+      sessionStorage.setItem('currentVideoData', JSON.stringify(lightData))
+      logger.log('💾 Dados leves salvos no sessionStorage')
+    } catch (error) {
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        logger.warn('⚠️ SessionStorage quota excedida, limpando dados antigos...')
+        // Limpar dados antigos e tentar novamente
+        sessionStorage.clear()
+        try {
+          const lightData = {
+            url: data.url,
+            name: data.name,
+            size: data.size,
+            duration: data.duration,
+            id: data.id
+          }
+          sessionStorage.setItem('currentVideoData', JSON.stringify(lightData))
+          logger.log('💾 Dados salvos após limpeza do storage')
+        } catch (retryError) {
+          logger.error('❌ Falha ao salvar no sessionStorage mesmo após limpeza:', retryError)
+        }
+      } else {
+        logger.error('❌ Erro ao salvar no sessionStorage:', error)
+      }
+    }
+  }, [logger])
+
   useEffect(() => {
     const state = location.state as VideoLocationState
     if (state) {
@@ -940,7 +1029,7 @@ const VideoEditorPage: React.FC = () => {
         validateVideoUrl(state.url).then(isValid => {
           if (isValid) {
             setVideoData(state)
-            sessionStorage.setItem('currentVideoData', JSON.stringify(state))
+            saveToSessionStorage(state)
           } else {
             logger.error('❌ URL do vídeo inválida:', state.url)
             navigate('/upload')
@@ -948,7 +1037,7 @@ const VideoEditorPage: React.FC = () => {
         })
       } else {
         setVideoData(state)
-        sessionStorage.setItem('currentVideoData', JSON.stringify(state))
+        saveToSessionStorage(state)
       }
     } else {
       // Tentar recuperar do sessionStorage se não veio pelo state
@@ -960,10 +1049,12 @@ const VideoEditorPage: React.FC = () => {
           setVideoData(parsedData)
         } catch (error) {
           logger.error('❌ Erro ao recuperar dados do sessionStorage:', error)
+          // Limpar dados corrompidos
+          sessionStorage.removeItem('currentVideoData')
         }
       }
     }
-  }, [location.state, validateVideoUrl, navigate])
+  }, [location.state, validateVideoUrl, navigate, saveToSessionStorage])
   
   useEffect(() => {
     if (!videoData) {
