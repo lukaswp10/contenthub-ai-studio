@@ -583,13 +583,98 @@ const VideoEditorPage: React.FC = () => {
     }))
   }, [])
 
+  // ===== SISTEMA DE CACHE DAS LEGENDAS =====
+  const getCacheKey = useCallback((videoData: VideoLocationState) => {
+    // Criar chave única baseada no vídeo
+    const identifier = videoData.cloudinaryPublicId || videoData.name || videoData.id || 'unknown'
+    return `transcription_${identifier}_${videoData.size || 0}`
+  }, [])
+
+  const saveTranscriptionToCache = useCallback((videoData: VideoLocationState, words: any[]) => {
+    try {
+      const cacheKey = getCacheKey(videoData)
+      const cacheData = {
+        words,
+        timestamp: Date.now(),
+        videoName: videoData.name,
+        duration: videoData.duration
+      }
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData))
+      logger.log('💾 Legendas salvas no cache:', cacheKey)
+    } catch (error) {
+      logger.warn('⚠️ Erro ao salvar cache:', error)
+    }
+  }, [getCacheKey, logger])
+
+  const loadTranscriptionFromCache = useCallback((videoData: VideoLocationState) => {
+    try {
+      const cacheKey = getCacheKey(videoData)
+      const cached = localStorage.getItem(cacheKey)
+      
+      if (cached) {
+        const cacheData = JSON.parse(cached)
+        const age = Date.now() - cacheData.timestamp
+        const maxAge = 7 * 24 * 60 * 60 * 1000 // 7 dias
+        
+        if (age < maxAge && cacheData.words && cacheData.words.length > 0) {
+          logger.log('🔄 Legendas carregadas do cache:', {
+            key: cacheKey,
+            palavras: cacheData.words.length,
+            idade: Math.round(age / (1000 * 60 * 60)) + 'h'
+          })
+          return cacheData.words
+        } else {
+          // Cache expirado, remover
+          localStorage.removeItem(cacheKey)
+          logger.log('🗑️ Cache expirado removido:', cacheKey)
+        }
+      }
+      
+      return null
+    } catch (error) {
+      logger.warn('⚠️ Erro ao carregar cache:', error)
+      return null
+    }
+  }, [getCacheKey, logger])
+
+  const clearTranscriptionCache = useCallback(() => {
+    try {
+      const keys = Object.keys(localStorage).filter(key => key.startsWith('transcription_'))
+      keys.forEach(key => localStorage.removeItem(key))
+      logger.log('🧹 Cache de legendas limpo:', keys.length + ' itens removidos')
+    } catch (error) {
+      logger.warn('⚠️ Erro ao limpar cache:', error)
+    }
+  }, [logger])
+
   // Função para obter o texto atual da legenda
   const getCurrentCaptionText = useCallback(() => {
     if (transcriptionWords.length === 0) return ''
     
+    // ✅ CORRIGIR: Adicionar tolerância de tempo para capturar melhor
+    const tolerance = 0.5 // 500ms de tolerância
     const currentWords = transcriptionWords.filter(word => 
-      word.start <= currentTime && currentTime <= word.end
+      (word.start - tolerance) <= currentTime && currentTime <= (word.end + tolerance)
     )
+    
+    // Se não encontrou com tolerância, buscar palavras mais próximas
+    if (currentWords.length === 0) {
+      const nearbyWords = transcriptionWords.filter(word => {
+        const wordMidpoint = (word.start + word.end) / 2
+        const timeDiff = Math.abs(wordMidpoint - currentTime)
+        return timeDiff <= 2.0 // 2 segundos de busca próxima
+      })
+      
+      if (nearbyWords.length > 0) {
+        // Ordenar por proximidade e pegar até 5 palavras mais próximas
+        nearbyWords.sort((a, b) => {
+          const diffA = Math.abs(((a.start + a.end) / 2) - currentTime)
+          const diffB = Math.abs(((b.start + b.end) / 2) - currentTime)
+          return diffA - diffB
+        })
+        return nearbyWords.slice(0, 5).map(word => word.text).join(' ')
+      }
+    }
     
     return currentWords.map(word => word.text).join(' ')
   }, [transcriptionWords, currentTime])
@@ -1269,7 +1354,19 @@ const VideoEditorPage: React.FC = () => {
 
     try {
       setIsGeneratingCaption(true)
-      setCaptionProgress('Preparando transcrição...')
+      setCaptionProgress('Verificando cache...')
+      
+      // ✅ NOVO: Verificar cache antes de chamar API
+      const cachedWords = loadTranscriptionFromCache(videoData)
+      if (cachedWords) {
+        setTranscriptionWords(cachedWords)
+        logger.log('🎯 Legendas carregadas do cache! Créditos da API economizados.')
+        setCaptionProgress('')
+        setIsGeneratingCaption(false)
+        return
+      }
+      
+      setCaptionProgress('Cache não encontrado, gerando nova transcrição...')
       
       // Criar file object a partir da URL se não existir
       let fileToTranscribe = videoData.file
@@ -1315,6 +1412,9 @@ const VideoEditorPage: React.FC = () => {
       // Atualizar estado com as palavras transcritas
       setTranscriptionWords(result.words)
       
+      // ✅ NOVO: Salvar no cache para próximas vezes
+      saveTranscriptionToCache(videoData, result.words)
+      
       // Log silencioso de sucesso (sem pop-up)
       logger.log('✅ Legenda gerada com sucesso!')
       logger.log(`📊 Estatísticas: ${result.words.length} palavras, ${result.segments?.length || 0} segmentos`)
@@ -1333,7 +1433,7 @@ const VideoEditorPage: React.FC = () => {
       setIsGeneratingCaption(false)
       setCaptionProgress('')
     }
-  }, [videoData, logger])
+  }, [videoData, logger, loadTranscriptionFromCache, saveTranscriptionToCache])
   
   const handleVoiceOver = useCallback(() => {
     logger.log('🎤 Adicionando voz de fora...')
@@ -2027,8 +2127,14 @@ const VideoEditorPage: React.FC = () => {
                   transform: 'translate(-50%, -50%)',
                   transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
                 }}
-                onMouseDown={handleCaptionMouseDown}
-                onDoubleClick={handleCaptionDoubleClick}
+                onMouseDown={(e) => {
+                  e.stopPropagation() // ✅ CORRIGIR: Impedir conflito com player
+                  handleCaptionMouseDown(e)
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation() // ✅ CORRIGIR: Impedir conflito com player
+                  handleCaptionDoubleClick(e)
+                }}
               >
                 {/* Container da Legenda */}
                 <div className="relative w-full h-full">
@@ -2408,6 +2514,55 @@ const VideoEditorPage: React.FC = () => {
                           Nenhuma legenda gerada ainda. Clique em "Legenda do Vídeo" para começar.
                         </p>
                       )}
+                    </div>
+                    
+                    {/* ✅ NOVO: Seção de Cache */}
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-2 flex items-center">
+                        💾 Cache de Legendas
+                        {videoData && loadTranscriptionFromCache(videoData) && (
+                          <span className="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded">
+                            Cache disponível
+                          </span>
+                        )}
+                      </h4>
+                      
+                      <div className="space-y-2">
+                        <div className="text-gray-300 text-xs space-y-1">
+                          <p>🎯 Legendas são salvas automaticamente no cache</p>
+                          <p>⚡ Carregamento instantâneo em próximos usos</p>
+                          <p>💰 Economiza créditos da API</p>
+                          <p>📅 Cache válido por 7 dias</p>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 pt-2">
+                          <Button
+                            onClick={() => {
+                              const cacheKeys = Object.keys(localStorage).filter(key => key.startsWith('transcription_'))
+                              if (cacheKeys.length > 0) {
+                                const confirmClear = confirm(`💾 Encontradas ${cacheKeys.length} legendas no cache.\n\n⚠️ Tem certeza que deseja limpar o cache?\n\nIsso forçará nova transcrição na próxima vez.`)
+                                if (confirmClear) {
+                                  clearTranscriptionCache()
+                                  alert('🧹 Cache limpo com sucesso!')
+                                }
+                              } else {
+                                alert('📭 Nenhuma legenda encontrada no cache.')
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1"
+                            size="sm"
+                          >
+                            🗑️ Limpar Cache
+                          </Button>
+                          
+                          <div className="text-xs text-gray-400">
+                            {(() => {
+                              const cacheKeys = Object.keys(localStorage).filter(key => key.startsWith('transcription_'))
+                              return `${cacheKeys.length} ${cacheKeys.length === 1 ? 'vídeo' : 'vídeos'} em cache`
+                            })()}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
