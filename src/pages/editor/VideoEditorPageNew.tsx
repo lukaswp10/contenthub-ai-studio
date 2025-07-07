@@ -464,59 +464,53 @@ const VideoEditorPage: React.FC = () => {
     })
   }, [])
 
-  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - VERSÃO ROBUSTA =====
+  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - VERSÃO CORRIGIDA =====
   
-  // ✅ CORRIGIDO: Criar handlers estáveis com useRef
+  // ✅ CORRIGIDO: Handlers simplificados e funcionais
   useEffect(() => {
-    // Handler de movimento do mouse
+    // Handler de movimento simplificado
     dragHandlersRef.current.move = (e: MouseEvent) => {
-      // ✅ DEBUG: Log detalhado de movimento
       console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
-      setCaptionOverlay(currentOverlay => {
-        if (!currentOverlay.isDragging) {
+      // ✅ CORRIGIDO: Usar setState funcional simples
+      setCaptionOverlay(prev => {
+        if (!prev.isDragging) {
           console.log('⚠️ Not dragging, ignoring mouse move')
-          return currentOverlay
+          return prev
         }
         
-        setCaptionDragStart(currentDragStart => {
-          const deltaX = e.clientX - currentDragStart.x
-          const deltaY = e.clientY - currentDragStart.y
-          
-          // ✅ CORRIGIDO: Usar playerDimensions do estado atual
-          setPlayerDimensions(currentPlayerDimensions => {
-            const newX = Math.max(0, Math.min(currentPlayerDimensions.width - 200, currentOverlay.x + deltaX))
-            const newY = Math.max(0, Math.min(currentPlayerDimensions.height - 60, currentOverlay.y + deltaY))
-            
-            console.log('📍 New position calculated:', { 
-              deltaX, deltaY, 
-              oldPos: { x: currentOverlay.x, y: currentOverlay.y },
-              newPos: { x: newX, y: newY }
-            })
-            
-            setCaptionOverlay(prev => ({
-              ...prev,
-              x: newX,
-              y: newY
-            }))
-            
-            return currentPlayerDimensions
-          })
-          
-          return { x: e.clientX, y: e.clientY }
+        // Calcular delta usando captionDragStart
+        const deltaX = e.clientX - captionDragStart.x
+        const deltaY = e.clientY - captionDragStart.y
+        
+        // Calcular nova posição com limites
+        const newX = Math.max(0, Math.min(playerDimensions.width - 200, prev.x + deltaX))
+        const newY = Math.max(0, Math.min(playerDimensions.height - 60, prev.y + deltaY))
+        
+        console.log('📍 New position calculated:', { 
+          deltaX, deltaY, 
+          oldPos: { x: prev.x, y: prev.y },
+          newPos: { x: newX, y: newY }
         })
         
-        return currentOverlay
+        return {
+          ...prev,
+          x: newX,
+          y: newY
+        }
       })
+      
+      // Atualizar drag start para próximo movimento
+      setCaptionDragStart({ x: e.clientX, y: e.clientY })
     }
     
-    // Handler de mouse up
+    // Handler de mouse up simplificado
     dragHandlersRef.current.up = () => {
       console.log('🎯 Caption mouse up - arraste finalizado')
       
       setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
       
-      // ✅ CORRIGIDO: Cleanup com AbortController
+      // Cleanup
       if (dragHandlersRef.current.abortController) {
         dragHandlersRef.current.abortController.abort()
         dragHandlersRef.current.abortController = null
@@ -525,7 +519,7 @@ const VideoEditorPage: React.FC = () => {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [])
+  }, [captionDragStart, playerDimensions])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -538,18 +532,19 @@ const VideoEditorPage: React.FC = () => {
       currentPos: { x: captionOverlay.x, y: captionOverlay.y }
     })
     
-    // ✅ CORRIGIDO: Cleanup de listeners anteriores
+    // Cleanup listeners anteriores
     if (dragHandlersRef.current.abortController) {
       dragHandlersRef.current.abortController.abort()
     }
     
-    // ✅ NOVO: AbortController para cleanup garantido
+    // Criar novo AbortController
     dragHandlersRef.current.abortController = new AbortController()
     
+    // Definir estado inicial
     setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
     setCaptionDragStart({ x: e.clientX, y: e.clientY })
     
-    // ✅ CORRIGIDO: Event listeners com AbortController
+    // Adicionar event listeners
     if (dragHandlersRef.current.move && dragHandlersRef.current.up) {
       console.log('📝 Adding event listeners with AbortController...')
       
@@ -582,7 +577,7 @@ const VideoEditorPage: React.FC = () => {
 
   const handleCaptionEditSave = useCallback(() => {
     if (captionEditingText.trim()) {
-      // ✅ EDITAR REALMENTE O ARRAY transcriptionWords
+      // Editar realmente o array transcriptionWords
       const newText = captionEditingText.trim()
       const wordsInNewText = newText.split(' ')
       
@@ -605,7 +600,7 @@ const VideoEditorPage: React.FC = () => {
           text: word,
           start: segmentStart + (index * timePerWord),
           end: segmentStart + ((index + 1) * timePerWord),
-          highlight: false // Resetar highlight
+          highlight: false
         }))
         
         // Substituir palavras antigas pelas novas
@@ -2227,42 +2222,55 @@ const VideoEditorPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* Controles de Redimensionamento */}
-                {captionOverlay.isDragging && (
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleCaptionResize('smaller')
-                      }}
-                      className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                      title="Diminuir fonte"
-                    >
-                      🔽
-                    </button>
-                    <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleCaptionResize('bigger')
-                      }}
-                      className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                      title="Aumentar fonte"
-                    >
-                      🔼
-                    </button>
-                  </div>
-                )}
+                {/* ✅ CONTROLES DE REDIMENSIONAMENTO - SEMPRE DISPONÍVEIS */}
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleCaptionResize('smaller')
+                    }}
+                    className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                    title="Diminuir fonte"
+                  >
+                    🔽
+                  </button>
+                  <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleCaptionResize('bigger')
+                    }}
+                    className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                    title="Aumentar fonte"
+                  >
+                    🔼
+                  </button>
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setCaptionOverlay(prev => ({ ...prev, x: 400, y: 300 }))
+                    }}
+                    className="text-white hover:text-green-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                    title="Resetar posição"
+                  >
+                    📐
+                  </button>
+                </div>
 
                 {/* Indicadores de Drag */}
                 <div className="absolute -top-5 -right-2 text-white text-xs opacity-70 pointer-events-none">
