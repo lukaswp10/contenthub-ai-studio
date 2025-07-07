@@ -529,11 +529,13 @@ const VideoEditorPage: React.FC = () => {
   useEffect(() => {
     // Handler de movimento otimizado
     dragHandlersRef.current.move = (e: MouseEvent) => {
-      console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
+      // ✅ REMOVIDO: Logs excessivos do mouse move
+      // console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
       setCaptionOverlay(prev => {
         if (!prev.isDragging || !playerDimensions.lockAspectRatio) {
-          console.log('⚠️ Not dragging or aspect ratio not locked, ignoring mouse move')
+          // ✅ REMOVIDO: Log de debug
+          // console.log('⚠️ Not dragging or aspect ratio not locked, ignoring mouse move')
           return prev
         }
         
@@ -569,15 +571,8 @@ const VideoEditorPage: React.FC = () => {
         const newX = Math.max(0, Math.min(maxXPercent, savedInitialPos.x + deltaXPercent))
         const newY = Math.max(0, Math.min(maxYPercent, savedInitialPos.y + deltaYPercent))
         
-        console.log('📍 New position calculated (%):', { 
-          deltaX, deltaY, 
-          deltaXPercent: deltaXPercent.toFixed(1), 
-          deltaYPercent: deltaYPercent.toFixed(1),
-          oldPos: { x: prev.x, y: prev.y },
-          newPos: { x: newX.toFixed(1), y: newY.toFixed(1) },
-          limits: { maxX: maxXPercent.toFixed(1), maxY: maxYPercent.toFixed(1) },
-          textSize: { text: currentText, width: estimatedWidth.toFixed(0), height: estimatedHeight.toFixed(0) }
-        })
+        // ✅ REMOVIDO: Logs excessivos de posição
+        // console.log('📍 New position calculated (%):', { ... })
         
         return {
           ...prev,
@@ -696,8 +691,8 @@ const VideoEditorPage: React.FC = () => {
     }
     
     // Duração mínima recomendada
-    const duration = newEnd - newStart
-    if (duration < 0.1) {
+    const wordDuration = newEnd - newStart
+    if (wordDuration < 0.1) {
       errors.push('⚠️ Duração muito curta (mín. 0.1s recomendado)')
     }
     
@@ -776,6 +771,18 @@ const VideoEditorPage: React.FC = () => {
       preview: allText.substring(0, 100) + '...'
     })
   }, [transcriptionWords, logger])
+
+  // ✅ CORRIGIDO: Definir handleCaptionEditCancel ANTES de handleCaptionEditSave
+  const handleCaptionEditCancel = useCallback(() => {
+    setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
+    setCaptionEditingText('')
+    setSelectedWord(null)
+    setSelectedWordIndex(-1)
+    setEditMode('word')
+    setShowTimingEditor(false)
+    setWordTiming({ start: 0, end: 0 })
+    setTimingErrors([])
+  }, [])
 
   const handleCaptionEditSave = useCallback(() => {
     if (!captionEditingText.trim()) {
@@ -908,17 +915,6 @@ const VideoEditorPage: React.FC = () => {
     setWordTiming({ start: 0, end: 0 })
     setTimingErrors([])
   }, [captionEditingText, editMode, selectedWord, selectedWordIndex, currentTime, showTimingEditor, wordTiming, validateWordTiming, duration, logger])
-
-  const handleCaptionEditCancel = useCallback(() => {
-    setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
-    setCaptionEditingText('')
-    setSelectedWord(null)
-    setSelectedWordIndex(-1)
-    setEditMode('word')
-    setShowTimingEditor(false)
-    setWordTiming({ start: 0, end: 0 })
-    setTimingErrors([])
-  }, [])
 
   const handleCaptionResize = useCallback((direction: 'bigger' | 'smaller') => {
     setCaptionOverlay(prev => ({
