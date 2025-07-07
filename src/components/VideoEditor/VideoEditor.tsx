@@ -15,6 +15,7 @@
 import React, { forwardRef, useRef, useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 // import Timeline from './Timeline'; // Temporarily removed
+import ProfessionalTimeline from './timeline/ProfessionalTimeline'; // ✅ NOVO: Timeline unificada
 import EffectsPanel from './EffectsPanel';
 import TransitionsPanel from './TransitionsPanel';
 import { useVideoEditorStore } from '../../stores/videoEditorStore';
@@ -364,28 +365,32 @@ const VideoEditor = forwardRef<VideoEditorRef, VideoEditorProps>(({
             />
           </div>
           
-          {/* Timeline - Temporarily disabled */}
+          {/* ✅ TIMELINE PROFISSIONAL UNIFICADA */}
           {showTimeline && (
             <div
               style={{
                 height: TIMELINE_HEIGHT,
-                backgroundColor: '#2a2a2a',
-                borderTop: '1px solid #444',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                backgroundColor: '#1a1a1a',
+                borderTop: '1px solid #444'
               }}
             >
-              <div style={{ textAlign: 'center', color: '#888' }}>
-                <p style={{ fontSize: '16px', margin: '0 0 8px 0' }}>Timeline temporariamente desabilitada</p>
-                <p style={{ fontSize: '12px', margin: '0' }}>Sistema de corte integrado na nova versão</p>
-              </div>
-              {/* <Timeline
+              <ProfessionalTimeline
                 width={playerWidth}
                 height={TIMELINE_HEIGHT}
-                timeline={timelineData}
                 onSeek={handleSeek}
-              /> */}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onCut={(time) => console.log('🔪 Cut at:', time)}
+                onSegmentDrag={(segmentId, newTime, trackId) => {
+                  console.log('🎬 Segment dragged:', { segmentId, newTime, trackId });
+                }}
+                onSegmentResize={(segmentId, newStart, newEnd) => {
+                  console.log('📏 Segment resized:', { segmentId, newStart, newEnd });
+                }}
+                onSegmentSelect={(segmentId) => {
+                  console.log('🎯 Segment selected:', segmentId);
+                }}
+              />
             </div>
           )}
         </div>

@@ -31,6 +31,7 @@ export { default as LayerManager } from './motion/LayerManager';
 
 // Advanced Timeline & Preview (Phase 7)
 export { default as AdvancedTimeline } from './timeline/AdvancedTimeline';
+export { default as ProfessionalTimeline } from './timeline/ProfessionalTimeline'; // ✅ NOVO: Timeline unificada
 export { default as RealtimePreview } from './preview/RealtimePreview';
 export { default as PanelManager } from './panels/PanelManager';
 
