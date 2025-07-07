@@ -252,6 +252,11 @@ const VideoEditorPage: React.FC = () => {
     style: 'tiktok-bold' // Estilo padrão
   })
   const [captionEditingText, setCaptionEditingText] = useState('')
+  
+  // ===== ESTADO DO SISTEMA DUAL DE EDIÇÃO =====
+  const [selectedWord, setSelectedWord] = useState<any | null>(null)
+  const [selectedWordIndex, setSelectedWordIndex] = useState<number>(-1)
+  const [editMode, setEditMode] = useState<'word' | 'complete'>('word')
 
   // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
   const [playerDimensions, setPlayerDimensions] = useState({
@@ -658,28 +663,82 @@ const VideoEditorPage: React.FC = () => {
     }
   }, [playerDimensions.lockAspectRatio])
 
+  // ✅ NOVO: Handler para click em palavra específica
+  const handleWordClick = useCallback((word: any, wordIndex: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Evitar interferência com o arraste
+    if (captionOverlay.isDragging) return
+    
+    // Selecionar palavra específica
+    setSelectedWord(word)
+    setSelectedWordIndex(wordIndex)
+    setEditMode('word')
+    setCaptionEditingText(word.text)
+    setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
+    
+    logger.log('📝 Palavra selecionada para edição:', {
+      palavra: word.text,
+      indice: wordIndex,
+      tempo: `${word.start.toFixed(1)}s - ${word.end.toFixed(1)}s`
+    })
+  }, [captionOverlay.isDragging, logger])
+
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
-    const currentText = getCurrentCaptionText()
+    // Edição de texto completo (comportamento original)
+    // Calcular texto atual inline para evitar dependência circular
+    const tolerance = 0.5
+    const currentWords = transcriptionWords.filter(word => 
+      (word.start - tolerance) <= currentTime && currentTime <= (word.end + tolerance)
+    )
+    const currentText = currentWords.map(word => word.text).join(' ')
+    
+    setSelectedWord(null)
+    setSelectedWordIndex(-1)
+    setEditMode('complete')
     setCaptionEditingText(currentText)
     setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
-  }, [])
+  }, [transcriptionWords, currentTime])
 
   const handleCaptionEditSave = useCallback(() => {
-    if (captionEditingText.trim()) {
-      // Editar realmente o array transcriptionWords
-      const newText = captionEditingText.trim()
-      const wordsInNewText = newText.split(' ')
-      
-      setTranscriptionWords(prev => {
-        // Encontrar palavras que estão sendo exibidas no tempo atual
+    if (!captionEditingText.trim()) {
+      handleCaptionEditCancel()
+      return
+    }
+
+    const newText = captionEditingText.trim()
+    
+    setTranscriptionWords(prev => {
+      if (editMode === 'word' && selectedWord && selectedWordIndex >= 0) {
+        // ✅ MODO: Editar palavra específica
+        logger.log('📝 Editando palavra específica:', {
+          indice: selectedWordIndex,
+          original: selectedWord.text,
+          novo: newText
+        })
+        
+        return prev.map((word, index) => {
+          if (index === selectedWordIndex) {
+            return {
+              ...word,
+              text: newText
+            }
+          }
+          return word
+        })
+      } else {
+        // ✅ MODO: Editar texto completo (comportamento original)
         const currentWords = prev.filter(word => 
           word.start <= currentTime && currentTime <= word.end
         )
         
         if (currentWords.length === 0) return prev
+        
+        const wordsInNewText = newText.split(' ').filter(w => w.trim())
         
         // Pegar tempo de início e fim do segmento atual
         const segmentStart = Math.min(...currentWords.map(w => w.start))
@@ -692,7 +751,8 @@ const VideoEditorPage: React.FC = () => {
           text: word,
           start: segmentStart + (index * timePerWord),
           end: segmentStart + ((index + 1) * timePerWord),
-          highlight: false
+          highlight: false,
+          confidence: 0.95
         }))
         
         // Substituir palavras antigas pelas novas
@@ -703,7 +763,7 @@ const VideoEditorPage: React.FC = () => {
         // Ordenar por tempo
         updatedWords.sort((a, b) => a.start - b.start)
         
-        logger.log('💾 Legenda editada:', {
+        logger.log('💾 Texto completo editado:', {
           original: currentWords.map(w => w.text).join(' '),
           novo: newText,
           palavrasAntigas: currentWords.length,
@@ -711,16 +771,23 @@ const VideoEditorPage: React.FC = () => {
         })
         
         return updatedWords
-      })
-    }
+      }
+    })
     
+    // Limpar estado de edição
     setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
     setCaptionEditingText('')
-  }, [captionEditingText, currentTime, logger])
+    setSelectedWord(null)
+    setSelectedWordIndex(-1)
+    setEditMode('word')
+  }, [captionEditingText, editMode, selectedWord, selectedWordIndex, currentTime, logger])
 
   const handleCaptionEditCancel = useCallback(() => {
     setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
     setCaptionEditingText('')
+    setSelectedWord(null)
+    setSelectedWordIndex(-1)
+    setEditMode('word')
   }, [])
 
   const handleCaptionResize = useCallback((direction: 'bigger' | 'smaller') => {
@@ -2262,18 +2329,32 @@ const VideoEditorPage: React.FC = () => {
                   >
                     {transcriptionWords
                       .filter(word => word.start <= currentTime && currentTime <= word.end)
-                      .map((word, index, arr) => (
-                        <span key={index}>
-                          <span
-                            className={`${
-                              word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
-                            } px-1`}
-                          >
-                            {word.text}
+                      .map((word, index, arr) => {
+                        // Encontrar índice global da palavra
+                        const globalIndex = transcriptionWords.findIndex(w => 
+                          w.start === word.start && w.end === word.end && w.text === word.text
+                        )
+                        
+                        return (
+                          <span key={index}>
+                            <span
+                              className={`${
+                                word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
+                              } px-1 cursor-pointer hover:bg-blue-500/30 rounded transition-colors
+                              ${selectedWordIndex === globalIndex ? 'bg-blue-600/50 ring-1 ring-blue-400' : ''}`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleWordClick(word, globalIndex, e)
+                              }}
+                              title={`Clique para editar: "${word.text}" | Duplo-clique para editar texto completo`}
+                            >
+                              {word.text}
+                            </span>
+                            {index < arr.length - 1 && ' '}
                           </span>
-                          {index < arr.length - 1 && ' '}
-                        </span>
-                      ))}
+                        )
+                      })}
                   </div>
 
                   {/* ✅ CONTROLES REORGANIZADOS - APARECEM APENAS NO HOVER */}
@@ -2324,6 +2405,54 @@ const VideoEditorPage: React.FC = () => {
                           title="Aumentar fonte"
                         >
                           🔼
+                        </button>
+                      </div>
+                      
+                      {/* Separador visual */}
+                      <div className="w-px h-4 bg-gray-600"></div>
+                      
+                      {/* ✅ NOVO: Controles de Edição Rápida */}
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            // Editar primeira palavra visível
+                            const currentWords = transcriptionWords.filter(word => 
+                              word.start <= currentTime && currentTime <= word.end
+                            )
+                            if (currentWords.length > 0) {
+                              const firstWord = currentWords[0]
+                              const globalIndex = transcriptionWords.findIndex(w => 
+                                w.start === firstWord.start && w.end === firstWord.end && w.text === firstWord.text
+                              )
+                              handleWordClick(firstWord, globalIndex, e as any)
+                            }
+                          }}
+                          className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                          title="Editar palavra"
+                        >
+                          📝
+                        </button>
+                        
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleCaptionDoubleClick(e as any)
+                          }}
+                          className="text-white hover:text-purple-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                          title="Editar texto completo"
+                        >
+                          📄
                         </button>
                       </div>
                       
@@ -2408,9 +2537,9 @@ const VideoEditorPage: React.FC = () => {
             
 
 
-            {/* ✅ EDITOR INLINE DE LEGENDAS */}
+            {/* ✅ EDITOR INLINE DE LEGENDAS - SISTEMA DUAL */}
             {captionOverlay.isEditing && (
-              <div className="absolute z-60 bg-gray-900 border-2 border-blue-500 rounded-lg shadow-xl p-4 min-w-[400px]"
+              <div className="absolute z-60 bg-gray-900 border-2 border-blue-500 rounded-lg shadow-xl p-4 min-w-[450px]"
                 style={{
                   left: '50%',
                   top: '50%',
@@ -2419,7 +2548,54 @@ const VideoEditorPage: React.FC = () => {
               >
                 <div className="flex items-center space-x-2 mb-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-white font-medium">Editando Legenda</span>
+                  <span className="text-white font-medium">
+                    {editMode === 'word' ? 'Editando Palavra' : 'Editando Texto Completo'}
+                  </span>
+                </div>
+                
+                {/* ✅ NOVO: Seletor de Modo de Edição */}
+                <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-600">
+                  <div className="text-white text-sm font-medium mb-2">Modo de Edição:</div>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="editMode"
+                        checked={editMode === 'word'}
+                        onChange={() => {
+                          setEditMode('word')
+                          if (selectedWord) {
+                            setCaptionEditingText(selectedWord.text)
+                          }
+                        }}
+                        className="text-blue-500"
+                      />
+                      <span className="text-white text-sm">
+                        📝 Editar apenas: <span className="font-mono bg-gray-700 px-2 py-1 rounded">
+                          "{selectedWord?.text || 'palavra'}"
+                        </span>
+                      </span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="editMode"
+                        checked={editMode === 'complete'}
+                        onChange={() => {
+                          setEditMode('complete')
+                          // Recalcular texto completo
+                          const tolerance = 0.5
+                          const currentWords = transcriptionWords.filter(word => 
+                            (word.start - tolerance) <= currentTime && currentTime <= (word.end + tolerance)
+                          )
+                          setCaptionEditingText(currentWords.map(word => word.text).join(' '))
+                        }}
+                        className="text-blue-500"
+                      />
+                      <span className="text-white text-sm">📄 Editar texto completo</span>
+                    </label>
+                  </div>
                 </div>
                 
                 <textarea
@@ -2432,11 +2608,14 @@ const VideoEditorPage: React.FC = () => {
                       // Ctrl+Enter para salvar
                       handleCaptionEditSave()
                     }
-                    // Enter simples permite quebra de linha
+                    // Enter simples permite quebra de linha apenas no modo completo
+                    if (e.key === 'Enter' && editMode === 'word' && !e.ctrlKey) {
+                      e.preventDefault()
+                    }
                   }}
                   className="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none resize-none"
-                  rows={3}
-                  placeholder="Digite o texto da legenda..."
+                  rows={editMode === 'word' ? 2 : 3}
+                  placeholder={editMode === 'word' ? 'Digite a nova palavra...' : 'Digite o texto da legenda...'}
                   autoFocus
                 />
                 
@@ -2451,13 +2630,24 @@ const VideoEditorPage: React.FC = () => {
                     onClick={handleCaptionEditSave}
                     className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-sm"
                   >
-                    Salvar
+                    {editMode === 'word' ? 'Salvar Palavra' : 'Salvar Texto'}
                   </Button>
                 </div>
                 
                 <div className="text-xs text-gray-400 mt-2">
-                  Ctrl+Enter para salvar • Enter para quebrar linha • Esc para cancelar
+                  {editMode === 'word' 
+                    ? 'Ctrl+Enter para salvar • Esc para cancelar'
+                    : 'Ctrl+Enter para salvar • Enter para quebrar linha • Esc para cancelar'
+                  }
                 </div>
+                
+                {/* ✅ NOVO: Informações de Debug */}
+                {selectedWord && editMode === 'word' && (
+                  <div className="mt-2 p-2 bg-gray-800 rounded text-xs text-gray-400">
+                    <div>Tempo: {selectedWord.start.toFixed(1)}s - {selectedWord.end.toFixed(1)}s</div>
+                    <div>Índice: {selectedWordIndex}</div>
+                  </div>
+                )}
               </div>
             )}
             
