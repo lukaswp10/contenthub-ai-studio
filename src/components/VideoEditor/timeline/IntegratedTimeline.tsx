@@ -8,11 +8,12 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Button } from '../../ui/button'
+import { Button } from '@/components/ui/button'
 import { 
   Play, Pause, Square, SkipBack, SkipForward, 
-  ZoomIn, ZoomOut, CornerUpLeft, CornerUpRight, 
-  Split, Scissors, RotateCcw
+  ZoomIn, ZoomOut, RotateCcw, 
+  CornerUpLeft, CornerUpRight, 
+  Split, Scissors
 } from 'lucide-react'
 
 // ===== INTERFACES =====
@@ -25,13 +26,6 @@ interface CutSegment {
   name: string
   selected: boolean
   color: string
-}
-
-interface TimelineMarker {
-  id: string
-  time: number
-  type: 'cut' | 'in' | 'out'
-  label: string
 }
 
 interface IntegratedTimelineProps {
@@ -97,18 +91,28 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const timelineRef = useRef<HTMLDivElement>(null)
   
-  // ===== ESTADO PARA DRAG & DROP =====
-  const [isDragging, setIsDragging] = useState(false)
-  const progressBarRef = useRef<HTMLDivElement>(null)
-  
   // ===== ESTADO PARA SEGMENTO REDIMENSIONÁVEL =====
   const [activeSegment, setActiveSegment] = useState({
-    start: duration * 0.25, // Começa em 25% do vídeo
-    end: duration * 0.75     // Termina em 75% do vídeo
+    start: 0,
+    end: 0
   })
   const [dragType, setDragType] = useState<'start' | 'end' | 'move' | 'seek' | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [dragStartX, setDragStartX] = useState(0)
   const [dragStartSegment, setDragStartSegment] = useState({ start: 0, end: 0 })
+  
+  const progressBarRef = useRef<HTMLDivElement>(null)
+  
+  // ===== EFEITO PARA INICIALIZAR SEGMENTO =====
+  useEffect(() => {
+    if (duration > 0) {
+      console.log('🎯 Inicializando segmento com duration:', duration)
+      setActiveSegment({
+        start: duration * 0.25, // 25% do início
+        end: duration * 0.75     // 75% do fim
+      })
+    }
+  }, [duration])
   
   // ===== ZOOM CONTROLS =====
   const handleZoomIn = useCallback(() => {
@@ -128,17 +132,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (duration === 0) return []
     
     const marks = []
-    const viewportWidth = 100 // Percentual da viewport
+    const viewportWidth = 100
     const scaleFactor = zoom / 100
     const effectiveWidth = viewportWidth * scaleFactor
     
-    // Determinar intervalo baseado no zoom
-    let interval = 10 // 10 segundos por padrão
-    if (zoom >= 400) interval = 1      // 1 segundo para zoom alto
-    else if (zoom >= 200) interval = 2  // 2 segundos para zoom médio
-    else if (zoom >= 100) interval = 5  // 5 segundos para zoom normal
-    else if (zoom >= 50) interval = 10  // 10 segundos para zoom baixo
-    else interval = 30                  // 30 segundos para zoom muito baixo
+    let interval = 10
+    if (zoom >= 400) interval = 1
+    else if (zoom >= 200) interval = 2
+    else if (zoom >= 100) interval = 5
+    else if (zoom >= 50) interval = 10
+    else interval = 30
     
     for (let time = 0; time <= duration; time += interval) {
       const position = (time / duration) * effectiveWidth
@@ -170,21 +173,6 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     
     onSeek(newTime)
   }, [zoom, duration, onSeek])
-  
-  // ===== DRAG & DROP HANDLERS =====
-  const handleProgressBarMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsDragging(true)
-    setDragType('seek')
-    
-    // Seek imediatamente ao clicar
-    if (progressBarRef.current) {
-      const rect = progressBarRef.current.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const percentage = (x / rect.width) * 100
-      const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
-      onSeek(newTime)
-    }
-  }, [duration, onSeek])
   
   // ===== HANDLERS PARA SEGMENTO REDIMENSIONÁVEL =====
   const handleSegmentHandleMouseDown = useCallback((e: React.MouseEvent, type: 'start' | 'end') => {
@@ -223,52 +211,30 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       const deltaX = e.clientX - dragStartX
       const deltaTime = (deltaX / rect.width) * duration
       const segmentDuration = dragStartSegment.end - dragStartSegment.start
-      
-      let newStart = dragStartSegment.start + deltaTime
-      let newEnd = dragStartSegment.end + deltaTime
-      
-      // Garantir que não saia dos limites
-      if (newStart < 0) {
-        newStart = 0
-        newEnd = segmentDuration
-      } else if (newEnd > duration) {
-        newEnd = duration
-        newStart = duration - segmentDuration
-      }
-      
+      const newStart = Math.max(0, Math.min(duration - segmentDuration, dragStartSegment.start + deltaTime))
+      const newEnd = newStart + segmentDuration
       setActiveSegment({ start: newStart, end: newEnd })
     }
-  }, [isDragging, duration, onSeek, dragType, activeSegment, dragStartX, dragStartSegment])
+  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
     setDragType(null)
+    setDragStartX(0)
+    setDragStartSegment({ start: 0, end: 0 })
   }, [])
   
-  // ===== EFEITO PARA EVENTOS GLOBAIS =====
+  // ===== EVENT LISTENERS =====
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
-      document.addEventListener('mouseleave', handleMouseUp)
-      
       return () => {
         document.removeEventListener('mousemove', handleMouseMove)
         document.removeEventListener('mouseup', handleMouseUp)
-        document.removeEventListener('mouseleave', handleMouseUp)
       }
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
-  
-  // ===== EFEITO PARA ATUALIZAR SEGMENTO COM DURAÇÃO =====
-  useEffect(() => {
-    if (duration > 0 && (activeSegment.start === 0 && activeSegment.end === 0)) {
-      setActiveSegment({
-        start: duration * 0.25, // 25% do início
-        end: duration * 0.75     // 75% do fim
-      })
-    }
-  }, [duration, activeSegment.start, activeSegment.end])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
@@ -335,17 +301,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         </div>
       )}
       
-      {/* ===== TIMELINE PROFISSIONAL - DESIGN MELHORADO ===== */}
+      {/* ===== TIMELINE PROFISSIONAL ===== */}
       <div className={`${
         timelineMode === 'mini' 
           ? 'p-1 bg-black/80 backdrop-blur border-t border-gray-600' 
           : 'p-4 space-y-3 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl'
       }`}>
-        {/* Header com controles - VISUAL MELHORADO */}
+        {/* Header com controles */}
         {timelineMode !== 'mini' && (
           <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-3 rounded-xl border border-gray-600 shadow-lg">
             <div className="flex items-center space-x-4">
-              {/* Controles de reprodução - MELHORADOS */}
+              {/* Controles de reprodução */}
               <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
                 <Button
                   variant="ghost"
@@ -391,94 +357,93 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               </div>
               
-              {/* Tempo atual - MELHORADO */}
+              {/* Tempo atual */}
               <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-4 py-3 rounded-lg text-white text-sm font-mono border border-gray-600 shadow-inner">
                 <span className="text-blue-300">{formatTime(currentTime)}</span>
                 <span className="text-gray-400 mx-2">/</span>
                 <span className="text-gray-300">{formatTime(duration)}</span>
               </div>
-            </div>
-            
-            {/* Controles de zoom - MELHORADOS */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-2 border border-gray-600">
+              
+              {/* Controles de zoom */}
+              <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleZoomOut}
-                  className="text-white hover:bg-gray-600 p-2 rounded transition-all"
-                  title="Zoom Out"
+                  className="text-white hover:bg-gray-600 px-2 py-1 rounded transition-all"
+                  title="Diminuir zoom"
                 >
-                  <ZoomOut size={16} />
+                  <ZoomOut size={14} />
                 </Button>
                 
-                <div className="bg-gray-700 px-4 py-2 rounded text-white text-sm font-mono min-w-[80px] text-center border border-gray-600">
+                <span className="text-white text-xs font-mono bg-gray-700 px-2 py-1 rounded">
                   {zoom}%
-                </div>
+                </span>
                 
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleZoomIn}
-                  className="text-white hover:bg-gray-600 p-2 rounded transition-all"
-                  title="Zoom In"
+                  className="text-white hover:bg-gray-600 px-2 py-1 rounded transition-all"
+                  title="Aumentar zoom"
                 >
-                  <ZoomIn size={16} />
+                  <ZoomIn size={14} />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleZoomReset}
+                  className="text-white hover:bg-gray-600 px-2 py-1 rounded transition-all text-xs"
+                  title="Resetar zoom"
+                >
+                  100%
                 </Button>
               </div>
+            </div>
+            
+            {/* Controles de modo */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTimelineMode('mini')}
+                className={`text-white px-3 py-2 rounded transition-all ${
+                  timelineMode === 'mini' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'
+                }`}
+                title="Timeline Mini"
+              >
+                <span className="text-lg">➖</span>
+              </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleZoomReset}
-                className="text-white hover:bg-gray-600 bg-gray-700 px-4 py-2 rounded-lg transition-all border border-gray-600"
-                title="Reset Zoom"
+                onClick={() => setTimelineMode('compact')}
+                className={`text-white px-3 py-2 rounded transition-all ${
+                  timelineMode === 'compact' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'
+                }`}
+                title="Timeline Compacta"
               >
-                Reset
+                <span className="text-lg">➕</span>
               </Button>
               
-              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1 border border-gray-600">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTimelineMode('mini')}
-                  className={`text-white px-3 py-2 rounded transition-all ${
-                    timelineMode === 'mini' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'
-                  }`}
-                  title="Timeline Mini"
-                >
-                  <span className="text-lg">➖</span>
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTimelineMode('compact')}
-                  className={`text-white px-3 py-2 rounded transition-all ${
-                    timelineMode === 'compact' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'
-                  }`}
-                  title="Timeline Compacta"
-                >
-                  <span className="text-lg">➕</span>
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTimelineMode('expanded')}
-                  className={`text-white px-3 py-2 rounded transition-all ${
-                    timelineMode === 'expanded' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-600'
-                  }`}
-                  title="Timeline Expandida"
-                >
-                  <span className="text-lg">⬆️</span>
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTimelineMode('expanded')}
+                className={`text-white px-3 py-2 rounded transition-all ${
+                  timelineMode === 'expanded' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-600'
+                }`}
+                title="Timeline Expandida"
+              >
+                <span className="text-lg">⬆️</span>
+              </Button>
             </div>
           </div>
         )}
         
-        {/* Ruler - MELHORADO */}
+        {/* Ruler */}
         {timelineMode !== 'mini' && (
           <div className="relative h-10 bg-gradient-to-r from-gray-700 to-gray-600 rounded-lg overflow-hidden border border-gray-600 shadow-inner">
             <div 
@@ -503,7 +468,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         )}
         
-        {/* Timeline Principal - APENAS SE NÃO FOR MINI */}
+        {/* Timeline Principal */}
         {timelineMode !== 'mini' && (
           <div className={`relative ${
             timelineMode === 'compact' ? 'h-20' : 'h-40'
@@ -516,12 +481,6 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
             >
               {/* Fundo da timeline */}
               <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-600" />
-              
-              {/* Barra de progresso */}
-              <div 
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-100"
-                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-              />
               
               {/* Segmentos de corte */}
               {cutSegments.map(segment => (
@@ -588,7 +547,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         )}
         
-        {/* Timeline Mini - Layout Profissional Horizontal PREMIUM */}
+        {/* Timeline Mini - Barra Redimensionável Estilo Opus Clips */}
         {timelineMode === 'mini' && (
           <div className="flex items-center h-5 px-2 space-x-2">
             {/* Controles de reprodução compactos */}
@@ -606,13 +565,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </Button>
             </div>
             
-            {/* Barra de progresso REDIMENSIONÁVEL - Estilo Opus Clips */}
+            {/* Barra de progresso REDIMENSIONÁVEL */}
             <div 
               ref={progressBarRef}
               className="flex-1 relative h-2 bg-gray-700 rounded-full transition-colors group cursor-pointer"
               title="Timeline com segmento redimensionável"
             >
-              {/* Fundo cinza - partes não selecionadas */}
+              {/* Fundo cinza */}
               <div className="absolute inset-0 bg-gray-600 rounded-full" />
               
               {/* Área não selecionada do início */}
@@ -620,14 +579,15 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 className="absolute top-0 left-0 h-full bg-gray-800 rounded-l-full cursor-pointer"
                 style={{ width: `${duration > 0 ? (activeSegment.start / duration) * 100 : 0}%` }}
                 onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
+                  const rect = progressBarRef.current?.getBoundingClientRect()
+                  if (!rect) return
                   const x = e.clientX - rect.left
                   const percentage = (x / rect.width) * 100
                   const newTime = Math.max(0, (percentage / 100) * activeSegment.start)
                   const segmentDuration = activeSegment.end - activeSegment.start
                   setActiveSegment({ start: newTime, end: newTime + segmentDuration })
                 }}
-                title="Clique para mover segmento para esta posição"
+                title="Clique para mover segmento ◄"
               />
               
               {/* Segmento AZUL redimensionável */}
@@ -642,32 +602,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 onMouseDown={handleSegmentBodyMouseDown}
                 title={`Segmento: ${formatTime(activeSegment.start)} - ${formatTime(activeSegment.end)}`}
               >
-                {/* Handle ESQUERDO - Redimensionar início */}
+                {/* Handle esquerdo */}
                 <div 
-                  className={`absolute -left-2 -top-1 w-4 h-4 bg-yellow-400 border-2 border-white rounded-full cursor-w-resize hover:bg-yellow-300 transition-all shadow-lg ${
-                    dragType === 'start' ? 'bg-yellow-300 scale-125 shadow-xl' : 'hover:scale-110'
+                  className={`absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform ${
+                    dragType === 'start' ? 'animate-ping' : ''
                   }`}
                   onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'start')}
-                  title="◄ Arraste para ajustar início do segmento"
-                >
-                  <div className="absolute inset-0 bg-yellow-500/30 rounded-full animate-ping opacity-75"></div>
-                </div>
+                  title="◄ Redimensionar início"
+                />
                 
-                {/* Handle DIREITO - Redimensionar fim */}
+                {/* Handle direito */}
                 <div 
-                  className={`absolute -right-2 -top-1 w-4 h-4 bg-yellow-400 border-2 border-white rounded-full cursor-e-resize hover:bg-yellow-300 transition-all shadow-lg ${
-                    dragType === 'end' ? 'bg-yellow-300 scale-125 shadow-xl' : 'hover:scale-110'
+                  className={`absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform ${
+                    dragType === 'end' ? 'animate-ping' : ''
                   }`}
                   onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'end')}
-                  title="► Arraste para ajustar fim do segmento"
-                >
-                  <div className="absolute inset-0 bg-yellow-500/30 rounded-full animate-ping opacity-75"></div>
-                </div>
-                
-                {/* Indicador visual de drag do segmento */}
-                {dragType === 'move' && (
-                  <div className="absolute inset-0 bg-yellow-300/20 rounded-full animate-pulse" />
-                )}
+                  title="► Redimensionar fim"
+                />
               </div>
               
               {/* Área não selecionada do fim */}
@@ -675,131 +626,52 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 className="absolute top-0 right-0 h-full bg-gray-800 rounded-r-full cursor-pointer"
                 style={{ width: `${duration > 0 ? ((duration - activeSegment.end) / duration) * 100 : 0}%` }}
                 onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
+                  const rect = progressBarRef.current?.getBoundingClientRect()
+                  if (!rect) return
                   const x = e.clientX - rect.left
                   const percentage = (x / rect.width) * 100
+                  const newTime = Math.min(duration, activeSegment.end + ((percentage / 100) * (duration - activeSegment.end)))
                   const segmentDuration = activeSegment.end - activeSegment.start
-                  const newStart = activeSegment.end + ((percentage / 100) * (duration - activeSegment.end)) - segmentDuration
-                  const newEnd = newStart + segmentDuration
-                  if (newEnd <= duration) {
-                    setActiveSegment({ start: Math.max(0, newStart), end: newEnd })
-                  }
+                  setActiveSegment({ start: newTime - segmentDuration, end: newTime })
                 }}
-                title="Clique para mover segmento para esta posição"
+                title="Clique para mover segmento ►"
               />
               
-              {/* Playhead BRANCO - posição atual */}
+              {/* Playhead */}
               <div
-                className={`absolute top-0 w-0.5 h-full bg-white shadow-lg transition-all duration-100 z-10 ${
-                  dragType === 'seek' ? 'bg-yellow-300 scale-110' : 'group-hover:bg-yellow-300'
-                }`}
-                style={{ 
-                  left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation()
-                  handleProgressBarMouseDown(e)
-                }}
-                title={`Posição atual: ${formatTime(currentTime)}`}
+                className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30"
+                style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
               >
-                {/* Indicador circular do playhead */}
-                <div className="absolute -top-1 -left-1 w-2 h-4 bg-white rounded-full shadow-lg" />
+                <div className="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full shadow-lg" />
               </div>
-              
-              {/* Hover indicator geral */}
-              <div className={`absolute inset-0 bg-blue-400/10 rounded-full transition-opacity ${
-                isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`} />
             </div>
             
             {/* Tempo compacto */}
-            <div className="text-white text-xs font-mono opacity-90 bg-gray-800/50 px-2 py-0.5 rounded backdrop-blur">
+            <div className="text-xs text-gray-300 font-mono bg-gray-800/50 px-2 py-1 rounded">
               {formatTime(currentTime)}/{formatTime(duration)}
             </div>
             
-            {/* Controles de navegação */}
+            {/* Botões de expansão */}
             <div className="flex items-center space-x-1">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onSeek(Math.max(0, currentTime - 10))}
-                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600 bg-gray-700/80"
-                title="Voltar 10 segundos"
-              >
-                ⏪
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSeek(Math.min(duration, currentTime + 10))}
-                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600 bg-gray-700/80"
-                title="Avançar 10 segundos"
-              >
-                ⏩
-              </Button>
-            </div>
-            
-            {/* Botões de expansão */}
-            <div className="flex items-center space-x-1 border-l border-gray-600 pl-2">
-              <Button
-                variant="ghost"
-                size="sm"
                 onClick={() => setTimelineMode('compact')}
-                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-700 text-xs"
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600"
                 title="Timeline Compacta"
               >
-                ➕
+                <span className="text-sm">➕</span>
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setTimelineMode('expanded')}
-                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-700 text-xs"
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600"
                 title="Timeline Expandida"
               >
-                ⬆️
+                <span className="text-sm">⬆️</span>
               </Button>
-            </div>
-          </div>
-        )}
-        
-        {/* Informações da timeline - MELHORADAS */}
-        {timelineMode !== 'mini' && (
-          <div className="flex items-center justify-between bg-gray-700/30 backdrop-blur px-4 py-3 rounded-lg border border-gray-600 shadow-sm">
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">Duração:</span>
-                <span className="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{formatTime(duration)}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">Zoom:</span>
-                <span className="text-blue-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{zoom}%</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-400 text-sm">Segmentos:</span>
-                <span className="text-green-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{cutSegments.length}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {selectedSegment && (
-                <div className="flex items-center space-x-2 bg-yellow-500/20 border border-yellow-500 px-3 py-2 rounded-lg">
-                  <span className="text-yellow-300">📌</span>
-                  <span className="text-yellow-200 text-sm font-medium">
-                    {cutSegments.find(s => s.id === selectedSegment)?.name}
-                  </span>
-                </div>
-              )}
-              {inPoint !== null && outPoint !== null && (
-                <div className="flex items-center space-x-2 bg-green-500/20 border border-green-500 px-3 py-2 rounded-lg">
-                  <span className="text-green-300">✂️</span>
-                  <span className="text-green-200 text-sm font-medium">
-                    Seleção: {formatTime(Math.abs(outPoint - inPoint))}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         )}
