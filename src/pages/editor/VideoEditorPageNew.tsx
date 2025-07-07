@@ -147,15 +147,19 @@ const VideoEditorPage: React.FC = () => {
   const resizeMoveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null)
   const resizeEndHandlerRef = useRef<(() => void) | null>(null)
   
-  // ✅ NOVO: Refs para handlers de arraste das legendas (estáveis)
+  // ✅ CORRIGIDO: Refs para handlers de arraste das legendas (estáveis)
   const dragHandlersRef = useRef<{
     move: ((e: MouseEvent) => void) | null
     up: (() => void) | null
     abortController: AbortController | null
+    savedDragStart: { x: number, y: number } | null
+    savedInitialPos: { x: number, y: number } | null
   }>({
     move: null,
     up: null,
-    abortController: null
+    abortController: null,
+    savedDragStart: null,
+    savedInitialPos: null
   })
 
   // ===== LOGGER CONDICIONAL =====
@@ -247,8 +251,6 @@ const VideoEditorPage: React.FC = () => {
     isEditing: false,
     style: 'tiktok-bold' // Estilo padrão
   })
-  const [captionDragStart, setCaptionDragStart] = useState({ x: 0, y: 0 })
-  const [captionInitialPos, setCaptionInitialPos] = useState({ x: 0, y: 0 })
   const [captionEditingText, setCaptionEditingText] = useState('')
 
   // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
@@ -295,12 +297,12 @@ const VideoEditorPage: React.FC = () => {
 
   // ===== FUNÇÃO PARA CONVERTER % PARA PIXELS =====
   const getAbsolutePosition = useCallback(() => {
-    const realDimensions = getVideoRealDimensions()
+    // ✅ CORRIGIDO: Usar container do player para posicionamento correto
     return {
-      x: (captionOverlay.x / 100) * realDimensions.width,
-      y: (captionOverlay.y / 100) * realDimensions.height
+      x: (captionOverlay.x / 100) * playerDimensions.width,
+      y: (captionOverlay.y / 100) * playerDimensions.height
     }
-  }, [captionOverlay.x, captionOverlay.y, getVideoRealDimensions])
+  }, [captionOverlay.x, captionOverlay.y, playerDimensions.width, playerDimensions.height])
 
   // ===== CONTROLE DE ARRASTE BASEADO NO TRAVAMENTO =====
   const canDragCaption = playerDimensions.lockAspectRatio
@@ -507,11 +509,11 @@ const VideoEditorPage: React.FC = () => {
     })
   }, [])
 
-  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - SISTEMA PROPORCIONAL =====
+  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - SISTEMA ESTÁVEL =====
   
-  // ✅ NOVO: Handlers com coordenadas proporcionais
+  // ✅ CORRIGIDO: Handlers estáveis (não recria constantemente)
   useEffect(() => {
-    // Handler de movimento proporcional
+    // Handler de movimento otimizado
     dragHandlersRef.current.move = (e: MouseEvent) => {
       console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
@@ -521,24 +523,21 @@ const VideoEditorPage: React.FC = () => {
           return prev
         }
         
-        // Calcular dimensões reais do vídeo
-        const realDimensions = getVideoRealDimensions()
-        const deltaX = e.clientX - captionDragStart.x
-        const deltaY = e.clientY - captionDragStart.y
+        // ✅ CORRIGIDO: Acessar valores atuais via closure
+        const currentDragStart = { x: e.clientX, y: e.clientY }
+        const savedDragStart = dragHandlersRef.current.savedDragStart || currentDragStart
+        const savedInitialPos = dragHandlersRef.current.savedInitialPos || { x: prev.x, y: prev.y }
         
-        // ✅ NOVO: Converter delta de pixels para porcentagem
-        const deltaXPercent = (deltaX / realDimensions.width) * 100
-        const deltaYPercent = (deltaY / realDimensions.height) * 100
+        const deltaX = e.clientX - savedDragStart.x
+        const deltaY = e.clientY - savedDragStart.y
         
-        // ✅ CORRIGIDO: Considerar tamanho da legenda e limites mais conservadores
-        const captionWidthPercent = (200 / realDimensions.width) * 100  // ~200px estimado
-        const captionHeightPercent = (60 / realDimensions.height) * 100 // ~60px estimado
+        // ✅ CORRIGIDO: Converter delta de pixels para porcentagem usando container
+        const deltaXPercent = (deltaX / playerDimensions.width) * 100
+        const deltaYPercent = (deltaY / playerDimensions.height) * 100
         
-        const maxXPercent = Math.min(85, 100 - captionWidthPercent)
-        const maxYPercent = Math.min(85, 100 - captionHeightPercent)
-        
-        const newX = Math.max(5, Math.min(maxXPercent, captionInitialPos.x + deltaXPercent))
-        const newY = Math.max(5, Math.min(maxYPercent, captionInitialPos.y + deltaYPercent))
+        // ✅ SIMPLIFICADO: Limites simples e funcionais
+        const newX = Math.max(0, Math.min(90, savedInitialPos.x + deltaXPercent))
+        const newY = Math.max(0, Math.min(90, savedInitialPos.y + deltaYPercent))
         
         console.log('📍 New position calculated (%):', { 
           deltaX, deltaY, 
@@ -568,10 +567,14 @@ const VideoEditorPage: React.FC = () => {
         dragHandlersRef.current.abortController = null
       }
       
+      // Limpar valores salvos
+      dragHandlersRef.current.savedDragStart = null
+      dragHandlersRef.current.savedInitialPos = null
+      
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [playerDimensions.lockAspectRatio, getVideoRealDimensions, captionDragStart, captionInitialPos])
+  }, [playerDimensions.lockAspectRatio, playerDimensions.width, playerDimensions.height])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -599,13 +602,15 @@ const VideoEditorPage: React.FC = () => {
     // Criar novo AbortController
     dragHandlersRef.current.abortController = new AbortController()
     
-    // Definir estado inicial
+    // ✅ CORRIGIDO: Salvar valores iniciais no ref (estável)
     setCaptionOverlay(prev => {
-      // Armazenar posição inicial em % para cálculo correto do delta
-      setCaptionInitialPos({ x: prev.x, y: prev.y })
+      // Salvar posição inicial no ref
+      dragHandlersRef.current.savedInitialPos = { x: prev.x, y: prev.y }
       return { ...prev, isDragging: true }
     })
-    setCaptionDragStart({ x: e.clientX, y: e.clientY })
+    
+    // Salvar posição inicial do mouse no ref
+    dragHandlersRef.current.savedDragStart = { x: e.clientX, y: e.clientY }
     
     // Adicionar event listeners
     if (dragHandlersRef.current.move && dragHandlersRef.current.up) {
@@ -627,7 +632,7 @@ const VideoEditorPage: React.FC = () => {
     } else {
       console.error('❌ Handlers not available!')
     }
-  }, [playerDimensions.lockAspectRatio, captionOverlay.x, captionOverlay.y])
+  }, [playerDimensions.lockAspectRatio])
 
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
