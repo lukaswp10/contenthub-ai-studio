@@ -785,7 +785,7 @@ const VideoEditorPage: React.FC = () => {
 
     const newText = captionEditingText.trim()
     
-    // ✅ VALIDAR TIMING SE ESTIVER EDITANDO
+    // ✅ VALIDAR TIMING APENAS SE NECESSÁRIO
     if (editMode === 'word' && showTimingEditor && selectedWordIndex >= 0) {
       const errors = validateWordTiming(wordTiming.start, wordTiming.end, selectedWordIndex)
       if (errors.length > 0) {
@@ -795,9 +795,14 @@ const VideoEditorPage: React.FC = () => {
       }
     }
     
+    // ✅ LIMPAR ERROS DE TIMING SE NÃO ESTIVER VALIDANDO
+    if (timingErrors.length > 0 && !(editMode === 'word' && showTimingEditor)) {
+      setTimingErrors([])
+    }
+    
     setTranscriptionWords(prev => {
+      // ✅ MODO 1: Editar palavra específica + timing
       if (editMode === 'word' && selectedWord && selectedWordIndex >= 0) {
-        // ✅ MODO: Editar palavra específica + timing
         logger.log('📝 Editando palavra específica:', {
           indice: selectedWordIndex,
           original: selectedWord.text,
@@ -820,8 +825,10 @@ const VideoEditorPage: React.FC = () => {
           }
           return word
         })
-      } else if (editMode === 'sentence') {
-        // ✅ MODO: Editar frase atual
+      }
+      
+      // ✅ MODO 2: Editar frase atual
+      if (editMode === 'sentence') {
         const currentWords = prev.filter(word => 
           word.start <= currentTime && currentTime <= word.end
         )
@@ -829,6 +836,7 @@ const VideoEditorPage: React.FC = () => {
         if (currentWords.length === 0) return prev
         
         const wordsInNewText = newText.split(' ').filter(w => w.trim())
+        if (wordsInNewText.length === 0) return prev
         
         // Pegar tempo de início e fim do segmento atual
         const segmentStart = Math.min(...currentWords.map(w => w.start))
@@ -861,34 +869,33 @@ const VideoEditorPage: React.FC = () => {
         })
         
         return updatedWords
-      } else {
-        // ✅ MODO: Editar texto COMPLETO (todas as palavras)
-        const wordsInNewText = newText.split(' ').filter(w => w.trim())
-        
-        if (wordsInNewText.length === 0) return prev
-        
-        // Calcular tempo total disponível
-        const totalDuration = duration || prev[prev.length - 1]?.end || 60 // fallback
-        const timePerWord = totalDuration / wordsInNewText.length
-        
-        // Criar todas as palavras novas com timing distribuído
-        const newWords = wordsInNewText.map((word, index) => ({
-          text: word,
-          start: index * timePerWord,
-          end: (index + 1) * timePerWord,
-          highlight: false,
-          confidence: 0.95
-        }))
-        
-        logger.log('📚 Texto completo substituído:', {
-          palavrasOriginais: prev.length,
-          palavrasNovas: newWords.length,
-          duracaoTotal: totalDuration.toFixed(1) + 's',
-          tempoMedioPorPalavra: timePerWord.toFixed(2) + 's'
-        })
-        
-        return newWords
       }
+      
+      // ✅ MODO 3: Editar texto COMPLETO (todas as palavras)
+      const wordsInNewText = newText.split(' ').filter(w => w.trim())
+      if (wordsInNewText.length === 0) return prev
+      
+      // Calcular tempo total disponível
+      const totalDuration = duration || prev[prev.length - 1]?.end || 60 // fallback
+      const timePerWord = totalDuration / wordsInNewText.length
+      
+      // Criar todas as palavras novas com timing distribuído
+      const newWords = wordsInNewText.map((word, index) => ({
+        text: word,
+        start: index * timePerWord,
+        end: (index + 1) * timePerWord,
+        highlight: false,
+        confidence: 0.95
+      }))
+      
+      logger.log('📚 Texto completo substituído:', {
+        palavrasOriginais: prev.length,
+        palavrasNovas: newWords.length,
+        duracaoTotal: totalDuration.toFixed(1) + 's',
+        tempoMedioPorPalavra: timePerWord.toFixed(2) + 's'
+      })
+      
+      return newWords
     })
     
     // Limpar estado de edição
@@ -2805,7 +2812,7 @@ const VideoEditorPage: React.FC = () => {
                           type="number"
                           step="0.1"
                           min="0"
-                          value={wordTiming.start}
+                          value={wordTiming.start.toFixed(1)}
                           onChange={(e) => setWordTiming(prev => ({ ...prev, start: parseFloat(e.target.value) || 0 }))}
                           className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -2818,7 +2825,7 @@ const VideoEditorPage: React.FC = () => {
                           type="number"
                           step="0.1"
                           min="0"
-                          value={wordTiming.end}
+                          value={wordTiming.end.toFixed(1)}
                           onChange={(e) => setWordTiming(prev => ({ ...prev, end: parseFloat(e.target.value) || 0 }))}
                           className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -2884,7 +2891,10 @@ const VideoEditorPage: React.FC = () => {
                         <p>Palavras novas: {captionEditingText.split(' ').filter(w => w.trim()).length}</p>
                         <p>Caracteres: {captionEditingText.length}</p>
                         <p>Duração total: {duration.toFixed(1)}s</p>
-                        <p>Tempo médio por palavra: {(duration / captionEditingText.split(' ').filter(w => w.trim()).length).toFixed(2)}s</p>
+                        <p>Tempo médio por palavra: {(() => {
+                          const newWordCount = captionEditingText.split(' ').filter(w => w.trim()).length
+                          return newWordCount > 0 ? (duration / newWordCount).toFixed(2) : '0.00'
+                        })()}s</p>
                       </div>
                     </div>
                   )}
