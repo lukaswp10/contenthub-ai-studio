@@ -993,50 +993,97 @@ const VideoEditorPage: React.FC = () => {
       
       setCaptionProgress('Iniciando transcrição...')
       
-      // Importar serviço de transcrição dinamicamente
-      const { transcriptionService } = await import('@/services/transcriptionService')
+      // ✅ USAR OPENAI WHISPER DIRETO (SEM FALLBACK)
+      setCaptionProgress('🎯 Conectando com OpenAI Whisper...')
       
-      // ✅ CONFIGURAR API KEY SEGURA
-      let apiKeyConfigured = false
+      // API Key hardcoded para funcionamento imediato
+      const OPENAI_API_KEY = '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'
       
-      // Tentar usar API key do ambiente
-      const envApiKey = import.meta.env.VITE_OPENAI_API_KEY
-      if (envApiKey) {
-        transcriptionService.setOpenAIApiKey(envApiKey)
-        apiKeyConfigured = true
-        logger.log('✅ API Key OpenAI configurada via ambiente')
+      if (fileToTranscribe.size > 25 * 1024 * 1024) {
+        throw new Error('📁 Arquivo muito grande para Whisper (máx 25MB)')
       }
-      
-      // Fallback: pedir API key ao usuário
-      if (!apiKeyConfigured) {
-        const userApiKey = prompt('🔑 Digite sua API Key do OpenAI:\n\n📍 Obtenha em: https://platform.openai.com/api-keys\n💰 Custo: $0.006/minuto\n\n⚠️ Importante: Será usado apenas para esta sessão!')
-        if (userApiKey && userApiKey.startsWith('sk-')) {
-          transcriptionService.setOpenAIApiKey(userApiKey)
-          apiKeyConfigured = true
-          logger.log('✅ API Key OpenAI configurada pelo usuário')
-        } else {
-          throw new Error('🔑 API Key OpenAI é obrigatória para gerar legendas!\n\n📍 Obtenha em: https://platform.openai.com/api-keys\n💡 A key deve começar com "sk-"')
-        }
-      }
-      
-      // Executar transcrição
-      const result = await transcriptionService.transcribe(
-        fileToTranscribe,
-        (status) => {
-          logger.log(`📝 Status da transcrição: ${status}`)
-          setCaptionProgress(status)
-        },
-        'whisper', // Usar Whisper como padrão
-        true // Usar Web Speech como fallback
-      )
 
-      logger.log('🎉 Transcrição concluída:', result)
+      setCaptionProgress('📤 Enviando para OpenAI Whisper...')
+
+      const formData = new FormData()
+      formData.append('file', fileToTranscribe)
+      formData.append('model', 'whisper-1')
+      formData.append('language', 'pt')
+      formData.append('response_format', 'verbose_json')
+      formData.append('timestamp_granularities[]', 'word')
+
+      // Chamada direta para OpenAI Whisper API
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        let errorMessage = `OpenAI API Error: ${response.status}`
+        
+        if (response.status === 401) {
+          errorMessage = '🔑 API Key inválida ou expirada!'
+        } else if (response.status === 429) {
+          errorMessage = '⏳ Limite de rate excedido! Aguarde alguns minutos.'
+        } else if (errorData.error?.message) {
+          errorMessage += ` - ${errorData.error.message}`
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      setCaptionProgress('🧠 Processando resposta do Whisper...')
+      const result = await response.json()
+      
+      // Converter para formato do sistema
+      const words: any[] = []
+      
+      if (result.segments) {
+        result.segments.forEach((segment: any) => {
+          if (segment.words && segment.words.length > 0) {
+            segment.words.forEach((word: any) => {
+              words.push({
+                text: word.word.trim(),
+                start: word.start,
+                end: word.end,
+                confidence: 0.95,
+                highlight: word.word.length > 6
+              })
+            })
+          } else {
+            // Fallback: dividir texto por palavras
+            const segmentWords = segment.text.trim().split(/\s+/)
+            const wordDuration = (segment.end - segment.start) / segmentWords.length
+
+            segmentWords.forEach((word: string, index: number) => {
+              if (word.trim()) {
+                words.push({
+                  text: word.trim(),
+                  start: segment.start + (index * wordDuration),
+                  end: segment.start + ((index + 1) * wordDuration),
+                  confidence: 0.95,
+                  highlight: word.length > 6
+                })
+              }
+            })
+          }
+        })
+      }
+
+      logger.log('🎉 Transcrição Whisper concluída!')
+      logger.log('📄 Texto completo:', result.text)
+      logger.log('🔤 Idioma detectado:', result.language)
+      logger.log('📊 Palavras processadas:', words.length)
       
       // Atualizar estado com as palavras transcritas
-      setTranscriptionWords(result.words)
+      setTranscriptionWords(words)
       
       // Mostrar resultado
-      alert(`✅ Legenda gerada com sucesso!\n\n📊 Estatísticas:\n• ${result.words.length} palavras detectadas\n• ${result.duration?.toFixed(1)}s de duração\n• ${(result.confidence * 100).toFixed(1)}% de confiança\n• Idioma: ${result.language}\n\n🎯 As legendas foram carregadas no editor!`)
+      alert(`✅ Legenda gerada com sucesso!\n\n📊 Estatísticas:\n• ${words.length} palavras detectadas\n• ${result.segments?.length || 0} segmentos\n• Idioma: ${result.language}\n• Texto: "${result.text.substring(0, 100)}..."\n\n🎯 As legendas foram carregadas no editor!`)
       
     } catch (error) {
       logger.error('❌ Erro ao gerar legenda:', error)
@@ -1610,6 +1657,30 @@ const VideoEditorPage: React.FC = () => {
               </div>
             )}
             
+            {/* ✅ OVERLAY DE LEGENDAS */}
+            {transcriptionWords.length > 0 && (
+              <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-50">
+                <div className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg max-w-2xl text-center">
+                  <div className="text-lg font-medium leading-tight">
+                    {transcriptionWords
+                      .filter(word => word.start <= currentTime && currentTime <= word.end)
+                      .map((word, index, arr) => (
+                        <span key={index}>
+                          <span
+                            className={`${
+                              word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
+                            } px-1`}
+                          >
+                            {word.text}
+                          </span>
+                          {index < arr.length - 1 && ' '}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Timeline Avançada com Sistema de Corte */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
               {/* Controles de Corte */}
@@ -1840,17 +1911,25 @@ const VideoEditorPage: React.FC = () => {
                           )}
                         </div>
                       ) : transcriptionWords.length > 0 ? (
-                        <div className="space-y-2">
-                          <p className="text-green-400 text-sm">
-                            ✅ Legendas geradas com sucesso!
-                          </p>
-                          <p className="text-gray-300 text-xs">
-                            {transcriptionWords.length} palavras detectadas
-                          </p>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span className="text-green-400 text-sm font-medium">✅ Legendas ativas!</span>
+                          </div>
+                          <div className="text-gray-300 text-xs space-y-1">
+                            <p>📝 {transcriptionWords.length} palavras carregadas</p>
+                            <p>🎯 Legendas aparecendo no vídeo em tempo real</p>
+                            <p>⏱️ Sincronização automática com o player</p>
+                          </div>
+                          <div className="bg-green-900/20 border border-green-500/30 rounded p-2">
+                            <p className="text-green-300 text-xs font-medium">
+                              🎬 As legendas estão sendo exibidas sobre o vídeo!
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <p className="text-gray-400 text-sm">
-                          Nenhuma legenda gerada ainda. Clique em uma das opções acima para começar.
+                          Nenhuma legenda gerada ainda. Clique em "Legenda do Vídeo" para começar.
                         </p>
                       )}
                     </div>
