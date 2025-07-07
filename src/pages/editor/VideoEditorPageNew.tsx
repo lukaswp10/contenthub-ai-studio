@@ -253,10 +253,13 @@ const VideoEditorPage: React.FC = () => {
   })
   const [captionEditingText, setCaptionEditingText] = useState('')
   
-  // ===== ESTADO DO SISTEMA DUAL DE EDIÇÃO =====
+  // ===== ESTADO DO SISTEMA COMPLETO DE EDIÇÃO =====
   const [selectedWord, setSelectedWord] = useState<any | null>(null)
   const [selectedWordIndex, setSelectedWordIndex] = useState<number>(-1)
-  const [editMode, setEditMode] = useState<'word' | 'complete'>('word')
+  const [editMode, setEditMode] = useState<'word' | 'sentence' | 'complete'>('word')
+  const [showTimingEditor, setShowTimingEditor] = useState(false)
+  const [wordTiming, setWordTiming] = useState({ start: 0, end: 0 })
+  const [timingErrors, setTimingErrors] = useState<string[]>([])
 
   // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
   const [playerDimensions, setPlayerDimensions] = useState({
@@ -663,6 +666,44 @@ const VideoEditorPage: React.FC = () => {
     }
   }, [playerDimensions.lockAspectRatio])
 
+  // ===== VALIDAÇÃO DE TIMING =====
+  const validateWordTiming = useCallback((newStart: number, newEnd: number, wordIndex: number): string[] => {
+    const errors: string[] = []
+    
+    // Validações básicas
+    if (newStart >= newEnd) {
+      errors.push('❌ Início deve ser menor que o fim')
+    }
+    
+    if (newStart < 0) {
+      errors.push('❌ Início não pode ser negativo')
+    }
+    
+    if (newEnd > duration) {
+      errors.push(`❌ Fim não pode exceder duração do vídeo (${duration.toFixed(1)}s)`)
+    }
+    
+    // Verificar conflitos com palavras adjacentes
+    const prevWord = transcriptionWords[wordIndex - 1]
+    const nextWord = transcriptionWords[wordIndex + 1]
+    
+    if (prevWord && newStart < prevWord.end) {
+      errors.push(`❌ Conflito com palavra anterior "${prevWord.text}" (termina em ${prevWord.end.toFixed(1)}s)`)
+    }
+    
+    if (nextWord && newEnd > nextWord.start) {
+      errors.push(`❌ Conflito com próxima palavra "${nextWord.text}" (inicia em ${nextWord.start.toFixed(1)}s)`)
+    }
+    
+    // Duração mínima recomendada
+    const duration = newEnd - newStart
+    if (duration < 0.1) {
+      errors.push('⚠️ Duração muito curta (mín. 0.1s recomendado)')
+    }
+    
+    return errors
+  }, [transcriptionWords, duration])
+
   // ✅ NOVO: Handler para click em palavra específica
   const handleWordClick = useCallback((word: any, wordIndex: number, e: React.MouseEvent) => {
     e.preventDefault()
@@ -671,17 +712,21 @@ const VideoEditorPage: React.FC = () => {
     // Evitar interferência com o arraste
     if (captionOverlay.isDragging) return
     
-    // Selecionar palavra específica
+    // Selecionar palavra específica e inicializar timing
     setSelectedWord(word)
     setSelectedWordIndex(wordIndex)
     setEditMode('word')
     setCaptionEditingText(word.text)
+    setWordTiming({ start: word.start, end: word.end })
+    setShowTimingEditor(false) // Inicia fechado, usuário pode abrir
+    setTimingErrors([])
     setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
     
     logger.log('📝 Palavra selecionada para edição:', {
       palavra: word.text,
       indice: wordIndex,
-      tempo: `${word.start.toFixed(1)}s - ${word.end.toFixed(1)}s`
+      tempo: `${word.start.toFixed(1)}s - ${word.end.toFixed(1)}s`,
+      duração: `${(word.end - word.start).toFixed(1)}s`
     })
   }, [captionOverlay.isDragging, logger])
 
@@ -689,8 +734,8 @@ const VideoEditorPage: React.FC = () => {
     e.preventDefault()
     e.stopPropagation()
     
-    // Edição de texto completo (comportamento original)
-    // Calcular texto atual inline para evitar dependência circular
+    // Edição de frase atual (comportamento padrão do duplo-click)
+    // Calcular frase atual (palavras próximas ao tempo atual)
     const tolerance = 0.5
     const currentWords = transcriptionWords.filter(word => 
       (word.start - tolerance) <= currentTime && currentTime <= (word.end + tolerance)
@@ -699,10 +744,38 @@ const VideoEditorPage: React.FC = () => {
     
     setSelectedWord(null)
     setSelectedWordIndex(-1)
-    setEditMode('complete')
+    setEditMode('sentence')
     setCaptionEditingText(currentText)
+    setShowTimingEditor(false)
+    setTimingErrors([])
     setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
-  }, [transcriptionWords, currentTime])
+    
+    logger.log('📄 Edição de frase ativada:', {
+      palavras: currentWords.length,
+      texto: currentText.substring(0, 50) + '...',
+      tempo: `${currentTime.toFixed(1)}s`
+    })
+  }, [transcriptionWords, currentTime, logger])
+  
+  // ✅ NOVO: Handler para edição de texto completo
+  const handleCompleteTextEdit = useCallback(() => {
+    // ✅ TEXTO COMPLETO REAL - TODAS as palavras
+    const allText = transcriptionWords.map(word => word.text).join(' ')
+    
+    setSelectedWord(null)
+    setSelectedWordIndex(-1)
+    setEditMode('complete')
+    setCaptionEditingText(allText)
+    setShowTimingEditor(false)
+    setTimingErrors([])
+    setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
+    
+    logger.log('📚 Edição de texto completo ativada:', {
+      totalPalavras: transcriptionWords.length,
+      comprimento: allText.length,
+      preview: allText.substring(0, 100) + '...'
+    })
+  }, [transcriptionWords, logger])
 
   const handleCaptionEditSave = useCallback(() => {
     if (!captionEditingText.trim()) {
@@ -712,26 +785,43 @@ const VideoEditorPage: React.FC = () => {
 
     const newText = captionEditingText.trim()
     
+    // ✅ VALIDAR TIMING SE ESTIVER EDITANDO
+    if (editMode === 'word' && showTimingEditor && selectedWordIndex >= 0) {
+      const errors = validateWordTiming(wordTiming.start, wordTiming.end, selectedWordIndex)
+      if (errors.length > 0) {
+        setTimingErrors(errors)
+        logger.warn('⚠️ Erros de timing encontrados:', errors)
+        return // Não salvar se houver erros
+      }
+    }
+    
     setTranscriptionWords(prev => {
       if (editMode === 'word' && selectedWord && selectedWordIndex >= 0) {
-        // ✅ MODO: Editar palavra específica
+        // ✅ MODO: Editar palavra específica + timing
         logger.log('📝 Editando palavra específica:', {
           indice: selectedWordIndex,
           original: selectedWord.text,
-          novo: newText
+          novo: newText,
+          timingOriginal: `${selectedWord.start.toFixed(1)}s - ${selectedWord.end.toFixed(1)}s`,
+          timingNovo: showTimingEditor ? `${wordTiming.start.toFixed(1)}s - ${wordTiming.end.toFixed(1)}s` : 'não alterado'
         })
         
         return prev.map((word, index) => {
           if (index === selectedWordIndex) {
             return {
               ...word,
-              text: newText
+              text: newText,
+              // ✅ APLICAR TIMING SE EDITOR ESTIVER ATIVO
+              ...(showTimingEditor && {
+                start: wordTiming.start,
+                end: wordTiming.end
+              })
             }
           }
           return word
         })
-      } else {
-        // ✅ MODO: Editar texto completo (comportamento original)
+      } else if (editMode === 'sentence') {
+        // ✅ MODO: Editar frase atual
         const currentWords = prev.filter(word => 
           word.start <= currentTime && currentTime <= word.end
         )
@@ -763,7 +853,7 @@ const VideoEditorPage: React.FC = () => {
         // Ordenar por tempo
         updatedWords.sort((a, b) => a.start - b.start)
         
-        logger.log('💾 Texto completo editado:', {
+        logger.log('📄 Frase editada:', {
           original: currentWords.map(w => w.text).join(' '),
           novo: newText,
           palavrasAntigas: currentWords.length,
@@ -771,6 +861,33 @@ const VideoEditorPage: React.FC = () => {
         })
         
         return updatedWords
+      } else {
+        // ✅ MODO: Editar texto COMPLETO (todas as palavras)
+        const wordsInNewText = newText.split(' ').filter(w => w.trim())
+        
+        if (wordsInNewText.length === 0) return prev
+        
+        // Calcular tempo total disponível
+        const totalDuration = duration || prev[prev.length - 1]?.end || 60 // fallback
+        const timePerWord = totalDuration / wordsInNewText.length
+        
+        // Criar todas as palavras novas com timing distribuído
+        const newWords = wordsInNewText.map((word, index) => ({
+          text: word,
+          start: index * timePerWord,
+          end: (index + 1) * timePerWord,
+          highlight: false,
+          confidence: 0.95
+        }))
+        
+        logger.log('📚 Texto completo substituído:', {
+          palavrasOriginais: prev.length,
+          palavrasNovas: newWords.length,
+          duracaoTotal: totalDuration.toFixed(1) + 's',
+          tempoMedioPorPalavra: timePerWord.toFixed(2) + 's'
+        })
+        
+        return newWords
       }
     })
     
@@ -780,7 +897,10 @@ const VideoEditorPage: React.FC = () => {
     setSelectedWord(null)
     setSelectedWordIndex(-1)
     setEditMode('word')
-  }, [captionEditingText, editMode, selectedWord, selectedWordIndex, currentTime, logger])
+    setShowTimingEditor(false)
+    setWordTiming({ start: 0, end: 0 })
+    setTimingErrors([])
+  }, [captionEditingText, editMode, selectedWord, selectedWordIndex, currentTime, showTimingEditor, wordTiming, validateWordTiming, duration, logger])
 
   const handleCaptionEditCancel = useCallback(() => {
     setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
@@ -788,6 +908,9 @@ const VideoEditorPage: React.FC = () => {
     setSelectedWord(null)
     setSelectedWordIndex(-1)
     setEditMode('word')
+    setShowTimingEditor(false)
+    setWordTiming({ start: 0, end: 0 })
+    setTimingErrors([])
   }, [])
 
   const handleCaptionResize = useCallback((direction: 'bigger' | 'smaller') => {
@@ -2411,50 +2534,66 @@ const VideoEditorPage: React.FC = () => {
                       {/* Separador visual */}
                       <div className="w-px h-4 bg-gray-600"></div>
                       
-                      {/* ✅ NOVO: Controles de Edição Rápida */}
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            // Editar primeira palavra visível
-                            const currentWords = transcriptionWords.filter(word => 
-                              word.start <= currentTime && currentTime <= word.end
-                            )
-                            if (currentWords.length > 0) {
-                              const firstWord = currentWords[0]
-                              const globalIndex = transcriptionWords.findIndex(w => 
-                                w.start === firstWord.start && w.end === firstWord.end && w.text === firstWord.text
-                              )
-                              handleWordClick(firstWord, globalIndex, e as any)
-                            }
-                          }}
-                          className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                          title="Editar palavra"
-                        >
-                          📝
-                        </button>
-                        
-                        <button
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleCaptionDoubleClick(e as any)
-                          }}
-                          className="text-white hover:text-purple-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                          title="Editar texto completo"
-                        >
-                          📄
-                        </button>
-                      </div>
+                                             {/* ✅ NOVO: Controles de Edição Rápida */}
+                       <div className="flex items-center space-x-1">
+                         <button
+                           onMouseDown={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                           }}
+                           onClick={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                             // Editar primeira palavra visível
+                             const currentWords = transcriptionWords.filter(word => 
+                               word.start <= currentTime && currentTime <= word.end
+                             )
+                             if (currentWords.length > 0) {
+                               const firstWord = currentWords[0]
+                               const globalIndex = transcriptionWords.findIndex(w => 
+                                 w.start === firstWord.start && w.end === firstWord.end && w.text === firstWord.text
+                               )
+                               handleWordClick(firstWord, globalIndex, e as any)
+                             }
+                           }}
+                           className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                           title="Editar palavra"
+                         >
+                           📝
+                         </button>
+                         
+                         <button
+                           onMouseDown={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                           }}
+                           onClick={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                             handleCaptionDoubleClick(e as any)
+                           }}
+                           className="text-white hover:text-yellow-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                           title="Editar frase atual"
+                         >
+                           📄
+                         </button>
+                         
+                         <button
+                           onMouseDown={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                           }}
+                           onClick={(e) => {
+                             e.preventDefault()
+                             e.stopPropagation()
+                             handleCompleteTextEdit()
+                           }}
+                           className="text-white hover:text-green-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                           title="Editar TEXTO COMPLETO (todas as palavras)"
+                         >
+                           📚
+                         </button>
+                       </div>
                       
                       {/* Separador visual */}
                       <div className="w-px h-4 bg-gray-600"></div>
@@ -2549,11 +2688,11 @@ const VideoEditorPage: React.FC = () => {
                 <div className="flex items-center space-x-2 mb-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                   <span className="text-white font-medium">
-                    {editMode === 'word' ? 'Editando Palavra' : 'Editando Texto Completo'}
+                    {editMode === 'word' ? 'Editando Palavra' : editMode === 'sentence' ? 'Editando Frase' : 'Editando Texto Completo'}
                   </span>
                 </div>
                 
-                {/* ✅ NOVO: Seletor de Modo de Edição */}
+                {/* ✅ NOVO: Seletor de Modo de Edição COMPLETO */}
                 <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-600">
                   <div className="text-white text-sm font-medium mb-2">Modo de Edição:</div>
                   <div className="space-y-2">
@@ -2581,10 +2720,10 @@ const VideoEditorPage: React.FC = () => {
                       <input
                         type="radio"
                         name="editMode"
-                        checked={editMode === 'complete'}
+                        checked={editMode === 'sentence'}
                         onChange={() => {
-                          setEditMode('complete')
-                          // Recalcular texto completo
+                          setEditMode('sentence')
+                          // Recalcular frase atual
                           const tolerance = 0.5
                           const currentWords = transcriptionWords.filter(word => 
                             (word.start - tolerance) <= currentTime && currentTime <= (word.end + tolerance)
@@ -2593,31 +2732,163 @@ const VideoEditorPage: React.FC = () => {
                         }}
                         className="text-blue-500"
                       />
-                      <span className="text-white text-sm">📄 Editar texto completo</span>
+                      <span className="text-white text-sm">📄 Editar frase atual</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="editMode"
+                        checked={editMode === 'complete'}
+                        onChange={() => {
+                          setEditMode('complete')
+                          // ✅ TEXTO COMPLETO REAL - TODAS as palavras
+                          const allText = transcriptionWords.map(word => word.text).join(' ')
+                          setCaptionEditingText(allText)
+                        }}
+                        className="text-blue-500"
+                      />
+                      <span className="text-white text-sm">📚 Editar texto completo (todas as palavras)</span>
                     </label>
                   </div>
                 </div>
                 
-                <textarea
-                  value={captionEditingText}
-                  onChange={(e) => setCaptionEditingText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      handleCaptionEditCancel()
-                    } else if (e.key === 'Enter' && e.ctrlKey) {
-                      // Ctrl+Enter para salvar
-                      handleCaptionEditSave()
-                    }
-                    // Enter simples permite quebra de linha apenas no modo completo
-                    if (e.key === 'Enter' && editMode === 'word' && !e.ctrlKey) {
-                      e.preventDefault()
-                    }
-                  }}
-                  className="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none resize-none"
-                  rows={editMode === 'word' ? 2 : 3}
-                  placeholder={editMode === 'word' ? 'Digite a nova palavra...' : 'Digite o texto da legenda...'}
-                  autoFocus
-                />
+                {/* ✅ INFORMAÇÕES CONTEXTUAIS */}
+                {editMode === 'word' && selectedWord && (
+                  <div className="mb-4 p-3 bg-blue-900/30 border border-blue-500/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white text-sm">
+                          <strong>Editando:</strong> "{selectedWord.text}" 
+                          <span className="text-gray-400 ml-2">
+                            ({selectedWord.start.toFixed(1)}s - {selectedWord.end.toFixed(1)}s)
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowTimingEditor(!showTimingEditor)}
+                        className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        ⏱️ {showTimingEditor ? 'Fechar' : 'Timing'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {editMode === 'sentence' && (
+                  <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg">
+                    <p className="text-white text-sm">
+                      <strong>Editando:</strong> Frase atual (tempo {currentTime.toFixed(1)}s)
+                    </p>
+                  </div>
+                )}
+                
+                {editMode === 'complete' && (
+                  <div className="mb-4 p-3 bg-green-900/30 border border-green-500/50 rounded-lg">
+                    <p className="text-white text-sm">
+                      <strong>Editando:</strong> Texto completo ({transcriptionWords.length} palavras)
+                    </p>
+                  </div>
+                )}
+                
+                {/* ✅ EDITOR DE TIMING PROFISSIONAL */}
+                {editMode === 'word' && showTimingEditor && (
+                  <div className="mb-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg">
+                    <h4 className="text-white text-sm font-semibold mb-3">⏱️ Editor de Timing</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Início (segundos)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={wordTiming.start}
+                          onChange={(e) => setWordTiming(prev => ({ ...prev, start: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Fim (segundos)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={wordTiming.end}
+                          onChange={(e) => setWordTiming(prev => ({ ...prev, end: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-400">
+                      <p>Duração: {(wordTiming.end - wordTiming.start).toFixed(1)}s</p>
+                      {selectedWordIndex > 0 && (
+                        <p>Palavra anterior termina em: {transcriptionWords[selectedWordIndex - 1]?.end.toFixed(1)}s</p>
+                      )}
+                      {selectedWordIndex < transcriptionWords.length - 1 && (
+                        <p>Próxima palavra inicia em: {transcriptionWords[selectedWordIndex + 1]?.start.toFixed(1)}s</p>
+                      )}
+                    </div>
+                    
+                    {/* ✅ ERROS DE TIMING */}
+                    {timingErrors.length > 0 && (
+                      <div className="mt-3 p-2 bg-red-900/30 border border-red-500/50 rounded">
+                        <p className="text-xs font-medium text-red-400 mb-1">Erros encontrados:</p>
+                        {timingErrors.map((error, index) => (
+                          <p key={index} className="text-xs text-red-300">{error}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="flex space-x-4">
+                  <div className="flex-1">
+                    <textarea
+                      value={captionEditingText}
+                      onChange={(e) => setCaptionEditingText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          handleCaptionEditCancel()
+                        } else if (e.key === 'Enter' && e.ctrlKey) {
+                          // Ctrl+Enter para salvar
+                          handleCaptionEditSave()
+                        }
+                        // Enter simples permite quebra de linha apenas no modo completo
+                        if (e.key === 'Enter' && editMode === 'word' && !e.ctrlKey) {
+                          e.preventDefault()
+                        }
+                      }}
+                      className="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none resize-none"
+                      rows={editMode === 'complete' ? 8 : editMode === 'sentence' ? 4 : 2}
+                      placeholder={
+                        editMode === 'word' ? 'Digite a nova palavra...' : 
+                        editMode === 'sentence' ? 'Digite a nova frase...' : 
+                        'Digite o novo texto completo...'
+                      }
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {/* ✅ PAINEL DE ESTATÍSTICAS */}
+                  {editMode === 'complete' && (
+                    <div className="w-40 bg-gray-700 p-3 rounded-lg border border-gray-600">
+                      <h4 className="text-white text-sm font-semibold mb-2">📊 Estatísticas</h4>
+                      <div className="space-y-1 text-xs text-gray-300">
+                        <p>Palavras originais: {transcriptionWords.length}</p>
+                        <p>Palavras novas: {captionEditingText.split(' ').filter(w => w.trim()).length}</p>
+                        <p>Caracteres: {captionEditingText.length}</p>
+                        <p>Duração total: {duration.toFixed(1)}s</p>
+                        <p>Tempo médio por palavra: {(duration / captionEditingText.split(' ').filter(w => w.trim()).length).toFixed(2)}s</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-2 mt-3">
                   <Button
@@ -2628,9 +2899,10 @@ const VideoEditorPage: React.FC = () => {
                   </Button>
                   <Button
                     onClick={handleCaptionEditSave}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-sm"
+                    disabled={timingErrors.length > 0}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editMode === 'word' ? 'Salvar Palavra' : 'Salvar Texto'}
+                    {editMode === 'word' ? 'Salvar Palavra' : editMode === 'sentence' ? 'Salvar Frase' : 'Salvar Texto'}
                   </Button>
                 </div>
                 
