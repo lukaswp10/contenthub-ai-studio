@@ -227,10 +227,8 @@ const VideoEditorPage: React.FC = () => {
   
   // ===== ESTADO DO OVERLAY DE LEGENDAS ARRASTÁVEIS =====
   const [captionOverlay, setCaptionOverlay] = useState({
-    x: 50, // Posição X em %
-    y: 80, // Posição Y em %
-    width: 80, // Largura em %
-    height: 15, // Altura em %
+    x: 400, // Posição X em pixels absolutos
+    y: 300, // Posição Y em pixels absolutos
     fontSize: 24,
     isDragging: false,
     isResizing: false,
@@ -456,34 +454,31 @@ const VideoEditorPage: React.FC = () => {
 
   // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS =====
   const handleCaptionMouseMove = useCallback((e: MouseEvent) => {
-    // Usar setState funcional para acessar valores atuais
     setCaptionOverlay(currentOverlay => {
       if (!currentOverlay.isDragging) return currentOverlay
       
-      setCaptionDragStart(currentDragStart => {
-        setPlayerDimensions(currentPlayerDimensions => {
-          const deltaX = e.clientX - currentDragStart.x
-          const deltaY = e.clientY - currentDragStart.y
-          
-          // Converter para porcentagem baseado no tamanho do player
-          const deltaXPercent = (deltaX / currentPlayerDimensions.width) * 100
-          const deltaYPercent = (deltaY / currentPlayerDimensions.height) * 100
-          
-          setCaptionOverlay(prev => ({
-            ...prev,
-            x: Math.max(0, Math.min(100 - prev.width, prev.x + deltaXPercent)),
-            y: Math.max(0, Math.min(100 - prev.height, prev.y + deltaYPercent))
-          }))
-          
-          setCaptionDragStart({ x: e.clientX, y: e.clientY })
-          
-          return currentPlayerDimensions
-        })
-        return currentDragStart
-      })
+      const deltaX = e.clientX - captionDragStart.x
+      const deltaY = e.clientY - captionDragStart.y
+      
+      // ✅ CORRIGIDO: Usar pixels absolutos com limites do player
+      const playerContainer = document.querySelector('.player-container') as HTMLElement
+      if (playerContainer) {
+        const playerRect = playerContainer.getBoundingClientRect()
+        const newX = Math.max(0, Math.min(playerRect.width - 100, currentOverlay.x + deltaX))
+        const newY = Math.max(0, Math.min(playerRect.height - 50, currentOverlay.y + deltaY))
+        
+        setCaptionDragStart({ x: e.clientX, y: e.clientY })
+        
+        return {
+          ...currentOverlay,
+          x: newX,
+          y: newY
+        }
+      }
+      
       return currentOverlay
     })
-  }, [])
+  }, [captionDragStart])
 
   const handleCaptionMouseUp = useCallback(() => {
     setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
@@ -498,6 +493,7 @@ const VideoEditorPage: React.FC = () => {
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    e.nativeEvent.stopImmediatePropagation() // ✅ CORRIGIDO: Parar todos os listeners
     
     setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
     setCaptionDragStart({ x: e.clientX, y: e.clientY })
@@ -1994,7 +1990,7 @@ const VideoEditorPage: React.FC = () => {
           <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
             {/* Container do Player com Handles */}
             <div 
-              className={`relative ${isResizing ? 'shadow-2xl' : 'shadow-lg'} transition-shadow duration-200`}
+              className={`relative player-container ${isResizing ? 'shadow-2xl' : 'shadow-lg'} transition-shadow duration-200`}
               style={{
                 width: `${playerDimensions.width}px`,
                 height: `${playerDimensions.height}px`,
@@ -2115,97 +2111,93 @@ const VideoEditorPage: React.FC = () => {
               </div>
             )}
             
-            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS */}
+            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - CORRIGIDO */}
             {transcriptionWords.length > 0 && (
               <div 
-                className={`absolute z-50 cursor-grab ${captionOverlay.isDragging ? 'cursor-grabbing' : ''}`}
+                className={`absolute z-50 inline-block cursor-grab select-none ${captionOverlay.isDragging ? 'cursor-grabbing' : ''}`}
                 style={{
-                  left: `${captionOverlay.x}%`,
-                  top: `${captionOverlay.y}%`,
-                  width: `${captionOverlay.width}%`,
-                  height: `${captionOverlay.height}%`,
-                  transform: 'translate(-50%, -50%)',
+                  left: `${captionOverlay.x}px`,
+                  top: `${captionOverlay.y}px`,
                   transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
                 }}
                 onMouseDown={(e) => {
-                  e.stopPropagation() // ✅ CORRIGIR: Impedir conflito com player
+                  e.preventDefault()
+                  e.stopPropagation()
+                  e.nativeEvent.stopImmediatePropagation()
                   handleCaptionMouseDown(e)
                 }}
                 onDoubleClick={(e) => {
-                  e.stopPropagation() // ✅ CORRIGIR: Impedir conflito com player
+                  e.preventDefault()
+                  e.stopPropagation()
+                  e.nativeEvent.stopImmediatePropagation()
                   handleCaptionDoubleClick(e)
                 }}
               >
-                {/* Container da Legenda */}
-                <div className="relative w-full h-full">
-                  {/* Texto da Legenda */}
-                  <div 
-                    className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center h-full flex items-center justify-center"
-                    style={{
-                      fontSize: `${captionOverlay.fontSize}px`,
-                      border: captionOverlay.isDragging ? '2px solid #3b82f6' : '1px solid transparent',
-                      textShadow: captionOverlay.style === 'tiktok-bold' ? '2px 2px 0px #000000' : 'none'
-                    }}
-                  >
-                    <div className="font-bold leading-tight">
-                      {transcriptionWords
-                        .filter(word => word.start <= currentTime && currentTime <= word.end)
-                        .map((word, index, arr) => (
-                          <span key={index}>
-                            <span
-                              className={`${
-                                word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
-                              } px-1`}
-                            >
-                              {word.text}
-                            </span>
-                            {index < arr.length - 1 && ' '}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
+                {/* ✅ CORRIGIDO: Texto da Legenda - Tamanho Dinâmico */}
+                <div 
+                  className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center whitespace-nowrap font-bold leading-tight"
+                  style={{
+                    fontSize: `${captionOverlay.fontSize}px`,
+                    border: captionOverlay.isDragging ? '2px solid #3b82f6' : '1px solid transparent',
+                    textShadow: captionOverlay.style === 'tiktok-bold' ? '2px 2px 0px #000000' : 'none'
+                  }}
+                >
+                  {transcriptionWords
+                    .filter(word => word.start <= currentTime && currentTime <= word.end)
+                    .map((word, index, arr) => (
+                      <span key={index}>
+                        <span
+                          className={`${
+                            word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
+                          } px-1`}
+                        >
+                          {word.text}
+                        </span>
+                        {index < arr.length - 1 && ' '}
+                      </span>
+                    ))}
+                </div>
 
-                  {/* Controles de Redimensionamento */}
-                  {captionOverlay.isDragging && (
-                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleCaptionResize('smaller')
-                        }}
-                        className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                        title="Diminuir fonte"
-                      >
-                        🔽
-                      </button>
-                      <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleCaptionResize('bigger')
-                        }}
-                        className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                        title="Aumentar fonte"
-                      >
-                        🔼
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Indicadores de Drag */}
-                  <div className="absolute top-1 right-1 text-white text-xs opacity-70">
-                    {captionOverlay.isDragging ? '👆 Arrastando' : '👆 Duplo-clique para editar'}
+                {/* Controles de Redimensionamento */}
+                {captionOverlay.isDragging && (
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleCaptionResize('smaller')
+                      }}
+                      className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                      title="Diminuir fonte"
+                    >
+                      🔽
+                    </button>
+                    <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleCaptionResize('bigger')
+                      }}
+                      className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                      title="Aumentar fonte"
+                    >
+                      🔼
+                    </button>
                   </div>
+                )}
+
+                {/* Indicadores de Drag */}
+                <div className="absolute -top-5 -right-2 text-white text-xs opacity-70 pointer-events-none">
+                  {captionOverlay.isDragging ? '👆' : '✏️'}
                 </div>
               </div>
             )}
