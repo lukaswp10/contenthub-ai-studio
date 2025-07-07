@@ -2228,7 +2228,7 @@ const VideoEditorPage: React.FC = () => {
                 const canDrag = canDragCaption
                 return (
                   <div 
-                    className={`absolute z-50 inline-block select-none ${
+                    className={`group absolute z-50 inline-block select-none ${
                       !canDrag ? 'cursor-not-allowed opacity-60' : 
                       captionOverlay.isDragging ? 'cursor-grabbing' : 'cursor-grab'
                     }`}
@@ -2276,8 +2276,11 @@ const VideoEditorPage: React.FC = () => {
                       ))}
                   </div>
 
-                  {/* ✅ CONTROLES REORGANIZADOS - LAYOUT HORIZONTAL MELHORADO */}
-                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg px-3 py-2 shadow-lg border border-gray-600">
+                  {/* ✅ CONTROLES REORGANIZADOS - APARECEM APENAS NO HOVER */}
+                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg px-3 py-2 shadow-lg border border-gray-600
+                                  opacity-0 group-hover:opacity-100 
+                                  transition-opacity duration-200 
+                                  pointer-events-none group-hover:pointer-events-auto">
                     <div className="flex items-center space-x-3">
                       {/* Status compacto */}
                       <span className={`text-sm ${canDrag ? 'text-green-400' : 'text-red-400'}`} title={canDrag ? 'Arraste ativo' : 'Trave o aspect ratio do player'}>
@@ -2350,8 +2353,9 @@ const VideoEditorPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Indicadores de Drag */}
-                  <div className="absolute -top-5 -right-2 text-white text-xs opacity-70 pointer-events-none">
+                  {/* Indicadores de Drag - Aparecem apenas no hover */}
+                  <div className="absolute -top-5 -right-2 text-white text-xs opacity-0 group-hover:opacity-70 
+                                  transition-opacity duration-200 pointer-events-none">
                     {captionOverlay.isDragging ? '👆' : '✏️'}
                   </div>
                 </div>
