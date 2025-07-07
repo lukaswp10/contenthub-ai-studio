@@ -142,14 +142,21 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
       // Tentar Edge Function primeiro
       try {
         setTranscriptionStatus('🎤 Tentando Edge Function...')
+        console.log('🔍 DEBUG: Iniciando Edge Function...')
         
         // Preparar FormData
         const formData = new FormData()
         formData.append('file', fileToTranscribe)
+        console.log('🔍 DEBUG: FormData preparado, arquivo:', fileToTranscribe.name, fileToTranscribe.size, 'bytes')
 
         // Obter token de autenticação
+        console.log('🔍 DEBUG: Obtendo sessão do Supabase...')
         const { data: { session } } = await supabase.auth.getSession()
+        console.log('🔍 DEBUG: Sessão obtida:', session ? 'Usuário logado' : 'Usuário não logado')
+        console.log('🔍 DEBUG: Access token:', session?.access_token ? session.access_token.substring(0, 20) + '...' : 'undefined')
+        
         if (!session) {
+          console.error('❌ DEBUG: Usuário não está autenticado!')
           throw new Error('Usuário não autenticado')
         }
 
@@ -157,6 +164,9 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
 
         // Chamar Edge Function
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        console.log('🔍 DEBUG: Supabase URL:', supabaseUrl)
+        console.log('🔍 DEBUG: Chamando Edge Function...')
+        
         const response = await fetch(`${supabaseUrl}/functions/v1/transcribe`, {
           method: 'POST',
           headers: {
@@ -165,8 +175,14 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
           body: formData
         })
 
+        console.log('🔍 DEBUG: Edge Function response status:', response.status)
+        console.log('🔍 DEBUG: Edge Function response headers:', Object.fromEntries(response.headers.entries()))
+
         if (!response.ok) {
-          throw new Error(`Edge Function falhou: ${response.status}`)
+          const errorText = await response.text()
+          console.error('❌ DEBUG: Edge Function falhou!')
+          console.error('🔍 DEBUG: Response body:', errorText)
+          throw new Error(`Edge Function falhou: ${response.status} - ${errorText}`)
         }
 
         const result = await response.json()
@@ -197,6 +213,10 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         return
 
       } catch (edgeFunctionError) {
+        console.error('❌ DEBUG: Edge Function FALHOU completamente!')
+        console.error('🔍 DEBUG: Erro da Edge Function:', edgeFunctionError)
+        console.error('🔍 DEBUG: Tipo do erro:', typeof edgeFunctionError)
+        console.error('🔍 DEBUG: Message:', edgeFunctionError instanceof Error ? edgeFunctionError.message : 'Erro desconhecido')
         console.warn('⚠️ Edge Function falhou, usando fallback:', edgeFunctionError)
         setTranscriptionStatus('🔄 Usando sistema de fallback...')
       }
@@ -204,14 +224,23 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
       // Fallback: usar transcriptionService existente com API key robusta
       setTranscriptionStatus('🔑 Configurando API key...')
       
-      // Obter API key de variáveis de ambiente
+      // Obter API key de variáveis de ambiente com logs detalhados
+      console.log('🔍 DEBUG: Todas as variáveis VITE:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')))
+      console.log('🔍 DEBUG: VITE_OPENAI_API_KEY raw:', import.meta.env.VITE_OPENAI_API_KEY)
+      console.log('🔍 DEBUG: VITE_OPENAI_API_KEY length:', import.meta.env.VITE_OPENAI_API_KEY?.length || 'undefined')
+      console.log('🔍 DEBUG: VITE_OPENAI_API_KEY type:', typeof import.meta.env.VITE_OPENAI_API_KEY)
+      
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY
       
       if (!apiKey || apiKey === '') {
-        throw new Error('🔑 API Key do OpenAI não configurada!\n\nConfigure no arquivo .env.local:\nVITE_OPENAI_API_KEY=sua_api_key_aqui')
+        console.error('❌ DEBUG: API Key está vazia ou undefined!')
+        console.log('🔍 DEBUG: Variáveis disponíveis:', import.meta.env)
+        throw new Error('🔑 API Key do OpenAI não configurada!\n\nProblema: Variável VITE_OPENAI_API_KEY não foi carregada pelo Vite.\n\nVerifique:\n1. Arquivo .env.local existe\n2. API key está em linha única\n3. Servidor foi reiniciado')
       }
       
-      console.log('🔑 API Key carregada:', apiKey.substring(0, 20) + '...')
+      console.log('✅ DEBUG: API Key carregada com sucesso')
+      console.log('🔑 DEBUG: API Key preview:', apiKey.substring(0, 20) + '...' + apiKey.substring(apiKey.length - 10))
+      console.log('🔑 DEBUG: API Key length:', apiKey.length)
       transcriptionService.setOpenAIApiKey(apiKey)
 
       setTranscriptionStatus('🎤 Usando OpenAI Whisper direto...')
