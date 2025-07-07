@@ -18,6 +18,7 @@ import {
   FolderOpen, Star, Clock, Calendar, Search, Filter, Grid, List, Edit3, 
   Heart, Tag, Archive, FileVideo, Bookmark
 } from 'lucide-react'
+import IntegratedTimeline from '../../components/VideoEditor/timeline/IntegratedTimeline'
 
 // ===== INTERFACES =====
 interface VideoLocationState {
@@ -2930,152 +2931,30 @@ const VideoEditorPage: React.FC = () => {
               </>
             )}
             
-            {/* Timeline Avançada com Sistema de Corte */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
-              {/* Controles de Corte */}
-              {activeTool === 'cut' && (
-                <div className="flex items-center justify-center space-x-2 mb-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSetInPoint}
-                    className="bg-green-600 hover:bg-green-700 text-white text-xs"
-                    title="Definir ponto de entrada (I)"
-                  >
-                    <CornerUpLeft size={12} className="mr-1" />
-                    Entrada
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSetOutPoint}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs"
-                    title="Definir ponto de saída (O)"
-                  >
-                    <CornerUpRight size={12} className="mr-1" />
-                    Saída
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSplitAtCurrentTime}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                    title="Dividir aqui (S)"
-                  >
-                    <Split size={12} className="mr-1" />
-                    Dividir
-                  </Button>
-                  
-                  {inPoint !== null && outPoint !== null && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCreateCut}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs animate-pulse"
-                      title="Criar corte selecionado"
-                    >
-                      <Scissors size={12} className="mr-1" />
-                      Cortar
-                    </Button>
-                  )}
-                </div>
-              )}
-              
-              {/* Timeline Principal */}
-              <div className="flex items-center space-x-2">
-                <span className="text-white text-xs font-mono w-12 text-center">
-                  {formatTime(currentTime)}
-                </span>
-                
-                <div className="flex-1 relative">
-                  {/* Fundo da timeline */}
-                  <div className="bg-gray-600 rounded-full h-2 relative">
-                    {/* Barra de progresso */}
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-100 relative z-10"
-                      style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                    ></div>
-                    
-                    {/* Segmentos de corte */}
-                    {cutSegments.map(segment => (
-                      <div
-                        key={segment.id}
-                        className={`absolute top-0 h-2 rounded-full opacity-70 cursor-pointer hover:opacity-90 transition-opacity ${
-                          segment.selected ? 'ring-2 ring-white' : ''
-                        }`}
-                        style={{
-                          left: `${getTimelinePosition(segment.start)}%`,
-                          width: `${getTimelinePosition(segment.end - segment.start)}%`,
-                          backgroundColor: segment.color
-                        }}
-                        onClick={() => handleJumpToSegment(segment)}
-                        title={`${segment.name} (${formatTime(segment.start)} - ${formatTime(segment.end)})`}
-                      />
-                    ))}
-                    
-                    {/* Marcadores de entrada/saída */}
-                    {inPoint !== null && (
-                      <div
-                        className="absolute top-0 w-1 h-4 bg-green-500 rounded-full z-20"
-                        style={{ left: `${getTimelinePosition(inPoint)}%` }}
-                        title={`Entrada: ${formatTime(inPoint)}`}
-                      />
-                    )}
-                    
-                    {outPoint !== null && (
-                      <div
-                        className="absolute top-0 w-1 h-4 bg-red-500 rounded-full z-20"
-                        style={{ left: `${getTimelinePosition(outPoint)}%` }}
-                        title={`Saída: ${formatTime(outPoint)}`}
-                      />
-                    )}
-                    
-                    {/* Área de seleção */}
-                    {inPoint !== null && outPoint !== null && (
-                      <div
-                        className="absolute top-0 h-2 bg-yellow-400 opacity-30 rounded-full z-10"
-                        style={{
-                          left: `${getTimelinePosition(Math.min(inPoint, outPoint))}%`,
-                          width: `${getTimelinePosition(Math.abs(outPoint - inPoint))}%`
-                        }}
-                      />
-                    )}
-                    
-                    {/* Controle de arrasto */}
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration}
-                      value={currentTime}
-                      onChange={(e) => handleSeek(parseFloat(e.target.value))}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
-                      title="Arrastar para navegar"
-                    />
-                  </div>
-                  
-                  {/* Indicadores de tempo */}
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>0:00</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                </div>
-                
-                <span className="text-white text-xs font-mono w-12 text-center">
-                  {formatTime(duration)}
-                </span>
-              </div>
-              
-              {/* Informações do segmento atual */}
-              {selectedSegment && (
-                <div className="text-center mt-2">
-                  <div className="text-xs text-gray-300">
-                    Segmento selecionado: {cutSegments.find(s => s.id === selectedSegment)?.name}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Timeline Profissional Integrada */}
+            <IntegratedTimeline
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              onPlay={handlePlay}
+              onPause={handlePause}
+              onStop={handleStop}
+              onSeek={handleSeek}
+              cutSegments={cutSegments}
+              inPoint={inPoint}
+              outPoint={outPoint}
+              selectedSegment={selectedSegment}
+              activeTool={activeTool}
+              onSetInPoint={handleSetInPoint}
+              onSetOutPoint={handleSetOutPoint}
+              onSplitAtCurrentTime={handleSplitAtCurrentTime}
+              onCreateCut={handleCreateCut}
+              onUndoCut={handleUndoCut}
+              onJumpToSegment={handleJumpToSegment}
+              formatTime={formatTime}
+              getTimelinePosition={getTimelinePosition}
+              cutHistory={cutHistory}
+            />
           </div>
         </div>
         
