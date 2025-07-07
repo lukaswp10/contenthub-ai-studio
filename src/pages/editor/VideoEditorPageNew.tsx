@@ -221,6 +221,18 @@ const VideoEditorPage: React.FC = () => {
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false)
   const [captionProgress, setCaptionProgress] = useState('')
 
+  // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
+  const [playerDimensions, setPlayerDimensions] = useState({
+    width: 800,
+    height: 450,
+    aspectRatio: 16/9,
+    lockAspectRatio: true
+  })
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeHandle, setResizeHandle] = useState<'ne' | 'nw' | 'se' | 'sw' | 'n' | 's' | 'e' | 'w' | null>(null)
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
+  const [resizeStartDimensions, setResizeStartDimensions] = useState({ width: 0, height: 0 })
+
   // ===== HANDLERS DO PLAYER =====
   const handlePlay = useCallback(() => {
     if (videoRef.current) {
@@ -289,6 +301,110 @@ const VideoEditorPage: React.FC = () => {
       setMuted(!muted)
     }
   }, [muted])
+
+  // ===== HANDLERS DO PLAYER REDIMENSIONÁVEL =====
+  const handleResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    setIsResizing(true)
+    setResizeHandle(handle as any)
+    setResizeStartPos({ x: e.clientX, y: e.clientY })
+    setResizeStartDimensions({ 
+      width: playerDimensions.width, 
+      height: playerDimensions.height 
+    })
+    
+    // Adicionar listeners globais
+    document.addEventListener('mousemove', handleResizeMove)
+    document.addEventListener('mouseup', handleResizeEnd)
+    document.body.style.cursor = `${handle}-resize`
+    document.body.style.userSelect = 'none'
+  }, [playerDimensions])
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing || !resizeHandle) return
+
+    const deltaX = e.clientX - resizeStartPos.x
+    const deltaY = e.clientY - resizeStartPos.y
+    
+    let newWidth = resizeStartDimensions.width
+    let newHeight = resizeStartDimensions.height
+
+    // Calcular novas dimensões baseado no handle
+    if (resizeHandle.includes('e')) newWidth = Math.max(200, resizeStartDimensions.width + deltaX)
+    if (resizeHandle.includes('w')) newWidth = Math.max(200, resizeStartDimensions.width - deltaX)
+    if (resizeHandle.includes('s')) newHeight = Math.max(150, resizeStartDimensions.height + deltaY)
+    if (resizeHandle.includes('n')) newHeight = Math.max(150, resizeStartDimensions.height - deltaY)
+
+    // Manter aspect ratio se ativo
+    if (playerDimensions.lockAspectRatio) {
+      const aspectRatio = playerDimensions.aspectRatio
+      if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
+        newHeight = newWidth / aspectRatio
+      } else if (resizeHandle.includes('n') || resizeHandle.includes('s')) {
+        newWidth = newHeight * aspectRatio
+      } else {
+        // Para handles de canto, usar a maior mudança
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          newHeight = newWidth / aspectRatio
+        } else {
+          newWidth = newHeight * aspectRatio
+        }
+      }
+    }
+
+    // Limitar dimensões máximas (90% da tela)
+    const maxWidth = window.innerWidth * 0.9
+    const maxHeight = window.innerHeight * 0.9
+    
+    if (newWidth > maxWidth) {
+      newWidth = maxWidth
+      if (playerDimensions.lockAspectRatio) {
+        newHeight = newWidth / playerDimensions.aspectRatio
+      }
+    }
+    
+    if (newHeight > maxHeight) {
+      newHeight = maxHeight
+      if (playerDimensions.lockAspectRatio) {
+        newWidth = newHeight * playerDimensions.aspectRatio
+      }
+    }
+
+    setPlayerDimensions(prev => ({
+      ...prev,
+      width: Math.round(newWidth),
+      height: Math.round(newHeight)
+    }))
+  }, [isResizing, resizeHandle, resizeStartPos, resizeStartDimensions, playerDimensions])
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false)
+    setResizeHandle(null)
+    
+    // Remover listeners globais
+    document.removeEventListener('mousemove', handleResizeMove)
+    document.removeEventListener('mouseup', handleResizeEnd)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }, [handleResizeMove])
+
+  const handleAspectRatioToggle = useCallback(() => {
+    setPlayerDimensions(prev => ({
+      ...prev,
+      lockAspectRatio: !prev.lockAspectRatio
+    }))
+  }, [])
+
+  const handleResetPlayerSize = useCallback(() => {
+    setPlayerDimensions({
+      width: 800,
+      height: 450,
+      aspectRatio: 16/9,
+      lockAspectRatio: true
+    })
+  }, [])
   
   // ===== HANDLERS DOS PAINÉIS =====
   const handlePanelToggle = useCallback((panel: typeof activePanel) => {
@@ -1192,6 +1308,17 @@ const VideoEditorPage: React.FC = () => {
     }
   }, [isRecording, isPaused])
   
+  // Cleanup de resize listeners
+  useEffect(() => {
+    return () => {
+      // Limpar listeners de redimensionamento ao desmontar
+      document.removeEventListener('mousemove', handleResizeMove)
+      document.removeEventListener('mouseup', handleResizeEnd)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [handleResizeMove, handleResizeEnd])
+
   // Cleanup de streams
   useEffect(() => {
     return () => {
@@ -1560,16 +1687,113 @@ const VideoEditorPage: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Área Principal */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Player */}
-          <div className="flex-1 bg-black flex items-center justify-center relative">
-            <video
-              ref={videoRef}
-              src={videoData.url}
-              className="w-full h-full object-contain"
-              controls={false}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-            />
+          {/* Player Redimensionável */}
+          <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
+            {/* Container do Player com Handles */}
+            <div 
+              className={`relative ${isResizing ? 'shadow-2xl' : 'shadow-lg'} transition-shadow duration-200`}
+              style={{
+                width: `${playerDimensions.width}px`,
+                height: `${playerDimensions.height}px`,
+                border: isResizing ? '2px solid #3b82f6' : '1px solid #374151',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Video Element */}
+              <video
+                ref={videoRef}
+                src={videoData.url}
+                className="w-full h-full object-contain bg-black"
+                controls={false}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+              />
+
+              {/* Resize Handles */}
+              {!isResizing && (
+                <>
+                  {/* Corner Handles */}
+                  <div
+                    className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-nw-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'nw')}
+                    title="Redimensionar (canto superior esquerdo)"
+                  />
+                  <div
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-ne-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'ne')}
+                    title="Redimensionar (canto superior direito)"
+                  />
+                  <div
+                    className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-sw-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'sw')}
+                    title="Redimensionar (canto inferior esquerdo)"
+                  />
+                  <div
+                    className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-se-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'se')}
+                    title="Redimensionar (canto inferior direito)"
+                  />
+
+                  {/* Edge Handles */}
+                  <div
+                    className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-6 h-3 bg-blue-500 border border-white rounded cursor-n-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'n')}
+                    title="Redimensionar altura (topo)"
+                  />
+                  <div
+                    className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-3 bg-blue-500 border border-white rounded cursor-s-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 's')}
+                    title="Redimensionar altura (baixo)"
+                  />
+                  <div
+                    className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-3 h-6 bg-blue-500 border border-white rounded cursor-w-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'w')}
+                    title="Redimensionar largura (esquerda)"
+                  />
+                  <div
+                    className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-3 h-6 bg-blue-500 border border-white rounded cursor-e-resize hover:bg-blue-600 transition-colors"
+                    onMouseDown={(e) => handleResizeStart(e, 'e')}
+                    title="Redimensionar largura (direita)"
+                  />
+                </>
+              )}
+
+              {/* Info de Dimensões */}
+              {isResizing && (
+                <div className="absolute top-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                  {playerDimensions.width} × {playerDimensions.height}
+                  {playerDimensions.lockAspectRatio && ' (🔒)'}
+                </div>
+              )}
+            </div>
+
+            {/* Controles de Player */}
+            <div className="absolute top-4 right-4 flex items-center space-x-2 bg-black/50 backdrop-blur-sm rounded-lg p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAspectRatioToggle}
+                className={`text-white hover:bg-white/20 ${playerDimensions.lockAspectRatio ? 'bg-blue-600' : ''}`}
+                title={`${playerDimensions.lockAspectRatio ? 'Desbloquear' : 'Bloquear'} proporção`}
+              >
+                {playerDimensions.lockAspectRatio ? '🔒' : '🔓'}
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetPlayerSize}
+                className="text-white hover:bg-white/20"
+                title="Resetar tamanho padrão"
+              >
+                📐
+              </Button>
+              
+              <div className="text-white text-xs">
+                {playerDimensions.width}×{playerDimensions.height}
+              </div>
+            </div>
             
             {/* Canvas invisível para geração de thumbnails */}
             <canvas
