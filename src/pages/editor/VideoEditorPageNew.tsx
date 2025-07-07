@@ -1011,8 +1011,10 @@ const VideoEditorPage: React.FC = () => {
       // Atualizar estado com as palavras transcritas
       setTranscriptionWords(result.words)
       
-      // Mostrar resultado
-      alert(`✅ Legenda gerada com sucesso!\n\n📊 Estatísticas:\n• ${result.words.length} palavras detectadas\n• ${result.segments?.length || 0} segmentos\n• Idioma: ${result.language}\n• Confiança: ${(result.confidence * 100).toFixed(1)}%\n• Texto: "${result.text.substring(0, 100)}..."\n\n🎯 As legendas foram carregadas no editor!`)
+      // Log silencioso de sucesso (sem pop-up)
+      logger.log('✅ Legenda gerada com sucesso!')
+      logger.log(`📊 Estatísticas: ${result.words.length} palavras, ${result.segments?.length || 0} segmentos`)
+      logger.log(`🎯 Idioma: ${result.language}, Confiança: ${(result.confidence * 100).toFixed(1)}%`)
       
     } catch (error) {
       logger.error('❌ Erro ao gerar legenda:', error)
