@@ -221,108 +221,118 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         </div>
       )}
       
-      {/* ===== TIMELINE PROFISSIONAL ===== */}
-      <div className="p-4 space-y-3">
-        {/* Header com controles */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {/* Controles de reprodução */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onStop}
-              className="text-white hover:bg-gray-700"
-              title="Parar"
-            >
-              <Square size={14} />
-            </Button>
+      {/* ===== TIMELINE PROFISSIONAL - DESIGN MELHORADO ===== */}
+      <div className="p-6 space-y-4 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl">
+        {/* Header com controles - VISUAL MELHORADO */}
+        <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-4 rounded-xl border border-gray-600 shadow-lg">
+          <div className="flex items-center space-x-4">
+            {/* Controles de reprodução - MELHORADOS */}
+            <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onStop}
+                className="text-white hover:bg-red-600 bg-red-700 px-3 py-2 rounded transition-all"
+                title="Parar"
+              >
+                <Square size={16} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSeek(Math.max(0, currentTime - 10))}
+                className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
+                title="Voltar 10s"
+              >
+                <SkipBack size={16} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={isPlaying ? onPause : onPlay}
+                className={`text-white hover:brightness-110 px-4 py-2 rounded-lg transition-all shadow-lg ${
+                  isPlaying ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-blue-600 to-blue-500'
+                }`}
+                title={isPlaying ? "Pausar" : "Reproduzir"}
+              >
+                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                <span className="ml-2 text-sm font-medium">{isPlaying ? "Pause" : "Play"}</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+                className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
+                title="Avançar 10s"
+              >
+                <SkipForward size={16} />
+              </Button>
+            </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSeek(Math.max(0, currentTime - 10))}
-              className="text-white hover:bg-gray-700"
-              title="Voltar 10s"
-            >
-              <SkipBack size={14} />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={isPlaying ? onPause : onPlay}
-              className={`text-white hover:bg-gray-700 ${isPlaying ? 'bg-green-600' : 'bg-blue-600'}`}
-              title={isPlaying ? "Pausar" : "Reproduzir"}
-            >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSeek(Math.min(duration, currentTime + 10))}
-              className="text-white hover:bg-gray-700"
-              title="Avançar 10s"
-            >
-              <SkipForward size={14} />
-            </Button>
-            
-            {/* Tempo atual */}
-            <div className="bg-gray-800 px-2 py-1 rounded text-white text-xs font-mono">
-              {formatTime(currentTime)}
+            {/* Tempo atual - MELHORADO */}
+            <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-4 py-3 rounded-lg text-white text-sm font-mono border border-gray-600 shadow-inner">
+              <span className="text-blue-300">{formatTime(currentTime)}</span>
+              <span className="text-gray-400 mx-2">/</span>
+              <span className="text-gray-300">{formatTime(duration)}</span>
             </div>
           </div>
           
-          {/* Controles de zoom */}
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleZoomOut}
-              className="text-white hover:bg-gray-700"
-              title="Zoom Out"
-            >
-              <ZoomOut size={14} />
-            </Button>
-            
-            <div className="bg-gray-800 px-2 py-1 rounded text-white text-xs font-mono min-w-[60px] text-center">
-              {zoom}%
+          {/* Controles de zoom - MELHORADOS */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-2 border border-gray-600">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleZoomOut}
+                className="text-white hover:bg-gray-600 p-2 rounded transition-all"
+                title="Zoom Out"
+              >
+                <ZoomOut size={16} />
+              </Button>
+              
+              <div className="bg-gray-700 px-4 py-2 rounded text-white text-sm font-mono min-w-[80px] text-center border border-gray-600">
+                {zoom}%
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleZoomIn}
+                className="text-white hover:bg-gray-600 p-2 rounded transition-all"
+                title="Zoom In"
+              >
+                <ZoomIn size={16} />
+              </Button>
             </div>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleZoomIn}
-              className="text-white hover:bg-gray-700"
-              title="Zoom In"
-            >
-              <ZoomIn size={14} />
-            </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={handleZoomReset}
-              className="text-white hover:bg-gray-700 text-xs"
+              className="text-white hover:bg-gray-600 bg-gray-700 px-4 py-2 rounded-lg transition-all border border-gray-600"
               title="Reset Zoom"
             >
-              100%
+              Reset
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
-              className="text-white hover:bg-gray-700 text-xs"
+              className="text-white hover:bg-purple-600 bg-gradient-to-r from-purple-700 to-purple-600 px-4 py-2 rounded-lg transition-all shadow-lg border border-purple-500"
               title={isTimelineExpanded ? "Comprimir Timeline" : "Expandir Timeline"}
             >
-              {isTimelineExpanded ? "📐" : "🔍"}
+              {isTimelineExpanded ? <CornerUpRight size={16} /> : <CornerUpLeft size={16} />}
+              <span className="ml-2 text-sm font-medium">{isTimelineExpanded ? "Compact" : "Expand"}</span>
             </Button>
           </div>
         </div>
         
-        {/* Ruler */}
-        <div className="relative h-6 bg-gray-800 rounded overflow-hidden">
+        {/* Ruler - MELHORADO */}
+        <div className="relative h-10 bg-gradient-to-r from-gray-700 to-gray-600 rounded-lg overflow-hidden border border-gray-600 shadow-inner">
           <div 
             className="absolute top-0 left-0 h-full flex items-end"
             style={{ width: `${zoom}%` }}
@@ -333,9 +343,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 className="absolute flex flex-col items-center"
                 style={{ left: mark.position }}
               >
-                <div className={`w-px bg-gray-400 ${mark.isMajor ? 'h-4' : 'h-2'}`} />
+                <div className={`w-px bg-gray-300 ${mark.isMajor ? 'h-6' : 'h-3'} shadow-sm`} />
                 {mark.isMajor && (
-                  <span className="text-xs text-gray-300 mt-1" style={{ fontSize: '10px' }}>
+                  <span className="text-xs text-gray-200 mt-1 font-mono bg-gray-800/50 px-1 rounded" style={{ fontSize: '11px' }}>
                     {mark.label}
                   </span>
                 )}
@@ -344,8 +354,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
-        {/* Timeline Principal */}
-        <div className={`relative ${isTimelineExpanded ? 'h-32' : 'h-16'} bg-gray-800 rounded overflow-hidden cursor-pointer`}>
+        {/* Timeline Principal - ALTURA AUMENTADA */}
+        <div className={`relative ${isTimelineExpanded ? 'h-48' : 'h-24'} bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
           <div 
             ref={timelineRef}
             className="absolute inset-0"
@@ -425,24 +435,39 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
-        {/* Informações da timeline */}
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center space-x-4">
-            <span>Duração: {formatTime(duration)}</span>
-            <span>Zoom: {zoom}%</span>
-            <span>Segmentos: {cutSegments.length}</span>
+        {/* Informações da timeline - MELHORADAS */}
+        <div className="flex items-center justify-between bg-gray-700/30 backdrop-blur px-4 py-3 rounded-lg border border-gray-600 shadow-sm">
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-400 text-sm">Duração:</span>
+              <span className="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{formatTime(duration)}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-400 text-sm">Zoom:</span>
+              <span className="text-blue-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{zoom}%</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-400 text-sm">Segmentos:</span>
+              <span className="text-green-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{cutSegments.length}</span>
+            </div>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
             {selectedSegment && (
-              <span className="text-yellow-400">
-                📌 {cutSegments.find(s => s.id === selectedSegment)?.name}
-              </span>
+              <div className="flex items-center space-x-2 bg-yellow-500/20 border border-yellow-500 px-3 py-2 rounded-lg">
+                <span className="text-yellow-300">📌</span>
+                <span className="text-yellow-200 text-sm font-medium">
+                  {cutSegments.find(s => s.id === selectedSegment)?.name}
+                </span>
+              </div>
             )}
             {inPoint !== null && outPoint !== null && (
-              <span className="text-green-400">
-                ✂️ Seleção: {formatTime(Math.abs(outPoint - inPoint))}
-              </span>
+              <div className="flex items-center space-x-2 bg-green-500/20 border border-green-500 px-3 py-2 rounded-lg">
+                <span className="text-green-300">✂️</span>
+                <span className="text-green-200 text-sm font-medium">
+                  Seleção: {formatTime(Math.abs(outPoint - inPoint))}
+                </span>
+              </div>
             )}
           </div>
         </div>
