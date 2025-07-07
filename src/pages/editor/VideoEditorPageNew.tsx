@@ -939,6 +939,18 @@ const VideoEditorPage: React.FC = () => {
       sessionStorage: sessionStorage.getItem('currentVideoData'),
       locationState: location.state
     })
+
+    // ✅ DEBUG DETALHADO DE VARIÁVEIS DE AMBIENTE
+    console.log('=== AUDITORIA COMPLETA DA API KEY ===')
+    console.log('🔍 Todas as variáveis VITE:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')))
+    console.log('🔍 VITE_OPENAI_API_KEY raw:', import.meta.env.VITE_OPENAI_API_KEY)
+    console.log('🔍 VITE_OPENAI_API_KEY length:', import.meta.env.VITE_OPENAI_API_KEY?.length || 'undefined')
+    console.log('🔍 VITE_OPENAI_API_KEY type:', typeof import.meta.env.VITE_OPENAI_API_KEY)
+    console.log('🔍 VITE_OPENAI_API_KEY primeiro 20 chars:', import.meta.env.VITE_OPENAI_API_KEY?.substring(0, 20) || 'N/A')
+    console.log('🔍 VITE_OPENAI_API_KEY últimos 10 chars:', import.meta.env.VITE_OPENAI_API_KEY?.substring(import.meta.env.VITE_OPENAI_API_KEY.length - 10) || 'N/A')
+    console.log('🔍 Environment mode:', import.meta.env.MODE)
+    console.log('🔍 Environment dev:', import.meta.env.DEV)
+    console.log('======================================')
     
     if (!videoData) {
       // ✅ TENTAR RECUPERAR DADOS UMA ÚLTIMA VEZ
@@ -993,11 +1005,24 @@ const VideoEditorPage: React.FC = () => {
       
       setCaptionProgress('Iniciando transcrição...')
       
-      // ✅ USAR OPENAI WHISPER DIRETO (SEM FALLBACK)
+      // ✅ USAR OPENAI WHISPER DIRETO (COM DEBUG COMPLETO)
       setCaptionProgress('🎯 Conectando com OpenAI Whisper...')
       
-      // API Key hardcoded para funcionamento imediato
+      // API Key com debug completo
       const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
+      
+      console.log('🔍 DEBUG API KEY ANTES DO FETCH:')
+      console.log('- API Key vazia?', OPENAI_API_KEY === '')
+      console.log('- API Key undefined?', OPENAI_API_KEY === undefined)
+      console.log('- API Key tipo:', typeof OPENAI_API_KEY)
+      console.log('- API Key comprimento:', OPENAI_API_KEY.length)
+      console.log('- API Key começa com sk-?', OPENAI_API_KEY.startsWith('sk-'))
+      console.log('- API Key preview:', OPENAI_API_KEY.substring(0, 20) + '...' + OPENAI_API_KEY.substring(OPENAI_API_KEY.length - 10))
+      
+      if (!OPENAI_API_KEY || OPENAI_API_KEY === '') {
+        console.error('❌ API Key está vazia ou undefined!')
+        throw new Error('🔑 API Key do OpenAI não configurada no ambiente!\n\nVariável VITE_OPENAI_API_KEY não foi carregada pelo Vite.\n\nVerifique:\n1. Arquivo .env.local existe e está correto\n2. API key está em linha única\n3. Servidor foi reiniciado após mudanças')
+      }
       
       if (fileToTranscribe.size > 25 * 1024 * 1024) {
         throw new Error('📁 Arquivo muito grande para Whisper (máx 25MB)')
@@ -1012,6 +1037,13 @@ const VideoEditorPage: React.FC = () => {
       formData.append('response_format', 'verbose_json')
       formData.append('timestamp_granularities[]', 'word')
 
+      console.log('🔍 DEBUG ANTES DO FETCH:')
+      console.log('- URL:', 'https://api.openai.com/v1/audio/transcriptions')
+      console.log('- Authorization header:', `Bearer ${OPENAI_API_KEY.substring(0, 20)}...`)
+      console.log('- File size:', fileToTranscribe.size, 'bytes')
+      console.log('- File name:', fileToTranscribe.name)
+      console.log('- File type:', fileToTranscribe.type)
+
       // Chamada direta para OpenAI Whisper API
       const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
@@ -1021,8 +1053,16 @@ const VideoEditorPage: React.FC = () => {
         body: formData
       })
 
+      console.log('🔍 DEBUG RESPOSTA DO FETCH:')
+      console.log('- Response status:', response.status)
+      console.log('- Response ok:', response.ok)
+      console.log('- Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        console.log('🔍 DEBUG ERRO DA API:')
+        console.log('- Error data:', errorData)
+        
         let errorMessage = `OpenAI API Error: ${response.status}`
         
         if (response.status === 401) {
