@@ -297,12 +297,18 @@ const VideoEditorPage: React.FC = () => {
 
   // ===== FUNÇÃO PARA CONVERTER % PARA PIXELS =====
   const getAbsolutePosition = useCallback(() => {
-    // ✅ CORRIGIDO: Usar container do player para posicionamento correto
+    // ✅ ALTERNATIVA 1: Dimensões reais + offset de centralização
+    const realDimensions = getVideoRealDimensions()
+    
+    // Calcular offset para centralizar vídeo no container
+    const offsetX = (playerDimensions.width - realDimensions.width) / 2
+    const offsetY = (playerDimensions.height - realDimensions.height) / 2
+    
     return {
-      x: (captionOverlay.x / 100) * playerDimensions.width,
-      y: (captionOverlay.y / 100) * playerDimensions.height
+      x: offsetX + (captionOverlay.x / 100) * realDimensions.width,
+      y: offsetY + (captionOverlay.y / 100) * realDimensions.height
     }
-  }, [captionOverlay.x, captionOverlay.y, playerDimensions.width, playerDimensions.height])
+  }, [captionOverlay.x, captionOverlay.y, getVideoRealDimensions, playerDimensions.width, playerDimensions.height])
 
   // ===== CONTROLE DE ARRASTE BASEADO NO TRAVAMENTO =====
   const canDragCaption = playerDimensions.lockAspectRatio
@@ -531,9 +537,10 @@ const VideoEditorPage: React.FC = () => {
         const deltaX = e.clientX - savedDragStart.x
         const deltaY = e.clientY - savedDragStart.y
         
-        // ✅ CORRIGIDO: Converter delta de pixels para porcentagem usando container
-        const deltaXPercent = (deltaX / playerDimensions.width) * 100
-        const deltaYPercent = (deltaY / playerDimensions.height) * 100
+        // ✅ ALTERNATIVA 1: Converter delta usando dimensões reais do vídeo
+        const realDimensions = getVideoRealDimensions()
+        const deltaXPercent = (deltaX / realDimensions.width) * 100
+        const deltaYPercent = (deltaY / realDimensions.height) * 100
         
         // ✅ SIMPLIFICADO: Limites simples e funcionais
         const newX = Math.max(0, Math.min(90, savedInitialPos.x + deltaXPercent))
@@ -574,7 +581,7 @@ const VideoEditorPage: React.FC = () => {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [playerDimensions.lockAspectRatio, playerDimensions.width, playerDimensions.height])
+  }, [playerDimensions.lockAspectRatio, playerDimensions.width, playerDimensions.height, getVideoRealDimensions])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
