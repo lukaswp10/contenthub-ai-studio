@@ -455,38 +455,35 @@ const VideoEditorPage: React.FC = () => {
   }, [])
 
   // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS =====
-  const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
-    setCaptionDragStart({ x: e.clientX, y: e.clientY })
-    
-    // Adicionar listeners globais
-    document.addEventListener('mousemove', handleCaptionMouseMove)
-    document.addEventListener('mouseup', handleCaptionMouseUp)
-    document.body.style.cursor = 'grabbing'
-    document.body.style.userSelect = 'none'
-  }, [])
-
   const handleCaptionMouseMove = useCallback((e: MouseEvent) => {
-    if (!captionOverlay.isDragging) return
-    
-    const deltaX = e.clientX - captionDragStart.x
-    const deltaY = e.clientY - captionDragStart.y
-    
-    // Converter para porcentagem baseado no tamanho do player
-    const deltaXPercent = (deltaX / playerDimensions.width) * 100
-    const deltaYPercent = (deltaY / playerDimensions.height) * 100
-    
-    setCaptionOverlay(prev => ({
-      ...prev,
-      x: Math.max(0, Math.min(100 - prev.width, prev.x + deltaXPercent)),
-      y: Math.max(0, Math.min(100 - prev.height, prev.y + deltaYPercent))
-    }))
-    
-    setCaptionDragStart({ x: e.clientX, y: e.clientY })
-  }, [captionOverlay.isDragging, captionDragStart, playerDimensions])
+    // Usar setState funcional para acessar valores atuais
+    setCaptionOverlay(currentOverlay => {
+      if (!currentOverlay.isDragging) return currentOverlay
+      
+      setCaptionDragStart(currentDragStart => {
+        setPlayerDimensions(currentPlayerDimensions => {
+          const deltaX = e.clientX - currentDragStart.x
+          const deltaY = e.clientY - currentDragStart.y
+          
+          // Converter para porcentagem baseado no tamanho do player
+          const deltaXPercent = (deltaX / currentPlayerDimensions.width) * 100
+          const deltaYPercent = (deltaY / currentPlayerDimensions.height) * 100
+          
+          setCaptionOverlay(prev => ({
+            ...prev,
+            x: Math.max(0, Math.min(100 - prev.width, prev.x + deltaXPercent)),
+            y: Math.max(0, Math.min(100 - prev.height, prev.y + deltaYPercent))
+          }))
+          
+          setCaptionDragStart({ x: e.clientX, y: e.clientY })
+          
+          return currentPlayerDimensions
+        })
+        return currentDragStart
+      })
+      return currentOverlay
+    })
+  }, [])
 
   const handleCaptionMouseUp = useCallback(() => {
     setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
@@ -497,6 +494,20 @@ const VideoEditorPage: React.FC = () => {
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
   }, [handleCaptionMouseMove])
+
+  const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
+    setCaptionDragStart({ x: e.clientX, y: e.clientY })
+    
+    // Adicionar listeners globais diretamente
+    document.addEventListener('mousemove', handleCaptionMouseMove)
+    document.addEventListener('mouseup', handleCaptionMouseUp)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+  }, [handleCaptionMouseMove, handleCaptionMouseUp])
 
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -509,14 +520,54 @@ const VideoEditorPage: React.FC = () => {
 
   const handleCaptionEditSave = useCallback(() => {
     if (captionEditingText.trim()) {
-      // Aqui você pode salvar o texto editado
-      // Por enquanto, apenas fechamos o editor
-      logger.log('💾 Texto da legenda editado:', captionEditingText)
+      // ✅ EDITAR REALMENTE O ARRAY transcriptionWords
+      const newText = captionEditingText.trim()
+      const wordsInNewText = newText.split(' ')
+      
+      setTranscriptionWords(prev => {
+        // Encontrar palavras que estão sendo exibidas no tempo atual
+        const currentWords = prev.filter(word => 
+          word.start <= currentTime && currentTime <= word.end
+        )
+        
+        if (currentWords.length === 0) return prev
+        
+        // Pegar tempo de início e fim do segmento atual
+        const segmentStart = Math.min(...currentWords.map(w => w.start))
+        const segmentEnd = Math.max(...currentWords.map(w => w.end))
+        const segmentDuration = segmentEnd - segmentStart
+        
+        // Criar novas palavras distribuindo o tempo
+        const timePerWord = segmentDuration / wordsInNewText.length
+        const newWords = wordsInNewText.map((word, index) => ({
+          text: word,
+          start: segmentStart + (index * timePerWord),
+          end: segmentStart + ((index + 1) * timePerWord),
+          highlight: false // Resetar highlight
+        }))
+        
+        // Substituir palavras antigas pelas novas
+        const updatedWords = prev.filter(word => 
+          !(word.start <= currentTime && currentTime <= word.end)
+        ).concat(newWords)
+        
+        // Ordenar por tempo
+        updatedWords.sort((a, b) => a.start - b.start)
+        
+        logger.log('💾 Legenda editada:', {
+          original: currentWords.map(w => w.text).join(' '),
+          novo: newText,
+          palavrasAntigas: currentWords.length,
+          palavrasNovas: newWords.length
+        })
+        
+        return updatedWords
+      })
     }
     
     setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
     setCaptionEditingText('')
-  }, [captionEditingText, logger])
+  }, [captionEditingText, currentTime, logger])
 
   const handleCaptionEditCancel = useCallback(() => {
     setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
@@ -2012,16 +2063,32 @@ const VideoEditorPage: React.FC = () => {
                   {captionOverlay.isDragging && (
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
                       <button
-                        onClick={() => handleCaptionResize('smaller')}
-                        className="text-white hover:text-blue-400 text-sm"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleCaptionResize('smaller')
+                        }}
+                        className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
                         title="Diminuir fonte"
                       >
                         🔽
                       </button>
-                      <span className="text-white text-xs">{captionOverlay.fontSize}px</span>
+                      <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
                       <button
-                        onClick={() => handleCaptionResize('bigger')}
-                        className="text-white hover:text-blue-400 text-sm"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleCaptionResize('bigger')
+                        }}
+                        className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
                         title="Aumentar fonte"
                       >
                         🔼
@@ -2054,6 +2121,15 @@ const VideoEditorPage: React.FC = () => {
                 <textarea
                   value={captionEditingText}
                   onChange={(e) => setCaptionEditingText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      handleCaptionEditCancel()
+                    } else if (e.key === 'Enter' && e.ctrlKey) {
+                      // Ctrl+Enter para salvar
+                      handleCaptionEditSave()
+                    }
+                    // Enter simples permite quebra de linha
+                  }}
                   className="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none resize-none"
                   rows={3}
                   placeholder="Digite o texto da legenda..."
@@ -2076,7 +2152,7 @@ const VideoEditorPage: React.FC = () => {
                 </div>
                 
                 <div className="text-xs text-gray-400 mt-2">
-                  Enter para quebrar linha • Esc para cancelar
+                  Ctrl+Enter para salvar • Enter para quebrar linha • Esc para cancelar
                 </div>
               </div>
             )}
