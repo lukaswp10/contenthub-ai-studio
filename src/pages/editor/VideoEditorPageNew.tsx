@@ -997,7 +997,7 @@ const VideoEditorPage: React.FC = () => {
       setCaptionProgress('🎯 Conectando com OpenAI Whisper...')
       
       // API Key hardcoded para funcionamento imediato
-      const OPENAI_API_KEY = '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'
+      const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
       
       if (fileToTranscribe.size > 25 * 1024 * 1024) {
         throw new Error('📁 Arquivo muito grande para Whisper (máx 25MB)')

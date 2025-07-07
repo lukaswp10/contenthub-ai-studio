@@ -205,7 +205,7 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
       setTranscriptionStatus('🔑 Configurando API key...')
       
       // Configurar API key diretamente no transcriptionService
-      transcriptionService.setOpenAIApiKey('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')
+      transcriptionService.setOpenAIApiKey(import.meta.env.VITE_OPENAI_API_KEY || '')
 
       setTranscriptionStatus('🎤 Usando OpenAI Whisper direto...')
 

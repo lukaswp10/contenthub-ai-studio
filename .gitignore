@@ -48,3 +48,4 @@ ehthumbs.db
 *.seed
 *.pid.lock
 .vercel
+.env.local
