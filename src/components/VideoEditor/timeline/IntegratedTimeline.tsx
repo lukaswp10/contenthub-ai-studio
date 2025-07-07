@@ -103,8 +103,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== ESTADO PARA SEGMENTO REDIMENSIONÁVEL =====
   const [activeSegment, setActiveSegment] = useState({
-    start: 0,
-    end: duration || 0
+    start: duration * 0.25, // Começa em 25% do vídeo
+    end: duration * 0.75     // Termina em 75% do vídeo
   })
   const [dragType, setDragType] = useState<'start' | 'end' | 'move' | 'seek' | null>(null)
   const [dragStartX, setDragStartX] = useState(0)
@@ -262,10 +262,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== EFEITO PARA ATUALIZAR SEGMENTO COM DURAÇÃO =====
   useEffect(() => {
-    if (duration > 0 && activeSegment.end === 0) {
-      setActiveSegment(prev => ({ ...prev, end: duration }))
+    if (duration > 0 && (activeSegment.start === 0 && activeSegment.end === 0)) {
+      setActiveSegment({
+        start: duration * 0.25, // 25% do início
+        end: duration * 0.75     // 75% do fim
+      })
     }
-  }, [duration, activeSegment.end])
+  }, [duration, activeSegment.start, activeSegment.end])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
@@ -614,8 +617,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               
               {/* Área não selecionada do início */}
               <div 
-                className="absolute top-0 left-0 h-full bg-gray-500 rounded-l-full"
+                className="absolute top-0 left-0 h-full bg-gray-800 rounded-l-full cursor-pointer"
                 style={{ width: `${duration > 0 ? (activeSegment.start / duration) * 100 : 0}%` }}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = e.clientX - rect.left
+                  const percentage = (x / rect.width) * 100
+                  const newTime = Math.max(0, (percentage / 100) * activeSegment.start)
+                  const segmentDuration = activeSegment.end - activeSegment.start
+                  setActiveSegment({ start: newTime, end: newTime + segmentDuration })
+                }}
+                title="Clique para mover segmento para esta posição"
               />
               
               {/* Segmento AZUL redimensionável */}
@@ -632,21 +644,25 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               >
                 {/* Handle ESQUERDO - Redimensionar início */}
                 <div 
-                  className={`absolute -left-1 top-0 w-2 h-full bg-yellow-400 rounded-l-full cursor-w-resize opacity-80 hover:opacity-100 transition-all ${
-                    dragType === 'start' ? 'bg-yellow-300 scale-110' : ''
+                  className={`absolute -left-2 -top-1 w-4 h-4 bg-yellow-400 border-2 border-white rounded-full cursor-w-resize hover:bg-yellow-300 transition-all shadow-lg ${
+                    dragType === 'start' ? 'bg-yellow-300 scale-125 shadow-xl' : 'hover:scale-110'
                   }`}
                   onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'start')}
-                  title="Arraste para ajustar início"
-                />
+                  title="◄ Arraste para ajustar início do segmento"
+                >
+                  <div className="absolute inset-0 bg-yellow-500/30 rounded-full animate-ping opacity-75"></div>
+                </div>
                 
                 {/* Handle DIREITO - Redimensionar fim */}
                 <div 
-                  className={`absolute -right-1 top-0 w-2 h-full bg-yellow-400 rounded-r-full cursor-e-resize opacity-80 hover:opacity-100 transition-all ${
-                    dragType === 'end' ? 'bg-yellow-300 scale-110' : ''
+                  className={`absolute -right-2 -top-1 w-4 h-4 bg-yellow-400 border-2 border-white rounded-full cursor-e-resize hover:bg-yellow-300 transition-all shadow-lg ${
+                    dragType === 'end' ? 'bg-yellow-300 scale-125 shadow-xl' : 'hover:scale-110'
                   }`}
                   onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'end')}
-                  title="Arraste para ajustar fim"
-                />
+                  title="► Arraste para ajustar fim do segmento"
+                >
+                  <div className="absolute inset-0 bg-yellow-500/30 rounded-full animate-ping opacity-75"></div>
+                </div>
                 
                 {/* Indicador visual de drag do segmento */}
                 {dragType === 'move' && (
@@ -656,8 +672,20 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               
               {/* Área não selecionada do fim */}
               <div 
-                className="absolute top-0 right-0 h-full bg-gray-500 rounded-r-full"
+                className="absolute top-0 right-0 h-full bg-gray-800 rounded-r-full cursor-pointer"
                 style={{ width: `${duration > 0 ? ((duration - activeSegment.end) / duration) * 100 : 0}%` }}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = e.clientX - rect.left
+                  const percentage = (x / rect.width) * 100
+                  const segmentDuration = activeSegment.end - activeSegment.start
+                  const newStart = activeSegment.end + ((percentage / 100) * (duration - activeSegment.end)) - segmentDuration
+                  const newEnd = newStart + segmentDuration
+                  if (newEnd <= duration) {
+                    setActiveSegment({ start: Math.max(0, newStart), end: newEnd })
+                  }
+                }}
+                title="Clique para mover segmento para esta posição"
               />
               
               {/* Playhead BRANCO - posição atual */}
