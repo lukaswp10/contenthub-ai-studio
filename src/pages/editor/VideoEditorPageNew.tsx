@@ -239,8 +239,8 @@ const VideoEditorPage: React.FC = () => {
   
   // ===== ESTADO DO OVERLAY DE LEGENDAS ARRASTÁVEIS =====
   const [captionOverlay, setCaptionOverlay] = useState({
-    x: 400, // Posição X em pixels absolutos
-    y: 300, // Posição Y em pixels absolutos
+    x: 400, // Será calculado dinamicamente
+    y: 180, // Posição mais central (será recalculada)
     fontSize: 24,
     isDragging: false,
     isResizing: false,
@@ -248,6 +248,7 @@ const VideoEditorPage: React.FC = () => {
     style: 'tiktok-bold' // Estilo padrão
   })
   const [captionDragStart, setCaptionDragStart] = useState({ x: 0, y: 0 })
+  const [captionInitialPos, setCaptionInitialPos] = useState({ x: 0, y: 0 })
   const [captionEditingText, setCaptionEditingText] = useState('')
 
   // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
@@ -261,6 +262,17 @@ const VideoEditorPage: React.FC = () => {
   const [resizeHandle, setResizeHandle] = useState<'ne' | 'nw' | 'se' | 'sw' | 'n' | 's' | 'e' | 'w' | null>(null)
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
   const [resizeStartDimensions, setResizeStartDimensions] = useState({ width: 0, height: 0 })
+
+  // ===== CENTRALIZAR LEGENDAS QUANDO PLAYER CARREGAR =====
+  useEffect(() => {
+    if (playerDimensions.width > 0 && playerDimensions.height > 0) {
+      setCaptionOverlay(prev => ({
+        ...prev,
+        x: (playerDimensions.width - 200) / 2, // Centro horizontal
+        y: playerDimensions.height * 0.8 // 80% da altura (posição típica de legenda)
+      }))
+    }
+  }, [playerDimensions.width, playerDimensions.height])
 
   // ===== HANDLERS DO PLAYER =====
   const handlePlay = useCallback(() => {
@@ -466,26 +478,26 @@ const VideoEditorPage: React.FC = () => {
 
   // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - VERSÃO CORRIGIDA =====
   
-  // ✅ CORRIGIDO: Handlers simplificados e funcionais
+  // ✅ CORRIGIDO: Handlers com movimento suave
   useEffect(() => {
-    // Handler de movimento simplificado
+    // Handler de movimento suave
     dragHandlersRef.current.move = (e: MouseEvent) => {
       console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
-      // ✅ CORRIGIDO: Usar setState funcional simples
+      // ✅ CORRIGIDO: Usar setState funcional sem atualizar captionDragStart
       setCaptionOverlay(prev => {
         if (!prev.isDragging) {
           console.log('⚠️ Not dragging, ignoring mouse move')
           return prev
         }
         
-        // Calcular delta usando captionDragStart
+        // ✅ CORRIGIDO: Usar posição inicial fixa durante todo o arraste
         const deltaX = e.clientX - captionDragStart.x
         const deltaY = e.clientY - captionDragStart.y
         
-        // Calcular nova posição com limites
-        const newX = Math.max(0, Math.min(playerDimensions.width - 200, prev.x + deltaX))
-        const newY = Math.max(0, Math.min(playerDimensions.height - 60, prev.y + deltaY))
+        // ✅ CORRIGIDO: Calcular nova posição baseada na posição inicial do arraste
+        const newX = Math.max(0, Math.min(playerDimensions.width - 200, captionInitialPos.x + deltaX))
+        const newY = Math.max(0, Math.min(playerDimensions.height - 60, captionInitialPos.y + deltaY))
         
         console.log('📍 New position calculated:', { 
           deltaX, deltaY, 
@@ -500,8 +512,8 @@ const VideoEditorPage: React.FC = () => {
         }
       })
       
-      // Atualizar drag start para próximo movimento
-      setCaptionDragStart({ x: e.clientX, y: e.clientY })
+      // ✅ CORRIGIDO: NÃO atualizar captionDragStart durante movimento
+      // setCaptionDragStart({ x: e.clientX, y: e.clientY }) // ❌ REMOVIDO
     }
     
     // Handler de mouse up simplificado
@@ -519,7 +531,7 @@ const VideoEditorPage: React.FC = () => {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [captionDragStart, playerDimensions])
+  }, [playerDimensions, captionInitialPos]) // ✅ CORRIGIDO: Incluir captionInitialPos nas dependências
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -541,7 +553,11 @@ const VideoEditorPage: React.FC = () => {
     dragHandlersRef.current.abortController = new AbortController()
     
     // Definir estado inicial
-    setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
+    setCaptionOverlay(prev => {
+      // Armazenar posição inicial para cálculo correto do delta
+      setCaptionInitialPos({ x: prev.x, y: prev.y })
+      return { ...prev, isDragging: true }
+    })
     setCaptionDragStart({ x: e.clientX, y: e.clientY })
     
     // Adicionar event listeners
@@ -2263,10 +2279,14 @@ const VideoEditorPage: React.FC = () => {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      setCaptionOverlay(prev => ({ ...prev, x: 400, y: 300 }))
+                      setCaptionOverlay(prev => ({ 
+                        ...prev, 
+                        x: (playerDimensions.width - 200) / 2,
+                        y: playerDimensions.height * 0.8
+                      }))
                     }}
                     className="text-white hover:text-green-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                    title="Resetar posição"
+                    title="Centralizar legenda"
                   >
                     📐
                   </button>
