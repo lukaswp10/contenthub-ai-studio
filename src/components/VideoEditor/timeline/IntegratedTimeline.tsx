@@ -222,7 +222,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       )}
       
       {/* ===== TIMELINE PROFISSIONAL - DESIGN MELHORADO ===== */}
-      <div className="p-4 space-y-3 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl">
+      <div className={`${
+        timelineMode === 'mini' 
+          ? 'p-1 bg-black/80 backdrop-blur border-t border-gray-600' 
+          : 'p-4 space-y-3 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl'
+      }`}>
         {/* Header com controles - VISUAL MELHORADO */}
         {timelineMode !== 'mini' && (
           <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-3 rounded-xl border border-gray-600 shadow-lg">
@@ -387,7 +391,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         
         {/* Timeline Principal - ALTURA RESPONSIVA */}
         <div className={`relative ${
-          timelineMode === 'mini' ? 'h-8' : 
+          timelineMode === 'mini' ? 'h-1' : 
           timelineMode === 'compact' ? 'h-20' : 
           'h-40'
         } bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
@@ -470,28 +474,47 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
-        {/* Controles de Modo no Mini - Simplificados */}
+        {/* Timeline Mini - Layout Profissional Horizontal */}
         {timelineMode === 'mini' && (
-          <div className="flex items-center justify-center">
-            <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1 border border-gray-600">
+          <div className="flex items-center h-5 px-2">
+            {/* Barra de progresso fina */}
+            <div className="flex-1 relative h-1 bg-gray-700 rounded-full mr-3">
+              <div 
+                className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-100"
+                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              />
+              {/* Playhead mini */}
+              <div
+                className="absolute top-0 w-0.5 h-full bg-white rounded-full"
+                style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              />
+            </div>
+            
+            {/* Tempo compacto */}
+            <div className="text-white text-xs font-mono mr-2 opacity-80">
+              {formatTime(currentTime)}/{formatTime(duration)}
+            </div>
+            
+            {/* Botões discretos */}
+            <div className="flex items-center space-x-1">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setTimelineMode('compact')}
-                className="text-white px-3 py-2 rounded transition-all bg-blue-600 hover:bg-blue-700"
-                title="Expandir para Compacta"
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-700 text-xs"
+                title="Timeline Compacta"
               >
-                <span className="text-lg">➕</span>
+                ➕
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setTimelineMode('expanded')}
-                className="text-white px-3 py-2 rounded transition-all bg-purple-600 hover:bg-purple-700"
-                title="Expandir para Completa"
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-700 text-xs"
+                title="Timeline Expandida"
               >
-                <span className="text-lg">⬆️</span>
+                ⬆️
               </Button>
             </div>
           </div>
