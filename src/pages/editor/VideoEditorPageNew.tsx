@@ -530,9 +530,15 @@ const VideoEditorPage: React.FC = () => {
         const deltaXPercent = (deltaX / realDimensions.width) * 100
         const deltaYPercent = (deltaY / realDimensions.height) * 100
         
-        // ✅ NOVO: Calcular nova posição em porcentagem com limites
-        const newX = Math.max(0, Math.min(95, captionInitialPos.x + deltaXPercent))
-        const newY = Math.max(0, Math.min(95, captionInitialPos.y + deltaYPercent))
+        // ✅ CORRIGIDO: Considerar tamanho da legenda e limites mais conservadores
+        const captionWidthPercent = (200 / realDimensions.width) * 100  // ~200px estimado
+        const captionHeightPercent = (60 / realDimensions.height) * 100 // ~60px estimado
+        
+        const maxXPercent = Math.min(85, 100 - captionWidthPercent)
+        const maxYPercent = Math.min(85, 100 - captionHeightPercent)
+        
+        const newX = Math.max(5, Math.min(maxXPercent, captionInitialPos.x + deltaXPercent))
+        const newY = Math.max(5, Math.min(maxYPercent, captionInitialPos.y + deltaYPercent))
         
         console.log('📍 New position calculated (%):', { 
           deltaX, deltaY, 
@@ -2286,64 +2292,78 @@ const VideoEditorPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* ✅ CONTROLES DE REDIMENSIONAMENTO E STATUS - SEMPRE DISPONÍVEIS */}
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
-                  {!canDrag && (
-                    <span className="text-red-400 text-xs">🔓 Trave o player</span>
-                  )}
-                  {canDrag && (
-                    <span className="text-green-400 text-xs">🔒 Arraste ativo</span>
-                  )}
-                  <button
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleCaptionResize('smaller')
-                    }}
-                    className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                    title="Diminuir fonte"
-                  >
-                    🔽
-                  </button>
-                  <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded">{captionOverlay.fontSize}px</span>
-                  <button
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleCaptionResize('bigger')
-                    }}
-                    className="text-white hover:text-blue-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                    title="Aumentar fonte"
-                  >
-                    🔼
-                  </button>
-                  <button
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setCaptionOverlay(prev => ({ 
-                        ...prev, 
-                        x: 50,  // 50% horizontal (centro)
-                        y: 85   // 85% vertical (embaixo)
-                      }))
-                    }}
-                    className="text-white hover:text-green-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
-                    title="Centralizar legenda"
-                  >
-                    📐
-                  </button>
+                {/* ✅ CONTROLES REORGANIZADOS - LAYOUT HORIZONTAL MELHORADO */}
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg px-3 py-2 shadow-lg border border-gray-600">
+                  <div className="flex items-center space-x-3">
+                    {/* Status compacto */}
+                    <span className={`text-sm ${canDrag ? 'text-green-400' : 'text-red-400'}`} title={canDrag ? 'Arraste ativo' : 'Trave o aspect ratio do player'}>
+                      {canDrag ? '🔒' : '🔓'}
+                    </span>
+                    
+                    {/* Separador visual */}
+                    <div className="w-px h-4 bg-gray-600"></div>
+                    
+                    {/* Controles de fonte agrupados */}
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleCaptionResize('smaller')
+                        }}
+                        className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                        title="Diminuir fonte"
+                      >
+                        🔽
+                      </button>
+                      <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded min-w-[35px] text-center">
+                        {captionOverlay.fontSize}px
+                      </span>
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleCaptionResize('bigger')
+                        }}
+                        className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                        title="Aumentar fonte"
+                      >
+                        🔼
+                      </button>
+                    </div>
+                    
+                    {/* Separador visual */}
+                    <div className="w-px h-4 bg-gray-600"></div>
+                    
+                    {/* Reset */}
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setCaptionOverlay(prev => ({ 
+                          ...prev, 
+                          x: 50,  // 50% horizontal (centro)
+                          y: 85   // 85% vertical (embaixo)
+                        }))
+                      }}
+                      className="text-white hover:text-green-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                      title="Centralizar legenda"
+                    >
+                      📐
+                    </button>
+                  </div>
                 </div>
 
                 {/* Indicadores de Drag */}
