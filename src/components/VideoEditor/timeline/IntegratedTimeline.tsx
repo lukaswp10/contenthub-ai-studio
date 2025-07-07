@@ -101,6 +101,15 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const progressBarRef = useRef<HTMLDivElement>(null)
   
+  // ===== ESTADO PARA SEGMENTO REDIMENSIONÁVEL =====
+  const [activeSegment, setActiveSegment] = useState({
+    start: 0,
+    end: duration || 0
+  })
+  const [dragType, setDragType] = useState<'start' | 'end' | 'move' | 'seek' | null>(null)
+  const [dragStartX, setDragStartX] = useState(0)
+  const [dragStartSegment, setDragStartSegment] = useState({ start: 0, end: 0 })
+  
   // ===== ZOOM CONTROLS =====
   const handleZoomIn = useCallback(() => {
     setZoom(prev => Math.min(prev * 1.5, 1600))
@@ -165,6 +174,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   // ===== DRAG & DROP HANDLERS =====
   const handleProgressBarMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true)
+    setDragType('seek')
     
     // Seek imediatamente ao clicar
     if (progressBarRef.current) {
@@ -176,6 +186,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     }
   }, [duration, onSeek])
   
+  // ===== HANDLERS PARA SEGMENTO REDIMENSIONÁVEL =====
+  const handleSegmentHandleMouseDown = useCallback((e: React.MouseEvent, type: 'start' | 'end') => {
+    e.stopPropagation()
+    setIsDragging(true)
+    setDragType(type)
+    setDragStartX(e.clientX)
+    setDragStartSegment({ ...activeSegment })
+  }, [activeSegment])
+  
+  const handleSegmentBodyMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsDragging(true)
+    setDragType('move')
+    setDragStartX(e.clientX)
+    setDragStartSegment({ ...activeSegment })
+  }, [activeSegment])
+  
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !progressBarRef.current) return
     
@@ -184,11 +211,38 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
     const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
     
-    onSeek(newTime)
-  }, [isDragging, duration, onSeek])
+    if (dragType === 'seek') {
+      onSeek(newTime)
+    } else if (dragType === 'start') {
+      const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
+      setActiveSegment(prev => ({ ...prev, start: newStart }))
+    } else if (dragType === 'end') {
+      const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
+      setActiveSegment(prev => ({ ...prev, end: newEnd }))
+    } else if (dragType === 'move') {
+      const deltaX = e.clientX - dragStartX
+      const deltaTime = (deltaX / rect.width) * duration
+      const segmentDuration = dragStartSegment.end - dragStartSegment.start
+      
+      let newStart = dragStartSegment.start + deltaTime
+      let newEnd = dragStartSegment.end + deltaTime
+      
+      // Garantir que não saia dos limites
+      if (newStart < 0) {
+        newStart = 0
+        newEnd = segmentDuration
+      } else if (newEnd > duration) {
+        newEnd = duration
+        newStart = duration - segmentDuration
+      }
+      
+      setActiveSegment({ start: newStart, end: newEnd })
+    }
+  }, [isDragging, duration, onSeek, dragType, activeSegment, dragStartX, dragStartSegment])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
+    setDragType(null)
   }, [])
   
   // ===== EFEITO PARA EVENTOS GLOBAIS =====
@@ -205,6 +259,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       }
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
+  
+  // ===== EFEITO PARA ATUALIZAR SEGMENTO COM DURAÇÃO =====
+  useEffect(() => {
+    if (duration > 0 && activeSegment.end === 0) {
+      setActiveSegment(prev => ({ ...prev, end: duration }))
+    }
+  }, [duration, activeSegment.end])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
@@ -542,61 +603,85 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </Button>
             </div>
             
-            {/* Barra de progresso interativa com DRAG & DROP */}
+            {/* Barra de progresso REDIMENSIONÁVEL - Estilo Opus Clips */}
             <div 
               ref={progressBarRef}
-              className={`flex-1 relative h-2 bg-gray-700 rounded-full transition-colors group ${
-                isDragging ? 'cursor-grabbing' : 'cursor-pointer hover:bg-gray-600'
-              }`}
-              onMouseDown={handleProgressBarMouseDown}
-              onMouseMove={(e) => {
-                if (!isDragging) {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const x = e.clientX - rect.left
-                  const percentage = (x / rect.width) * 100
-                  const hoverTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
-                  e.currentTarget.title = `${isDragging ? 'Arrastando' : 'Clique ou arraste'} para ${formatTime(hoverTime)}`
-                }
-              }}
-              title="Clique ou arraste para navegar"
+              className="flex-1 relative h-2 bg-gray-700 rounded-full transition-colors group cursor-pointer"
+              title="Timeline com segmento redimensionável"
             >
-              {/* Progresso */}
+              {/* Fundo cinza - partes não selecionadas */}
+              <div className="absolute inset-0 bg-gray-600 rounded-full" />
+              
+              {/* Área não selecionada do início */}
               <div 
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-100"
-                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                className="absolute top-0 left-0 h-full bg-gray-500 rounded-l-full"
+                style={{ width: `${duration > 0 ? (activeSegment.start / duration) * 100 : 0}%` }}
               />
               
-              {/* Playhead MELHORADO para drag */}
-              <div
-                className={`absolute top-0 w-3 h-4 bg-white rounded-full shadow-lg transition-all duration-100 ${
-                  isDragging ? 'bg-yellow-300 scale-110' : 'group-hover:bg-yellow-300'
+              {/* Segmento AZUL redimensionável */}
+              <div 
+                className={`absolute top-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-100 ${
+                  dragType === 'move' ? 'cursor-grabbing' : 'cursor-grab'
                 }`}
                 style={{ 
-                  left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
-                  transform: `translateX(-50%) ${isDragging ? 'scale(1.1)' : 'scale(1)'}`
+                  left: `${duration > 0 ? (activeSegment.start / duration) * 100 : 0}%`,
+                  width: `${duration > 0 ? ((activeSegment.end - activeSegment.start) / duration) * 100 : 0}%`
+                }}
+                onMouseDown={handleSegmentBodyMouseDown}
+                title={`Segmento: ${formatTime(activeSegment.start)} - ${formatTime(activeSegment.end)}`}
+              >
+                {/* Handle ESQUERDO - Redimensionar início */}
+                <div 
+                  className={`absolute -left-1 top-0 w-2 h-full bg-yellow-400 rounded-l-full cursor-w-resize opacity-80 hover:opacity-100 transition-all ${
+                    dragType === 'start' ? 'bg-yellow-300 scale-110' : ''
+                  }`}
+                  onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'start')}
+                  title="Arraste para ajustar início"
+                />
+                
+                {/* Handle DIREITO - Redimensionar fim */}
+                <div 
+                  className={`absolute -right-1 top-0 w-2 h-full bg-yellow-400 rounded-r-full cursor-e-resize opacity-80 hover:opacity-100 transition-all ${
+                    dragType === 'end' ? 'bg-yellow-300 scale-110' : ''
+                  }`}
+                  onMouseDown={(e) => handleSegmentHandleMouseDown(e, 'end')}
+                  title="Arraste para ajustar fim"
+                />
+                
+                {/* Indicador visual de drag do segmento */}
+                {dragType === 'move' && (
+                  <div className="absolute inset-0 bg-yellow-300/20 rounded-full animate-pulse" />
+                )}
+              </div>
+              
+              {/* Área não selecionada do fim */}
+              <div 
+                className="absolute top-0 right-0 h-full bg-gray-500 rounded-r-full"
+                style={{ width: `${duration > 0 ? ((duration - activeSegment.end) / duration) * 100 : 0}%` }}
+              />
+              
+              {/* Playhead BRANCO - posição atual */}
+              <div
+                className={`absolute top-0 w-0.5 h-full bg-white shadow-lg transition-all duration-100 z-10 ${
+                  dragType === 'seek' ? 'bg-yellow-300 scale-110' : 'group-hover:bg-yellow-300'
+                }`}
+                style={{ 
+                  left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation()
                   handleProgressBarMouseDown(e)
                 }}
+                title={`Posição atual: ${formatTime(currentTime)}`}
               >
-                {/* Indicador visual de drag */}
-                <div 
-                  className={`absolute -top-1 -left-1 w-5 h-6 rounded-full transition-all duration-100 ${
-                    isDragging ? 'bg-yellow-300/50 scale-110' : 'bg-transparent'
-                  }`}
-                />
+                {/* Indicador circular do playhead */}
+                <div className="absolute -top-1 -left-1 w-2 h-4 bg-white rounded-full shadow-lg" />
               </div>
               
-              {/* Hover indicator melhorado */}
-              <div className={`absolute inset-0 bg-blue-400/20 rounded-full transition-opacity ${
+              {/* Hover indicator geral */}
+              <div className={`absolute inset-0 bg-blue-400/10 rounded-full transition-opacity ${
                 isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`} />
-              
-              {/* Indicador de drag ativo */}
-              {isDragging && (
-                <div className="absolute -top-1 -bottom-1 left-0 right-0 bg-yellow-300/10 rounded-full animate-pulse" />
-              )}
             </div>
             
             {/* Tempo compacto */}
