@@ -79,10 +79,20 @@ A timeline foi **completamente reformulada** com design profissional, melhor usa
 ## 📊 **RESULTADOS TÉCNICOS**
 
 ### **Build Status**
-- ✅ **Compilação**: 11.93s
+- ✅ **Compilação**: 10.41s (melhorada)
 - ✅ **Bundle size**: 1.09MB (estável)
 - ✅ **TypeScript**: 0 erros
 - ✅ **Chunks**: Otimizados
+
+### **CORREÇÃO CRÍTICA - ALTURA DA TIMELINE**
+- 🔧 **Problema**: Timeline tampando o player
+- ✅ **Correção**: Redução conservadora de altura
+- ✅ **Container**: `p-6` → `p-4` (-16px)
+- ✅ **Header**: `p-4` → `p-3` (-8px)
+- ✅ **Timeline**: `h-24` → `h-20` / `h-48` → `h-40` (-16px/-32px)
+- ✅ **Espaçamento**: `space-y-4` → `space-y-3` (-4px)
+- ✅ **Total reduzido**: ~46px
+- ✅ **Visual**: Mantém profissional sem tampar player
 
 ### **Melhorias de UX**
 - ✅ **50% mais altura** na timeline

@@ -222,9 +222,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       )}
       
       {/* ===== TIMELINE PROFISSIONAL - DESIGN MELHORADO ===== */}
-      <div className="p-6 space-y-4 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl">
+      <div className="p-4 space-y-3 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl">
         {/* Header com controles - VISUAL MELHORADO */}
-        <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-4 rounded-xl border border-gray-600 shadow-lg">
+        <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-3 rounded-xl border border-gray-600 shadow-lg">
           <div className="flex items-center space-x-4">
             {/* Controles de reprodução - MELHORADOS */}
             <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
@@ -354,8 +354,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
-        {/* Timeline Principal - ALTURA AUMENTADA */}
-        <div className={`relative ${isTimelineExpanded ? 'h-48' : 'h-24'} bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
+        {/* Timeline Principal - ALTURA OTIMIZADA */}
+        <div className={`relative ${isTimelineExpanded ? 'h-40' : 'h-20'} bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
           <div 
             ref={timelineRef}
             className="absolute inset-0"
