@@ -542,16 +542,33 @@ const VideoEditorPage: React.FC = () => {
         const deltaXPercent = (deltaX / realDimensions.width) * 100
         const deltaYPercent = (deltaY / realDimensions.height) * 100
         
-        // ✅ SIMPLIFICADO: Limites simples e funcionais
-        const newX = Math.max(0, Math.min(90, savedInitialPos.x + deltaXPercent))
-        const newY = Math.max(0, Math.min(90, savedInitialPos.y + deltaYPercent))
+        // ✅ SOLUÇÃO A: Limites dinâmicos baseados no tamanho real da legenda
+        // Calcular texto atual para estimar tamanho
+        const currentText = transcriptionWords
+          .filter(word => word.start <= currentTime && currentTime <= word.end)
+          .map(word => word.text).join(' ')
+        
+        // Estimar dimensões da legenda baseado no conteúdo atual
+        const charWidth = captionOverlay.fontSize * 0.6 // Aproximação: 60% do tamanho da fonte
+        const estimatedWidth = Math.max(100, currentText.length * charWidth + 32) // +32px padding
+        const estimatedHeight = captionOverlay.fontSize + 24 // +24px padding vertical
+        
+        // Calcular limites que garantem que a legenda fique totalmente dentro da área visível
+        const maxXPercent = Math.max(0, ((realDimensions.width - estimatedWidth) / realDimensions.width) * 100)
+        const maxYPercent = Math.max(0, ((realDimensions.height - estimatedHeight) / realDimensions.height) * 100)
+        
+        // Aplicar limites dinâmicos
+        const newX = Math.max(0, Math.min(maxXPercent, savedInitialPos.x + deltaXPercent))
+        const newY = Math.max(0, Math.min(maxYPercent, savedInitialPos.y + deltaYPercent))
         
         console.log('📍 New position calculated (%):', { 
           deltaX, deltaY, 
           deltaXPercent: deltaXPercent.toFixed(1), 
           deltaYPercent: deltaYPercent.toFixed(1),
           oldPos: { x: prev.x, y: prev.y },
-          newPos: { x: newX.toFixed(1), y: newY.toFixed(1) }
+          newPos: { x: newX.toFixed(1), y: newY.toFixed(1) },
+          limits: { maxX: maxXPercent.toFixed(1), maxY: maxYPercent.toFixed(1) },
+          textSize: { text: currentText, width: estimatedWidth.toFixed(0), height: estimatedHeight.toFixed(0) }
         })
         
         return {
@@ -581,7 +598,7 @@ const VideoEditorPage: React.FC = () => {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [playerDimensions.lockAspectRatio, playerDimensions.width, playerDimensions.height, getVideoRealDimensions])
+  }, [playerDimensions.lockAspectRatio, playerDimensions.width, playerDimensions.height, getVideoRealDimensions, transcriptionWords, currentTime, captionOverlay.fontSize])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
