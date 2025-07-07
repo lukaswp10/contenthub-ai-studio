@@ -137,6 +137,7 @@ const VideoEditorPage: React.FC = () => {
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
+  const playerContainerRef = useRef<HTMLDivElement>(null) // ✅ NOVO: Ref para player container
   const audioContextRef = useRef<AudioContext | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -460,12 +461,13 @@ const VideoEditorPage: React.FC = () => {
       const deltaX = e.clientX - captionDragStart.x
       const deltaY = e.clientY - captionDragStart.y
       
-      // ✅ CORRIGIDO: Usar pixels absolutos com limites do player
-      const playerContainer = document.querySelector('.player-container') as HTMLElement
-      if (playerContainer) {
-        const playerRect = playerContainer.getBoundingClientRect()
-        const newX = Math.max(0, Math.min(playerRect.width - 100, currentOverlay.x + deltaX))
-        const newY = Math.max(0, Math.min(playerRect.height - 50, currentOverlay.y + deltaY))
+      // ✅ CORRIGIDO: Usar ref do player e simplificar cálculos
+      if (playerContainerRef.current) {
+        const newX = Math.max(0, Math.min(playerDimensions.width - 200, currentOverlay.x + deltaX))
+        const newY = Math.max(0, Math.min(playerDimensions.height - 60, currentOverlay.y + deltaY))
+        
+        // ✅ DEBUG: Logs temporários
+        console.log('🖱️ Mouse move:', { deltaX, deltaY, newX, newY })
         
         setCaptionDragStart({ x: e.clientX, y: e.clientY })
         
@@ -478,12 +480,15 @@ const VideoEditorPage: React.FC = () => {
       
       return currentOverlay
     })
-  }, [captionDragStart])
+  }, [captionDragStart, playerDimensions])
 
   const handleCaptionMouseUp = useCallback(() => {
+    // ✅ DEBUG: Log de fim do arraste
+    console.log('🎯 Caption mouse up - arraste finalizado')
+    
     setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
     
-    // Remover listeners globais
+    // ✅ MELHORADO: Remover listeners mais robustamente
     document.removeEventListener('mousemove', handleCaptionMouseMove)
     document.removeEventListener('mouseup', handleCaptionMouseUp)
     document.body.style.cursor = ''
@@ -495,15 +500,22 @@ const VideoEditorPage: React.FC = () => {
     e.stopPropagation()
     e.nativeEvent.stopImmediatePropagation() // ✅ CORRIGIDO: Parar todos os listeners
     
+    // ✅ DEBUG: Log de início do arraste
+    console.log('🎯 Caption mouse down:', { 
+      clientX: e.clientX, 
+      clientY: e.clientY,
+      currentPos: { x: captionOverlay.x, y: captionOverlay.y }
+    })
+    
     setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
     setCaptionDragStart({ x: e.clientX, y: e.clientY })
     
-    // Adicionar listeners globais diretamente
-    document.addEventListener('mousemove', handleCaptionMouseMove)
-    document.addEventListener('mouseup', handleCaptionMouseUp)
+    // ✅ MELHORADO: Event listeners mais robustos
+    document.addEventListener('mousemove', handleCaptionMouseMove, { passive: false })
+    document.addEventListener('mouseup', handleCaptionMouseUp, { passive: false })
     document.body.style.cursor = 'grabbing'
     document.body.style.userSelect = 'none'
-  }, [handleCaptionMouseMove, handleCaptionMouseUp])
+  }, [handleCaptionMouseMove, handleCaptionMouseUp, captionOverlay.x, captionOverlay.y])
 
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -1990,6 +2002,7 @@ const VideoEditorPage: React.FC = () => {
           <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden">
             {/* Container do Player com Handles */}
             <div 
+              ref={playerContainerRef}
               className={`relative player-container ${isResizing ? 'shadow-2xl' : 'shadow-lg'} transition-shadow duration-200`}
               style={{
                 width: `${playerDimensions.width}px`,
