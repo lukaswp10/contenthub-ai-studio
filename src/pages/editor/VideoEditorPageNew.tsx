@@ -146,6 +146,17 @@ const VideoEditorPage: React.FC = () => {
   // Refs para handlers de redimensionamento
   const resizeMoveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null)
   const resizeEndHandlerRef = useRef<(() => void) | null>(null)
+  
+  // ✅ NOVO: Refs para handlers de arraste das legendas (estáveis)
+  const dragHandlersRef = useRef<{
+    move: ((e: MouseEvent) => void) | null
+    up: (() => void) | null
+    abortController: AbortController | null
+  }>({
+    move: null,
+    up: null,
+    abortController: null
+  })
 
   // ===== LOGGER CONDICIONAL =====
   const logger = {
@@ -453,69 +464,112 @@ const VideoEditorPage: React.FC = () => {
     })
   }, [])
 
-  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS =====
-  const handleCaptionMouseMove = useCallback((e: MouseEvent) => {
-    setCaptionOverlay(currentOverlay => {
-      if (!currentOverlay.isDragging) return currentOverlay
+  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - VERSÃO ROBUSTA =====
+  
+  // ✅ CORRIGIDO: Criar handlers estáveis com useRef
+  useEffect(() => {
+    // Handler de movimento do mouse
+    dragHandlersRef.current.move = (e: MouseEvent) => {
+      // ✅ DEBUG: Log detalhado de movimento
+      console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
-      const deltaX = e.clientX - captionDragStart.x
-      const deltaY = e.clientY - captionDragStart.y
-      
-      // ✅ CORRIGIDO: Usar ref do player e simplificar cálculos
-      if (playerContainerRef.current) {
-        const newX = Math.max(0, Math.min(playerDimensions.width - 200, currentOverlay.x + deltaX))
-        const newY = Math.max(0, Math.min(playerDimensions.height - 60, currentOverlay.y + deltaY))
-        
-        // ✅ DEBUG: Logs temporários
-        console.log('🖱️ Mouse move:', { deltaX, deltaY, newX, newY })
-        
-        setCaptionDragStart({ x: e.clientX, y: e.clientY })
-        
-        return {
-          ...currentOverlay,
-          x: newX,
-          y: newY
+      setCaptionOverlay(currentOverlay => {
+        if (!currentOverlay.isDragging) {
+          console.log('⚠️ Not dragging, ignoring mouse move')
+          return currentOverlay
         }
+        
+        setCaptionDragStart(currentDragStart => {
+          const deltaX = e.clientX - currentDragStart.x
+          const deltaY = e.clientY - currentDragStart.y
+          
+          // ✅ CORRIGIDO: Usar playerDimensions do estado atual
+          setPlayerDimensions(currentPlayerDimensions => {
+            const newX = Math.max(0, Math.min(currentPlayerDimensions.width - 200, currentOverlay.x + deltaX))
+            const newY = Math.max(0, Math.min(currentPlayerDimensions.height - 60, currentOverlay.y + deltaY))
+            
+            console.log('📍 New position calculated:', { 
+              deltaX, deltaY, 
+              oldPos: { x: currentOverlay.x, y: currentOverlay.y },
+              newPos: { x: newX, y: newY }
+            })
+            
+            setCaptionOverlay(prev => ({
+              ...prev,
+              x: newX,
+              y: newY
+            }))
+            
+            return currentPlayerDimensions
+          })
+          
+          return { x: e.clientX, y: e.clientY }
+        })
+        
+        return currentOverlay
+      })
+    }
+    
+    // Handler de mouse up
+    dragHandlersRef.current.up = () => {
+      console.log('🎯 Caption mouse up - arraste finalizado')
+      
+      setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
+      
+      // ✅ CORRIGIDO: Cleanup com AbortController
+      if (dragHandlersRef.current.abortController) {
+        dragHandlersRef.current.abortController.abort()
+        dragHandlersRef.current.abortController = null
       }
       
-      return currentOverlay
-    })
-  }, [captionDragStart, playerDimensions])
-
-  const handleCaptionMouseUp = useCallback(() => {
-    // ✅ DEBUG: Log de fim do arraste
-    console.log('🎯 Caption mouse up - arraste finalizado')
-    
-    setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
-    
-    // ✅ MELHORADO: Remover listeners mais robustamente
-    document.removeEventListener('mousemove', handleCaptionMouseMove)
-    document.removeEventListener('mouseup', handleCaptionMouseUp)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-  }, [handleCaptionMouseMove])
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    e.nativeEvent.stopImmediatePropagation() // ✅ CORRIGIDO: Parar todos os listeners
+    e.nativeEvent.stopImmediatePropagation()
     
-    // ✅ DEBUG: Log de início do arraste
     console.log('🎯 Caption mouse down:', { 
       clientX: e.clientX, 
       clientY: e.clientY,
       currentPos: { x: captionOverlay.x, y: captionOverlay.y }
     })
     
+    // ✅ CORRIGIDO: Cleanup de listeners anteriores
+    if (dragHandlersRef.current.abortController) {
+      dragHandlersRef.current.abortController.abort()
+    }
+    
+    // ✅ NOVO: AbortController para cleanup garantido
+    dragHandlersRef.current.abortController = new AbortController()
+    
     setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
     setCaptionDragStart({ x: e.clientX, y: e.clientY })
     
-    // ✅ MELHORADO: Event listeners mais robustos
-    document.addEventListener('mousemove', handleCaptionMouseMove, { passive: false })
-    document.addEventListener('mouseup', handleCaptionMouseUp, { passive: false })
-    document.body.style.cursor = 'grabbing'
-    document.body.style.userSelect = 'none'
-  }, [handleCaptionMouseMove, handleCaptionMouseUp, captionOverlay.x, captionOverlay.y])
+    // ✅ CORRIGIDO: Event listeners com AbortController
+    if (dragHandlersRef.current.move && dragHandlersRef.current.up) {
+      console.log('📝 Adding event listeners with AbortController...')
+      
+      document.addEventListener('mousemove', dragHandlersRef.current.move, { 
+        signal: dragHandlersRef.current.abortController.signal,
+        passive: false 
+      })
+      document.addEventListener('mouseup', dragHandlersRef.current.up, { 
+        signal: dragHandlersRef.current.abortController.signal,
+        passive: false 
+      })
+      
+      console.log('✅ Event listeners added successfully')
+      
+      document.body.style.cursor = 'grabbing'
+      document.body.style.userSelect = 'none'
+    } else {
+      console.error('❌ Handlers not available!')
+    }
+  }, [captionOverlay.x, captionOverlay.y])
 
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -1619,16 +1673,18 @@ const VideoEditorPage: React.FC = () => {
     }
   }, [])
 
-  // Cleanup de caption listeners
+  // ✅ CORRIGIDO: Cleanup de caption listeners com AbortController
   useEffect(() => {
     return () => {
       // Limpar listeners de legendas ao desmontar
-      document.removeEventListener('mousemove', handleCaptionMouseMove)
-      document.removeEventListener('mouseup', handleCaptionMouseUp)
+      if (dragHandlersRef.current.abortController) {
+        dragHandlersRef.current.abortController.abort()
+        dragHandlersRef.current.abortController = null
+      }
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [handleCaptionMouseMove, handleCaptionMouseUp])
+  }, [])
 
   // Cleanup de streams
   useEffect(() => {
