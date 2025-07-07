@@ -2416,7 +2416,7 @@ const VideoEditorPage: React.FC = () => {
               )}
 
               {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - MOVIDO PARA DENTRO DO PLAYER */}
-              {transcriptionWords.length > 0 && (() => {
+              {transcriptionWords.length > 0 && !captionOverlay.isEditing && (() => {
                 const absolutePos = getAbsolutePosition()
                 const canDrag = canDragCaption
                 return (
@@ -2466,14 +2466,9 @@ const VideoEditorPage: React.FC = () => {
                             <span
                               className={`${
                                 word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
-                              } px-1 cursor-pointer hover:bg-blue-500/30 rounded transition-colors
+                              } px-1 hover:bg-blue-500/30 rounded transition-colors
                               ${selectedWordIndex === globalIndex ? 'bg-blue-600/50 ring-1 ring-blue-400' : ''}`}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleWordClick(word, globalIndex, e)
-                              }}
-                              title={`Clique para editar: "${word.text}" | Duplo-clique para editar texto completo`}
+                              title={`"${word.text}" | Use duplo-clique na legenda ou botões do menu para editar`}
                             >
                               {word.text}
                             </span>
@@ -2681,13 +2676,18 @@ const VideoEditorPage: React.FC = () => {
 
             {/* ✅ EDITOR INLINE DE LEGENDAS - SISTEMA DUAL */}
             {captionOverlay.isEditing && (
-              <div className="absolute z-60 bg-gray-900 border-2 border-blue-500 rounded-lg shadow-xl p-4 min-w-[450px]"
-                style={{
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
+              <>
+                {/* Backdrop */}
+                <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={handleCaptionEditCancel} />
+                
+                {/* Modal */}
+                <div className="fixed z-[9999] bg-gray-900 border-2 border-blue-500 rounded-lg shadow-xl p-4 min-w-[450px]"
+                  style={{
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
                 <div className="flex items-center space-x-2 mb-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                   <span className="text-white font-medium">
@@ -2927,6 +2927,7 @@ const VideoEditorPage: React.FC = () => {
                   </div>
                 )}
               </div>
+              </>
             )}
             
             {/* Timeline Avançada com Sistema de Corte */}
