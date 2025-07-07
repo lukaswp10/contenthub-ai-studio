@@ -224,6 +224,21 @@ const VideoEditorPage: React.FC = () => {
   const [transcriptionWords, setTranscriptionWords] = useState<any[]>([])
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false)
   const [captionProgress, setCaptionProgress] = useState('')
+  
+  // ===== ESTADO DO OVERLAY DE LEGENDAS ARRASTÁVEIS =====
+  const [captionOverlay, setCaptionOverlay] = useState({
+    x: 50, // Posição X em %
+    y: 80, // Posição Y em %
+    width: 80, // Largura em %
+    height: 15, // Altura em %
+    fontSize: 24,
+    isDragging: false,
+    isResizing: false,
+    isEditing: false,
+    style: 'tiktok-bold' // Estilo padrão
+  })
+  const [captionDragStart, setCaptionDragStart] = useState({ x: 0, y: 0 })
+  const [captionEditingText, setCaptionEditingText] = useState('')
 
   // ===== ESTADO DO PLAYER REDIMENSIONÁVEL =====
   const [playerDimensions, setPlayerDimensions] = useState({
@@ -438,6 +453,95 @@ const VideoEditorPage: React.FC = () => {
       lockAspectRatio: true
     })
   }, [])
+
+  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS =====
+  const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    setCaptionOverlay(prev => ({ ...prev, isDragging: true }))
+    setCaptionDragStart({ x: e.clientX, y: e.clientY })
+    
+    // Adicionar listeners globais
+    document.addEventListener('mousemove', handleCaptionMouseMove)
+    document.addEventListener('mouseup', handleCaptionMouseUp)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  const handleCaptionMouseMove = useCallback((e: MouseEvent) => {
+    if (!captionOverlay.isDragging) return
+    
+    const deltaX = e.clientX - captionDragStart.x
+    const deltaY = e.clientY - captionDragStart.y
+    
+    // Converter para porcentagem baseado no tamanho do player
+    const deltaXPercent = (deltaX / playerDimensions.width) * 100
+    const deltaYPercent = (deltaY / playerDimensions.height) * 100
+    
+    setCaptionOverlay(prev => ({
+      ...prev,
+      x: Math.max(0, Math.min(100 - prev.width, prev.x + deltaXPercent)),
+      y: Math.max(0, Math.min(100 - prev.height, prev.y + deltaYPercent))
+    }))
+    
+    setCaptionDragStart({ x: e.clientX, y: e.clientY })
+  }, [captionOverlay.isDragging, captionDragStart, playerDimensions])
+
+  const handleCaptionMouseUp = useCallback(() => {
+    setCaptionOverlay(prev => ({ ...prev, isDragging: false }))
+    
+    // Remover listeners globais
+    document.removeEventListener('mousemove', handleCaptionMouseMove)
+    document.removeEventListener('mouseup', handleCaptionMouseUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }, [handleCaptionMouseMove])
+
+  const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const currentText = getCurrentCaptionText()
+    setCaptionEditingText(currentText)
+    setCaptionOverlay(prev => ({ ...prev, isEditing: true }))
+  }, [])
+
+  const handleCaptionEditSave = useCallback(() => {
+    if (captionEditingText.trim()) {
+      // Aqui você pode salvar o texto editado
+      // Por enquanto, apenas fechamos o editor
+      logger.log('💾 Texto da legenda editado:', captionEditingText)
+    }
+    
+    setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
+    setCaptionEditingText('')
+  }, [captionEditingText, logger])
+
+  const handleCaptionEditCancel = useCallback(() => {
+    setCaptionOverlay(prev => ({ ...prev, isEditing: false }))
+    setCaptionEditingText('')
+  }, [])
+
+  const handleCaptionResize = useCallback((direction: 'bigger' | 'smaller') => {
+    setCaptionOverlay(prev => ({
+      ...prev,
+      fontSize: direction === 'bigger' 
+        ? Math.min(48, prev.fontSize + 2)
+        : Math.max(12, prev.fontSize - 2)
+    }))
+  }, [])
+
+  // Função para obter o texto atual da legenda
+  const getCurrentCaptionText = useCallback(() => {
+    if (transcriptionWords.length === 0) return ''
+    
+    const currentWords = transcriptionWords.filter(word => 
+      word.start <= currentTime && currentTime <= word.end
+    )
+    
+    return currentWords.map(word => word.text).join(' ')
+  }, [transcriptionWords, currentTime])
   
   // ===== HANDLERS DOS PAINÉIS =====
   const handlePanelToggle = useCallback((panel: typeof activePanel) => {
@@ -1356,6 +1460,17 @@ const VideoEditorPage: React.FC = () => {
     }
   }, [])
 
+  // Cleanup de caption listeners
+  useEffect(() => {
+    return () => {
+      // Limpar listeners de legendas ao desmontar
+      document.removeEventListener('mousemove', handleCaptionMouseMove)
+      document.removeEventListener('mouseup', handleCaptionMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [handleCaptionMouseMove, handleCaptionMouseUp])
+
   // Cleanup de streams
   useEffect(() => {
     return () => {
@@ -1849,26 +1964,119 @@ const VideoEditorPage: React.FC = () => {
               </div>
             )}
             
-            {/* ✅ OVERLAY DE LEGENDAS */}
+            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS */}
             {transcriptionWords.length > 0 && (
-              <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-50">
-                <div className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg max-w-2xl text-center">
-                  <div className="text-lg font-medium leading-tight">
-                    {transcriptionWords
-                      .filter(word => word.start <= currentTime && currentTime <= word.end)
-                      .map((word, index, arr) => (
-                        <span key={index}>
-                          <span
-                            className={`${
-                              word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
-                            } px-1`}
-                          >
-                            {word.text}
+              <div 
+                className={`absolute z-50 cursor-grab ${captionOverlay.isDragging ? 'cursor-grabbing' : ''}`}
+                style={{
+                  left: `${captionOverlay.x}%`,
+                  top: `${captionOverlay.y}%`,
+                  width: `${captionOverlay.width}%`,
+                  height: `${captionOverlay.height}%`,
+                  transform: 'translate(-50%, -50%)',
+                  transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
+                }}
+                onMouseDown={handleCaptionMouseDown}
+                onDoubleClick={handleCaptionDoubleClick}
+              >
+                {/* Container da Legenda */}
+                <div className="relative w-full h-full">
+                  {/* Texto da Legenda */}
+                  <div 
+                    className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center h-full flex items-center justify-center"
+                    style={{
+                      fontSize: `${captionOverlay.fontSize}px`,
+                      border: captionOverlay.isDragging ? '2px solid #3b82f6' : '1px solid transparent',
+                      textShadow: captionOverlay.style === 'tiktok-bold' ? '2px 2px 0px #000000' : 'none'
+                    }}
+                  >
+                    <div className="font-bold leading-tight">
+                      {transcriptionWords
+                        .filter(word => word.start <= currentTime && currentTime <= word.end)
+                        .map((word, index, arr) => (
+                          <span key={index}>
+                            <span
+                              className={`${
+                                word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
+                              } px-1`}
+                            >
+                              {word.text}
+                            </span>
+                            {index < arr.length - 1 && ' '}
                           </span>
-                          {index < arr.length - 1 && ' '}
-                        </span>
-                      ))}
+                        ))}
+                    </div>
                   </div>
+
+                  {/* Controles de Redimensionamento */}
+                  {captionOverlay.isDragging && (
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
+                      <button
+                        onClick={() => handleCaptionResize('smaller')}
+                        className="text-white hover:text-blue-400 text-sm"
+                        title="Diminuir fonte"
+                      >
+                        🔽
+                      </button>
+                      <span className="text-white text-xs">{captionOverlay.fontSize}px</span>
+                      <button
+                        onClick={() => handleCaptionResize('bigger')}
+                        className="text-white hover:text-blue-400 text-sm"
+                        title="Aumentar fonte"
+                      >
+                        🔼
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Indicadores de Drag */}
+                  <div className="absolute top-1 right-1 text-white text-xs opacity-70">
+                    {captionOverlay.isDragging ? '👆 Arrastando' : '👆 Duplo-clique para editar'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ EDITOR INLINE DE LEGENDAS */}
+            {captionOverlay.isEditing && (
+              <div className="absolute z-60 bg-gray-900 border-2 border-blue-500 rounded-lg shadow-xl p-4 min-w-[400px]"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                <div className="flex items-center space-x-2 mb-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-white font-medium">Editando Legenda</span>
+                </div>
+                
+                <textarea
+                  value={captionEditingText}
+                  onChange={(e) => setCaptionEditingText(e.target.value)}
+                  className="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none resize-none"
+                  rows={3}
+                  placeholder="Digite o texto da legenda..."
+                  autoFocus
+                />
+                
+                <div className="flex justify-end space-x-2 mt-3">
+                  <Button
+                    onClick={handleCaptionEditCancel}
+                    className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 text-sm"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleCaptionEditSave}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-sm"
+                  >
+                    Salvar
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-gray-400 mt-2">
+                  Enter para quebrar linha • Esc para cancelar
                 </div>
               </div>
             )}
