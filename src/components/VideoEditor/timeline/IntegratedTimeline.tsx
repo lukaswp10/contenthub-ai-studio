@@ -97,6 +97,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const timelineRef = useRef<HTMLDivElement>(null)
   
+  // ===== ESTADO PARA DRAG & DROP =====
+  const [isDragging, setIsDragging] = useState(false)
+  const progressBarRef = useRef<HTMLDivElement>(null)
+  
   // ===== ZOOM CONTROLS =====
   const handleZoomIn = useCallback(() => {
     setZoom(prev => Math.min(prev * 1.5, 1600))
@@ -157,6 +161,50 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     
     onSeek(newTime)
   }, [zoom, duration, onSeek])
+  
+  // ===== DRAG & DROP HANDLERS =====
+  const handleProgressBarMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true)
+    
+    // Seek imediatamente ao clicar
+    if (progressBarRef.current) {
+      const rect = progressBarRef.current.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const percentage = (x / rect.width) * 100
+      const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
+      onSeek(newTime)
+    }
+  }, [duration, onSeek])
+  
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !progressBarRef.current) return
+    
+    const rect = progressBarRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
+    const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
+    
+    onSeek(newTime)
+  }, [isDragging, duration, onSeek])
+  
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+  
+  // ===== EFEITO PARA EVENTOS GLOBAIS =====
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.addEventListener('mouseleave', handleMouseUp)
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+        document.removeEventListener('mouseleave', handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
@@ -391,90 +439,90 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         )}
         
-        {/* Timeline Principal - ALTURA RESPONSIVA */}
-        <div className={`relative ${
-          timelineMode === 'mini' ? 'h-1' : 
-          timelineMode === 'compact' ? 'h-20' : 
-          'h-40'
-        } bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
-          <div 
-            ref={timelineRef}
-            className="absolute inset-0"
-            onClick={handleTimelineClick}
-            style={{ width: `${zoom}%` }}
-          >
-            {/* Fundo da timeline */}
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-600" />
-            
-            {/* Barra de progresso */}
+        {/* Timeline Principal - APENAS SE NÃO FOR MINI */}
+        {timelineMode !== 'mini' && (
+          <div className={`relative ${
+            timelineMode === 'compact' ? 'h-20' : 'h-40'
+          } bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
             <div 
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-100"
-              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-            />
-            
-            {/* Segmentos de corte - Apenas se não for mini */}
-            {timelineMode !== 'mini' && cutSegments.map(segment => (
-              <div
-                key={segment.id}
-                className={`absolute top-0 h-full opacity-80 cursor-pointer hover:opacity-100 transition-all duration-200 ${
-                  segment.selected ? 'ring-2 ring-white' : ''
-                } ${timelineMode === 'expanded' ? 'rounded-lg' : 'rounded'}`}
-                style={{
-                  left: `${getTimelinePosition(segment.start)}%`,
-                  width: `${getTimelinePosition(segment.end - segment.start)}%`,
-                  backgroundColor: segment.color
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onJumpToSegment(segment)
-                }}
-                title={`${segment.name} (${formatTime(segment.start)} - ${formatTime(segment.end)})`}
-              >
-                {timelineMode === 'expanded' && (
-                  <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium">
-                    {segment.name}
-                  </div>
-                )}
-              </div>
-            ))}
-            
-            {/* Marcadores de entrada/saída - Apenas se não for mini */}
-            {timelineMode !== 'mini' && inPoint !== null && (
-              <div
-                className="absolute top-0 w-1 h-full bg-green-500 rounded-full z-20"
-                style={{ left: `${getTimelinePosition(inPoint)}%` }}
-                title={`Entrada: ${formatTime(inPoint)}`}
-              />
-            )}
-            
-            {timelineMode !== 'mini' && outPoint !== null && (
-              <div
-                className="absolute top-0 w-1 h-full bg-red-500 rounded-full z-20"
-                style={{ left: `${getTimelinePosition(outPoint)}%` }}
-                title={`Saída: ${formatTime(outPoint)}`}
-              />
-            )}
-            
-            {/* Área de seleção - Apenas se não for mini */}
-            {timelineMode !== 'mini' && inPoint !== null && outPoint !== null && (
-              <div
-                className="absolute top-0 h-full bg-yellow-400 opacity-30 rounded z-10"
-                style={{
-                  left: `${getTimelinePosition(Math.min(inPoint, outPoint))}%`,
-                  width: `${getTimelinePosition(Math.abs(outPoint - inPoint))}%`
-                }}
-              />
-            )}
-            
-            {/* Playhead - Sempre visível */}
-            <div
-              className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30"
-              style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              ref={timelineRef}
+              className="absolute inset-0"
+              onClick={handleTimelineClick}
+              style={{ width: `${zoom}%` }}
             >
-              <div className="absolute -top-2 -left-2 w-4 h-4 bg-white rounded-full shadow-lg" />
+              {/* Fundo da timeline */}
+              <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-600" />
+              
+              {/* Barra de progresso */}
+              <div 
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-100"
+                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              />
+              
+              {/* Segmentos de corte */}
+              {cutSegments.map(segment => (
+                <div
+                  key={segment.id}
+                  className={`absolute top-0 h-full opacity-80 cursor-pointer hover:opacity-100 transition-all duration-200 ${
+                    segment.selected ? 'ring-2 ring-white' : ''
+                  } ${timelineMode === 'expanded' ? 'rounded-lg' : 'rounded'}`}
+                  style={{
+                    left: `${getTimelinePosition(segment.start)}%`,
+                    width: `${getTimelinePosition(segment.end - segment.start)}%`,
+                    backgroundColor: segment.color
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onJumpToSegment(segment)
+                  }}
+                  title={`${segment.name} (${formatTime(segment.start)} - ${formatTime(segment.end)})`}
+                >
+                  {timelineMode === 'expanded' && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium">
+                      {segment.name}
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {/* Marcadores de entrada/saída */}
+              {inPoint !== null && (
+                <div
+                  className="absolute top-0 w-1 h-full bg-green-500 rounded-full z-20"
+                  style={{ left: `${getTimelinePosition(inPoint)}%` }}
+                  title={`Entrada: ${formatTime(inPoint)}`}
+                />
+              )}
+              
+              {outPoint !== null && (
+                <div
+                  className="absolute top-0 w-1 h-full bg-red-500 rounded-full z-20"
+                  style={{ left: `${getTimelinePosition(outPoint)}%` }}
+                  title={`Saída: ${formatTime(outPoint)}`}
+                />
+              )}
+              
+              {/* Área de seleção */}
+              {inPoint !== null && outPoint !== null && (
+                <div
+                  className="absolute top-0 h-full bg-yellow-400 opacity-30 rounded z-10"
+                  style={{
+                    left: `${getTimelinePosition(Math.min(inPoint, outPoint))}%`,
+                    width: `${getTimelinePosition(Math.abs(outPoint - inPoint))}%`
+                  }}
+                />
+              )}
+              
+              {/* Playhead */}
+              <div
+                className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30"
+                style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              >
+                <div className="absolute -top-2 -left-2 w-4 h-4 bg-white rounded-full shadow-lg" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
         
         {/* Timeline Mini - Layout Profissional Horizontal PREMIUM */}
         {timelineMode === 'mini' && (
@@ -494,24 +542,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </Button>
             </div>
             
-            {/* Barra de progresso interativa */}
+            {/* Barra de progresso interativa com DRAG & DROP */}
             <div 
-              className="flex-1 relative h-2 bg-gray-700 rounded-full cursor-pointer hover:bg-gray-600 transition-colors group"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect()
-                const x = e.clientX - rect.left
-                const percentage = (x / rect.width) * 100
-                const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
-                onSeek(newTime)
-              }}
+              ref={progressBarRef}
+              className={`flex-1 relative h-2 bg-gray-700 rounded-full transition-colors group ${
+                isDragging ? 'cursor-grabbing' : 'cursor-pointer hover:bg-gray-600'
+              }`}
+              onMouseDown={handleProgressBarMouseDown}
               onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect()
-                const x = e.clientX - rect.left
-                const percentage = (x / rect.width) * 100
-                const hoverTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
-                e.currentTarget.title = `Pular para ${formatTime(hoverTime)}`
+                if (!isDragging) {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = e.clientX - rect.left
+                  const percentage = (x / rect.width) * 100
+                  const hoverTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
+                  e.currentTarget.title = `${isDragging ? 'Arrastando' : 'Clique ou arraste'} para ${formatTime(hoverTime)}`
+                }
               }}
-              title="Clique para navegar"
+              title="Clique ou arraste para navegar"
             >
               {/* Progresso */}
               <div 
@@ -519,16 +566,37 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
               />
               
-              {/* Playhead interativo */}
+              {/* Playhead MELHORADO para drag */}
               <div
-                className="absolute top-0 w-1 h-full bg-white rounded-full shadow-lg group-hover:bg-yellow-300 transition-colors"
-                style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                className={`absolute top-0 w-3 h-4 bg-white rounded-full shadow-lg transition-all duration-100 ${
+                  isDragging ? 'bg-yellow-300 scale-110' : 'group-hover:bg-yellow-300'
+                }`}
+                style={{ 
+                  left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
+                  transform: `translateX(-50%) ${isDragging ? 'scale(1.1)' : 'scale(1)'}`
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation()
+                  handleProgressBarMouseDown(e)
+                }}
               >
-                <div className="absolute -top-0.5 -left-0.5 w-2 h-3 bg-white rounded-full shadow-lg group-hover:bg-yellow-300 transition-colors" />
+                {/* Indicador visual de drag */}
+                <div 
+                  className={`absolute -top-1 -left-1 w-5 h-6 rounded-full transition-all duration-100 ${
+                    isDragging ? 'bg-yellow-300/50 scale-110' : 'bg-transparent'
+                  }`}
+                />
               </div>
               
-              {/* Hover indicator */}
-              <div className="absolute inset-0 bg-blue-400/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              {/* Hover indicator melhorado */}
+              <div className={`absolute inset-0 bg-blue-400/20 rounded-full transition-opacity ${
+                isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+              
+              {/* Indicador de drag ativo */}
+              {isDragging && (
+                <div className="absolute -top-1 -bottom-1 left-0 right-0 bg-yellow-300/10 rounded-full animate-pulse" />
+              )}
             </div>
             
             {/* Tempo compacto */}
