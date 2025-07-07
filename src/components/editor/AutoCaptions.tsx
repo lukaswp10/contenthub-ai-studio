@@ -201,11 +201,18 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
         setTranscriptionStatus('🔄 Usando sistema de fallback...')
       }
 
-      // Fallback: usar transcriptionService existente com API key hardcoded
+      // Fallback: usar transcriptionService existente com API key robusta
       setTranscriptionStatus('🔑 Configurando API key...')
       
-      // Configurar API key diretamente no transcriptionService
-      transcriptionService.setOpenAIApiKey(import.meta.env.VITE_OPENAI_API_KEY || '')
+      // Obter API key de variáveis de ambiente
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+      
+      if (!apiKey || apiKey === '') {
+        throw new Error('🔑 API Key do OpenAI não configurada!\n\nConfigure no arquivo .env.local:\nVITE_OPENAI_API_KEY=sua_api_key_aqui')
+      }
+      
+      console.log('🔑 API Key carregada:', apiKey.substring(0, 20) + '...')
+      transcriptionService.setOpenAIApiKey(apiKey)
 
       setTranscriptionStatus('🎤 Usando OpenAI Whisper direto...')
 
@@ -226,8 +233,23 @@ export function AutoCaptions({ videoUrl, videoFile, duration, onCaptionsGenerate
       setTranscriptionStatus(`✅ Transcrição concluída! ${result.words.length} palavras detectadas`)
       
     } catch (error) {
-      console.error('Erro na transcrição:', error)
-      setTranscriptionStatus(`❌ Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+      console.error('❌ Erro na transcrição completa:', error)
+      
+      let errorMessage = 'Erro desconhecido'
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorMessage = '🔑 API Key inválida ou expirada!\n\nVerifique se a chave está correta em:\n.env.local'
+        } else if (error.message.includes('429')) {
+          errorMessage = '⏳ Limite de API excedido!\n\nAguarde alguns minutos e tente novamente'
+        } else if (error.message.includes('API Key do OpenAI não configurada')) {
+          errorMessage = error.message
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      setTranscriptionStatus(`❌ ${errorMessage}`)
+      alert(`❌ Erro na transcrição:\n\n${errorMessage}`)
     } finally {
       setIsTranscribing(false)
     }
