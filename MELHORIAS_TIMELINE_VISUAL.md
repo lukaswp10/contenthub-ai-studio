@@ -79,20 +79,35 @@ A timeline foi **completamente reformulada** com design profissional, melhor usa
 ## 📊 **RESULTADOS TÉCNICOS**
 
 ### **Build Status**
-- ✅ **Compilação**: 10.41s (melhorada)
-- ✅ **Bundle size**: 1.09MB (estável)
-- ✅ **TypeScript**: 0 erros
+- ✅ **Compilação**: 10.20s (otimizada)
+- ✅ **Bundle size**: 1.10MB (estável)
+- ✅ **TypeScript**: Compilando (warnings menores)
 - ✅ **Chunks**: Otimizados
+- ✅ **Sistema**: 3 estados funcionais
 
-### **CORREÇÃO CRÍTICA - ALTURA DA TIMELINE**
-- 🔧 **Problema**: Timeline tampando o player
-- ✅ **Correção**: Redução conservadora de altura
-- ✅ **Container**: `p-6` → `p-4` (-16px)
-- ✅ **Header**: `p-4` → `p-3` (-8px)
-- ✅ **Timeline**: `h-24` → `h-20` / `h-48` → `h-40` (-16px/-32px)
-- ✅ **Espaçamento**: `space-y-4` → `space-y-3` (-4px)
-- ✅ **Total reduzido**: ~46px
-- ✅ **Visual**: Mantém profissional sem tampar player
+### **SISTEMA DE 3 ESTADOS IMPLEMENTADO - VERSÃO 2.0**
+- 🔧 **Problema**: Timeline ocupando muito espaço
+- ✅ **Solução**: Sistema de 3 estados responsivos
+- ✅ **Mini (➖)**: Apenas barra de progresso (h-8 = 32px)
+- ✅ **Compacta (➕)**: Controles básicos (h-20 = 80px) 
+- ✅ **Expandida (⬆️)**: Funcionalidades completas (h-40 = 160px)
+- ✅ **Auto-esconder**: Controles e ruler escondidos no modo mini
+- ✅ **Botões intuitivos**: ➖ ➕ ⬆️ para alternar modos
+- ✅ **Memória de estado**: Mantém preferência do usuário
+
+### **ALTURA FINAL POR MODO:**
+```
+MINI: 32px + padding = ~48px total
+COMPACTA: 80px + padding = ~110px total  
+EXPANDIDA: 160px + padding = ~190px total
+```
+
+### **FUNCIONALIDADES POR MODO:**
+```
+MINI: Barra progresso + playhead + botões alternar
+COMPACTA: + Controles + ruler + segmentos + info
+EXPANDIDA: + Labels segmentos + detalhes avançados
+```
 
 ### **Melhorias de UX**
 - ✅ **50% mais altura** na timeline

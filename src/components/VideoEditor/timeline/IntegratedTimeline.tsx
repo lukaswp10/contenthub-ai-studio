@@ -92,7 +92,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
 }) => {
   // ===== ESTADO DA TIMELINE PROFISSIONAL =====
   const [zoom, setZoom] = useState(100)
-  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false)
+  const [timelineMode, setTimelineMode] = useState<'mini' | 'compact' | 'expanded'>('compact')
   const timelineRef = useRef<HTMLDivElement>(null)
   
   // ===== ZOOM CONTROLS =====
@@ -224,138 +224,173 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       {/* ===== TIMELINE PROFISSIONAL - DESIGN MELHORADO ===== */}
       <div className="p-4 space-y-3 bg-gradient-to-b from-gray-800 to-gray-900 border-t-2 border-blue-500 shadow-2xl">
         {/* Header com controles - VISUAL MELHORADO */}
-        <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-3 rounded-xl border border-gray-600 shadow-lg">
-          <div className="flex items-center space-x-4">
-            {/* Controles de reprodução - MELHORADOS */}
-            <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onStop}
-                className="text-white hover:bg-red-600 bg-red-700 px-3 py-2 rounded transition-all"
-                title="Parar"
-              >
-                <Square size={16} />
-              </Button>
+        {timelineMode !== 'mini' && (
+          <div className="flex items-center justify-between bg-gray-700/50 backdrop-blur p-3 rounded-xl border border-gray-600 shadow-lg">
+            <div className="flex items-center space-x-4">
+              {/* Controles de reprodução - MELHORADOS */}
+              <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onStop}
+                  className="text-white hover:bg-red-600 bg-red-700 px-3 py-2 rounded transition-all"
+                  title="Parar"
+                >
+                  <Square size={16} />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSeek(Math.max(0, currentTime - 10))}
+                  className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
+                  title="Voltar 10s"
+                >
+                  <SkipBack size={16} />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={isPlaying ? onPause : onPlay}
+                  className={`text-white hover:brightness-110 px-4 py-2 rounded-lg transition-all shadow-lg ${
+                    isPlaying ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-blue-600 to-blue-500'
+                  }`}
+                  title={isPlaying ? "Pausar" : "Reproduzir"}
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  <span className="ml-2 text-sm font-medium">{isPlaying ? "Pause" : "Play"}</span>
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+                  className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
+                  title="Avançar 10s"
+                >
+                  <SkipForward size={16} />
+                </Button>
+              </div>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSeek(Math.max(0, currentTime - 10))}
-                className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
-                title="Voltar 10s"
-              >
-                <SkipBack size={16} />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={isPlaying ? onPause : onPlay}
-                className={`text-white hover:brightness-110 px-4 py-2 rounded-lg transition-all shadow-lg ${
-                  isPlaying ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-blue-600 to-blue-500'
-                }`}
-                title={isPlaying ? "Pausar" : "Reproduzir"}
-              >
-                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                <span className="ml-2 text-sm font-medium">{isPlaying ? "Pause" : "Play"}</span>
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSeek(Math.min(duration, currentTime + 10))}
-                className="text-white hover:bg-gray-600 bg-gray-700 px-3 py-2 rounded transition-all"
-                title="Avançar 10s"
-              >
-                <SkipForward size={16} />
-              </Button>
+              {/* Tempo atual - MELHORADO */}
+              <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-4 py-3 rounded-lg text-white text-sm font-mono border border-gray-600 shadow-inner">
+                <span className="text-blue-300">{formatTime(currentTime)}</span>
+                <span className="text-gray-400 mx-2">/</span>
+                <span className="text-gray-300">{formatTime(duration)}</span>
+              </div>
             </div>
             
-            {/* Tempo atual - MELHORADO */}
-            <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-4 py-3 rounded-lg text-white text-sm font-mono border border-gray-600 shadow-inner">
-              <span className="text-blue-300">{formatTime(currentTime)}</span>
-              <span className="text-gray-400 mx-2">/</span>
-              <span className="text-gray-300">{formatTime(duration)}</span>
-            </div>
-          </div>
-          
-          {/* Controles de zoom - MELHORADOS */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-2 border border-gray-600">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleZoomOut}
-                className="text-white hover:bg-gray-600 p-2 rounded transition-all"
-                title="Zoom Out"
-              >
-                <ZoomOut size={16} />
-              </Button>
-              
-              <div className="bg-gray-700 px-4 py-2 rounded text-white text-sm font-mono min-w-[80px] text-center border border-gray-600">
-                {zoom}%
+            {/* Controles de zoom - MELHORADOS */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-2 border border-gray-600">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleZoomOut}
+                  className="text-white hover:bg-gray-600 p-2 rounded transition-all"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={16} />
+                </Button>
+                
+                <div className="bg-gray-700 px-4 py-2 rounded text-white text-sm font-mono min-w-[80px] text-center border border-gray-600">
+                  {zoom}%
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleZoomIn}
+                  className="text-white hover:bg-gray-600 p-2 rounded transition-all"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={16} />
+                </Button>
               </div>
               
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleZoomIn}
-                className="text-white hover:bg-gray-600 p-2 rounded transition-all"
-                title="Zoom In"
+                onClick={handleZoomReset}
+                className="text-white hover:bg-gray-600 bg-gray-700 px-4 py-2 rounded-lg transition-all border border-gray-600"
+                title="Reset Zoom"
               >
-                <ZoomIn size={16} />
+                Reset
               </Button>
+              
+              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1 border border-gray-600">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTimelineMode('mini')}
+                  className={`text-white px-3 py-2 rounded transition-all ${
+                    timelineMode === 'mini' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'
+                  }`}
+                  title="Timeline Mini"
+                >
+                  <span className="text-lg">➖</span>
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTimelineMode('compact')}
+                  className={`text-white px-3 py-2 rounded transition-all ${
+                    timelineMode === 'compact' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'
+                  }`}
+                  title="Timeline Compacta"
+                >
+                  <span className="text-lg">➕</span>
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTimelineMode('expanded')}
+                  className={`text-white px-3 py-2 rounded transition-all ${
+                    timelineMode === 'expanded' ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-gray-600'
+                  }`}
+                  title="Timeline Expandida"
+                >
+                  <span className="text-lg">⬆️</span>
+                </Button>
+              </div>
             </div>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleZoomReset}
-              className="text-white hover:bg-gray-600 bg-gray-700 px-4 py-2 rounded-lg transition-all border border-gray-600"
-              title="Reset Zoom"
-            >
-              Reset
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
-              className="text-white hover:bg-purple-600 bg-gradient-to-r from-purple-700 to-purple-600 px-4 py-2 rounded-lg transition-all shadow-lg border border-purple-500"
-              title={isTimelineExpanded ? "Comprimir Timeline" : "Expandir Timeline"}
-            >
-              {isTimelineExpanded ? <CornerUpRight size={16} /> : <CornerUpLeft size={16} />}
-              <span className="ml-2 text-sm font-medium">{isTimelineExpanded ? "Compact" : "Expand"}</span>
-            </Button>
           </div>
-        </div>
+        )}
         
         {/* Ruler - MELHORADO */}
-        <div className="relative h-10 bg-gradient-to-r from-gray-700 to-gray-600 rounded-lg overflow-hidden border border-gray-600 shadow-inner">
-          <div 
-            className="absolute top-0 left-0 h-full flex items-end"
-            style={{ width: `${zoom}%` }}
-          >
-            {rulerMarks.map((mark, index) => (
-              <div
-                key={index}
-                className="absolute flex flex-col items-center"
-                style={{ left: mark.position }}
-              >
-                <div className={`w-px bg-gray-300 ${mark.isMajor ? 'h-6' : 'h-3'} shadow-sm`} />
-                {mark.isMajor && (
-                  <span className="text-xs text-gray-200 mt-1 font-mono bg-gray-800/50 px-1 rounded" style={{ fontSize: '11px' }}>
-                    {mark.label}
-                  </span>
-                )}
-              </div>
-            ))}
+        {timelineMode !== 'mini' && (
+          <div className="relative h-10 bg-gradient-to-r from-gray-700 to-gray-600 rounded-lg overflow-hidden border border-gray-600 shadow-inner">
+            <div 
+              className="absolute top-0 left-0 h-full flex items-end"
+              style={{ width: `${zoom}%` }}
+            >
+              {rulerMarks.map((mark, index) => (
+                <div
+                  key={index}
+                  className="absolute flex flex-col items-center"
+                  style={{ left: mark.position }}
+                >
+                  <div className={`w-px bg-gray-300 ${mark.isMajor ? 'h-6' : 'h-3'} shadow-sm`} />
+                  {mark.isMajor && (
+                    <span className="text-xs text-gray-200 mt-1 font-mono bg-gray-800/50 px-1 rounded" style={{ fontSize: '11px' }}>
+                      {mark.label}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         
-        {/* Timeline Principal - ALTURA OTIMIZADA */}
-        <div className={`relative ${isTimelineExpanded ? 'h-40' : 'h-20'} bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
+        {/* Timeline Principal - ALTURA RESPONSIVA */}
+        <div className={`relative ${
+          timelineMode === 'mini' ? 'h-8' : 
+          timelineMode === 'compact' ? 'h-20' : 
+          'h-40'
+        } bg-gradient-to-b from-gray-700 to-gray-800 rounded-lg overflow-hidden cursor-pointer border border-gray-600 shadow-lg`}>
           <div 
             ref={timelineRef}
             className="absolute inset-0"
@@ -371,13 +406,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
             />
             
-            {/* Segmentos de corte */}
-            {cutSegments.map(segment => (
+            {/* Segmentos de corte - Apenas se não for mini */}
+            {timelineMode !== 'mini' && cutSegments.map(segment => (
               <div
                 key={segment.id}
                 className={`absolute top-0 h-full opacity-80 cursor-pointer hover:opacity-100 transition-all duration-200 ${
                   segment.selected ? 'ring-2 ring-white' : ''
-                } ${isTimelineExpanded ? 'rounded-lg' : 'rounded'}`}
+                } ${timelineMode === 'expanded' ? 'rounded-lg' : 'rounded'}`}
                 style={{
                   left: `${getTimelinePosition(segment.start)}%`,
                   width: `${getTimelinePosition(segment.end - segment.start)}%`,
@@ -389,7 +424,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 }}
                 title={`${segment.name} (${formatTime(segment.start)} - ${formatTime(segment.end)})`}
               >
-                {isTimelineExpanded && (
+                {timelineMode === 'expanded' && (
                   <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium">
                     {segment.name}
                   </div>
@@ -397,8 +432,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </div>
             ))}
             
-            {/* Marcadores de entrada/saída */}
-            {inPoint !== null && (
+            {/* Marcadores de entrada/saída - Apenas se não for mini */}
+            {timelineMode !== 'mini' && inPoint !== null && (
               <div
                 className="absolute top-0 w-1 h-full bg-green-500 rounded-full z-20"
                 style={{ left: `${getTimelinePosition(inPoint)}%` }}
@@ -406,7 +441,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               />
             )}
             
-            {outPoint !== null && (
+            {timelineMode !== 'mini' && outPoint !== null && (
               <div
                 className="absolute top-0 w-1 h-full bg-red-500 rounded-full z-20"
                 style={{ left: `${getTimelinePosition(outPoint)}%` }}
@@ -414,8 +449,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               />
             )}
             
-            {/* Área de seleção */}
-            {inPoint !== null && outPoint !== null && (
+            {/* Área de seleção - Apenas se não for mini */}
+            {timelineMode !== 'mini' && inPoint !== null && outPoint !== null && (
               <div
                 className="absolute top-0 h-full bg-yellow-400 opacity-30 rounded z-10"
                 style={{
@@ -425,7 +460,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               />
             )}
             
-            {/* Playhead */}
+            {/* Playhead - Sempre visível */}
             <div
               className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30"
               style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
@@ -435,42 +470,71 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
+        {/* Controles de Modo no Mini - Simplificados */}
+        {timelineMode === 'mini' && (
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1 border border-gray-600">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTimelineMode('compact')}
+                className="text-white px-3 py-2 rounded transition-all bg-blue-600 hover:bg-blue-700"
+                title="Expandir para Compacta"
+              >
+                <span className="text-lg">➕</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTimelineMode('expanded')}
+                className="text-white px-3 py-2 rounded transition-all bg-purple-600 hover:bg-purple-700"
+                title="Expandir para Completa"
+              >
+                <span className="text-lg">⬆️</span>
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {/* Informações da timeline - MELHORADAS */}
-        <div className="flex items-center justify-between bg-gray-700/30 backdrop-blur px-4 py-3 rounded-lg border border-gray-600 shadow-sm">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-400 text-sm">Duração:</span>
-              <span className="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{formatTime(duration)}</span>
+        {timelineMode !== 'mini' && (
+          <div className="flex items-center justify-between bg-gray-700/30 backdrop-blur px-4 py-3 rounded-lg border border-gray-600 shadow-sm">
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-400 text-sm">Duração:</span>
+                <span className="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{formatTime(duration)}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-400 text-sm">Zoom:</span>
+                <span className="text-blue-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{zoom}%</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-400 text-sm">Segmentos:</span>
+                <span className="text-green-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{cutSegments.length}</span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-400 text-sm">Zoom:</span>
-              <span className="text-blue-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{zoom}%</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-400 text-sm">Segmentos:</span>
-              <span className="text-green-300 font-mono text-sm bg-gray-800 px-2 py-1 rounded">{cutSegments.length}</span>
+            
+            <div className="flex items-center space-x-4">
+              {selectedSegment && (
+                <div className="flex items-center space-x-2 bg-yellow-500/20 border border-yellow-500 px-3 py-2 rounded-lg">
+                  <span className="text-yellow-300">📌</span>
+                  <span className="text-yellow-200 text-sm font-medium">
+                    {cutSegments.find(s => s.id === selectedSegment)?.name}
+                  </span>
+                </div>
+              )}
+              {inPoint !== null && outPoint !== null && (
+                <div className="flex items-center space-x-2 bg-green-500/20 border border-green-500 px-3 py-2 rounded-lg">
+                  <span className="text-green-300">✂️</span>
+                  <span className="text-green-200 text-sm font-medium">
+                    Seleção: {formatTime(Math.abs(outPoint - inPoint))}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            {selectedSegment && (
-              <div className="flex items-center space-x-2 bg-yellow-500/20 border border-yellow-500 px-3 py-2 rounded-lg">
-                <span className="text-yellow-300">📌</span>
-                <span className="text-yellow-200 text-sm font-medium">
-                  {cutSegments.find(s => s.id === selectedSegment)?.name}
-                </span>
-              </div>
-            )}
-            {inPoint !== null && outPoint !== null && (
-              <div className="flex items-center space-x-2 bg-green-500/20 border border-green-500 px-3 py-2 rounded-lg">
-                <span className="text-green-300">✂️</span>
-                <span className="text-green-200 text-sm font-medium">
-                  Seleção: {formatTime(Math.abs(outPoint - inPoint))}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
