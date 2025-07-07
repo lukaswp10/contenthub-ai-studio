@@ -49,3 +49,4 @@ ehthumbs.db
 *.pid.lock
 .vercel
 .env.local
+supabase/.env
