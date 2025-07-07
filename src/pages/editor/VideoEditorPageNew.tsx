@@ -297,10 +297,10 @@ const VideoEditorPage: React.FC = () => {
 
   // ===== FUNÇÃO PARA CONVERTER % PARA PIXELS =====
   const getAbsolutePosition = useCallback(() => {
-    // ✅ ALTERNATIVA 1: Dimensões reais + offset de centralização
+    // ✅ CORRIGIDO: Coordenadas relativas ao player container (não ao container principal)
     const realDimensions = getVideoRealDimensions()
     
-    // Calcular offset para centralizar vídeo no container
+    // Calcular offset para centralizar vídeo no container do player
     const offsetX = (playerDimensions.width - realDimensions.width) / 2
     const offsetY = (playerDimensions.height - realDimensions.height) / 2
     
@@ -2221,6 +2221,141 @@ const VideoEditorPage: React.FC = () => {
                   {playerDimensions.lockAspectRatio && ' (🔒)'}
                 </div>
               )}
+
+              {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - MOVIDO PARA DENTRO DO PLAYER */}
+              {transcriptionWords.length > 0 && (() => {
+                const absolutePos = getAbsolutePosition()
+                const canDrag = canDragCaption
+                return (
+                  <div 
+                    className={`absolute z-50 inline-block select-none ${
+                      !canDrag ? 'cursor-not-allowed opacity-60' : 
+                      captionOverlay.isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                    }`}
+                    style={{
+                      left: `${absolutePos.x}px`,
+                      top: `${absolutePos.y}px`,
+                      transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
+                    }}
+                    title={!canDrag ? '🔒 Trave o aspect ratio do player para arrastar' : 'Arrastar legenda'}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.nativeEvent.stopImmediatePropagation()
+                      handleCaptionMouseDown(e)
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.nativeEvent.stopImmediatePropagation()
+                      handleCaptionDoubleClick(e)
+                    }}
+                  >
+                  {/* ✅ CORRIGIDO: Texto da Legenda - Tamanho Dinâmico */}
+                  <div 
+                    className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center whitespace-nowrap font-bold leading-tight"
+                    style={{
+                      fontSize: `${captionOverlay.fontSize}px`,
+                      border: captionOverlay.isDragging ? '2px solid #3b82f6' : '1px solid transparent',
+                      textShadow: captionOverlay.style === 'tiktok-bold' ? '2px 2px 0px #000000' : 'none'
+                    }}
+                  >
+                    {transcriptionWords
+                      .filter(word => word.start <= currentTime && currentTime <= word.end)
+                      .map((word, index, arr) => (
+                        <span key={index}>
+                          <span
+                            className={`${
+                              word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
+                            } px-1`}
+                          >
+                            {word.text}
+                          </span>
+                          {index < arr.length - 1 && ' '}
+                        </span>
+                      ))}
+                  </div>
+
+                  {/* ✅ CONTROLES REORGANIZADOS - LAYOUT HORIZONTAL MELHORADO */}
+                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg px-3 py-2 shadow-lg border border-gray-600">
+                    <div className="flex items-center space-x-3">
+                      {/* Status compacto */}
+                      <span className={`text-sm ${canDrag ? 'text-green-400' : 'text-red-400'}`} title={canDrag ? 'Arraste ativo' : 'Trave o aspect ratio do player'}>
+                        {canDrag ? '🔒' : '🔓'}
+                      </span>
+                      
+                      {/* Separador visual */}
+                      <div className="w-px h-4 bg-gray-600"></div>
+                      
+                      {/* Controles de fonte agrupados */}
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleCaptionResize('smaller')
+                          }}
+                          className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                          title="Diminuir fonte"
+                        >
+                          🔽
+                        </button>
+                        <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded min-w-[35px] text-center">
+                          {captionOverlay.fontSize}px
+                        </span>
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleCaptionResize('bigger')
+                          }}
+                          className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                          title="Aumentar fonte"
+                        >
+                          🔼
+                        </button>
+                      </div>
+                      
+                      {/* Separador visual */}
+                      <div className="w-px h-4 bg-gray-600"></div>
+                      
+                      {/* Reset */}
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setCaptionOverlay(prev => ({ 
+                            ...prev, 
+                            x: 50,  // 50% horizontal (centro)
+                            y: 85   // 85% vertical (embaixo)
+                          }))
+                        }}
+                        className="text-white hover:text-green-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                        title="Centralizar legenda"
+                      >
+                        📐
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Indicadores de Drag */}
+                  <div className="absolute -top-5 -right-2 text-white text-xs opacity-70 pointer-events-none">
+                    {captionOverlay.isDragging ? '👆' : '✏️'}
+                  </div>
+                </div>
+              )})()}
             </div>
 
             {/* Controles de Player */}
@@ -2267,140 +2402,7 @@ const VideoEditorPage: React.FC = () => {
               </div>
             )}
             
-            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - SISTEMA PROPORCIONAL */}
-            {transcriptionWords.length > 0 && (() => {
-              const absolutePos = getAbsolutePosition()
-              const canDrag = canDragCaption
-              return (
-                <div 
-                  className={`absolute z-50 inline-block select-none ${
-                    !canDrag ? 'cursor-not-allowed opacity-60' : 
-                    captionOverlay.isDragging ? 'cursor-grabbing' : 'cursor-grab'
-                  }`}
-                  style={{
-                    left: `${absolutePos.x}px`,
-                    top: `${absolutePos.y}px`,
-                    transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
-                  }}
-                  title={!canDrag ? '🔒 Trave o aspect ratio do player para arrastar' : 'Arrastar legenda'}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    e.nativeEvent.stopImmediatePropagation()
-                    handleCaptionMouseDown(e)
-                  }}
-                  onDoubleClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    e.nativeEvent.stopImmediatePropagation()
-                    handleCaptionDoubleClick(e)
-                  }}
-                >
-                {/* ✅ CORRIGIDO: Texto da Legenda - Tamanho Dinâmico */}
-                <div 
-                  className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center whitespace-nowrap font-bold leading-tight"
-                  style={{
-                    fontSize: `${captionOverlay.fontSize}px`,
-                    border: captionOverlay.isDragging ? '2px solid #3b82f6' : '1px solid transparent',
-                    textShadow: captionOverlay.style === 'tiktok-bold' ? '2px 2px 0px #000000' : 'none'
-                  }}
-                >
-                  {transcriptionWords
-                    .filter(word => word.start <= currentTime && currentTime <= word.end)
-                    .map((word, index, arr) => (
-                      <span key={index}>
-                        <span
-                          className={`${
-                            word.highlight ? 'bg-yellow-400 bg-opacity-30 text-yellow-200' : ''
-                          } px-1`}
-                        >
-                          {word.text}
-                        </span>
-                        {index < arr.length - 1 && ' '}
-                      </span>
-                    ))}
-                </div>
 
-                {/* ✅ CONTROLES REORGANIZADOS - LAYOUT HORIZONTAL MELHORADO */}
-                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg px-3 py-2 shadow-lg border border-gray-600">
-                  <div className="flex items-center space-x-3">
-                    {/* Status compacto */}
-                    <span className={`text-sm ${canDrag ? 'text-green-400' : 'text-red-400'}`} title={canDrag ? 'Arraste ativo' : 'Trave o aspect ratio do player'}>
-                      {canDrag ? '🔒' : '🔓'}
-                    </span>
-                    
-                    {/* Separador visual */}
-                    <div className="w-px h-4 bg-gray-600"></div>
-                    
-                    {/* Controles de fonte agrupados */}
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleCaptionResize('smaller')
-                        }}
-                        className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                        title="Diminuir fonte"
-                      >
-                        🔽
-                      </button>
-                      <span className="text-white text-xs bg-gray-700 px-2 py-1 rounded min-w-[35px] text-center">
-                        {captionOverlay.fontSize}px
-                      </span>
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleCaptionResize('bigger')
-                        }}
-                        className="text-white hover:text-blue-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                        title="Aumentar fonte"
-                      >
-                        🔼
-                      </button>
-                    </div>
-                    
-                    {/* Separador visual */}
-                    <div className="w-px h-4 bg-gray-600"></div>
-                    
-                    {/* Reset */}
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setCaptionOverlay(prev => ({ 
-                          ...prev, 
-                          x: 50,  // 50% horizontal (centro)
-                          y: 85   // 85% vertical (embaixo)
-                        }))
-                      }}
-                      className="text-white hover:text-green-400 text-sm px-1.5 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                      title="Centralizar legenda"
-                    >
-                      📐
-                    </button>
-                  </div>
-                </div>
-
-                {/* Indicadores de Drag */}
-                <div className="absolute -top-5 -right-2 text-white text-xs opacity-70 pointer-events-none">
-                  {captionOverlay.isDragging ? '👆' : '✏️'}
-                </div>
-              </div>
-            )})()}
 
             {/* ✅ EDITOR INLINE DE LEGENDAS */}
             {captionOverlay.isEditing && (
