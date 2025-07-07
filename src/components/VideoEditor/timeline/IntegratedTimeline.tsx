@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 
 // ===== INTERFACES =====
+type TimelineMode = 'mini' | 'compact' | 'expanded'
+
 interface CutSegment {
   id: string
   start: number
@@ -92,7 +94,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
 }) => {
   // ===== ESTADO DA TIMELINE PROFISSIONAL =====
   const [zoom, setZoom] = useState(100)
-  const [timelineMode, setTimelineMode] = useState<'mini' | 'compact' | 'expanded'>('compact')
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const timelineRef = useRef<HTMLDivElement>(null)
   
   // ===== ZOOM CONTROLS =====
@@ -474,29 +476,91 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           </div>
         </div>
         
-        {/* Timeline Mini - Layout Profissional Horizontal */}
+        {/* Timeline Mini - Layout Profissional Horizontal PREMIUM */}
         {timelineMode === 'mini' && (
-          <div className="flex items-center h-5 px-2">
-            {/* Barra de progresso fina */}
-            <div className="flex-1 relative h-1 bg-gray-700 rounded-full mr-3">
+          <div className="flex items-center h-5 px-2 space-x-2">
+            {/* Controles de reprodução compactos */}
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={isPlaying ? onPause : onPlay}
+                className={`text-white px-1.5 py-0.5 rounded transition-all hover:brightness-110 ${
+                  isPlaying ? 'bg-green-600/80 hover:bg-green-600' : 'bg-blue-600/80 hover:bg-blue-600'
+                }`}
+                title={isPlaying ? "Pausar" : "Reproduzir"}
+              >
+                {isPlaying ? '⏸️' : '▶️'}
+              </Button>
+            </div>
+            
+            {/* Barra de progresso interativa */}
+            <div 
+              className="flex-1 relative h-2 bg-gray-700 rounded-full cursor-pointer hover:bg-gray-600 transition-colors group"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const x = e.clientX - rect.left
+                const percentage = (x / rect.width) * 100
+                const newTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
+                onSeek(newTime)
+              }}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const x = e.clientX - rect.left
+                const percentage = (x / rect.width) * 100
+                const hoverTime = Math.max(0, Math.min(duration, (percentage / 100) * duration))
+                e.currentTarget.title = `Pular para ${formatTime(hoverTime)}`
+              }}
+              title="Clique para navegar"
+            >
+              {/* Progresso */}
               <div 
-                className="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-100"
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-100"
                 style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
               />
-              {/* Playhead mini */}
+              
+              {/* Playhead interativo */}
               <div
-                className="absolute top-0 w-0.5 h-full bg-white rounded-full"
+                className="absolute top-0 w-1 h-full bg-white rounded-full shadow-lg group-hover:bg-yellow-300 transition-colors"
                 style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-              />
+              >
+                <div className="absolute -top-0.5 -left-0.5 w-2 h-3 bg-white rounded-full shadow-lg group-hover:bg-yellow-300 transition-colors" />
+              </div>
+              
+              {/* Hover indicator */}
+              <div className="absolute inset-0 bg-blue-400/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             
             {/* Tempo compacto */}
-            <div className="text-white text-xs font-mono mr-2 opacity-80">
+            <div className="text-white text-xs font-mono opacity-90 bg-gray-800/50 px-2 py-0.5 rounded backdrop-blur">
               {formatTime(currentTime)}/{formatTime(duration)}
             </div>
             
-            {/* Botões discretos */}
+            {/* Controles de navegação */}
             <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSeek(Math.max(0, currentTime - 10))}
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600 bg-gray-700/80"
+                title="Voltar 10 segundos"
+              >
+                ⏪
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+                className="text-white px-1.5 py-0.5 rounded transition-all hover:bg-gray-600 bg-gray-700/80"
+                title="Avançar 10 segundos"
+              >
+                ⏩
+              </Button>
+            </div>
+            
+            {/* Botões de expansão */}
+            <div className="flex items-center space-x-1 border-l border-gray-600 pl-2">
               <Button
                 variant="ghost"
                 size="sm"
