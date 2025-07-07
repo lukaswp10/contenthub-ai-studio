@@ -239,8 +239,8 @@ const VideoEditorPage: React.FC = () => {
   
   // ===== ESTADO DO OVERLAY DE LEGENDAS ARRASTÁVEIS =====
   const [captionOverlay, setCaptionOverlay] = useState({
-    x: 400, // Será calculado dinamicamente
-    y: 180, // Posição mais central (será recalculada)
+    x: 50,        // 50% horizontal (centro)
+    y: 85,        // 85% vertical (embaixo)
     fontSize: 24,
     isDragging: false,
     isResizing: false,
@@ -263,16 +263,47 @@ const VideoEditorPage: React.FC = () => {
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
   const [resizeStartDimensions, setResizeStartDimensions] = useState({ width: 0, height: 0 })
 
-  // ===== CENTRALIZAR LEGENDAS QUANDO PLAYER CARREGAR =====
-  useEffect(() => {
-    if (playerDimensions.width > 0 && playerDimensions.height > 0) {
-      setCaptionOverlay(prev => ({
-        ...prev,
-        x: (playerDimensions.width - 200) / 2, // Centro horizontal
-        y: playerDimensions.height * 0.8 // 80% da altura (posição típica de legenda)
-      }))
+  // ===== COORDENADAS PROPORCIONAIS - NÃO PRECISA DE RECENTRALIZAÇÃO =====
+  // As coordenadas em % se ajustam automaticamente quando o player redimensiona
+
+  // ===== FUNÇÃO PARA CALCULAR DIMENSÕES REAIS DO VÍDEO =====
+  const getVideoRealDimensions = useCallback(() => {
+    if (!videoRef.current || !videoRef.current.videoWidth || !videoRef.current.videoHeight) {
+      return { width: playerDimensions.width, height: playerDimensions.height }
     }
+    
+    const video = videoRef.current
+    const containerWidth = playerDimensions.width
+    const containerHeight = playerDimensions.height
+    const videoAspectRatio = video.videoWidth / video.videoHeight
+    const containerAspectRatio = containerWidth / containerHeight
+    
+    let realWidth, realHeight
+    
+    if (videoAspectRatio > containerAspectRatio) {
+      // Vídeo mais largo - limitado pela largura
+      realWidth = containerWidth
+      realHeight = containerWidth / videoAspectRatio
+    } else {
+      // Vídeo mais alto - limitado pela altura
+      realHeight = containerHeight
+      realWidth = containerHeight * videoAspectRatio
+    }
+    
+    return { width: realWidth, height: realHeight }
   }, [playerDimensions.width, playerDimensions.height])
+
+  // ===== FUNÇÃO PARA CONVERTER % PARA PIXELS =====
+  const getAbsolutePosition = useCallback(() => {
+    const realDimensions = getVideoRealDimensions()
+    return {
+      x: (captionOverlay.x / 100) * realDimensions.width,
+      y: (captionOverlay.y / 100) * realDimensions.height
+    }
+  }, [captionOverlay.x, captionOverlay.y, getVideoRealDimensions])
+
+  // ===== CONTROLE DE ARRASTE BASEADO NO TRAVAMENTO =====
+  const canDragCaption = playerDimensions.lockAspectRatio
 
   // ===== HANDLERS DO PLAYER =====
   const handlePlay = useCallback(() => {
@@ -476,33 +507,39 @@ const VideoEditorPage: React.FC = () => {
     })
   }, [])
 
-  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - VERSÃO CORRIGIDA =====
+  // ===== HANDLERS DAS LEGENDAS ARRASTÁVEIS - SISTEMA PROPORCIONAL =====
   
-  // ✅ CORRIGIDO: Handlers com movimento suave
+  // ✅ NOVO: Handlers com coordenadas proporcionais
   useEffect(() => {
-    // Handler de movimento suave
+    // Handler de movimento proporcional
     dragHandlersRef.current.move = (e: MouseEvent) => {
       console.log('🖱️ Mouse move detected:', { clientX: e.clientX, clientY: e.clientY })
       
-      // ✅ CORRIGIDO: Usar setState funcional sem atualizar captionDragStart
       setCaptionOverlay(prev => {
-        if (!prev.isDragging) {
-          console.log('⚠️ Not dragging, ignoring mouse move')
+        if (!prev.isDragging || !playerDimensions.lockAspectRatio) {
+          console.log('⚠️ Not dragging or aspect ratio not locked, ignoring mouse move')
           return prev
         }
         
-        // ✅ CORRIGIDO: Usar posição inicial fixa durante todo o arraste
+        // Calcular dimensões reais do vídeo
+        const realDimensions = getVideoRealDimensions()
         const deltaX = e.clientX - captionDragStart.x
         const deltaY = e.clientY - captionDragStart.y
         
-        // ✅ CORRIGIDO: Calcular nova posição baseada na posição inicial do arraste
-        const newX = Math.max(0, Math.min(playerDimensions.width - 200, captionInitialPos.x + deltaX))
-        const newY = Math.max(0, Math.min(playerDimensions.height - 60, captionInitialPos.y + deltaY))
+        // ✅ NOVO: Converter delta de pixels para porcentagem
+        const deltaXPercent = (deltaX / realDimensions.width) * 100
+        const deltaYPercent = (deltaY / realDimensions.height) * 100
         
-        console.log('📍 New position calculated:', { 
+        // ✅ NOVO: Calcular nova posição em porcentagem com limites
+        const newX = Math.max(0, Math.min(95, captionInitialPos.x + deltaXPercent))
+        const newY = Math.max(0, Math.min(95, captionInitialPos.y + deltaYPercent))
+        
+        console.log('📍 New position calculated (%):', { 
           deltaX, deltaY, 
+          deltaXPercent: deltaXPercent.toFixed(1), 
+          deltaYPercent: deltaYPercent.toFixed(1),
           oldPos: { x: prev.x, y: prev.y },
-          newPos: { x: newX, y: newY }
+          newPos: { x: newX.toFixed(1), y: newY.toFixed(1) }
         })
         
         return {
@@ -511,12 +548,9 @@ const VideoEditorPage: React.FC = () => {
           y: newY
         }
       })
-      
-      // ✅ CORRIGIDO: NÃO atualizar captionDragStart durante movimento
-      // setCaptionDragStart({ x: e.clientX, y: e.clientY }) // ❌ REMOVIDO
     }
     
-    // Handler de mouse up simplificado
+    // Handler de mouse up
     dragHandlersRef.current.up = () => {
       console.log('🎯 Caption mouse up - arraste finalizado')
       
@@ -531,17 +565,24 @@ const VideoEditorPage: React.FC = () => {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [playerDimensions, captionInitialPos]) // ✅ CORRIGIDO: Incluir captionInitialPos nas dependências
+  }, [playerDimensions.lockAspectRatio, getVideoRealDimensions, captionDragStart, captionInitialPos])
 
   const handleCaptionMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     e.nativeEvent.stopImmediatePropagation()
     
+    // ✅ NOVO: Verificar se pode arrastar (aspect ratio travado)
+    if (!playerDimensions.lockAspectRatio) {
+      alert('🔒 Trave o aspect ratio do player (botão 🔒) para arrastar a legenda')
+      return
+    }
+    
     console.log('🎯 Caption mouse down:', { 
       clientX: e.clientX, 
       clientY: e.clientY,
-      currentPos: { x: captionOverlay.x, y: captionOverlay.y }
+      currentPos: { x: captionOverlay.x, y: captionOverlay.y },
+      canDrag: playerDimensions.lockAspectRatio
     })
     
     // Cleanup listeners anteriores
@@ -554,7 +595,7 @@ const VideoEditorPage: React.FC = () => {
     
     // Definir estado inicial
     setCaptionOverlay(prev => {
-      // Armazenar posição inicial para cálculo correto do delta
+      // Armazenar posição inicial em % para cálculo correto do delta
       setCaptionInitialPos({ x: prev.x, y: prev.y })
       return { ...prev, isDragging: true }
     })
@@ -580,7 +621,7 @@ const VideoEditorPage: React.FC = () => {
     } else {
       console.error('❌ Handlers not available!')
     }
-  }, [captionOverlay.x, captionOverlay.y])
+  }, [playerDimensions.lockAspectRatio, captionOverlay.x, captionOverlay.y])
 
   const handleCaptionDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -1768,8 +1809,8 @@ const VideoEditorPage: React.FC = () => {
   const getTimelinePosition = (time: number) => {
     return duration > 0 ? (time / duration) * 100 : 0
   }
-  
-  return (
+
+      return (
     <div className="h-screen bg-gray-900 flex flex-col overflow-hidden">
       {/* ===== HEADER ===== */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex-shrink-0">
@@ -2191,28 +2232,35 @@ const VideoEditorPage: React.FC = () => {
               </div>
             )}
             
-            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - CORRIGIDO */}
-            {transcriptionWords.length > 0 && (
-              <div 
-                className={`absolute z-50 inline-block cursor-grab select-none ${captionOverlay.isDragging ? 'cursor-grabbing' : ''}`}
-                style={{
-                  left: `${captionOverlay.x}px`,
-                  top: `${captionOverlay.y}px`,
-                  transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  e.nativeEvent.stopImmediatePropagation()
-                  handleCaptionMouseDown(e)
-                }}
-                onDoubleClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  e.nativeEvent.stopImmediatePropagation()
-                  handleCaptionDoubleClick(e)
-                }}
-              >
+            {/* ✅ OVERLAY DE LEGENDAS ARRASTÁVEIS - SISTEMA PROPORCIONAL */}
+            {transcriptionWords.length > 0 && (() => {
+              const absolutePos = getAbsolutePosition()
+              const canDrag = canDragCaption
+              return (
+                <div 
+                  className={`absolute z-50 inline-block select-none ${
+                    !canDrag ? 'cursor-not-allowed opacity-60' : 
+                    captionOverlay.isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                  }`}
+                  style={{
+                    left: `${absolutePos.x}px`,
+                    top: `${absolutePos.y}px`,
+                    transition: captionOverlay.isDragging ? 'none' : 'all 0.2s ease'
+                  }}
+                  title={!canDrag ? '🔒 Trave o aspect ratio do player para arrastar' : 'Arrastar legenda'}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.nativeEvent.stopImmediatePropagation()
+                    handleCaptionMouseDown(e)
+                  }}
+                  onDoubleClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.nativeEvent.stopImmediatePropagation()
+                    handleCaptionDoubleClick(e)
+                  }}
+                >
                 {/* ✅ CORRIGIDO: Texto da Legenda - Tamanho Dinâmico */}
                 <div 
                   className="bg-black bg-opacity-80 text-white px-4 py-2 rounded-lg shadow-lg text-center whitespace-nowrap font-bold leading-tight"
@@ -2238,8 +2286,14 @@ const VideoEditorPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* ✅ CONTROLES DE REDIMENSIONAMENTO - SEMPRE DISPONÍVEIS */}
+                {/* ✅ CONTROLES DE REDIMENSIONAMENTO E STATUS - SEMPRE DISPONÍVEIS */}
                 <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 rounded-lg px-2 py-1 flex items-center space-x-2">
+                  {!canDrag && (
+                    <span className="text-red-400 text-xs">🔓 Trave o player</span>
+                  )}
+                  {canDrag && (
+                    <span className="text-green-400 text-xs">🔒 Arraste ativo</span>
+                  )}
                   <button
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -2281,8 +2335,8 @@ const VideoEditorPage: React.FC = () => {
                       e.stopPropagation()
                       setCaptionOverlay(prev => ({ 
                         ...prev, 
-                        x: (playerDimensions.width - 200) / 2,
-                        y: playerDimensions.height * 0.8
+                        x: 50,  // 50% horizontal (centro)
+                        y: 85   // 85% vertical (embaixo)
                       }))
                     }}
                     className="text-white hover:text-green-400 text-sm px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
@@ -2297,7 +2351,7 @@ const VideoEditorPage: React.FC = () => {
                   {captionOverlay.isDragging ? '👆' : '✏️'}
                 </div>
               </div>
-            )}
+            )})()}
 
             {/* ✅ EDITOR INLINE DE LEGENDAS */}
             {captionOverlay.isEditing && (
