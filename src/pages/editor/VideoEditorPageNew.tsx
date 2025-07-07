@@ -141,6 +141,10 @@ const VideoEditorPage: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  
+  // Refs para handlers de redimensionamento
+  const resizeMoveHandlerRef = useRef<((e: MouseEvent) => void) | null>(null)
+  const resizeEndHandlerRef = useRef<(() => void) | null>(null)
 
   // ===== LOGGER CONDICIONAL =====
   const logger = {
@@ -303,6 +307,90 @@ const VideoEditorPage: React.FC = () => {
   }, [muted])
 
   // ===== HANDLERS DO PLAYER REDIMENSIONÁVEL =====
+  
+  // Criar os handlers de resize e armazenar nas refs
+  useEffect(() => {
+    const handleResizeMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeHandle) return
+
+      const deltaX = e.clientX - resizeStartPos.x
+      const deltaY = e.clientY - resizeStartPos.y
+      
+      let newWidth = resizeStartDimensions.width
+      let newHeight = resizeStartDimensions.height
+
+      // Calcular novas dimensões baseado no handle
+      if (resizeHandle.includes('e')) newWidth = Math.max(200, resizeStartDimensions.width + deltaX)
+      if (resizeHandle.includes('w')) newWidth = Math.max(200, resizeStartDimensions.width - deltaX)
+      if (resizeHandle.includes('s')) newHeight = Math.max(150, resizeStartDimensions.height + deltaY)
+      if (resizeHandle.includes('n')) newHeight = Math.max(150, resizeStartDimensions.height - deltaY)
+
+      // Manter aspect ratio se ativo
+      if (playerDimensions.lockAspectRatio) {
+        const aspectRatio = playerDimensions.aspectRatio
+        if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
+          newHeight = newWidth / aspectRatio
+        } else if (resizeHandle.includes('n') || resizeHandle.includes('s')) {
+          newWidth = newHeight * aspectRatio
+        } else {
+          // Para handles de canto, usar a maior mudança
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            newHeight = newWidth / aspectRatio
+          } else {
+            newWidth = newHeight * aspectRatio
+          }
+        }
+      }
+
+      // Limitar dimensões máximas (90% da tela)
+      const maxWidth = window.innerWidth * 0.9
+      const maxHeight = window.innerHeight * 0.9
+      
+      if (newWidth > maxWidth) {
+        newWidth = maxWidth
+        if (playerDimensions.lockAspectRatio) {
+          newHeight = newWidth / playerDimensions.aspectRatio
+        }
+      }
+      
+      if (newHeight > maxHeight) {
+        newHeight = maxHeight
+        if (playerDimensions.lockAspectRatio) {
+          newWidth = newHeight * playerDimensions.aspectRatio
+        }
+      }
+
+      setPlayerDimensions(prev => ({
+        ...prev,
+        width: Math.round(newWidth),
+        height: Math.round(newHeight)
+      }))
+    }
+
+    const handleResizeEnd = () => {
+      setIsResizing(false)
+      setResizeHandle(null)
+      
+      // Remover listeners globais
+      if (resizeMoveHandlerRef.current) {
+        document.removeEventListener('mousemove', resizeMoveHandlerRef.current)
+      }
+      if (resizeEndHandlerRef.current) {
+        document.removeEventListener('mouseup', resizeEndHandlerRef.current)
+      }
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      
+      // Limpar refs
+      resizeMoveHandlerRef.current = null
+      resizeEndHandlerRef.current = null
+    }
+
+    // Armazenar handlers nas refs
+    resizeMoveHandlerRef.current = handleResizeMove
+    resizeEndHandlerRef.current = handleResizeEnd
+  }, [isResizing, resizeHandle, resizeStartPos, resizeStartDimensions, playerDimensions])
+
   const handleResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
     e.preventDefault()
     e.stopPropagation()
@@ -315,80 +403,16 @@ const VideoEditorPage: React.FC = () => {
       height: playerDimensions.height 
     })
     
-    // Adicionar listeners globais
-    document.addEventListener('mousemove', handleResizeMove)
-    document.addEventListener('mouseup', handleResizeEnd)
+    // Adicionar listeners globais usando as refs
+    if (resizeMoveHandlerRef.current) {
+      document.addEventListener('mousemove', resizeMoveHandlerRef.current)
+    }
+    if (resizeEndHandlerRef.current) {
+      document.addEventListener('mouseup', resizeEndHandlerRef.current)
+    }
     document.body.style.cursor = `${handle}-resize`
     document.body.style.userSelect = 'none'
   }, [playerDimensions])
-
-  const handleResizeMove = useCallback((e: MouseEvent) => {
-    if (!isResizing || !resizeHandle) return
-
-    const deltaX = e.clientX - resizeStartPos.x
-    const deltaY = e.clientY - resizeStartPos.y
-    
-    let newWidth = resizeStartDimensions.width
-    let newHeight = resizeStartDimensions.height
-
-    // Calcular novas dimensões baseado no handle
-    if (resizeHandle.includes('e')) newWidth = Math.max(200, resizeStartDimensions.width + deltaX)
-    if (resizeHandle.includes('w')) newWidth = Math.max(200, resizeStartDimensions.width - deltaX)
-    if (resizeHandle.includes('s')) newHeight = Math.max(150, resizeStartDimensions.height + deltaY)
-    if (resizeHandle.includes('n')) newHeight = Math.max(150, resizeStartDimensions.height - deltaY)
-
-    // Manter aspect ratio se ativo
-    if (playerDimensions.lockAspectRatio) {
-      const aspectRatio = playerDimensions.aspectRatio
-      if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
-        newHeight = newWidth / aspectRatio
-      } else if (resizeHandle.includes('n') || resizeHandle.includes('s')) {
-        newWidth = newHeight * aspectRatio
-      } else {
-        // Para handles de canto, usar a maior mudança
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          newHeight = newWidth / aspectRatio
-        } else {
-          newWidth = newHeight * aspectRatio
-        }
-      }
-    }
-
-    // Limitar dimensões máximas (90% da tela)
-    const maxWidth = window.innerWidth * 0.9
-    const maxHeight = window.innerHeight * 0.9
-    
-    if (newWidth > maxWidth) {
-      newWidth = maxWidth
-      if (playerDimensions.lockAspectRatio) {
-        newHeight = newWidth / playerDimensions.aspectRatio
-      }
-    }
-    
-    if (newHeight > maxHeight) {
-      newHeight = maxHeight
-      if (playerDimensions.lockAspectRatio) {
-        newWidth = newHeight * playerDimensions.aspectRatio
-      }
-    }
-
-    setPlayerDimensions(prev => ({
-      ...prev,
-      width: Math.round(newWidth),
-      height: Math.round(newHeight)
-    }))
-  }, [isResizing, resizeHandle, resizeStartPos, resizeStartDimensions, playerDimensions])
-
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(false)
-    setResizeHandle(null)
-    
-    // Remover listeners globais
-    document.removeEventListener('mousemove', handleResizeMove)
-    document.removeEventListener('mouseup', handleResizeEnd)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-  }, [handleResizeMove])
 
   const handleAspectRatioToggle = useCallback(() => {
     setPlayerDimensions(prev => ({
@@ -1312,12 +1336,16 @@ const VideoEditorPage: React.FC = () => {
   useEffect(() => {
     return () => {
       // Limpar listeners de redimensionamento ao desmontar
-      document.removeEventListener('mousemove', handleResizeMove)
-      document.removeEventListener('mouseup', handleResizeEnd)
+      if (resizeMoveHandlerRef.current) {
+        document.removeEventListener('mousemove', resizeMoveHandlerRef.current)
+      }
+      if (resizeEndHandlerRef.current) {
+        document.removeEventListener('mouseup', resizeEndHandlerRef.current)
+      }
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [handleResizeMove, handleResizeEnd])
+  }, [])
 
   // Cleanup de streams
   useEffect(() => {
