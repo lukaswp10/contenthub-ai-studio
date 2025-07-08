@@ -14,7 +14,7 @@ import {
   Play, Pause, Square, SkipBack, SkipForward, 
   ZoomIn, ZoomOut, RotateCcw, 
   CornerUpLeft, CornerUpRight, 
-  Split, Scissors
+  Split, Scissors, Trash2
 } from 'lucide-react'
 
 // ===== INTERFACES =====
@@ -28,6 +28,15 @@ interface CutSegment {
   name: string
   selected: boolean
   color: string
+}
+
+interface SplitBlock {
+  id: string
+  start: number
+  end: number
+  name: string
+  color: string
+  isDragging: boolean
 }
 
 interface ActiveSegment {
@@ -99,9 +108,13 @@ interface ResizableSegmentProps {
   zoom?: number
   formatTime: (time: number) => string
   onSegmentChange: (segment: ActiveSegment) => void
-  onDragStart: (e: React.MouseEvent, type: 'start' | 'end' | 'move') => void
+  onDragStart?: (e: React.MouseEvent, type: 'start' | 'end' | 'move') => void // Opcional temporariamente
   onAreaClick: (time: number) => void
   containerRef: React.RefObject<HTMLDivElement>
+  // Novos handlers específicos
+  onStartHandleDragStart?: (e: React.MouseEvent) => void
+  onEndHandleDragStart?: (e: React.MouseEvent) => void
+  onMoveSegmentDragStart?: (e: React.MouseEvent) => void
 }
 
 const ResizableSegment: React.FC<ResizableSegmentProps> = ({
@@ -116,7 +129,10 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
   onSegmentChange,
   onDragStart,
   onAreaClick,
-  containerRef
+  containerRef,
+  onStartHandleDragStart,
+  onEndHandleDragStart,
+  onMoveSegmentDragStart
 }) => {
   // Cálculos de posição unificados
   const startPercent = calculateTimelinePosition(segment.start, duration, zoom)
@@ -179,7 +195,7 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
           width: `${widthPercent}%`,
           minWidth: '20px' // Largura mínima para visibilidade
         }}
-        onMouseDown={(e) => onDragStart(e, 'move')}
+        onMouseDown={onMoveSegmentDragStart}
         title={`Segmento: ${formatTime(segment.start)} - ${formatTime(segment.end)} (${formatTime(segment.end - segment.start)})`}
       >
         {/* Label do segmento - apenas na timeline principal */}
@@ -194,7 +210,7 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
           className={`absolute -left-3 top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
             dragType === 'start' ? 'animate-pulse ring-2 ring-yellow-300' : ''
           }`}
-          onMouseDown={(e) => onDragStart(e, 'start')}
+          onMouseDown={onStartHandleDragStart}
           title="◄ Redimensionar início"
         />
         
@@ -203,7 +219,7 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
           className={`absolute -right-3 top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
             dragType === 'end' ? 'animate-pulse ring-2 ring-yellow-300' : ''
           }`}
-          onMouseDown={(e) => onDragStart(e, 'end')}
+          onMouseDown={onEndHandleDragStart}
           title="► Redimensionar fim"
         />
       </div>
@@ -259,27 +275,64 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [zoom, setZoom] = useState(100)
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const [activeSegment, setActiveSegment] = useState<ActiveSegment>({ start: 0, end: 0 })
-  // Estados de drag separados para evitar conflitos
-  const [playbackDragState, setPlaybackDragState] = useState<{
-    type: 'start' | 'end' | 'move' | null
+  // Estados de drag COMPLETAMENTE separados
+  const [startHandleState, setStartHandleState] = useState<{
+    isDragging: boolean
+    startX: number
+    initialValue: number
+  }>({
+    isDragging: false,
+    startX: 0,
+    initialValue: 0
+  })
+  
+  const [endHandleState, setEndHandleState] = useState<{
+    isDragging: boolean
+    startX: number
+    initialValue: number
+  }>({
+    isDragging: false,
+    startX: 0,
+    initialValue: 0
+  })
+  
+  const [moveSegmentState, setMoveSegmentState] = useState<{
     isDragging: boolean
     startX: number
     startSegment: ActiveSegment
   }>({
-    type: null,
     isDragging: false,
     startX: 0,
     startSegment: { start: 0, end: 0 }
   })
   
+  // Estado para handle de divisão (vermelho)
   const [splitHandleState, setSplitHandleState] = useState<{
     position: number
     isDragging: boolean
     startX: number
+    isVisible: boolean
   }>({
     position: 0,
     isDragging: false,
-    startX: 0
+    startX: 0,
+    isVisible: false
+  })
+  
+  // Estado para blocos criados pela divisão
+  const [splitBlocks, setSplitBlocks] = useState<SplitBlock[]>([])
+  
+  // Estado para drag de blocos
+  const [blockDragState, setBlockDragState] = useState<{
+    blockId: string | null
+    isDragging: boolean
+    startX: number
+    startTime: number
+  }>({
+    blockId: null,
+    isDragging: false,
+    startX: 0,
+    startTime: 0
   })
   
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -317,6 +370,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       })
     }
   }, [inPoint, outPoint])
+  
+  // ===== CONTROLE DE VISIBILIDADE DO HANDLE DE DIVISÃO =====
+  useEffect(() => {
+    // Mostrar handle de divisão apenas quando playhead estiver dentro do segmento azul
+    const isInsideSegment = currentTime >= activeSegment.start && currentTime <= activeSegment.end
+    setSplitHandleState(prev => ({
+      ...prev,
+      isVisible: isInsideSegment,
+      position: currentTime
+    }))
+  }, [currentTime, activeSegment])
   
   // ===== CONTROLES DE ZOOM =====
   const handleZoomIn = useCallback(() => setZoom(prev => Math.min(prev * 1.5, 1600)), [])
@@ -357,28 +421,69 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== HANDLERS DE CLIQUE =====
   const handleTimelineClick = useCallback((e: React.MouseEvent) => {
-    if (!timelineRef.current || playbackDragState.isDragging) return
+    // Prevenir clique se algum handle estiver sendo arrastado
+    const anyDragging = startHandleState.isDragging || endHandleState.isDragging || moveSegmentState.isDragging
+    if (!timelineRef.current || anyDragging) return
     
     const { percentage } = getCoordinatesFromEvent(e, timelineRef.current)
     const newTime = calculateTimeFromPosition(percentage, duration, zoom)
     
     onSeek(newTime)
-  }, [zoom, duration, onSeek, playbackDragState.isDragging])
+  }, [zoom, duration, onSeek, startHandleState.isDragging, endHandleState.isDragging, moveSegmentState.isDragging])
   
-  // ===== HANDLERS DE DRAG UNIFICADOS =====
-  const handleDragStart = useCallback((e: React.MouseEvent, type: 'start' | 'end' | 'move') => {
+  // ===== HANDLERS DE DRAG SEPARADOS =====
+  
+  // Handler específico para handle de INÍCIO
+  const handleStartHandleDragStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
+    e.preventDefault()
     
-    setPlaybackDragState({
-      type,
+    setStartHandleState({
+      isDragging: true,
+      startX: e.clientX,
+      initialValue: activeSegment.start
+    })
+  }, [activeSegment.start])
+  
+  // Handler específico para handle de FIM  
+  const handleEndHandleDragStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    setEndHandleState({
+      isDragging: true,
+      startX: e.clientX,
+      initialValue: activeSegment.end
+    })
+  }, [activeSegment.end])
+  
+  // Handler específico para MOVER segmento
+  const handleMoveSegmentDragStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    setMoveSegmentState({
       isDragging: true,
       startX: e.clientX,
       startSegment: { ...activeSegment }
     })
   }, [activeSegment])
-
-  const handleDragMove = useCallback((e: MouseEvent) => {
-    if (!playbackDragState.isDragging) return
+  
+  // ===== HANDLERS PARA HANDLE DE DIVISÃO (VERMELHO) =====
+  
+  const handleSplitHandleDragStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    setSplitHandleState(prev => ({
+      ...prev,
+      isDragging: true,
+      startX: e.clientX
+    }))
+  }, [])
+  
+  const handleSplitHandleMove = useCallback((e: MouseEvent) => {
+    if (!splitHandleState.isDragging) return
     
     const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
     if (!container) return
@@ -386,54 +491,196 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, container)
     const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    if (playbackDragState.type === 'start') {
-      // Redimensionar início
-      const newStart = Math.max(0, Math.min(playbackDragState.startSegment.end - 1, newTime))
-      setActiveSegment(prev => ({ ...prev, start: newStart }))
-    } else if (playbackDragState.type === 'end') {
-      // Redimensionar fim
-      const newEnd = Math.max(playbackDragState.startSegment.start + 1, Math.min(duration, newTime))
-      setActiveSegment(prev => ({ ...prev, end: newEnd }))
-    } else if (playbackDragState.type === 'move') {
-      // Mover segmento inteiro
-      const deltaX = e.clientX - playbackDragState.startX
-      const rect = container.getBoundingClientRect()
-      const deltaPercentage = (deltaX / rect.width) * 100
-      const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
-      const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
-      
-      const segmentDuration = playbackDragState.startSegment.end - playbackDragState.startSegment.start
-      const newStart = Math.max(0, Math.min(duration - segmentDuration, playbackDragState.startSegment.start + deltaTime))
-      const newEnd = newStart + segmentDuration
-      
-      setActiveSegment({ start: newStart, end: newEnd })
-    }
-  }, [playbackDragState, duration, zoom, timelineMode])
-  
-  const handleDragEnd = useCallback(() => {
-    if (!playbackDragState.isDragging) return
+    // Limitar movimento dentro do segmento azul
+    const constrainedTime = Math.max(
+      activeSegment.start + 0.1,
+      Math.min(activeSegment.end - 0.1, newTime)
+    )
     
-    // Sincronizar área amarela com a nova posição da barra azul
+    setSplitHandleState(prev => ({
+      ...prev,
+      position: constrainedTime
+    }))
+  }, [splitHandleState.isDragging, activeSegment, duration, zoom, timelineMode])
+  
+  const handleSplitHandleEnd = useCallback(() => {
+    if (!splitHandleState.isDragging) return
+    setSplitHandleState(prev => ({ ...prev, isDragging: false, startX: 0 }))
+  }, [splitHandleState.isDragging])
+  
+  // ===== FUNÇÃO PARA CRIAR BLOCOS PELA DIVISÃO =====
+  
+  const createSplitBlocks = useCallback(() => {
+    if (!splitHandleState.isVisible) return
+    
+    const splitTime = splitHandleState.position
+    const blockId1 = `block-${Date.now()}-1`
+    const blockId2 = `block-${Date.now()}-2`
+    
+    const newBlocks: SplitBlock[] = [
+      {
+        id: blockId1,
+        start: activeSegment.start,
+        end: splitTime,
+        name: `Bloco 1`,
+        color: '#10B981', // Verde
+        isDragging: false
+      },
+      {
+        id: blockId2,
+        start: splitTime,
+        end: activeSegment.end,
+        name: `Bloco 2`,
+        color: '#8B5CF6', // Roxo
+        isDragging: false
+      }
+    ]
+    
+    setSplitBlocks(prev => [...prev, ...newBlocks])
+    
+    // Ocultar handle de divisão após criar blocos
+    setSplitHandleState(prev => ({ ...prev, isVisible: false }))
+    
+    console.log('🎬 Blocos criados:', newBlocks)
+  }, [splitHandleState.isVisible, splitHandleState.position, activeSegment])
+  
+  // ===== HANDLERS PARA DRAG & DROP DE BLOCOS =====
+  
+  const handleBlockDragStart = useCallback((e: React.MouseEvent, blockId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    const block = splitBlocks.find(b => b.id === blockId)
+    if (!block) return
+    
+    setBlockDragState({
+      blockId,
+      isDragging: true,
+      startX: e.clientX,
+      startTime: block.start
+    })
+    
+    // Marcar bloco como sendo arrastado
+    setSplitBlocks(prev => prev.map(b => 
+      b.id === blockId ? { ...b, isDragging: true } : b
+    ))
+  }, [splitBlocks])
+  
+  const handleBlockMove = useCallback((e: MouseEvent) => {
+    if (!blockDragState.isDragging || !blockDragState.blockId) return
+    
+    const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
+    if (!container) return
+    
+    const block = splitBlocks.find(b => b.id === blockDragState.blockId)
+    if (!block) return
+    
+    const deltaX = e.clientX - blockDragState.startX
+    const rect = container.getBoundingClientRect()
+    const deltaPercentage = (deltaX / rect.width) * 100
+    const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
+    const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
+    
+    const blockDuration = block.end - block.start
+    const newStart = Math.max(0, Math.min(duration - blockDuration, blockDragState.startTime + deltaTime))
+    const newEnd = newStart + blockDuration
+    
+    setSplitBlocks(prev => prev.map(b => 
+      b.id === blockDragState.blockId ? { ...b, start: newStart, end: newEnd } : b
+    ))
+  }, [blockDragState, splitBlocks, duration, zoom, timelineMode])
+  
+  const handleBlockDragEnd = useCallback(() => {
+    if (!blockDragState.isDragging) return
+    
+    // Desmarcar bloco como sendo arrastado
+    setSplitBlocks(prev => prev.map(b => 
+      b.id === blockDragState.blockId ? { ...b, isDragging: false } : b
+    ))
+    
+    setBlockDragState({
+      blockId: null,
+      isDragging: false,
+      startX: 0,
+      startTime: 0
+    })
+  }, [blockDragState.isDragging, blockDragState.blockId])
+
+  // Handlers de movimento separados
+  const handleStartHandleMove = useCallback((e: MouseEvent) => {
+    if (!startHandleState.isDragging) return
+    
+    const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
+    if (!container) return
+    
+    const { percentage } = getCoordinatesFromEvent(e, container)
+    const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
+    
+    // Redimensionar início (não pode passar do fim)
+    const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
+    setActiveSegment(prev => ({ ...prev, start: newStart }))
+  }, [startHandleState.isDragging, activeSegment.end, duration, zoom, timelineMode])
+  
+  const handleEndHandleMove = useCallback((e: MouseEvent) => {
+    if (!endHandleState.isDragging) return
+    
+    const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
+    if (!container) return
+    
+    const { percentage } = getCoordinatesFromEvent(e, container)
+    const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
+    
+    // Redimensionar fim (não pode passar do início)
+    const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
+    setActiveSegment(prev => ({ ...prev, end: newEnd }))
+  }, [endHandleState.isDragging, activeSegment.start, duration, zoom, timelineMode])
+  
+  const handleMoveSegmentMove = useCallback((e: MouseEvent) => {
+    if (!moveSegmentState.isDragging) return
+    
+    const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
+    if (!container) return
+    
+    const deltaX = e.clientX - moveSegmentState.startX
+    const rect = container.getBoundingClientRect()
+    const deltaPercentage = (deltaX / rect.width) * 100
+    const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
+    const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
+    
+    const segmentDuration = moveSegmentState.startSegment.end - moveSegmentState.startSegment.start
+    const newStart = Math.max(0, Math.min(duration - segmentDuration, moveSegmentState.startSegment.start + deltaTime))
+    const newEnd = newStart + segmentDuration
+    
+    setActiveSegment({ start: newStart, end: newEnd })
+  }, [moveSegmentState, duration, zoom, timelineMode])
+  
+  // Handlers de finalização separados
+  const handleStartHandleEnd = useCallback(() => {
+    if (!startHandleState.isDragging) return
+    setStartHandleState({ isDragging: false, startX: 0, initialValue: 0 })
+  }, [startHandleState.isDragging])
+  
+  const handleEndHandleEnd = useCallback(() => {
+    if (!endHandleState.isDragging) return
+    setEndHandleState({ isDragging: false, startX: 0, initialValue: 0 })
+  }, [endHandleState.isDragging])
+  
+  const handleMoveSegmentEnd = useCallback(() => {
+    if (!moveSegmentState.isDragging) return
+    
+    // Sincronizar área amarela apenas quando mover o segmento inteiro
     setActiveSegment(currentSegment => {
-      // Definir inPoint e outPoint baseado no segmento final
       onSeek(currentSegment.start)
       setTimeout(() => {
         onSetInPoint()
         onSeek(currentSegment.end)
         setTimeout(() => onSetOutPoint(), 50)
       }, 50)
-      
       return currentSegment
     })
     
-    // Resetar estado de drag
-    setPlaybackDragState({
-      type: null,
-      isDragging: false,
-      startX: 0,
-      startSegment: { start: 0, end: 0 }
-    })
-  }, [playbackDragState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
+    setMoveSegmentState({ isDragging: false, startX: 0, startSegment: { start: 0, end: 0 } })
+  }, [moveSegmentState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
   useEffect(() => {
@@ -450,17 +697,67 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     }
   }, [currentTime, isPlaying, onSeek, duration])
 
-  // ===== EVENT LISTENERS =====
+  // ===== EVENT LISTENERS SEPARADOS =====
+  
+  // Listeners para handle de INÍCIO
   useEffect(() => {
-    if (playbackDragState.isDragging) {
-      document.addEventListener('mousemove', handleDragMove)
-      document.addEventListener('mouseup', handleDragEnd)
+    if (startHandleState.isDragging) {
+      document.addEventListener('mousemove', handleStartHandleMove)
+      document.addEventListener('mouseup', handleStartHandleEnd)
       return () => {
-        document.removeEventListener('mousemove', handleDragMove)
-        document.removeEventListener('mouseup', handleDragEnd)
+        document.removeEventListener('mousemove', handleStartHandleMove)
+        document.removeEventListener('mouseup', handleStartHandleEnd)
       }
     }
-  }, [playbackDragState.isDragging, handleDragMove, handleDragEnd])
+  }, [startHandleState.isDragging, handleStartHandleMove, handleStartHandleEnd])
+  
+  // Listeners para handle de FIM
+  useEffect(() => {
+    if (endHandleState.isDragging) {
+      document.addEventListener('mousemove', handleEndHandleMove)
+      document.addEventListener('mouseup', handleEndHandleEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleEndHandleMove)
+        document.removeEventListener('mouseup', handleEndHandleEnd)
+      }
+    }
+  }, [endHandleState.isDragging, handleEndHandleMove, handleEndHandleEnd])
+  
+  // Listeners para MOVER segmento
+  useEffect(() => {
+    if (moveSegmentState.isDragging) {
+      document.addEventListener('mousemove', handleMoveSegmentMove)
+      document.addEventListener('mouseup', handleMoveSegmentEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleMoveSegmentMove)
+        document.removeEventListener('mouseup', handleMoveSegmentEnd)
+      }
+    }
+  }, [moveSegmentState.isDragging, handleMoveSegmentMove, handleMoveSegmentEnd])
+  
+  // Listeners para HANDLE DE DIVISÃO (vermelho)
+  useEffect(() => {
+    if (splitHandleState.isDragging) {
+      document.addEventListener('mousemove', handleSplitHandleMove)
+      document.addEventListener('mouseup', handleSplitHandleEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleSplitHandleMove)
+        document.removeEventListener('mouseup', handleSplitHandleEnd)
+      }
+    }
+  }, [splitHandleState.isDragging, handleSplitHandleMove, handleSplitHandleEnd])
+  
+  // Listeners para DRAG & DROP DE BLOCOS
+  useEffect(() => {
+    if (blockDragState.isDragging) {
+      document.addEventListener('mousemove', handleBlockMove)
+      document.addEventListener('mouseup', handleBlockDragEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleBlockMove)
+        document.removeEventListener('mouseup', handleBlockDragEnd)
+      }
+    }
+  }, [blockDragState.isDragging, handleBlockMove, handleBlockDragEnd])
   
   // ===== HANDLERS DE SEGMENTO =====
   const handleSegmentChange = useCallback((newSegment: ActiveSegment) => {
@@ -617,7 +914,36 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </div>
               
               {/* Botão de divisão */}
-              {currentTime >= activeSegment.start && currentTime <= activeSegment.end && (
+              {/* Botão para criar blocos (quando handle vermelho está visível) */}
+              {splitHandleState.isVisible && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={createSplitBlocks}
+                  className="bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse"
+                  title={`Criar blocos em ${formatTime(splitHandleState.position)}`}
+                >
+                  <Scissors size={14} className="mr-2" />
+                  ✂️ Criar Blocos
+                </Button>
+              )}
+              
+              {/* Botão para limpar blocos */}
+              {splitBlocks.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSplitBlocks([])}
+                  className="bg-gray-600 hover:bg-gray-700 text-white border-gray-500"
+                  title="Limpar todos os blocos"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  Limpar Blocos ({splitBlocks.length})
+                </Button>
+              )}
+              
+              {/* Botão original (quando não há handle vermelho) */}
+              {currentTime >= activeSegment.start && currentTime <= activeSegment.end && !splitHandleState.isVisible && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -751,15 +1077,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={playbackDragState.type}
-                isDragging={playbackDragState.isDragging}
+                dragType={
+                  startHandleState.isDragging ? 'start' : 
+                  endHandleState.isDragging ? 'end' : 
+                  moveSegmentState.isDragging ? 'move' : null
+                }
+                isDragging={startHandleState.isDragging || endHandleState.isDragging || moveSegmentState.isDragging}
                 isMainTimeline={true}
                 zoom={zoom}
                 formatTime={formatTime}
                 onSegmentChange={handleSegmentChange}
-                onDragStart={handleDragStart}
+                onDragStart={undefined} // Usando novos handlers específicos
                 onAreaClick={handleAreaClick}
                 containerRef={timelineRef}
+                // Novos handlers específicos
+                onStartHandleDragStart={handleStartHandleDragStart}
+                onEndHandleDragStart={handleEndHandleDragStart}
+                onMoveSegmentDragStart={handleMoveSegmentDragStart}
               />
               
               {/* Segmentos de corte existentes */}
@@ -816,6 +1150,58 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   }}
                 />
               )}
+              
+              {/* HANDLE DE DIVISÃO (VERMELHO) */}
+              {splitHandleState.isVisible && (
+                <div
+                  className="absolute top-0 h-full z-25 flex items-center justify-center"
+                  style={{ left: `${calculateTimelinePosition(splitHandleState.position, duration, zoom)}%` }}
+                >
+                  {/* Linha de divisão */}
+                  <div className="absolute w-0.5 h-full bg-red-500 shadow-lg" />
+                  
+                  {/* Handle arrastável */}
+                  <div
+                    className={`w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg cursor-grab hover:scale-110 transition-transform ${
+                      splitHandleState.isDragging ? 'cursor-grabbing animate-pulse ring-2 ring-red-300' : ''
+                    }`}
+                    onMouseDown={handleSplitHandleDragStart}
+                    title="✂️ Arrastar para dividir"
+                  />
+                  
+                  {/* Tooltip */}
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                    ✂️ {formatTime(splitHandleState.position)}
+                  </div>
+                </div>
+              )}
+              
+              {/* BLOCOS CRIADOS PELA DIVISÃO */}
+              {splitBlocks.map(block => (
+                <div
+                  key={block.id}
+                  className={`absolute top-0 h-full rounded-lg border-2 border-white/50 cursor-grab hover:brightness-110 transition-all duration-200 ${
+                    block.isDragging ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' : 'z-20'
+                  }`}
+                  style={{
+                    left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
+                    width: `${calculateTimelinePosition(block.end - block.start, duration, zoom)}%`,
+                    backgroundColor: block.color,
+                    minWidth: '40px'
+                  }}
+                  onMouseDown={(e) => handleBlockDragStart(e, block.id)}
+                  title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})`}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold bg-black/20 rounded-lg">
+                    {block.name}
+                  </div>
+                  
+                  {/* Indicador de drag */}
+                  {block.isDragging && (
+                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-white rounded-full animate-ping" />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -848,15 +1234,22 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={playbackDragState.type}
-                isDragging={playbackDragState.isDragging}
+                dragType={
+                  startHandleState.isDragging ? 'start' : 
+                  endHandleState.isDragging ? 'end' : 
+                  moveSegmentState.isDragging ? 'move' : null
+                }
+                isDragging={startHandleState.isDragging || endHandleState.isDragging || moveSegmentState.isDragging}
                 isMainTimeline={false}
                 zoom={100}
                 formatTime={formatTime}
                 onSegmentChange={handleSegmentChange}
-                onDragStart={handleDragStart}
+                onDragStart={undefined}
                 onAreaClick={handleAreaClick}
                 containerRef={progressBarRef}
+                onStartHandleDragStart={handleStartHandleDragStart}
+                onEndHandleDragStart={handleEndHandleDragStart}
+                onMoveSegmentDragStart={handleMoveSegmentDragStart}
               />
             </div>
             
@@ -895,10 +1288,45 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-800/50 px-3 py-2 rounded-lg">
             <span>
               Segmento Ativo: {formatTime(activeSegment.start)} - {formatTime(activeSegment.end)} ({formatTime(activeSegment.end - activeSegment.start)})
+              {splitHandleState.isVisible && (
+                <span className="ml-2 text-red-400">
+                  | ✂️ Divisão: {formatTime(splitHandleState.position)}
+                </span>
+              )}
             </span>
             <span>
-              Cortes: {cutSegments.length} | Zoom: {zoom}% | Duração: {formatTime(duration)}
+              Cortes: {cutSegments.length} | Blocos: {splitBlocks.length} | Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
+          </div>
+        )}
+        
+        {/* ===== INFORMAÇÕES DOS BLOCOS ===== */}
+        {splitBlocks.length > 0 && timelineMode !== 'mini' && (
+          <div className="bg-gray-800/50 px-3 py-2 rounded-lg">
+            <div className="text-xs text-gray-400 mb-1">Blocos Criados:</div>
+            <div className="flex flex-wrap gap-2">
+              {splitBlocks.map(block => (
+                <div
+                  key={block.id}
+                  className={`flex items-center space-x-2 px-2 py-1 rounded text-xs font-medium transition-all ${
+                    block.isDragging ? 'bg-white/20 ring-2 ring-white/30' : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                  style={{ color: block.color }}
+                >
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: block.color }}
+                  />
+                  <span>{block.name}</span>
+                  <span className="text-gray-400">
+                    {formatTime(block.start)} - {formatTime(block.end)}
+                  </span>
+                  <span className="text-gray-500">
+                    ({formatTime(block.end - block.start)})
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
