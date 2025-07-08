@@ -300,7 +300,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     onSeek(newTime)
   }, [zoom, duration, onSeek, isDragging])
   
-  // ===== HANDLERS DE DRAG =====
+    // ===== HANDLERS DE DRAG =====
   const handleSegmentHandleMouseDown = useCallback((e: React.MouseEvent, type: 'start' | 'end') => {
     e.stopPropagation()
     setIsDragging(true)
@@ -308,7 +308,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setDragStartX(e.clientX)
     setDragStartSegment({ ...activeSegment })
   }, [activeSegment])
-  
+
   const handleSegmentBodyMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setIsDragging(true)
@@ -316,7 +316,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setDragStartX(e.clientX)
     setDragStartSegment({ ...activeSegment })
   }, [activeSegment])
-  
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return
     
@@ -335,11 +335,19 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (dragType === 'seek') {
       onSeek(newTime)
     } else if (dragType === 'start') {
+      // CONECTAR COM O SISTEMA REAL: Quando arrasta handle de início, define inPoint
       const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
       setActiveSegment(prev => ({ ...prev, start: newStart }))
+      // Simular clique no botão de entrada para definir inPoint real
+      onSeek(newStart)
+      setTimeout(() => onSetInPoint(), 10)
     } else if (dragType === 'end') {
+      // CONECTAR COM O SISTEMA REAL: Quando arrasta handle de fim, define outPoint
       const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
       setActiveSegment(prev => ({ ...prev, end: newEnd }))
+      // Simular clique no botão de saída para definir outPoint real
+      onSeek(newEnd)
+      setTimeout(() => onSetOutPoint(), 10)
     } else if (dragType === 'move') {
       const deltaX = e.clientX - dragStartX
       const deltaTime = (deltaX / rect.width) * duration / scaleFactor
@@ -347,8 +355,15 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       const newStart = Math.max(0, Math.min(duration - segmentDuration, dragStartSegment.start + deltaTime))
       const newEnd = newStart + segmentDuration
       setActiveSegment({ start: newStart, end: newEnd })
+      // CONECTAR COM O SISTEMA REAL: Quando move segmento, atualiza inPoint e outPoint
+      onSeek(newStart)
+      setTimeout(() => {
+        onSetInPoint()
+        onSeek(newEnd)
+        setTimeout(() => onSetOutPoint(), 10)
+      }, 10)
     }
-  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom])
+  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom, onSetInPoint, onSetOutPoint])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
