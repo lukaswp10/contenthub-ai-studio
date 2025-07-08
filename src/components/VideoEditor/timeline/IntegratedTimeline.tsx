@@ -1,10 +1,11 @@
 /**
- * 🎬 INTEGRATED TIMELINE - ClipsForge Pro
+ * 🎬 INTEGRATED TIMELINE - ClipsForge Pro v2.0
  * 
  * Timeline profissional integrada com sistema de cortes existente
  * Compatível com legendas, narração e galeria
  * 
- * @version 1.0.0 - Integração com VideoEditorPageNew.tsx
+ * @version 2.0.0 - REFATORAÇÃO COMPLETA
+ * @fixes: Sincronização, Drag & Drop, Zoom, Estado unificado
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react'
@@ -69,6 +70,24 @@ interface IntegratedTimelineProps {
   cutHistory: CutSegment[][]
 }
 
+// ===== UTILITÁRIOS DE CÁLCULO =====
+const calculateTimelinePosition = (time: number, duration: number, zoom: number = 100) => {
+  if (duration === 0) return 0
+  return (time / duration) * zoom
+}
+
+const calculateTimeFromPosition = (position: number, duration: number, zoom: number = 100) => {
+  const percentage = (position / zoom) * 100
+  return Math.max(0, Math.min(duration, (percentage / 100) * duration))
+}
+
+const getCoordinatesFromEvent = (e: React.MouseEvent | MouseEvent, container: HTMLElement) => {
+  const rect = container.getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const percentage = (x / rect.width) * 100
+  return { x, percentage }
+}
+
 // ===== COMPONENTE REUTILIZÁVEL PARA BARRA REDIMENSIONÁVEL =====
 interface ResizableSegmentProps {
   segment: ActiveSegment
@@ -77,11 +96,11 @@ interface ResizableSegmentProps {
   dragType: DragType
   isDragging: boolean
   isMainTimeline?: boolean
+  zoom?: number
   formatTime: (time: number) => string
   onSegmentChange: (segment: ActiveSegment) => void
-  onHandleMouseDown: (e: React.MouseEvent, type: 'start' | 'end') => void
-  onBodyMouseDown: (e: React.MouseEvent) => void
-  onAreaClick: (newTime: number) => void
+  onDragStart: (e: React.MouseEvent, type: 'start' | 'end' | 'move') => void
+  onAreaClick: (time: number) => void
   containerRef: React.RefObject<HTMLDivElement>
 }
 
@@ -92,34 +111,38 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
   dragType,
   isDragging,
   isMainTimeline = false,
+  zoom = 100,
   formatTime,
   onSegmentChange,
-  onHandleMouseDown,
-  onBodyMouseDown,
+  onDragStart,
   onAreaClick,
   containerRef
 }) => {
-  const startPercent = duration > 0 ? (segment.start / duration) * 100 : 0
-  const widthPercent = duration > 0 ? ((segment.end - segment.start) / duration) * 100 : 0
-  const endPercent = duration > 0 ? ((duration - segment.end) / duration) * 100 : 0
-  const playheadPercent = duration > 0 ? (currentTime / duration) * 100 : 0
+  // Cálculos de posição unificados
+  const startPercent = calculateTimelinePosition(segment.start, duration, zoom)
+  const endPercent = calculateTimelinePosition(segment.end, duration, zoom)
+  const widthPercent = endPercent - startPercent
+  const playheadPercent = calculateTimelinePosition(currentTime, duration, zoom)
+  
+  // Área antes do segmento
+  const beforeAreaPercent = startPercent
+  const afterAreaPercent = 100 - endPercent
 
   const handleAreaClick = (e: React.MouseEvent, isStart: boolean) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
+    e.stopPropagation()
+    if (!containerRef.current) return
     
-    const x = e.clientX - rect.left
-    const percentage = (x / rect.width) * 100
-    const clickTime = (percentage / 100) * duration
+    const { percentage } = getCoordinatesFromEvent(e, containerRef.current)
+    const clickTime = calculateTimeFromPosition(percentage, duration, zoom)
     
     if (isStart) {
-      // Clique na área do início - move segmento para lá
+      // Mover segmento para posição clicada (mantendo duração)
       const segmentDuration = segment.end - segment.start
       const newStart = Math.max(0, Math.min(duration - segmentDuration, clickTime))
       const newEnd = newStart + segmentDuration
       onSegmentChange({ start: newStart, end: newEnd })
     } else {
-      // Clique na área do fim - move segmento para lá
+      // Mover segmento para posição clicada (mantendo duração)
       const segmentDuration = segment.end - segment.start
       const newEnd = Math.min(duration, clickTime)
       const newStart = Math.max(0, newEnd - segmentDuration)
@@ -127,74 +150,79 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
     }
   }
 
+  // Estilos condicionais baseados no tipo de timeline
   const handleSize = isMainTimeline ? 'w-6 h-6' : 'w-4 h-4'
-  const handleOffset = isMainTimeline ? '-left-3 -right-3' : '-left-2 -right-2'
+  const containerStyle = isMainTimeline ? 'rounded-lg border border-blue-300' : 'rounded-full'
+  const areaStyle = isMainTimeline ? 'rounded-l-lg' : 'rounded-l-full'
 
   return (
     <>
-      {/* Área não selecionada do início */}
-      <div 
-        className={`absolute top-0 left-0 h-full bg-gray-800 cursor-pointer transition-opacity hover:bg-gray-700 ${
-          isMainTimeline ? 'rounded-l-lg' : 'rounded-l-full'
-        }`}
-        style={{ width: `${startPercent}%` }}
-        onClick={(e) => handleAreaClick(e, true)}
-        title="Clique para mover segmento ◄"
-      />
+      {/* Área não selecionada - INÍCIO */}
+      {beforeAreaPercent > 0 && (
+        <div 
+          className={`absolute top-0 left-0 h-full bg-gray-800 cursor-pointer transition-all hover:bg-gray-700 ${areaStyle}`}
+          style={{ width: `${beforeAreaPercent}%` }}
+          onClick={(e) => handleAreaClick(e, true)}
+          title="Clique para mover segmento ◄"
+        />
+      )}
       
-      {/* Segmento AZUL redimensionável */}
+      {/* SEGMENTO AZUL REDIMENSIONÁVEL */}
       <div 
-        className={`absolute top-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-100 shadow-lg ${
+        className={`absolute top-0 h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-200 shadow-lg ${
           dragType === 'move' ? 'cursor-grabbing' : 'cursor-grab'
-        } ${isMainTimeline ? 'rounded-lg border border-blue-300' : 'rounded-full'} ${
-          isDragging ? 'shadow-2xl ring-2 ring-blue-300' : 'hover:shadow-xl'
+        } ${containerStyle} ${
+          isDragging ? 'shadow-2xl ring-4 ring-blue-300 ring-opacity-50' : 'hover:shadow-xl'
         }`}
         style={{ 
           left: `${startPercent}%`,
-          width: `${widthPercent}%`
+          width: `${widthPercent}%`,
+          minWidth: '20px' // Largura mínima para visibilidade
         }}
-        onMouseDown={onBodyMouseDown}
-        title={`Segmento: ${formatTime(segment.start)} - ${formatTime(segment.end)} (arraste para mover)`}
+        onMouseDown={(e) => onDragStart(e, 'move')}
+        title={`Segmento: ${formatTime(segment.start)} - ${formatTime(segment.end)} (${formatTime(segment.end - segment.start)})`}
       >
         {/* Label do segmento - apenas na timeline principal */}
         {isMainTimeline && (
-          <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-medium bg-black/20 rounded-lg">
+          <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-medium bg-black/20 rounded-lg pointer-events-none">
             Vídeo Selecionado
           </div>
         )}
         
-        {/* Handle esquerdo */}
+        {/* Handle ESQUERDO - Redimensionar início */}
         <div 
-          className={`absolute ${isMainTimeline ? '-left-3' : '-left-2'} top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
-            dragType === 'start' ? 'animate-ping' : ''
+          className={`absolute -left-3 top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
+            dragType === 'start' ? 'animate-pulse ring-2 ring-yellow-300' : ''
           }`}
-          onMouseDown={(e) => onHandleMouseDown(e, 'start')}
+          onMouseDown={(e) => onDragStart(e, 'start')}
           title="◄ Redimensionar início"
         />
         
-        {/* Handle direito */}
+        {/* Handle DIREITO - Redimensionar fim */}
         <div 
-          className={`absolute ${isMainTimeline ? '-right-3' : '-right-2'} top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
-            dragType === 'end' ? 'animate-ping' : ''
+          className={`absolute -right-3 top-1/2 -translate-y-1/2 ${handleSize} bg-yellow-400 rounded-full border-2 border-white shadow-lg cursor-ew-resize hover:scale-110 transition-transform z-10 ${
+            dragType === 'end' ? 'animate-pulse ring-2 ring-yellow-300' : ''
           }`}
-          onMouseDown={(e) => onHandleMouseDown(e, 'end')}
+          onMouseDown={(e) => onDragStart(e, 'end')}
           title="► Redimensionar fim"
         />
       </div>
       
-      {/* Área não selecionada do fim */}
-      <div 
-        className={`absolute top-0 right-0 h-full bg-gray-800 cursor-pointer transition-opacity hover:bg-gray-700 ${
-          isMainTimeline ? 'rounded-r-lg' : 'rounded-r-full'
-        }`}
-        style={{ width: `${endPercent}%` }}
-        onClick={(e) => handleAreaClick(e, false)}
-        title="Clique para mover segmento ►"
-      />
+      {/* Área não selecionada - FIM */}
+      {afterAreaPercent > 0 && (
+        <div 
+          className={`absolute top-0 right-0 h-full bg-gray-800 cursor-pointer transition-all hover:bg-gray-700 ${
+            isMainTimeline ? 'rounded-r-lg' : 'rounded-r-full'
+          }`}
+          style={{ width: `${afterAreaPercent}%` }}
+          onClick={(e) => handleAreaClick(e, false)}
+          title="Clique para mover segmento ►"
+        />
+      )}
       
       {/* Playhead */}
       <div
-        className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30 transition-all"
+        className="absolute top-0 w-0.5 h-full bg-white shadow-lg z-30 transition-all duration-100"
         style={{ left: `${playheadPercent}%` }}
       >
         <div className={`absolute -top-1 -left-1 ${isMainTimeline ? 'w-3 h-3' : 'w-2 h-2'} bg-white rounded-full shadow-lg`} />
@@ -203,6 +231,7 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
   )
 }
 
+// ===== COMPONENTE PRINCIPAL =====
 const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   isPlaying,
   currentTime,
@@ -230,10 +259,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [zoom, setZoom] = useState(100)
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const [activeSegment, setActiveSegment] = useState<ActiveSegment>({ start: 0, end: 0 })
-  const [dragType, setDragType] = useState<DragType>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStartX, setDragStartX] = useState(0)
-  const [dragStartSegment, setDragStartSegment] = useState<ActiveSegment>({ start: 0, end: 0 })
+  const [dragState, setDragState] = useState<{
+    type: DragType
+    isDragging: boolean
+    startX: number
+    startSegment: ActiveSegment
+  }>({
+    type: null,
+    isDragging: false,
+    startX: 0,
+    startSegment: { start: 0, end: 0 }
+  })
   
   const timelineRef = useRef<HTMLDivElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
@@ -241,22 +277,32 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   // ===== INICIALIZAÇÃO DO SEGMENTO =====
   useEffect(() => {
     if (duration > 0 && activeSegment.start === 0 && activeSegment.end === 0) {
-      setActiveSegment({
+      const newSegment = {
         start: duration * 0.25, // 25% do início
         end: duration * 0.75     // 75% do fim
-      })
+      }
+      setActiveSegment(newSegment)
     }
   }, [duration, activeSegment.start, activeSegment.end])
 
-  // ===== SINCRONIZAR BARRA AZUL COM ÁREA AMARELA =====
+  // ===== SINCRONIZAÇÃO INTELIGENTE =====
+  // Quando inPoint/outPoint mudam (por ferramentas de corte), sincronizar barra azul
   useEffect(() => {
     if (inPoint !== null && outPoint !== null) {
-      // Quando inPoint e outPoint existem, sincronizar barra azul com área amarela
       const start = Math.min(inPoint, outPoint)
       const end = Math.max(inPoint, outPoint)
-      setActiveSegment({ start, end })
+      
+      // Só sincronizar se for significativamente diferente (evitar loops)
+      const currentDuration = activeSegment.end - activeSegment.start
+      const newDuration = end - start
+      const significantChange = Math.abs(newDuration - currentDuration) > 0.1 ||
+                               Math.abs(activeSegment.start - start) > 0.1
+      
+      if (significantChange) {
+        setActiveSegment({ start, end })
+      }
     }
-  }, [inPoint, outPoint])
+  }, [inPoint, outPoint, activeSegment])
   
   // ===== CONTROLES DE ZOOM =====
   const handleZoomIn = useCallback(() => setZoom(prev => Math.min(prev * 1.5, 1600)), [])
@@ -268,10 +314,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (duration === 0) return []
     
     const marks = []
-    const viewportWidth = 100
     const scaleFactor = zoom / 100
-    const effectiveWidth = viewportWidth * scaleFactor
     
+    // Intervalos adaptativos baseados no zoom
     let interval = 10
     if (zoom >= 400) interval = 1
     else if (zoom >= 200) interval = 2
@@ -280,7 +325,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     else interval = 30
     
     for (let time = 0; time <= duration; time += interval) {
-      const position = (time / duration) * effectiveWidth
+      const position = calculateTimelinePosition(time, duration, zoom)
       const isMajor = time % (interval * 2) === 0
       
       marks.push({
@@ -298,140 +343,124 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== HANDLERS DE CLIQUE =====
   const handleTimelineClick = useCallback((e: React.MouseEvent) => {
-    if (!timelineRef.current || isDragging) return
+    if (!timelineRef.current || dragState.isDragging) return
     
-    const rect = timelineRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const percentage = (x / rect.width) * 100
-    const scaleFactor = zoom / 100
-    const adjustedPercentage = percentage / scaleFactor
-    const newTime = Math.max(0, Math.min(duration, (adjustedPercentage / 100) * duration))
+    const { percentage } = getCoordinatesFromEvent(e, timelineRef.current)
+    const newTime = calculateTimeFromPosition(percentage, duration, zoom)
     
     onSeek(newTime)
-  }, [zoom, duration, onSeek, isDragging])
+  }, [zoom, duration, onSeek, dragState.isDragging])
   
-    // ===== HANDLERS DE DRAG =====
-  const handleSegmentHandleMouseDown = useCallback((e: React.MouseEvent, type: 'start' | 'end') => {
+  // ===== HANDLERS DE DRAG UNIFICADOS =====
+  const handleDragStart = useCallback((e: React.MouseEvent, type: 'start' | 'end' | 'move') => {
     e.stopPropagation()
-    setIsDragging(true)
-    setDragType(type)
-    setDragStartX(e.clientX)
-    setDragStartSegment({ ...activeSegment })
+    
+    setDragState({
+      type,
+      isDragging: true,
+      startX: e.clientX,
+      startSegment: { ...activeSegment }
+    })
   }, [activeSegment])
 
-  const handleSegmentBodyMouseDown = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsDragging(true)
-    setDragType('move')
-    setDragStartX(e.clientX)
-    setDragStartSegment({ ...activeSegment })
-  }, [activeSegment])
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return
+  const handleDragMove = useCallback((e: MouseEvent) => {
+    if (!dragState.isDragging) return
     
     const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
     if (!container) return
     
-    const rect = container.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100))
+    const { percentage } = getCoordinatesFromEvent(e, container)
+    const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    // Ajuste para zoom na timeline principal
-    const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
-    const adjustedPercentage = percentage / scaleFactor
-    const newTime = Math.max(0, Math.min(duration, (adjustedPercentage / 100) * duration))
-    
-    if (dragType === 'seek') {
-      onSeek(newTime)
-    } else if (dragType === 'start') {
-      // CONTROLE REAL: Quando arrasta handle de início, limita reprodução
+    if (dragState.type === 'start') {
+      // Redimensionar início
       const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
       setActiveSegment(prev => ({ ...prev, start: newStart }))
-      // Se vídeo estiver reproduzindo fora do segmento, mover para o início
-      if (currentTime < newStart) {
-        onSeek(newStart)
-      }
-    } else if (dragType === 'end') {
-      // CONTROLE REAL: Quando arrasta handle de fim, limita reprodução
+    } else if (dragState.type === 'end') {
+      // Redimensionar fim
       const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
       setActiveSegment(prev => ({ ...prev, end: newEnd }))
-      // Se vídeo estiver reproduzindo fora do segmento, mover para o fim
-      if (currentTime > newEnd) {
-        onSeek(newEnd)
-      }
-    } else if (dragType === 'move') {
-      const deltaX = e.clientX - dragStartX
-      const deltaTime = (deltaX / rect.width) * duration / scaleFactor
-      const segmentDuration = dragStartSegment.end - dragStartSegment.start
-      const newStart = Math.max(0, Math.min(duration - segmentDuration, dragStartSegment.start + deltaTime))
+    } else if (dragState.type === 'move') {
+      // Mover segmento inteiro
+      const deltaX = e.clientX - dragState.startX
+      const rect = container.getBoundingClientRect()
+      const deltaPercentage = (deltaX / rect.width) * 100
+      const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
+      const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
+      
+      const segmentDuration = dragState.startSegment.end - dragState.startSegment.start
+      const newStart = Math.max(0, Math.min(duration - segmentDuration, dragState.startSegment.start + deltaTime))
       const newEnd = newStart + segmentDuration
+      
       setActiveSegment({ start: newStart, end: newEnd })
-      // Se vídeo estiver reproduzindo fora do segmento, mover para dentro
-      if (currentTime < newStart || currentTime > newEnd) {
-        onSeek(newStart)
-      }
     }
-  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom, currentTime])
+  }, [dragState, duration, zoom, timelineMode, activeSegment])
   
-  const handleMouseUp = useCallback(() => {
-    // MELHORIA: Quando termina de arrastar, define inPoint e outPoint para criar área amarela
-    if (dragType === 'start' || dragType === 'end' || dragType === 'move') {
-      // Definir inPoint e outPoint baseado no segmento atual
-      onSeek(activeSegment.start)
-      setTimeout(() => {
-        onSetInPoint()
-        onSeek(activeSegment.end)
-        setTimeout(() => onSetOutPoint(), 10)
-      }, 10)
-    }
+  const handleDragEnd = useCallback(() => {
+    if (!dragState.isDragging) return
     
-    setIsDragging(false)
-    setDragType(null)
-    setDragStartX(0)
-    setDragStartSegment({ start: 0, end: 0 })
-  }, [dragType, activeSegment, onSeek, onSetInPoint, onSetOutPoint])
+    // Sincronizar área amarela com a nova posição da barra azul
+    onSeek(activeSegment.start)
+    
+    // Aguardar um frame para garantir que o seek foi processado
+    requestAnimationFrame(() => {
+      onSetInPoint()
+      onSeek(activeSegment.end)
+      requestAnimationFrame(() => {
+        onSetOutPoint()
+      })
+    })
+    
+    // Resetar estado de drag
+    setDragState({
+      type: null,
+      isDragging: false,
+      startX: 0,
+      startSegment: { start: 0, end: 0 }
+    })
+  }, [dragState.isDragging, activeSegment, onSeek, onSetInPoint, onSetOutPoint])
   
-  // ===== CONTROLE DE REPRODUÇÃO DENTRO DO SEGMENTO =====
+  // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
   useEffect(() => {
     if (isPlaying && activeSegment.start !== 0 && activeSegment.end !== duration) {
-      // APENAS quando chegou no fim do segmento durante reprodução, volta para o início
-      if (currentTime >= activeSegment.end) {
-        // Chegou no fim do segmento, volta para o início
+      // Só controlar se chegou no fim do segmento
+      if (currentTime >= activeSegment.end && currentTime > activeSegment.start) {
         onSeek(activeSegment.start)
       }
-      // REMOVIDO: não forçar volta ao início se usuário clicou antes do segmento
-      // Agora permite reprodução livre, só controla quando chega no fim
     }
   }, [currentTime, activeSegment, isPlaying, onSeek, duration])
 
   // ===== EVENT LISTENERS =====
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleDragMove)
+      document.addEventListener('mouseup', handleDragEnd)
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
+        document.removeEventListener('mousemove', handleDragMove)
+        document.removeEventListener('mouseup', handleDragEnd)
       }
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [dragState.isDragging, handleDragMove, handleDragEnd])
+  
+  // ===== HANDLERS DE SEGMENTO =====
+  const handleSegmentChange = useCallback((newSegment: ActiveSegment) => {
+    setActiveSegment(newSegment)
+  }, [])
+  
+  const handleAreaClick = useCallback((time: number) => {
+    const segmentDuration = activeSegment.end - activeSegment.start
+    const newStart = Math.max(0, Math.min(duration - segmentDuration, time))
+    const newEnd = newStart + segmentDuration
+    setActiveSegment({ start: newStart, end: newEnd })
+  }, [activeSegment, duration])
   
   // ===== HANDLER PARA DIVISÃO =====
   const handleSplitSegment = useCallback(() => {
     if (currentTime >= activeSegment.start && currentTime <= activeSegment.end) {
-      // TODO: Implementar divisão real do segmento
       console.log('🎬 Dividir segmento na posição:', formatTime(currentTime))
-      // Aqui podemos expandir para criar múltiplos segmentos
+      // TODO: Implementar divisão real do segmento
     }
   }, [currentTime, activeSegment, formatTime])
-  
-  const handleAreaClick = useCallback((newTime: number) => {
-    const segmentDuration = activeSegment.end - activeSegment.start
-    const newStart = Math.max(0, Math.min(duration - segmentDuration, newTime))
-    const newEnd = newStart + segmentDuration
-    setActiveSegment({ start: newStart, end: newEnd })
-  }, [activeSegment, duration])
 
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
@@ -620,9 +649,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setTimelineMode('mini')}
-                className={`text-white px-3 py-2 rounded transition-all ${
-                  timelineMode === 'mini' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'
-                }`}
+                className="text-white px-3 py-2 rounded transition-all hover:bg-gray-600"
                 title="Timeline Mini"
               >
                 <span className="text-lg">➖</span>
@@ -699,13 +726,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={dragType}
-                isDragging={isDragging}
+                dragType={dragState.type}
+                isDragging={dragState.isDragging}
                 isMainTimeline={true}
+                zoom={zoom}
                 formatTime={formatTime}
-                onSegmentChange={setActiveSegment}
-                onHandleMouseDown={handleSegmentHandleMouseDown}
-                onBodyMouseDown={handleSegmentBodyMouseDown}
+                onSegmentChange={handleSegmentChange}
+                onDragStart={handleDragStart}
                 onAreaClick={handleAreaClick}
                 containerRef={timelineRef}
               />
@@ -754,7 +781,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 />
               )}
               
-              {/* Área de seleção */}
+              {/* Área de seleção amarela */}
               {inPoint !== null && outPoint !== null && (
                 <div
                   className="absolute top-0 h-full bg-yellow-400 opacity-30 rounded z-10"
@@ -796,13 +823,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={dragType}
-                isDragging={isDragging}
+                dragType={dragState.type}
+                isDragging={dragState.isDragging}
                 isMainTimeline={false}
+                zoom={100}
                 formatTime={formatTime}
-                onSegmentChange={setActiveSegment}
-                onHandleMouseDown={handleSegmentHandleMouseDown}
-                onBodyMouseDown={handleSegmentBodyMouseDown}
+                onSegmentChange={handleSegmentChange}
+                onDragStart={handleDragStart}
                 onAreaClick={handleAreaClick}
                 containerRef={progressBarRef}
               />
