@@ -259,8 +259,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [zoom, setZoom] = useState(100)
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const [activeSegment, setActiveSegment] = useState<ActiveSegment>({ start: 0, end: 0 })
-  const [dragState, setDragState] = useState<{
-    type: DragType
+  // Estados de drag separados para evitar conflitos
+  const [playbackDragState, setPlaybackDragState] = useState<{
+    type: 'start' | 'end' | 'move' | null
     isDragging: boolean
     startX: number
     startSegment: ActiveSegment
@@ -269,6 +270,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     isDragging: false,
     startX: 0,
     startSegment: { start: 0, end: 0 }
+  })
+  
+  const [splitHandleState, setSplitHandleState] = useState<{
+    position: number
+    isDragging: boolean
+    startX: number
+  }>({
+    position: 0,
+    isDragging: false,
+    startX: 0
   })
   
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -346,19 +357,19 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== HANDLERS DE CLIQUE =====
   const handleTimelineClick = useCallback((e: React.MouseEvent) => {
-    if (!timelineRef.current || dragState.isDragging) return
+    if (!timelineRef.current || playbackDragState.isDragging) return
     
     const { percentage } = getCoordinatesFromEvent(e, timelineRef.current)
     const newTime = calculateTimeFromPosition(percentage, duration, zoom)
     
     onSeek(newTime)
-  }, [zoom, duration, onSeek, dragState.isDragging])
+  }, [zoom, duration, onSeek, playbackDragState.isDragging])
   
   // ===== HANDLERS DE DRAG UNIFICADOS =====
   const handleDragStart = useCallback((e: React.MouseEvent, type: 'start' | 'end' | 'move') => {
     e.stopPropagation()
     
-    setDragState({
+    setPlaybackDragState({
       type,
       isDragging: true,
       startX: e.clientX,
@@ -367,7 +378,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   }, [activeSegment])
 
   const handleDragMove = useCallback((e: MouseEvent) => {
-    if (!dragState.isDragging) return
+    if (!playbackDragState.isDragging) return
     
     const container = timelineMode === 'mini' ? progressBarRef.current : timelineRef.current
     if (!container) return
@@ -375,32 +386,32 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, container)
     const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    if (dragState.type === 'start') {
+    if (playbackDragState.type === 'start') {
       // Redimensionar início
-      const newStart = Math.max(0, Math.min(dragState.startSegment.end - 1, newTime))
+      const newStart = Math.max(0, Math.min(playbackDragState.startSegment.end - 1, newTime))
       setActiveSegment(prev => ({ ...prev, start: newStart }))
-    } else if (dragState.type === 'end') {
+    } else if (playbackDragState.type === 'end') {
       // Redimensionar fim
-      const newEnd = Math.max(dragState.startSegment.start + 1, Math.min(duration, newTime))
+      const newEnd = Math.max(playbackDragState.startSegment.start + 1, Math.min(duration, newTime))
       setActiveSegment(prev => ({ ...prev, end: newEnd }))
-    } else if (dragState.type === 'move') {
+    } else if (playbackDragState.type === 'move') {
       // Mover segmento inteiro
-      const deltaX = e.clientX - dragState.startX
+      const deltaX = e.clientX - playbackDragState.startX
       const rect = container.getBoundingClientRect()
       const deltaPercentage = (deltaX / rect.width) * 100
       const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
       const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
       
-      const segmentDuration = dragState.startSegment.end - dragState.startSegment.start
-      const newStart = Math.max(0, Math.min(duration - segmentDuration, dragState.startSegment.start + deltaTime))
+      const segmentDuration = playbackDragState.startSegment.end - playbackDragState.startSegment.start
+      const newStart = Math.max(0, Math.min(duration - segmentDuration, playbackDragState.startSegment.start + deltaTime))
       const newEnd = newStart + segmentDuration
       
       setActiveSegment({ start: newStart, end: newEnd })
     }
-  }, [dragState, duration, zoom, timelineMode])
+  }, [playbackDragState, duration, zoom, timelineMode])
   
   const handleDragEnd = useCallback(() => {
-    if (!dragState.isDragging) return
+    if (!playbackDragState.isDragging) return
     
     // Sincronizar área amarela com a nova posição da barra azul
     setActiveSegment(currentSegment => {
@@ -416,13 +427,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     })
     
     // Resetar estado de drag
-    setDragState({
+    setPlaybackDragState({
       type: null,
       isDragging: false,
       startX: 0,
       startSegment: { start: 0, end: 0 }
     })
-  }, [dragState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
+  }, [playbackDragState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
   useEffect(() => {
@@ -441,7 +452,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
 
   // ===== EVENT LISTENERS =====
   useEffect(() => {
-    if (dragState.isDragging) {
+    if (playbackDragState.isDragging) {
       document.addEventListener('mousemove', handleDragMove)
       document.addEventListener('mouseup', handleDragEnd)
       return () => {
@@ -449,7 +460,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         document.removeEventListener('mouseup', handleDragEnd)
       }
     }
-  }, [dragState.isDragging, handleDragMove, handleDragEnd])
+  }, [playbackDragState.isDragging, handleDragMove, handleDragEnd])
   
   // ===== HANDLERS DE SEGMENTO =====
   const handleSegmentChange = useCallback((newSegment: ActiveSegment) => {
@@ -740,8 +751,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={dragState.type}
-                isDragging={dragState.isDragging}
+                dragType={playbackDragState.type}
+                isDragging={playbackDragState.isDragging}
                 isMainTimeline={true}
                 zoom={zoom}
                 formatTime={formatTime}
@@ -837,8 +848,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 segment={activeSegment}
                 duration={duration}
                 currentTime={currentTime}
-                dragType={dragState.type}
-                isDragging={dragState.isDragging}
+                dragType={playbackDragState.type}
+                isDragging={playbackDragState.isDragging}
                 isMainTimeline={false}
                 zoom={100}
                 formatTime={formatTime}
