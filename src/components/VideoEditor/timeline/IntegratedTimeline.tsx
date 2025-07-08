@@ -8,7 +8,7 @@
  * @fixes: Sincronização, Drag & Drop, Zoom, Estado unificado
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { 
   Play, Pause, Square, SkipBack, SkipForward, 
@@ -16,6 +16,7 @@ import {
   CornerUpLeft, CornerUpRight, 
   Split, Scissors, Trash2
 } from 'lucide-react'
+import { useCustomModal } from '../ui/CustomModal'
 
 // ===== INTERFACES =====
 type TimelineMode = 'mini' | 'compact' | 'expanded'
@@ -192,6 +193,27 @@ const generateUUID = () => {
     const v = c === 'x' ? r : (r & 0x3 | 0x8)
     return v.toString(16)
   })
+}
+
+// Sistema de logs condicionais para produção
+const isDevelopment = process.env.NODE_ENV === 'development'
+const debugLog = (message: string, ...args: any[]) => {
+  if (isDevelopment) {
+    console.log(message, ...args)
+  }
+}
+const debugWarn = (message: string, ...args: any[]) => {
+  if (isDevelopment) {
+    console.warn(message, ...args)
+  }
+}
+const debugError = (message: string, ...args: any[]) => {
+  console.error(message, ...args) // Sempre mostrar erros
+}
+
+// Sistema de snap-to-grid unificado
+const snapToGrid = (time: number, snapInterval: number = 0.5) => {
+  return Math.round(time / snapInterval) * snapInterval
 }
 
 // Função para criar bloco com interface completa
@@ -462,15 +484,15 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [draggedGroup, setDraggedGroup] = useState<string | null>(null)
   
-  // Categorias de marcadores predefinidas
-  const markerCategories: MarkerCategory[] = [
+  // Categorias de marcadores predefinidas (memoizadas)
+  const markerCategories: MarkerCategory[] = useMemo(() => [
     { id: 'todo', name: 'To-Do', color: '#ff6b6b', icon: '📝', shortcut: '1' },
     { id: 'approved', name: 'Aprovado', color: '#51cf66', icon: '✅', shortcut: '2' },
     { id: 'review', name: 'Revisar', color: '#ffd43b', icon: '👁️', shortcut: '3' },
     { id: 'note', name: 'Nota', color: '#74c0fc', icon: '📄', shortcut: '4' },
     { id: 'cut', name: 'Corte', color: '#ff8cc8', icon: '✂️', shortcut: '5' },
     { id: 'sync', name: 'Sincronização', color: '#9775fa', icon: '🔄', shortcut: '6' }
-  ]
+  ], [])
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -546,6 +568,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const timelineRef = useRef<HTMLDivElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   
+  // Modal customizado
+  const { showModal, ModalComponent } = useCustomModal()
+  
   // ===== INICIALIZAÇÃO DOS SEGMENTOS =====
   useEffect(() => {
     if (duration > 0 && activeSegment.start === 0 && activeSegment.end === 0) {
@@ -603,8 +628,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const handleZoomOut = useCallback(() => setZoom(prev => Math.max(prev / 1.5, 25)), [])
   const handleZoomReset = useCallback(() => setZoom(100), [])
   
-  // ===== CÁLCULO DAS MARCAÇÕES DA RÉGUA =====
-  const calculateRulerMarks = useCallback(() => {
+  // ===== CÁLCULO DAS MARCAÇÕES DA RÉGUA (MEMOIZADO) =====
+  const calculateRulerMarks = useMemo(() => {
     if (duration === 0) return []
     
     const marks = []
@@ -633,7 +658,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     return marks
   }, [duration, zoom, formatTime])
   
-  const rulerMarks = calculateRulerMarks()
+  const rulerMarks = calculateRulerMarks
   
   // ===== HANDLERS DE CLIQUE =====
   const handleTimelineClick = useCallback((e: React.MouseEvent) => {
@@ -651,7 +676,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       onSeek(newTime)
     } else {
       // Clique na área morta - mover para o início da timeline do projeto
-      console.log('🚫 Clique na área morta - movendo para início da timeline do projeto')
+      debugLog('🚫 Clique na área morta - movendo para início da timeline do projeto')
       onSeek(projectTimeline.start)
     }
   }, [zoom, duration, onSeek, projectTimeline, startHandleState.isDragging, endHandleState.isDragging, moveSegmentState.isDragging])
@@ -735,8 +760,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== FUNÇÃO PARA CRIAR BLOCOS PELA DIVISÃO =====
   
-  // Cores disponíveis para os blocos
-  const blockColors = [
+  // Cores disponíveis para os blocos (memoizadas)
+  const blockColors = useMemo(() => [
     '#10B981', // Verde
     '#8B5CF6', // Roxo
     '#F59E0B', // Amarelo
@@ -745,7 +770,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     '#EC4899', // Rosa
     '#6366F1', // Indigo
     '#14B8A6'  // Teal
-  ]
+  ], [])
 
 
 
@@ -784,7 +809,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     // Ocultar handle de divisão após criar blocos
     setSplitHandleState(prev => ({ ...prev, isVisible: false }))
     
-    console.log('🎬 Blocos raiz criados:', newBlocks)
+    debugLog('🎬 Blocos raiz criados:', newBlocks)
   }, [splitHandleState.isVisible, splitHandleState.position, projectTimeline, splitBlocks.length])
   
   // Função para reproduzir bloco específico
@@ -797,7 +822,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       if (!isPlaying) {
         onPlay()
       }
-      console.log('🎬 Reproduzindo bloco:', block.name, `(${formatTime(block.start)} - ${formatTime(block.end)})`)
+      debugLog('🎬 Reproduzindo bloco:', block.name, `(${formatTime(block.start)} - ${formatTime(block.end)})`)
     }
   }, [splitBlocks, onSeek, onPlay, isPlaying, formatTime])
   
@@ -1198,7 +1223,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const markerCategory = markerCategories.find(c => c.id === category) || markerCategories[3] // default 'note'
     const newMarker: Marker = {
       id: generateUUID(),
-      time: Math.round(time * 2) / 2, // Snap to 0.5 seconds
+      time: snapToGrid(time), // Usar snap unificado
       name: name || `Marcador ${markers.length + 1}`,
       description: description || '',
       category: category as Marker['category'],
@@ -1209,7 +1234,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     }
     
     setMarkers(prev => [...prev, newMarker].sort((a, b) => a.time - b.time))
-    console.log('📍 Marcador criado:', newMarker.name, 'em', formatTime(newMarker.time))
+    debugLog('📍 Marcador criado:', newMarker.name, 'em', formatTime(newMarker.time))
     return newMarker.id
   }, [markers.length, markerCategories, formatTime])
   
@@ -1218,7 +1243,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (selectedMarker === markerId) {
       setSelectedMarker(null)
     }
-    console.log('🗑️ Marcador removido:', markerId)
+    debugLog('🗑️ Marcador removido:', markerId)
   }, [selectedMarker])
   
   const updateMarker = useCallback((markerId: string, updates: Partial<Marker>) => {
@@ -1234,7 +1259,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (marker) {
       onSeek(marker.time)
       setSelectedMarker(markerId)
-      console.log('🎯 Navegando para marcador:', marker.name, 'em', formatTime(marker.time))
+      debugLog('🎯 Navegando para marcador:', marker.name, 'em', formatTime(marker.time))
     }
   }, [markers, onSeek, formatTime])
   
@@ -1251,7 +1276,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (nextMarker) {
       jumpToMarker(nextMarker.id)
     } else {
-      console.log('⚠️ Nenhum marcador encontrado após o tempo atual')
+      debugLog('⚠️ Nenhum marcador encontrado após o tempo atual')
     }
   }, [currentTime, getNextMarker, jumpToMarker])
   
@@ -1260,7 +1285,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (prevMarker) {
       jumpToMarker(prevMarker.id)
     } else {
-      console.log('⚠️ Nenhum marcador encontrado antes do tempo atual')
+      debugLog('⚠️ Nenhum marcador encontrado antes do tempo atual')
     }
   }, [currentTime, getPreviousMarker, jumpToMarker])
   
@@ -1313,7 +1338,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       return updated
     })
     
-    console.log('📁 Grupo criado:', newGroup.name, 'com', blockIds.length, 'blocos')
+    debugLog('📁 Grupo criado:', newGroup.name, 'com', blockIds.length, 'blocos')
     return newGroup.id
   }, [splitBlocks, blockGroups.length])
   
@@ -1349,7 +1374,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       setSelectedGroup(null)
     }
     
-    console.log('🗑️ Grupo removido:', group.name)
+    debugLog('🗑️ Grupo removido:', group.name)
   }, [blockGroups, selectedGroup])
   
   const toggleGroupCollapse = useCallback((groupId: string) => {
@@ -1431,17 +1456,21 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     })))
     
     setSelectedGroup(groupId)
-    console.log('📁 Grupo selecionado:', group.name, 'com', group.blockIds.length, 'blocos')
+          debugLog('📁 Grupo selecionado:', group.name, 'com', group.blockIds.length, 'blocos')
   }, [blockGroups])
   
-  const createGroupFromSelected = useCallback(() => {
+  const createGroupFromSelected = useCallback(async () => {
     const selectedBlocks = splitBlocks.filter(b => b.isSelected)
     if (selectedBlocks.length < 2) {
-      console.warn('⚠️ Selecione pelo menos 2 blocos para criar um grupo')
+      debugWarn('⚠️ Selecione pelo menos 2 blocos para criar um grupo')
       return null
     }
     
-    const groupName = prompt('Nome do grupo:', `Grupo ${blockGroups.length + 1}`)
+    const groupName = await showModal(
+      'Criar Novo Grupo',
+      'Digite o nome do grupo...',
+      `Grupo ${blockGroups.length + 1}`
+    )
     if (!groupName) return null
     
     const groupId = createGroup(groupName, selectedBlocks.map(b => b.id))
@@ -1451,7 +1480,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     }
     
     return groupId
-  }, [splitBlocks, blockGroups.length, createGroup])
+  }, [splitBlocks, blockGroups.length, createGroup, showModal])
   
   const duplicateGroup = useCallback((groupId: string) => {
     const group = blockGroups.find(g => g.id === groupId)
@@ -1501,102 +1530,122 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     console.log('📁 Grupo movido para layer:', targetLayer)
   }, [blockGroups, updateGroup])
   
-  // Atalhos de teclado para Undo/Redo e Marcadores
+  // Atalhos de teclado otimizados - Undo/Redo
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Atalhos de Undo/Redo
+    const handleUndoRedo = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'z':
             if (e.shiftKey) {
-              // Ctrl+Shift+Z = Redo
               e.preventDefault()
               redoCommand()
             } else {
-              // Ctrl+Z = Undo
               e.preventDefault()
               undoCommand()
             }
             break
           case 'y':
-            // Ctrl+Y = Redo
             e.preventDefault()
             redoCommand()
             break
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleUndoRedo)
+    return () => window.removeEventListener('keydown', handleUndoRedo)
+  }, [undoCommand, redoCommand])
+
+  // Atalhos de teclado otimizados - Painéis
+  useEffect(() => {
+    const handlePanelShortcuts = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
           case 'm':
-            // Ctrl+M = Mostrar/ocultar painel de marcadores
             e.preventDefault()
             setShowMarkerPanel(prev => !prev)
             break
-          case 'g':
-            // Ctrl+G = Criar grupo dos blocos selecionados
-            e.preventDefault()
-            createGroupFromSelected()
-            break
           case 'u':
-            // Ctrl+U = Mostrar/ocultar painel de grupos
             e.preventDefault()
             setShowGroupPanel(prev => !prev)
             break
         }
       }
-      
-      // Atalhos de marcadores (sem modifier keys)
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        switch (e.key) {
-          case 'm':
-            // M = Adicionar marcador no tempo atual
-            e.preventDefault()
-            addMarkerAtCurrentTime('note')
-            break
-          case 'M':
-            // Shift+M = Próximo marcador
-            e.preventDefault()
-            jumpToNextMarker()
-            break
-          case ',':
-            // , = Marcador anterior
-            e.preventDefault()
-            jumpToPreviousMarker()
-            break
-          case '1':
-          case '2':
-          case '3':
-          case '4':
-          case '5':
-                     case '6':
-             // 1-6 = Adicionar marcador de categoria específica
-             e.preventDefault()
-             const categoryIndex = parseInt(e.key) - 1
-             const category = markerCategories[categoryIndex]
-             if (category) {
-               addMarkerAtCurrentTime(category.id)
-             }
-             break
-           case 'g':
-             // G = Criar grupo dos blocos selecionados
-             e.preventDefault()
-             createGroupFromSelected()
-             break
-           case 'u':
-             // U = Expandir/colapsar grupo selecionado
-             e.preventDefault()
-             if (selectedGroup) {
-               toggleGroupCollapse(selectedGroup)
-             }
-             break
-        }
-      }
     }
     
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undoCommand, redoCommand, addMarkerAtCurrentTime, jumpToNextMarker, jumpToPreviousMarker, markerCategories, createGroupFromSelected, selectedGroup, toggleGroupCollapse])
+    window.addEventListener('keydown', handlePanelShortcuts)
+    return () => window.removeEventListener('keydown', handlePanelShortcuts)
+  }, [])
+
+  // Atalhos de teclado otimizados - Marcadores
+  const handleMarkerShortcuts = useCallback((e: KeyboardEvent) => {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      switch (e.key) {
+        case 'm':
+          e.preventDefault()
+          addMarkerAtCurrentTime('note')
+          break
+        case 'M':
+          e.preventDefault()
+          jumpToNextMarker()
+          break
+        case ',':
+          e.preventDefault()
+          jumpToPreviousMarker()
+          break
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+          e.preventDefault()
+          const categoryIndex = parseInt(e.key) - 1
+          const category = markerCategories[categoryIndex]
+          if (category) {
+            addMarkerAtCurrentTime(category.id)
+          }
+          break
+      }
+    }
+  }, [addMarkerAtCurrentTime, jumpToNextMarker, jumpToPreviousMarker, markerCategories])
+
+  // Atalhos de teclado otimizados - Grupos
+  const handleGroupShortcuts = useCallback((e: KeyboardEvent) => {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      switch (e.key) {
+        case 'g':
+          e.preventDefault()
+          createGroupFromSelected()
+          break
+        case 'u':
+          e.preventDefault()
+          if (selectedGroup) {
+            toggleGroupCollapse(selectedGroup)
+          }
+          break
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'g') {
+        e.preventDefault()
+        createGroupFromSelected()
+      }
+    }
+  }, [createGroupFromSelected, selectedGroup, toggleGroupCollapse])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleMarkerShortcuts)
+    window.addEventListener('keydown', handleGroupShortcuts)
+    return () => {
+      window.removeEventListener('keydown', handleMarkerShortcuts)
+      window.removeEventListener('keydown', handleGroupShortcuts)
+    }
+  }, [handleMarkerShortcuts, handleGroupShortcuts])
   
   // Função para parar reprodução de bloco
   const stopBlockPlayback = useCallback(() => {
     setPlayingBlock(null)
-    console.log('⏹️ Parou reprodução de bloco')
+    debugLog('⏹️ Parou reprodução de bloco')
   }, [])
   
 
@@ -3075,9 +3124,9 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation()
-                          const newName = prompt('Nome do grupo:', group.name)
+                          const newName = await showModal('Editar Grupo', 'Digite o novo nome:', group.name)
                           if (newName && newName !== group.name) {
                             updateGroup(group.id, { name: newName })
                           }
@@ -3205,10 +3254,10 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation()
                             // Editar marcador - simplesmente alternar nome por agora
-                            const newName = prompt('Nome do marcador:', marker.name)
+                            const newName = await showModal('Editar Marcador', 'Digite o novo nome:', marker.name)
                             if (newName && newName !== marker.name) {
                               updateMarker(marker.id, { name: newName })
                             }
@@ -3368,6 +3417,9 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
         
 
       </div>
+      
+      {/* Modal customizado */}
+      <ModalComponent />
     </div>
   )
 }
