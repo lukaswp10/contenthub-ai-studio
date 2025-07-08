@@ -37,6 +37,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
+    "test:e2e:functional": "./scripts/e2e-test-runner.sh",
+    "test:e2e:production": "./scripts/e2e-test-runner.sh",
+    "test:e2e:complete-flow": "playwright test tests/e2e/specs/complete-flow.spec.ts --project=chromium",
+    "test:e2e:login-only": "playwright test tests/e2e/specs/simple-login-test.spec.ts --project=chromium",
+    "test:e2e:prod:all": "playwright test --project=chromium",
     "test:all": "npm run test:run && npm run test:e2e"
   },
   "dependencies": {

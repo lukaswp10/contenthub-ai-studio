@@ -332,9 +332,9 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
         <div 
           className={`absolute top-0 left-0 h-full bg-gray-800 cursor-pointer transition-all hover:bg-gray-700 ${areaStyle}`}
           style={{ width: `${beforeAreaPercent}%` }}
-          onClick={(e) => handleAreaClick(e, true)}
-          title="Clique para mover segmento ◄"
-        />
+        onClick={(e) => handleAreaClick(e, true)}
+        title="Clique para mover segmento ◄"
+      />
       )}
       
       {/* SEGMENTO AZUL REDIMENSIONÁVEL */}
@@ -380,14 +380,14 @@ const ResizableSegment: React.FC<ResizableSegmentProps> = ({
       
       {/* Área não selecionada - FIM */}
       {afterAreaPercent > 0 && (
-        <div 
+      <div 
           className={`absolute top-0 right-0 h-full bg-gray-800 cursor-pointer transition-all hover:bg-gray-700 ${
-            isMainTimeline ? 'rounded-r-lg' : 'rounded-r-full'
-          }`}
+          isMainTimeline ? 'rounded-r-lg' : 'rounded-r-full'
+        }`}
           style={{ width: `${afterAreaPercent}%` }}
-          onClick={(e) => handleAreaClick(e, false)}
-          title="Clique para mover segmento ►"
-        />
+        onClick={(e) => handleAreaClick(e, false)}
+        title="Clique para mover segmento ►"
+      />
       )}
       
       {/* Playhead */}
@@ -673,7 +673,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const isInActiveArea = newTime >= projectTimeline.start && newTime <= projectTimeline.end
     
     if (isInActiveArea) {
-      onSeek(newTime)
+    onSeek(newTime)
     } else {
       // Clique na área morta - mover para o início da timeline do projeto
       debugLog('🚫 Clique na área morta - movendo para início da timeline do projeto')
@@ -2028,7 +2028,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const handleSplitSegment = useCallback(() => {
     setActiveSegment(segment => {
       if (currentTime >= segment.start && currentTime <= segment.end) {
-        console.log('🎬 Dividir segmento na posição:', formatTime(currentTime))
+      console.log('🎬 Dividir segmento na posição:', formatTime(currentTime))
         // TODO: Implementar divisão real do segmento
       }
       return segment
@@ -2494,9 +2494,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   title="Mostrar/ocultar painel de grupos (Ctrl+U)"
                 >
                   🗂️ ({blockGroups.length})
-                </Button>
-              </div>
+              </Button>
             </div>
+          </div>
         )}
         
         {/* ===== RÉGUA ===== */}
