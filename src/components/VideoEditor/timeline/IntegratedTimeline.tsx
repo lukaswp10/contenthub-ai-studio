@@ -355,6 +355,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     selectedBlocks: [],
     currentBlockIndex: 0
   })
+  
+  // Estado para exportação
+  const [exportSettings, setExportSettings] = useState<{
+    isExporting: boolean
+    quality: 'HD' | 'Full HD' | '4K'
+    showPreview: boolean
+  }>({
+    isExporting: false,
+    quality: 'Full HD',
+    showPreview: false
+  })
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -775,6 +786,94 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       isSelected: false, 
       lastModified: Date.now() 
     })))
+  }, [])
+  
+  // Função para calcular duração total dos blocos selecionados
+  const getSelectedBlocksTotalDuration = useCallback(() => {
+    const selectedBlocks = splitBlocks.filter(b => b.isSelected)
+    return selectedBlocks.reduce((total, block) => total + (block.end - block.start), 0)
+  }, [splitBlocks])
+  
+  // Função para gerar timeline final (apenas blocos selecionados)
+  const generateFinalTimeline = useCallback(() => {
+    const selectedBlocks = splitBlocks.filter(b => b.isSelected).sort((a, b) => a.start - b.start)
+    if (selectedBlocks.length === 0) return []
+    
+    // Criar timeline consecutiva
+    let currentTime = 0
+    return selectedBlocks.map(block => {
+      const duration = block.end - block.start
+      const finalBlock = {
+        ...block,
+        originalStart: block.start,
+        originalEnd: block.end,
+        start: currentTime,
+        end: currentTime + duration
+      }
+      currentTime += duration
+      return finalBlock
+    })
+  }, [splitBlocks])
+  
+  // Função para exportar blocos selecionados
+  const exportSelectedBlocks = useCallback(async () => {
+    const selectedBlocks = splitBlocks.filter(b => b.isSelected)
+    if (selectedBlocks.length === 0) {
+      alert('⚠️ Selecione pelo menos um bloco para exportar!')
+      return
+    }
+    
+    setExportSettings(prev => ({ ...prev, isExporting: true }))
+    
+    try {
+      const finalTimeline = generateFinalTimeline()
+      const totalDuration = getSelectedBlocksTotalDuration()
+      
+      // Simular processo de exportação (na vida real seria FFmpeg ou similar)
+      console.log('🎬 Iniciando exportação...')
+      console.log('📊 Blocos selecionados:', selectedBlocks.length)
+      console.log('⏱️ Duração total:', formatTime(totalDuration))
+      console.log('🎯 Qualidade:', exportSettings.quality)
+      console.log('🎞️ Timeline final:', finalTimeline)
+      
+      // Aguardar simulação (3 segundos)
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      // Gerar informações do arquivo exportado
+      const exportInfo = {
+        filename: `clipsforge_export_${Date.now()}.mp4`,
+        duration: totalDuration,
+        blocks: selectedBlocks.length,
+        quality: exportSettings.quality,
+        size: Math.round(totalDuration * 2.5), // MB estimado
+        timeline: finalTimeline
+      }
+      
+      // Simular download (na vida real seria o arquivo real)
+      const exportData = JSON.stringify(exportInfo, null, 2)
+      const blob = new Blob([exportData], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clipsforge_timeline_${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      alert(`✅ Exportação concluída!\n📱 Arquivo: ${exportInfo.filename}\n⏱️ Duração: ${formatTime(totalDuration)}\n📊 Blocos: ${selectedBlocks.length}\n💾 Tamanho: ~${exportInfo.size}MB`)
+      
+    } catch (error) {
+      console.error('❌ Erro na exportação:', error)
+      alert('❌ Erro durante a exportação. Tente novamente.')
+    } finally {
+      setExportSettings(prev => ({ ...prev, isExporting: false }))
+    }
+  }, [splitBlocks, exportSettings.quality, generateFinalTimeline, getSelectedBlocksTotalDuration, formatTime])
+  
+  // Função para alternar preview da timeline final
+  const toggleFinalPreview = useCallback(() => {
+    setExportSettings(prev => ({ ...prev, showPreview: !prev.showPreview }))
   }, [])
   
   // Função para parar reprodução de bloco
@@ -1260,6 +1359,22 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               )}
               
+              {/* Seletor de qualidade de exportação */}
+              {splitBlocks.some(b => b.isSelected) && (
+                <div className="flex items-center space-x-2 bg-gray-900 rounded-lg p-2 border border-orange-500/30">
+                  <span className="text-xs text-gray-300">Qualidade:</span>
+                  <select
+                    value={exportSettings.quality}
+                    onChange={(e) => setExportSettings(prev => ({ ...prev, quality: e.target.value as 'HD' | 'Full HD' | '4K' }))}
+                    className="text-xs bg-gray-700 text-white border border-gray-600 rounded px-2 py-1"
+                  >
+                    <option value="HD">HD (720p)</option>
+                    <option value="Full HD">Full HD (1080p)</option>
+                    <option value="4K">4K (2160p)</option>
+                  </select>
+                </div>
+              )}
+              
               {/* Controles de seleção de blocos */}
               {splitBlocks.length > 0 && (
                 <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
@@ -1284,19 +1399,49 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   </Button>
                   
                   {splitBlocks.some(b => b.isSelected) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={playSelectedBlocks}
-                      className="bg-green-600 hover:bg-green-700 text-white border-green-500 text-xs animate-pulse"
-                      title="Reproduzir apenas blocos selecionados"
-                    >
-                      ▶️ Reproduzir Selecionados
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={playSelectedBlocks}
+                        className="bg-green-600 hover:bg-green-700 text-white border-green-500 text-xs animate-pulse"
+                        title="Reproduzir apenas blocos selecionados"
+                      >
+                        ▶️ Reproduzir Selecionados
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleFinalPreview}
+                        className={`text-white border-purple-500 text-xs ${
+                          exportSettings.showPreview ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-600/50 hover:bg-purple-600'
+                        }`}
+                        title="Preview da timeline final"
+                      >
+                        👁️ Preview Final
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportSelectedBlocks}
+                        disabled={exportSettings.isExporting}
+                        className="bg-orange-600 hover:bg-orange-700 text-white border-orange-500 text-xs"
+                        title={`Exportar ${splitBlocks.filter(b => b.isSelected).length} blocos selecionados`}
+                      >
+                        {exportSettings.isExporting ? '⏳ Exportando...' : '📤 Exportar'}
+                      </Button>
+                    </>
                   )}
                   
                   <div className="text-xs text-gray-400">
                     {splitBlocks.filter(b => b.isSelected).length} de {splitBlocks.length} selecionados
+                    {splitBlocks.some(b => b.isSelected) && (
+                      <span className="ml-2 text-orange-400">
+                        | ⏱️ {formatTime(getSelectedBlocksTotalDuration())} final
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1662,6 +1807,59 @@ ${block.isSelected ? '✅ SELECIONADO' : ''}`}
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+        
+        {/* ===== PREVIEW DA TIMELINE FINAL ===== */}
+        {exportSettings.showPreview && splitBlocks.some(b => b.isSelected) && timelineMode !== 'mini' && (
+          <div className="bg-gradient-to-r from-orange-800 to-orange-700 rounded-lg p-4 border border-orange-500/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold flex items-center space-x-2">
+                <span>📱 Preview da Timeline Final</span>
+                <span className="text-xs bg-orange-600 px-2 py-1 rounded">
+                  {splitBlocks.filter(b => b.isSelected).length} blocos | {formatTime(getSelectedBlocksTotalDuration())}
+                </span>
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFinalPreview}
+                className="text-white hover:bg-orange-600"
+                title="Fechar preview"
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="relative h-16 bg-gradient-to-r from-orange-900 to-orange-800 rounded overflow-hidden border border-orange-600/50">
+              {generateFinalTimeline().map((block, index) => {
+                const totalDuration = getSelectedBlocksTotalDuration()
+                const widthPercent = ((block.end - block.start) / totalDuration) * 100
+                const leftPercent = (block.start / totalDuration) * 100
+                
+                return (
+                  <div
+                    key={`final-${block.id}`}
+                    className="absolute top-0 h-full rounded border border-white/30 flex items-center justify-center text-white text-xs font-bold bg-gradient-to-b from-orange-500 to-orange-600 hover:brightness-110 transition-all"
+                    style={{
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                      minWidth: '30px'
+                    }}
+                    title={`${block.name} | Original: ${formatTime(block.originalStart)}-${formatTime(block.originalEnd)} | Final: ${formatTime(block.start)}-${formatTime(block.end)}`}
+                  >
+                    <span className="truncate px-1">
+                      {index + 1}. {block.name}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            
+            <div className="mt-2 text-xs text-orange-200 flex items-center justify-between">
+              <span>🎬 Sequência final na ordem de reprodução</span>
+              <span>📊 Tamanho estimado: ~{Math.round(getSelectedBlocksTotalDuration() * 2.5)}MB ({exportSettings.quality})</span>
             </div>
           </div>
         )}
