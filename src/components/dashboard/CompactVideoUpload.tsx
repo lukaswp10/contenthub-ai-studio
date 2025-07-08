@@ -135,18 +135,43 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       // ✨ CORREÇÃO: Auto-navegação imediata com dados garantidos
       setTimeout(() => {
         console.log('🎬 Auto-navegando para o editor...')
-        // Usar dados diretos em vez de state (evita race condition)
-        navigate('/editor', {
-          state: {
-            url: videoDataForNavigation.cloudinaryUrl || videoDataForNavigation.url,
-            name: videoDataForNavigation.name,
-            size: videoDataForNavigation.size,
-            duration: videoDataForNavigation.duration,
-            id: videoDataForNavigation.id,
-            cloudinaryPublicId: videoDataForNavigation.cloudinaryPublicId,
-            cloudinaryUrl: videoDataForNavigation.cloudinaryUrl,
+        console.log('🔍 DEBUG - videoDataForNavigation:', videoDataForNavigation)
+        
+        if (videoDataForNavigation && videoDataForNavigation.cloudinaryUrl) {
+          console.log('✅ Navegando com dados válidos:', videoDataForNavigation.name)
+          navigate('/editor', {
+            state: {
+              url: videoDataForNavigation.cloudinaryUrl || videoDataForNavigation.url,
+              name: videoDataForNavigation.name,
+              size: videoDataForNavigation.size,
+              duration: videoDataForNavigation.duration,
+              id: videoDataForNavigation.id,
+              cloudinaryPublicId: videoDataForNavigation.cloudinaryPublicId,
+              cloudinaryUrl: videoDataForNavigation.cloudinaryUrl,
+            }
+          })
+        } else {
+          console.error('❌ Dados do vídeo não disponíveis para navegação')
+          console.log('🔍 DEBUG - Tentando usar galleryVideoData:', galleryVideoData)
+          
+          // Fallback: tentar usar galleryVideoData
+          if (galleryVideoData && galleryVideoData.cloudinaryUrl) {
+            console.log('✅ Usando fallback galleryVideoData')
+            navigate('/editor', {
+              state: {
+                url: galleryVideoData.cloudinaryUrl || galleryVideoData.url,
+                name: galleryVideoData.name,
+                size: galleryVideoData.size,
+                duration: galleryVideoData.duration,
+                id: galleryVideoData.id,
+                cloudinaryPublicId: galleryVideoData.cloudinaryPublicId,
+                cloudinaryUrl: galleryVideoData.cloudinaryUrl,
+              }
+            })
+          } else {
+            console.error('❌ Nenhum dado válido encontrado para navegação')
           }
-        })
+        }
       }, 2000)
       
     } catch (err) {
