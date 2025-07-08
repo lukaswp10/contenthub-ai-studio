@@ -339,11 +339,12 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const progressBarRef = useRef<HTMLDivElement>(null)
   
   // ===== INICIALIZAÇÃO DO SEGMENTO =====
+  // Barra amarela sempre começa com vídeo completo (timeline do projeto)
   useEffect(() => {
     if (duration > 0 && activeSegment.start === 0 && activeSegment.end === 0) {
       const newSegment = {
-        start: duration * 0.25, // 25% do início
-        end: duration * 0.75     // 75% do fim
+        start: 0,        // Início do vídeo (0%)
+        end: duration    // Fim completo do vídeo (100%)
       }
       setActiveSegment(newSegment)
     }
