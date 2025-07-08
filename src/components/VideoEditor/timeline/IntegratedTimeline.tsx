@@ -63,6 +63,23 @@ interface ProjectTimeline {
   end: number
 }
 
+// Interface para sistema de comandos (Undo/Redo)
+interface Command {
+  id: string
+  name: string
+  description: string
+  timestamp: number
+  execute: () => void
+  undo: () => void
+  data: any
+}
+
+interface CommandHistory {
+  commands: Command[]
+  currentIndex: number
+  maxSize: number
+}
+
 interface IntegratedTimelineProps {
   // Player state
   isPlaying: boolean
@@ -366,6 +383,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     quality: 'Full HD',
     showPreview: false
   })
+  
+  // Estado para sistema de comandos (Undo/Redo)
+  const [commandHistory, setCommandHistory] = useState<CommandHistory>({
+    commands: [],
+    currentIndex: -1,
+    maxSize: 50
+  })
+  
+  // Estado para mostrar histórico de comandos
+  const [showCommandHistory, setShowCommandHistory] = useState(false)
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -642,62 +669,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     '#14B8A6'  // Teal
   ]
 
-  // Função para dividir um bloco específico
-  const splitSpecificBlock = useCallback((blockId: string, splitTime: number) => {
-    const blockIndex = splitBlocks.findIndex(b => b.id === blockId)
-    if (blockIndex === -1) return
-    
-    const originalBlock = splitBlocks[blockIndex]
-    const timestamp = Date.now()
-    const childId1 = `${blockId}-child-${timestamp}-1`
-    const childId2 = `${blockId}-child-${timestamp}-2`
-    
-    // Criar dois blocos filhos
-    const childBlock1 = createSplitBlock(
-      childId1,
-      originalBlock.start,
-      splitTime,
-      `${originalBlock.name}.1`,
-      blockColors[(splitBlocks.length) % blockColors.length],
-      originalBlock.id,
-      originalBlock.depth + 1
-    )
-    
-    const childBlock2 = createSplitBlock(
-      childId2,
-      splitTime,
-      originalBlock.end,
-      `${originalBlock.name}.2`,
-      blockColors[(splitBlocks.length + 1) % blockColors.length],
-      originalBlock.id,
-      originalBlock.depth + 1
-    )
-    
-    // Atualizar bloco pai
-    const updatedParentBlock = {
-      ...originalBlock,
-      childIds: [childId1, childId2],
-      lastModified: timestamp,
-      metadata: {
-        ...originalBlock.metadata,
-        hasChildren: true,
-        splitCount: originalBlock.metadata.splitCount + 1
-      }
-    }
-    
-    // Atualizar array de blocos
-    setSplitBlocks(prev => {
-      const newBlocks = [...prev]
-      newBlocks[blockIndex] = updatedParentBlock
-      newBlocks.push(childBlock1, childBlock2)
-      return newBlocks
-    })
-    
-    console.log('🎬 Bloco dividido:', {
-      parent: updatedParentBlock,
-      children: [childBlock1, childBlock2]
-    })
-  }, [splitBlocks])
+
 
   // Função para dividir na timeline do projeto (raiz)
   const createSplitBlocks = useCallback(() => {
@@ -887,6 +859,290 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const toggleFinalPreview = useCallback(() => {
     setExportSettings(prev => ({ ...prev, showPreview: !prev.showPreview }))
   }, [])
+  
+  // ===== SISTEMA DE COMANDOS (UNDO/REDO) =====
+  const executeCommand = useCallback((command: Command) => {
+    // Executar comando
+    command.execute()
+    
+    // Atualizar histórico
+    setCommandHistory(prev => {
+      const newCommands = [...prev.commands]
+      
+      // Remover comandos após o índice atual (quando fazemos undo e depois uma nova ação)
+      if (prev.currentIndex < prev.commands.length - 1) {
+        newCommands.splice(prev.currentIndex + 1)
+      }
+      
+      // Adicionar novo comando
+      newCommands.push(command)
+      
+      // Limitar tamanho máximo
+      if (newCommands.length > prev.maxSize) {
+        newCommands.shift()
+      }
+      
+      return {
+        ...prev,
+        commands: newCommands,
+        currentIndex: newCommands.length - 1
+      }
+    })
+    
+    console.log('📝 Comando executado:', command.name)
+  }, [])
+  
+  const undoCommand = useCallback(() => {
+    if (commandHistory.currentIndex < 0) return
+    
+    const command = commandHistory.commands[commandHistory.currentIndex]
+    if (command) {
+      command.undo()
+      setCommandHistory(prev => ({
+        ...prev,
+        currentIndex: prev.currentIndex - 1
+      }))
+      console.log('↩️ Comando desfeito:', command.name)
+    }
+  }, [commandHistory.commands, commandHistory.currentIndex])
+  
+  const redoCommand = useCallback(() => {
+    if (commandHistory.currentIndex >= commandHistory.commands.length - 1) return
+    
+    const command = commandHistory.commands[commandHistory.currentIndex + 1]
+    if (command) {
+      command.execute()
+      setCommandHistory(prev => ({
+        ...prev,
+        currentIndex: prev.currentIndex + 1
+      }))
+      console.log('↪️ Comando refeito:', command.name)
+    }
+  }, [commandHistory.commands, commandHistory.currentIndex])
+  
+  const clearCommandHistory = useCallback(() => {
+    setCommandHistory({
+      commands: [],
+      currentIndex: -1,
+      maxSize: 50
+    })
+    console.log('🗑️ Histórico de comandos limpo')
+  }, [])
+  
+  // Função para criar comando de divisão de bloco
+  const createSplitCommand = useCallback((blockId: string, splitTime: number) => {
+    const originalBlock = splitBlocks.find(b => b.id === blockId)
+    if (!originalBlock) return null
+    
+    const newBlock1Id = `${blockId}_1`
+    const newBlock2Id = `${blockId}_2`
+    
+    const command: Command = {
+      id: generateUUID(),
+      name: 'Dividir Bloco',
+      description: `Dividir "${originalBlock.name}" em ${formatTime(splitTime)}`,
+      timestamp: Date.now(),
+      execute: () => {
+        setSplitBlocks(prev => {
+          const blockIndex = prev.findIndex(b => b.id === blockId)
+          if (blockIndex === -1) return prev
+          
+          const block = prev[blockIndex]
+          const newBlocks = [...prev]
+          
+          // Substituir bloco original por dois novos
+          newBlocks[blockIndex] = createSplitBlock(
+            newBlock1Id,
+            block.start,
+            splitTime,
+            `${block.name} (1)`,
+            block.color,
+            block.parentId,
+            block.depth
+          )
+          
+          newBlocks.splice(blockIndex + 1, 0, createSplitBlock(
+            newBlock2Id,
+            splitTime,
+            block.end,
+            `${block.name} (2)`,
+            block.color,
+            block.parentId,
+            block.depth
+          ))
+          
+          return newBlocks
+        })
+      },
+      undo: () => {
+        setSplitBlocks(prev => prev.filter(b => b.id !== newBlock1Id && b.id !== newBlock2Id).concat([originalBlock]))
+      },
+      data: { originalBlock, splitTime, newBlock1Id, newBlock2Id }
+    }
+    
+    return command
+  }, [splitBlocks, formatTime])
+  
+  // Função para criar comando de exclusão de bloco
+  const createDeleteCommand = useCallback((blockId: string) => {
+    const blockToDelete = splitBlocks.find(b => b.id === blockId)
+    if (!blockToDelete) return null
+    
+    const blockDuration = blockToDelete.end - blockToDelete.start
+    const originalTimeline = { ...projectTimeline }
+    const originalBlocks = [...splitBlocks]
+    
+    const command: Command = {
+      id: generateUUID(),
+      name: 'Deletar Bloco',
+      description: `Deletar "${blockToDelete.name}" (-${formatTime(blockDuration)})`,
+      timestamp: Date.now(),
+      execute: () => {
+        // Parar reprodução se estiver reproduzindo este bloco
+        if (playingBlock === blockId) {
+          setPlayingBlock(null)
+          onPause()
+        }
+        
+        // Remover bloco
+        setSplitBlocks(prev => prev.filter(block => block.id !== blockId))
+        
+        // Atualizar timeline do projeto
+        setProjectTimeline(prev => ({
+          start: prev.start,
+          end: Math.max(prev.start + 1, prev.end - blockDuration)
+        }))
+        
+        // Reajustar posições dos outros blocos
+        setSplitBlocks(prev => prev.map(block => {
+          if (block.start > blockToDelete.end) {
+            return {
+              ...block,
+              start: block.start - blockDuration,
+              end: block.end - blockDuration,
+              lastModified: Date.now()
+            }
+          }
+          return block
+        }))
+      },
+      undo: () => {
+        // Restaurar timeline original
+        setProjectTimeline(originalTimeline)
+        // Restaurar blocos originais
+        setSplitBlocks(originalBlocks)
+        console.log('🔄 Bloco restaurado:', blockToDelete.name)
+      },
+      data: { blockToDelete, blockDuration, originalTimeline, originalBlocks }
+    }
+    
+    return command
+  }, [splitBlocks, projectTimeline, playingBlock, onPause, formatTime])
+  
+  // Função para criar comando de seleção de blocos
+  const createSelectionCommand = useCallback((blockIds: string[], action: 'select' | 'deselect') => {
+    const originalStates = splitBlocks.map(block => ({ id: block.id, isSelected: block.isSelected }))
+    
+    const command: Command = {
+      id: generateUUID(),
+      name: action === 'select' ? 'Selecionar Blocos' : 'Deselecionar Blocos',
+      description: `${action === 'select' ? 'Selecionar' : 'Deselecionar'} ${blockIds.length} blocos`,
+      timestamp: Date.now(),
+      execute: () => {
+        setSplitBlocks(prev => prev.map(block => ({
+          ...block,
+          isSelected: blockIds.includes(block.id) ? (action === 'select') : block.isSelected,
+          lastModified: Date.now()
+        })))
+      },
+      undo: () => {
+        setSplitBlocks(prev => prev.map(block => {
+          const originalState = originalStates.find(s => s.id === block.id)
+          return {
+            ...block,
+            isSelected: originalState?.isSelected || false,
+            lastModified: Date.now()
+          }
+        }))
+      },
+      data: { blockIds, action, originalStates }
+    }
+    
+    return command
+  }, [splitBlocks])
+  
+  // Função para dividir um bloco específico (usando sistema de comandos)
+  const splitSpecificBlock = useCallback((blockId: string, splitTime: number) => {
+    const block = splitBlocks.find(b => b.id === blockId)
+    if (!block) return
+    
+    // Validar se o tempo está dentro do bloco
+    if (splitTime <= block.start || splitTime >= block.end) {
+      console.warn('⚠️ Tempo de divisão inválido:', splitTime, 'para bloco', block.start, '-', block.end)
+      return
+    }
+    
+    // Criar e executar comando de divisão
+    const command = createSplitCommand(blockId, splitTime)
+    if (command) {
+      executeCommand(command)
+    }
+  }, [splitBlocks, createSplitCommand, executeCommand])
+  
+  // Função para deletar bloco usando sistema de comandos
+  const deleteBlockWithCommand = useCallback((blockId: string) => {
+    const command = createDeleteCommand(blockId)
+    if (command) {
+      executeCommand(command)
+    }
+  }, [createDeleteCommand, executeCommand])
+  
+  // Função para selecionar todos os blocos usando sistema de comandos
+  const selectAllBlocksWithCommand = useCallback(() => {
+    const allBlockIds = splitBlocks.map(b => b.id)
+    const command = createSelectionCommand(allBlockIds, 'select')
+    if (command) {
+      executeCommand(command)
+    }
+  }, [splitBlocks, createSelectionCommand, executeCommand])
+  
+  // Função para deselecionar todos os blocos usando sistema de comandos
+  const deselectAllBlocksWithCommand = useCallback(() => {
+    const allBlockIds = splitBlocks.map(b => b.id)
+    const command = createSelectionCommand(allBlockIds, 'deselect')
+    if (command) {
+      executeCommand(command)
+    }
+  }, [splitBlocks, createSelectionCommand, executeCommand])
+  
+  // Atalhos de teclado para Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 'z':
+            if (e.shiftKey) {
+              // Ctrl+Shift+Z = Redo
+              e.preventDefault()
+              redoCommand()
+            } else {
+              // Ctrl+Z = Undo
+              e.preventDefault()
+              undoCommand()
+            }
+            break
+          case 'y':
+            // Ctrl+Y = Redo
+            e.preventDefault()
+            redoCommand()
+            break
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undoCommand, redoCommand])
   
   // Função para parar reprodução de bloco
   const stopBlockPlayback = useCallback(() => {
@@ -1447,7 +1703,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={selectAllBlocks}
+                    onClick={selectAllBlocksWithCommand}
                     className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
                     title="Selecionar todos os blocos"
                   >
@@ -1457,7 +1713,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={deselectAllBlocks}
+                    onClick={deselectAllBlocksWithCommand}
                     className="bg-gray-600 hover:bg-gray-700 text-white border-gray-500 text-xs"
                     title="Deselecionar todos os blocos"
                   >
@@ -1614,6 +1870,41 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 title="Timeline Expandida"
               >
                 <span className="text-lg">⬆️</span>
+              </Button>
+            </div>
+            
+            {/* Controles de Undo/Redo */}
+            <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={undoCommand}
+                disabled={commandHistory.currentIndex < 0}
+                className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                title={`Desfazer ${commandHistory.commands[commandHistory.currentIndex]?.name || ''} (Ctrl+Z)`}
+              >
+                ↩️ Undo
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={redoCommand}
+                disabled={commandHistory.currentIndex >= commandHistory.commands.length - 1}
+                className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                title={`Refazer ${commandHistory.commands[commandHistory.currentIndex + 1]?.name || ''} (Ctrl+Y)`}
+              >
+                ↪️ Redo
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCommandHistory(!showCommandHistory)}
+                className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 text-xs"
+                title="Mostrar/ocultar histórico de comandos"
+              >
+                📋 ({commandHistory.commands.length})
               </Button>
             </div>
           </div>
@@ -1851,7 +2142,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   onContextMenu={(e) => {
                     e.preventDefault()
                     // Right click - deletar bloco
-                    deleteBlock(block.id)
+                    deleteBlockWithCommand(block.id)
                   }}
                   title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
 🖱️ Click: Reproduzir | Ctrl+Click: Seleção múltipla | Alt+Drag: Mover bloco
@@ -2032,6 +2323,88 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
               >
                 <span className="text-sm">⬆️</span>
               </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* ===== PAINEL DE HISTÓRICO DE COMANDOS ===== */}
+        {showCommandHistory && commandHistory.commands.length > 0 && (
+          <div className="bg-gradient-to-r from-purple-800 to-purple-700 rounded-lg p-4 border border-purple-500/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold flex items-center space-x-2">
+                <span>📋 Histórico de Comandos</span>
+                <span className="text-xs bg-purple-600 px-2 py-1 rounded">
+                  {commandHistory.commands.length} comandos | Atual: {commandHistory.currentIndex + 1}
+                </span>
+              </h3>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearCommandHistory}
+                  className="text-white hover:bg-purple-600 text-xs"
+                  title="Limpar histórico"
+                >
+                  🗑️ Limpar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCommandHistory(false)}
+                  className="text-white hover:bg-purple-600"
+                  title="Fechar histórico"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {commandHistory.commands.map((command, index) => (
+                <div
+                  key={command.id}
+                  className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-all ${
+                    index === commandHistory.currentIndex
+                      ? 'bg-purple-600 text-white border border-purple-400'
+                      : index <= commandHistory.currentIndex
+                      ? 'bg-purple-700/50 text-purple-200 hover:bg-purple-700'
+                      : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'
+                  }`}
+                  onClick={() => {
+                    // Navegar para este comando
+                    const difference = index - commandHistory.currentIndex
+                    if (difference > 0) {
+                      // Redo múltiplo
+                      for (let i = 0; i < difference; i++) {
+                        redoCommand()
+                      }
+                    } else if (difference < 0) {
+                      // Undo múltiplo
+                      for (let i = 0; i < Math.abs(difference); i++) {
+                        undoCommand()
+                      }
+                    }
+                  }}
+                  title={`Clique para ir para este comando`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="w-4 text-center">
+                      {index === commandHistory.currentIndex ? '👉' : index <= commandHistory.currentIndex ? '✅' : '⏳'}
+                    </span>
+                    <span className="font-medium">{command.name}</span>
+                    <span className="text-gray-300">-</span>
+                    <span>{command.description}</span>
+                  </div>
+                  <span className="text-gray-400">
+                    {new Date(command.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-2 text-xs text-purple-200 flex items-center justify-between">
+              <span>💡 Clique em um comando para navegar no histórico</span>
+              <span>Atalhos: Ctrl+Z (Undo) | Ctrl+Y (Redo)</span>
             </div>
           </div>
         )}
