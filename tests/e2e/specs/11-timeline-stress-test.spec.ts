@@ -36,8 +36,8 @@ const loginUser = async (page: any) => {
 const uploadVideoToProduction = async (page: any) => {
   console.log('📤 Fazendo upload real para PRODUÇÃO...');
   
-  // Verificar área de upload
-  await expect(page.locator('text=📤 Upload Rápido')).toBeVisible({ timeout: 15000 });
+  // Verificar área de upload (mais específico)
+  await expect(page.locator('text=📤 Upload Rápido (Supabase)')).toBeVisible({ timeout: 15000 });
   
   // Usar vídeo real que funciona
   const testVideoPath = '/home/lucasmartins/Downloads/videoplayback.mp4';

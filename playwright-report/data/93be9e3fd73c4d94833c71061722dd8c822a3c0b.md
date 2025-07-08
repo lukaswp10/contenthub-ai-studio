@@ -1,0 +1,56 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - link "CF ClipsForge Pro":
+    - /url: /
+    - text: CF
+    - heading "ClipsForge Pro" [level=1]
+  - text: lukaswp10@gmail.com
+  - button "Sair"
+- main:
+  - heading "Bem-vindo ao ClipsForge Pro! 👋" [level=1]
+  - paragraph: Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.
+  - paragraph: Total de Clips
+  - paragraph: "0"
+  - img
+  - paragraph: Total de Views
+  - paragraph: "0"
+  - img
+  - paragraph: Engajamento
+  - paragraph: 0%
+  - img
+  - paragraph: Shares
+  - paragraph: "0"
+  - img
+  - heading "📤 Upload Rápido" [level=2]
+  - img
+  - heading "📤 Upload Rápido (Supabase)" [level=3]
+  - paragraph: Arraste e solte ou clique para selecionar um vídeo
+  - button "Clique ou arraste um vídeo"
+  - heading "🎬 Meus Vídeos" [level=2]
+  - paragraph: Nenhum vídeo no Supabase
+  - button "Upload":
+    - img
+    - text: Upload
+  - img
+  - heading "Nenhum vídeo no Supabase" [level=3]
+  - paragraph: Comece fazendo upload de um vídeo para sua galeria
+  - button "Fazer Upload":
+    - img
+    - text: Fazer Upload
+  - heading "Ações Rápidas" [level=2]
+  - button "Editor Manual":
+    - img
+    - text: Editor Manual
+  - button "Meus Clips":
+    - img
+    - text: Meus Clips
+  - button "Analytics":
+    - img
+    - text: Analytics
+  - img
+  - heading "Crie seu primeiro clip viral!" [level=3]
+  - paragraph: Faça upload de um vídeo e nossa IA criará clips otimizados para TikTok, Instagram Reels e YouTube Shorts.
+  - button "🚀 Começar Agora"
+```

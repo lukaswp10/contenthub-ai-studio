@@ -72,12 +72,12 @@ export const saveVideoToGallery = async (videoData: {
     cloudinaryUrl: videoData.cloudinaryUrl
   }
 
-  // ✅ SALVAR DIRETO NO SUPABASE (100% REAL)
+  // ✅ TENTAR SALVAR NO SUPABASE PRIMEIRO
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      console.error('❌ Usuário não autenticado')
-      throw new Error('Usuário não autenticado')
+      console.warn('❌ Usuário não autenticado - salvando apenas no localStorage')
+      return saveVideoToLocalStorage(newVideo)
     }
 
     const { error } = await supabase
@@ -89,30 +89,36 @@ export const saveVideoToGallery = async (videoData: {
         size: videoData.file.size, // Bytes reais
         duration: newVideo.duration,
         status: 'uploaded',
-        storage_path: newVideo.cloudinaryUrl || newVideo.url,
-        created_at: newVideo.uploadedAt.toISOString()
+        storage_path: newVideo.cloudinaryUrl || newVideo.url
+        // created_at será gerado automaticamente pelo Supabase
       })
 
     if (error) {
       console.error('❌ Erro ao salvar vídeo no Supabase:', error)
-      throw error
+      console.log('🔄 Salvando no localStorage como fallback...')
+      return saveVideoToLocalStorage(newVideo)
     }
 
     console.log('☁️ Vídeo salvo no Supabase (100% REAL):', newVideo.name)
+    
+    // Salvar também no localStorage para backup
+    saveVideoToLocalStorage(newVideo)
+    
     return newVideo
   } catch (error) {
-    console.error('❌ Erro ao salvar vídeo:', error)
-    throw error
+    console.error('❌ Erro ao salvar vídeo no Supabase:', error)
+    console.log('🔄 Salvando no localStorage como fallback...')
+    return saveVideoToLocalStorage(newVideo)
   }
 }
 
-// ✅ Função para obter vídeos do Supabase (100% REAL)
+// ✅ Função para obter vídeos do Supabase (100% REAL) com fallback
 export const getGalleryVideos = async (): Promise<GalleryVideo[]> => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      console.warn('⚠️ Usuário não autenticado')
-      return []
+      console.warn('⚠️ Usuário não autenticado - usando localStorage como fallback')
+      return getGalleryVideosFromLocalStorage()
     }
 
     const { data: videos, error } = await supabase
@@ -123,11 +129,18 @@ export const getGalleryVideos = async (): Promise<GalleryVideo[]> => {
 
     if (error) {
       console.error('❌ Erro ao carregar vídeos do Supabase:', error)
-      return []
+      console.log('🔄 Tentando localStorage como fallback...')
+      return getGalleryVideosFromLocalStorage()
     }
 
     if (!videos || videos.length === 0) {
       console.log('📁 Nenhum vídeo encontrado no Supabase')
+      // Verificar se há vídeos no localStorage
+      const localVideos = getGalleryVideosFromLocalStorage()
+      if (localVideos.length > 0) {
+        console.log(`📁 Encontrados ${localVideos.length} vídeos no localStorage`)
+        return localVideos
+      }
       return []
     }
 
@@ -158,6 +171,24 @@ export const getGalleryVideos = async (): Promise<GalleryVideo[]> => {
     return galleryVideos
   } catch (error) {
     console.error('❌ Erro ao carregar vídeos do Supabase:', error)
+    console.log('🔄 Usando localStorage como fallback...')
+    return getGalleryVideosFromLocalStorage()
+  }
+}
+
+// ✅ Função de fallback para localStorage
+const getGalleryVideosFromLocalStorage = (): GalleryVideo[] => {
+  try {
+    const stored = localStorage.getItem('clipsforge_gallery_videos')
+    if (!stored) return []
+    
+    const videos = JSON.parse(stored)
+    return videos.map((video: any) => ({
+      ...video,
+      uploadedAt: new Date(video.uploadedAt)
+    }))
+  } catch (error) {
+    console.error('❌ Erro ao carregar vídeos do localStorage:', error)
     return []
   }
 }
@@ -250,6 +281,27 @@ export const hasEditedCaptions = (videoId: string): boolean => {
 export const resetToOriginalCaptions = (videoId: string): boolean => {
   console.warn('⚠️ resetToOriginalCaptions: Função localStorage removida - usar Supabase')
   return false
+}
+
+// ✅ Função de fallback para salvar no localStorage
+const saveVideoToLocalStorage = (newVideo: GalleryVideo): GalleryVideo => {
+  try {
+    const existingVideos = getGalleryVideosFromLocalStorage()
+    const updatedVideos = [newVideo, ...existingVideos]
+    const limitedVideos = updatedVideos.slice(0, 50)
+    
+    localStorage.setItem('clipsforge_gallery_videos', JSON.stringify(limitedVideos.map(video => ({
+      ...video,
+      uploadedAt: video.uploadedAt.toISOString(),
+      file: undefined // Não salvar o File object
+    }))))
+    
+    console.log('💾 Vídeo salvo no localStorage como fallback:', newVideo.name)
+    return newVideo
+  } catch (error) {
+    console.error('❌ Erro ao salvar vídeo no localStorage:', error)
+    throw error
+  }
 }
 
 // ✅ MANTER FUNÇÃO PARA COMPATIBILIDADE (mas agora aponta para Supabase)
