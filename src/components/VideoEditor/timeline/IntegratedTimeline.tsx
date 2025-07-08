@@ -32,11 +32,25 @@ interface CutSegment {
 
 interface SplitBlock {
   id: string
+  uuid: string
   start: number
   end: number
   name: string
   color: string
   isDragging: boolean
+  isSelected: boolean
+  depth: number
+  parentId?: string
+  childIds: string[]
+  created: number
+  lastModified: number
+  metadata: {
+    originalStart: number
+    originalEnd: number
+    splitCount: number
+    hasChildren: boolean
+    isRoot: boolean
+  }
 }
 
 interface ActiveSegment {
@@ -100,6 +114,50 @@ const getCoordinatesFromEvent = (e: React.MouseEvent | MouseEvent, container: HT
   const x = e.clientX - rect.left
   const percentage = (x / rect.width) * 100
   return { x, percentage }
+}
+
+// Função para gerar UUID único
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+// Função para criar bloco com interface completa
+const createSplitBlock = (
+  id: string,
+  start: number,
+  end: number,
+  name: string,
+  color: string,
+  parentId?: string,
+  depth: number = 0
+): SplitBlock => {
+  const now = Date.now()
+  return {
+    id,
+    uuid: generateUUID(),
+    start,
+    end,
+    name,
+    color,
+    isDragging: false,
+    isSelected: false,
+    depth,
+    parentId,
+    childIds: [],
+    created: now,
+    lastModified: now,
+    metadata: {
+      originalStart: start,
+      originalEnd: end,
+      splitCount: 0,
+      hasChildren: false,
+      isRoot: !parentId
+    }
+  }
 }
 
 // ===== COMPONENTE REUTILIZÁVEL PARA BARRA REDIMENSIONÁVEL =====
@@ -535,30 +593,103 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // ===== FUNÇÃO PARA CRIAR BLOCOS PELA DIVISÃO =====
   
+  // Cores disponíveis para os blocos
+  const blockColors = [
+    '#10B981', // Verde
+    '#8B5CF6', // Roxo
+    '#F59E0B', // Amarelo
+    '#EF4444', // Vermelho
+    '#3B82F6', // Azul
+    '#EC4899', // Rosa
+    '#6366F1', // Indigo
+    '#14B8A6'  // Teal
+  ]
+
+  // Função para dividir um bloco específico
+  const splitSpecificBlock = useCallback((blockId: string, splitTime: number) => {
+    const blockIndex = splitBlocks.findIndex(b => b.id === blockId)
+    if (blockIndex === -1) return
+    
+    const originalBlock = splitBlocks[blockIndex]
+    const timestamp = Date.now()
+    const childId1 = `${blockId}-child-${timestamp}-1`
+    const childId2 = `${blockId}-child-${timestamp}-2`
+    
+    // Criar dois blocos filhos
+    const childBlock1 = createSplitBlock(
+      childId1,
+      originalBlock.start,
+      splitTime,
+      `${originalBlock.name}.1`,
+      blockColors[(splitBlocks.length) % blockColors.length],
+      originalBlock.id,
+      originalBlock.depth + 1
+    )
+    
+    const childBlock2 = createSplitBlock(
+      childId2,
+      splitTime,
+      originalBlock.end,
+      `${originalBlock.name}.2`,
+      blockColors[(splitBlocks.length + 1) % blockColors.length],
+      originalBlock.id,
+      originalBlock.depth + 1
+    )
+    
+    // Atualizar bloco pai
+    const updatedParentBlock = {
+      ...originalBlock,
+      childIds: [childId1, childId2],
+      lastModified: timestamp,
+      metadata: {
+        ...originalBlock.metadata,
+        hasChildren: true,
+        splitCount: originalBlock.metadata.splitCount + 1
+      }
+    }
+    
+    // Atualizar array de blocos
+    setSplitBlocks(prev => {
+      const newBlocks = [...prev]
+      newBlocks[blockIndex] = updatedParentBlock
+      newBlocks.push(childBlock1, childBlock2)
+      return newBlocks
+    })
+    
+    console.log('🎬 Bloco dividido:', {
+      parent: updatedParentBlock,
+      children: [childBlock1, childBlock2]
+    })
+  }, [splitBlocks])
+
+  // Função para dividir na timeline do projeto (raiz)
   const createSplitBlocks = useCallback(() => {
     if (!splitHandleState.isVisible) return
     
     const splitTime = splitHandleState.position
-    const blockId1 = `block-${Date.now()}-1`
-    const blockId2 = `block-${Date.now()}-2`
+    const timestamp = Date.now()
+    const blockId1 = `block-${timestamp}-1`
+    const blockId2 = `block-${timestamp}-2`
     
     const newBlocks: SplitBlock[] = [
-      {
-        id: blockId1,
-        start: projectTimeline.start,
-        end: splitTime,
-        name: `Bloco 1`,
-        color: '#10B981', // Verde
-        isDragging: false
-      },
-      {
-        id: blockId2,
-        start: splitTime,
-        end: projectTimeline.end,
-        name: `Bloco 2`,
-        color: '#8B5CF6', // Roxo
-        isDragging: false
-      }
+      createSplitBlock(
+        blockId1,
+        projectTimeline.start,
+        splitTime,
+        `Bloco ${splitBlocks.length + 1}`,
+        blockColors[splitBlocks.length % blockColors.length],
+        undefined,
+        0
+      ),
+      createSplitBlock(
+        blockId2,
+        splitTime,
+        projectTimeline.end,
+        `Bloco ${splitBlocks.length + 2}`,
+        blockColors[(splitBlocks.length + 1) % blockColors.length],
+        undefined,
+        0
+      )
     ]
     
     setSplitBlocks(prev => [...prev, ...newBlocks])
@@ -566,8 +697,30 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     // Ocultar handle de divisão após criar blocos
     setSplitHandleState(prev => ({ ...prev, isVisible: false }))
     
-    console.log('🎬 Blocos criados:', newBlocks)
-  }, [splitHandleState.isVisible, splitHandleState.position, projectTimeline])
+    console.log('🎬 Blocos raiz criados:', newBlocks)
+  }, [splitHandleState.isVisible, splitHandleState.position, projectTimeline, splitBlocks.length])
+  
+  // Função para selecionar/deselecionar bloco
+  const toggleBlockSelection = useCallback((blockId: string) => {
+    setSplitBlocks(prev => prev.map(block => 
+      block.id === blockId 
+        ? { ...block, isSelected: !block.isSelected, lastModified: Date.now() }
+        : block
+    ))
+  }, [])
+  
+  // Função para obter blocos visíveis (sem filhos se pai existe)
+  const getVisibleBlocks = useCallback(() => {
+    return splitBlocks.filter(block => {
+      // Se tem pai, só mostrar se pai não tem filhos visíveis
+      if (block.parentId) {
+        const parent = splitBlocks.find(b => b.id === block.parentId)
+        return parent && parent.metadata.hasChildren
+      }
+      // Se é raiz, mostrar apenas se não tem filhos
+      return !block.metadata.hasChildren
+    })
+  }, [splitBlocks])
   
   // ===== HANDLERS PARA DRAG & DROP DE BLOCOS =====
   
@@ -585,11 +738,63 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       startTime: block.start
     })
     
-    // Marcar bloco como sendo arrastado
+    // Marcar bloco como sendo arrastado e atualizar lastModified
     setSplitBlocks(prev => prev.map(b => 
-      b.id === blockId ? { ...b, isDragging: true } : b
+      b.id === blockId 
+        ? { ...b, isDragging: true, lastModified: Date.now() } 
+        : b
     ))
   }, [splitBlocks])
+  
+  // Função para deletar bloco selecionado
+  const deleteSelectedBlocks = useCallback(() => {
+    setSplitBlocks(prev => {
+      const selectedIds = prev.filter(b => b.isSelected).map(b => b.id)
+      
+      // Remover blocos selecionados e seus filhos
+      const filteredBlocks = prev.filter(block => {
+        if (selectedIds.includes(block.id)) return false
+        if (block.parentId && selectedIds.includes(block.parentId)) return false
+        return true
+      })
+      
+      // Atualizar childIds dos pais
+      return filteredBlocks.map(block => {
+        if (block.childIds.length > 0) {
+          const validChildIds = block.childIds.filter(childId => 
+            filteredBlocks.some(b => b.id === childId)
+          )
+          return {
+            ...block,
+            childIds: validChildIds,
+            metadata: {
+              ...block.metadata,
+              hasChildren: validChildIds.length > 0
+            }
+          }
+        }
+        return block
+      })
+    })
+  }, [])
+  
+  // Função para selecionar todos os blocos
+  const selectAllBlocks = useCallback(() => {
+    setSplitBlocks(prev => prev.map(block => ({ 
+      ...block, 
+      isSelected: true, 
+      lastModified: Date.now() 
+    })))
+  }, [])
+  
+  // Função para deselecionar todos os blocos
+  const deselectAllBlocks = useCallback(() => {
+    setSplitBlocks(prev => prev.map(block => ({ 
+      ...block, 
+      isSelected: false, 
+      lastModified: Date.now() 
+    })))
+  }, [])
   
   const handleBlockMove = useCallback((e: MouseEvent) => {
     if (!blockDragState.isDragging || !blockDragState.blockId) return
@@ -967,6 +1172,47 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               )}
               
+              {/* Controles de gerenciamento de blocos */}
+              {splitBlocks.length > 0 && (
+                <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllBlocks}
+                    className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
+                    title="Selecionar todos os blocos"
+                  >
+                    ✓ Todos
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={deselectAllBlocks}
+                    className="bg-gray-600 hover:bg-gray-700 text-white border-gray-500 text-xs"
+                    title="Deselecionar todos os blocos"
+                  >
+                    ✗ Nenhum
+                  </Button>
+                  
+                  {splitBlocks.some(b => b.isSelected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={deleteSelectedBlocks}
+                      className="bg-red-600 hover:bg-red-700 text-white border-red-500 text-xs"
+                      title="Deletar blocos selecionados"
+                    >
+                      🗑️ Deletar
+                    </Button>
+                  )}
+                  
+                  <div className="text-xs text-gray-400">
+                    {splitBlocks.filter(b => b.isSelected).length} de {getVisibleBlocks().length} selecionados
+                  </div>
+                </div>
+              )}
+              
               {/* Botão original (quando não há handle vermelho) */}
               {currentTime >= projectTimeline.start && currentTime <= projectTimeline.end && !splitHandleState.isVisible && (
                 <Button
@@ -1219,11 +1465,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               )}
               
               {/* BLOCOS CRIADOS PELA DIVISÃO */}
-              {splitBlocks.map(block => (
+              {getVisibleBlocks().map(block => (
                 <div
                   key={block.id}
-                  className={`absolute top-0 h-full rounded-lg border-2 border-white/50 cursor-grab hover:brightness-110 transition-all duration-200 ${
-                    block.isDragging ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' : 'z-20'
+                  className={`absolute top-0 h-full rounded-lg border-2 transition-all duration-200 ${
+                    block.isSelected 
+                      ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
+                      : 'border-white/50'
+                  } ${
+                    block.isDragging 
+                      ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' 
+                      : 'cursor-grab hover:brightness-110 z-20'
                   }`}
                   style={{
                     left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
@@ -1231,16 +1483,55 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                     backgroundColor: block.color,
                     minWidth: '40px'
                   }}
-                  onMouseDown={(e) => handleBlockDragStart(e, block.id)}
-                  title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})`}
+                  onMouseDown={(e) => {
+                    if (e.detail === 1) {
+                      // Single click - selecionar
+                      setTimeout(() => {
+                        if (e.detail === 1) {
+                          toggleBlockSelection(block.id)
+                        }
+                      }, 200)
+                    }
+                  }}
+                  onDoubleClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    // Double click - dividir bloco
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const clickX = e.clientX - rect.left
+                    const clickPercentage = clickX / rect.width
+                    const splitTime = block.start + (block.end - block.start) * clickPercentage
+                    splitSpecificBlock(block.id, splitTime)
+                  }}
+                  title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
+Profundidade: ${block.depth} | UUID: ${block.uuid.slice(0, 8)}...
+Single click: Selecionar | Double click: Dividir`}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold bg-black/20 rounded-lg">
-                    {block.name}
+                    <span className="flex items-center space-x-1">
+                      <span>{block.name}</span>
+                      {block.metadata.hasChildren && (
+                        <span className="text-yellow-300">📁</span>
+                      )}
+                      {block.depth > 0 && (
+                        <span className="text-blue-300">{'→'.repeat(block.depth)}</span>
+                      )}
+                    </span>
                   </div>
+                  
+                  {/* Indicador de seleção */}
+                  {block.isSelected && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                  )}
                   
                   {/* Indicador de drag */}
                   {block.isDragging && (
                     <div className="absolute -top-2 -right-2 w-4 h-4 bg-white rounded-full animate-ping" />
+                  )}
+                  
+                  {/* Indicadores de profundidade */}
+                  {block.depth > 0 && (
+                    <div className="absolute left-0 top-0 w-1 h-full bg-white/30 rounded-l-lg" />
                   )}
                 </div>
               ))}
@@ -1346,7 +1637,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               )}
             </span>
             <span>
-              Cortes: {cutSegments.length} | Blocos: {splitBlocks.length} | Zoom: {zoom}% | Duração: {formatTime(duration)}
+              Cortes: {cutSegments.length} | 
+              Blocos: {splitBlocks.length} (Visíveis: {getVisibleBlocks().length}) | 
+              Selecionados: {splitBlocks.filter(b => b.isSelected).length} |
+              Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
           </div>
         )}
@@ -1354,29 +1648,74 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         {/* ===== INFORMAÇÕES DOS BLOCOS ===== */}
         {splitBlocks.length > 0 && timelineMode !== 'mini' && (
           <div className="bg-gray-800/50 px-3 py-2 rounded-lg">
-            <div className="text-xs text-gray-400 mb-1">Blocos Criados:</div>
-            <div className="flex flex-wrap gap-2">
-              {splitBlocks.map(block => (
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+              <span>Estrutura de Blocos (Sistema Hierárquico):</span>
+              <span>
+                Total: {splitBlocks.length} | 
+                Raiz: {splitBlocks.filter(b => b.metadata.isRoot).length} |
+                Filhos: {splitBlocks.filter(b => !b.metadata.isRoot).length} |
+                Visíveis: {getVisibleBlocks().length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {getVisibleBlocks().map(block => (
                 <div
                   key={block.id}
-                  className={`flex items-center space-x-2 px-2 py-1 rounded text-xs font-medium transition-all ${
-                    block.isDragging ? 'bg-white/20 ring-2 ring-white/30' : 'bg-gray-700 hover:bg-gray-600'
+                  className={`flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-all border ${
+                    block.isSelected 
+                      ? 'bg-yellow-500/20 border-yellow-400/50 ring-1 ring-yellow-400/30' 
+                      : block.isDragging 
+                        ? 'bg-white/20 ring-2 ring-white/30 border-white/50' 
+                        : 'bg-gray-700 hover:bg-gray-600 border-gray-600'
                   }`}
-                  style={{ color: block.color }}
                 >
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: block.color }}
-                  />
-                  <span>{block.name}</span>
-                  <span className="text-gray-400">
-                    {formatTime(block.start)} - {formatTime(block.end)}
-                  </span>
-                  <span className="text-gray-500">
-                    ({formatTime(block.end - block.start)})
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-4 h-4 rounded-full border-2 border-white/30"
+                        style={{ backgroundColor: block.color }}
+                      />
+                      <span className="text-white font-semibold">{block.name}</span>
+                      {block.metadata.hasChildren && (
+                        <span className="text-yellow-300" title="Tem filhos">📁</span>
+                      )}
+                      {block.depth > 0 && (
+                        <span className="text-blue-300" title={`Profundidade: ${block.depth}`}>
+                          {'→'.repeat(block.depth)}
+                        </span>
+                      )}
+                      {block.isSelected && (
+                        <span className="text-yellow-400" title="Selecionado">✓</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4 text-gray-400">
+                    <span>
+                      {formatTime(block.start)} - {formatTime(block.end)}
+                    </span>
+                    <span className="text-gray-500">
+                      ({formatTime(block.end - block.start)})
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      UUID: {block.uuid.slice(0, 8)}...
+                    </span>
+                    {block.metadata.splitCount > 0 && (
+                      <span className="text-xs text-blue-400">
+                        Divisões: {block.metadata.splitCount}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
+              
+              {/* Instruções de uso */}
+              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-900/50 rounded border border-gray-700">
+                💡 <strong>Instruções:</strong> 
+                Single click = Selecionar | 
+                Double click = Dividir bloco | 
+                Botões: ✓Todos/✗Nenhum/🗑️Deletar
+              </div>
             </div>
           </div>
         )}
