@@ -286,9 +286,9 @@ test.describe('🎬 ClipsForge - Editor Funcional', () => {
     }
     
     // Testar atalhos de zoom
-    await page.keyboard.press('Control+Plus');
+    await page.keyboard.press('Control+=');
     await page.waitForTimeout(500);
-    await page.keyboard.press('Control+Minus');
+    await page.keyboard.press('Control+-');
     await page.waitForTimeout(500);
     console.log('⌨️ Atalhos de zoom testados');
     

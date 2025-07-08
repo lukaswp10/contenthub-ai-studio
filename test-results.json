@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 1
+      "actualWorkers": 4
     },
     "preserveOutput": "always",
     "reporter": [
@@ -39,7 +39,7 @@
         "repeatEach": 1,
         "retries": 2,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "chromium",
         "name": "chromium",
@@ -55,7 +55,7 @@
         "repeatEach": 1,
         "retries": 2,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "firefox",
         "name": "firefox",
@@ -71,7 +71,7 @@
         "repeatEach": 1,
         "retries": 2,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "webkit",
         "name": "webkit",
@@ -87,7 +87,7 @@
         "repeatEach": 1,
         "retries": 2,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -103,7 +103,7 @@
         "repeatEach": 1,
         "retries": 2,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 4
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
@@ -124,21 +124,21 @@
   },
   "suites": [
     {
-      "title": "specs/05-upload-functional.spec.ts",
-      "file": "specs/05-upload-functional.spec.ts",
+      "title": "specs/06-editor-funcional.spec.ts",
+      "file": "specs/06-editor-funcional.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "📤 ClipsForge - Upload Funcional",
-          "file": "specs/05-upload-functional.spec.ts",
-          "line": 9,
+          "title": "🎬 ClipsForge - Editor Funcional",
+          "file": "specs/06-editor-funcional.spec.ts",
+          "line": 4,
           "column": 6,
           "specs": [
             {
-              "title": "Upload real de vídeo via botão selecionar",
-              "ok": false,
+              "title": "Controles de reprodução (Play/Pause)",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -151,171 +151,507 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 294,
-                      "error": {
-                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
-                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
-                        "location": {
-                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                          "column": 16,
-                          "line": 13
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                            "column": 16,
-                            "line": 13
-                          },
-                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 8866,
+                      "errors": [],
                       "stdout": [
                         {
-                          "text": "📤 Testando upload real de vídeo...\n"
+                          "text": "▶️ Testando controles de reprodução...\n"
+                        },
+                        {
+                          "text": "⚠️ Player de vídeo não encontrado - testando sem vídeo\n"
+                        },
+                        {
+                          "text": "✅ Teste de controles de reprodução concluído!\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-07-08T18:48:21.289Z",
+                      "startTime": "2025-07-08T18:51:43.682Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-614416965a2eef5365b0",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 46,
+              "column": 3
+            },
+            {
+              "title": "Timeline e navegação temporal",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 8707,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "⏱️ Testando timeline e navegação temporal...\n"
+                        },
+                        {
+                          "text": "⚠️ Timeline não encontrada\n"
+                        },
+                        {
+                          "text": "✅ Teste de timeline concluído!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:43.765Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-f7254a2d785921b5d04e",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 115,
+              "column": 3
+            },
+            {
+              "title": "Funcionalidade de corte/divisão",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 8603,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✂️ Testando funcionalidade de corte...\n"
+                        },
+                        {
+                          "text": "⚠️ Botão de corte não encontrado\n"
+                        },
+                        {
+                          "text": "✅ Teste de funcionalidade de corte concluído!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:43.801Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-e64cae7ed114ff29864e",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 166,
+              "column": 3
+            },
+            {
+              "title": "Zoom e visualização da timeline",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 9173,
+                      "error": {
+                        "message": "Error: keyboard.press: Unknown key: \"Plus\"",
+                        "stack": "Error: keyboard.press: Unknown key: \"Plus\"\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25",
+                        "location": {
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                          "column": 25,
+                          "line": 289
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                            "column": 25,
+                            "line": 289
+                          },
+                          "message": "Error: keyboard.press: Unknown key: \"Plus\"\n\n\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "🔍 Testando zoom e visualização...\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:43.627Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium/test-failed-1.png"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium/video.webm"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                        "column": 16,
-                        "line": 13
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                        "column": 25,
+                        "line": 289
                       }
                     },
                     {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
+                      "workerIndex": 4,
+                      "parallelIndex": 3,
                       "status": "failed",
-                      "duration": 277,
+                      "duration": 8853,
                       "error": {
-                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
-                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
+                        "message": "Error: keyboard.press: Unknown key: \"Plus\"",
+                        "stack": "Error: keyboard.press: Unknown key: \"Plus\"\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25",
                         "location": {
-                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                          "column": 16,
-                          "line": 13
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                          "column": 25,
+                          "line": 289
                         },
-                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                            "column": 16,
-                            "line": 13
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                            "column": 25,
+                            "line": 289
                           },
-                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
+                          "message": "Error: keyboard.press: Unknown key: \"Plus\"\n\n\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25\u001b[22m"
                         }
                       ],
                       "stdout": [
                         {
-                          "text": "📤 Testando upload real de vídeo...\n"
+                          "text": "🔍 Testando zoom e visualização...\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 1,
-                      "startTime": "2025-07-08T18:48:22.498Z",
+                      "startTime": "2025-07-08T18:51:54.388Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/test-failed-1.png"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry1/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/video.webm"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry1/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry1/error-context.md"
                         },
                         {
                           "name": "trace",
                           "contentType": "application/zip",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/trace.zip"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry1/trace.zip"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                        "column": 16,
-                        "line": 13
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                        "column": 25,
+                        "line": 289
                       }
                     },
                     {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
                       "status": "failed",
-                      "duration": 214,
+                      "duration": 7854,
                       "error": {
-                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
-                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
+                        "message": "Error: keyboard.press: Unknown key: \"Plus\"",
+                        "stack": "Error: keyboard.press: Unknown key: \"Plus\"\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25",
                         "location": {
-                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                          "column": 16,
-                          "line": 13
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                          "column": 25,
+                          "line": 289
                         },
-                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                            "column": 16,
-                            "line": 13
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                            "column": 25,
+                            "line": 289
                           },
-                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
+                          "message": "Error: keyboard.press: Unknown key: \"Plus\"\n\n\u001b[0m \u001b[90m 287 |\u001b[39m     \n \u001b[90m 288 |\u001b[39m     \u001b[90m// Testar atalhos de zoom\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 289 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Plus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 290 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 291 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mkeyboard\u001b[33m.\u001b[39mpress(\u001b[32m'Control+Minus'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 292 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts:289:25\u001b[22m"
                         }
                       ],
                       "stdout": [
                         {
-                          "text": "📤 Testando upload real de vídeo...\n"
+                          "text": "🔍 Testando zoom e visualização...\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 2,
-                      "startTime": "2025-07-08T18:48:23.618Z",
+                      "startTime": "2025-07-08T18:52:04.623Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry2/test-failed-1.png"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry2/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry2/video.webm"
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry2/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-06-editor-funcional--4d062--e-visualização-da-timeline-chromium-retry2/error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
-                        "column": 16,
-                        "line": 13
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/06-editor-funcional.spec.ts",
+                        "column": 25,
+                        "line": 289
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "3554f706f1d0497bb422-f093291869a5f2b44cb5",
-              "file": "specs/05-upload-functional.spec.ts",
-              "line": 25,
+              "id": "d9962e8390d3bbfa62b2-efac34f5c179e4ba5de3",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 232,
+              "column": 3
+            },
+            {
+              "title": "Atalhos de teclado críticos",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12259,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "⌨️ Testando atalhos de teclado críticos...\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Space (Play/Pause)\n"
+                        },
+                        {
+                          "text": "✅ Space executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Control+Z (Undo)\n"
+                        },
+                        {
+                          "text": "✅ Control+Z executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Control+Y (Redo)\n"
+                        },
+                        {
+                          "text": "✅ Control+Y executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Control+S (Save)\n"
+                        },
+                        {
+                          "text": "✅ Control+S executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Delete (Delete)\n"
+                        },
+                        {
+                          "text": "✅ Delete executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: ArrowLeft (Previous frame)\n"
+                        },
+                        {
+                          "text": "✅ ArrowLeft executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: ArrowRight (Next frame)\n"
+                        },
+                        {
+                          "text": "✅ ArrowRight executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: Home (Go to start)\n"
+                        },
+                        {
+                          "text": "✅ Home executado\n"
+                        },
+                        {
+                          "text": "⌨️ Testando: End (Go to end)\n"
+                        },
+                        {
+                          "text": "✅ End executado\n"
+                        },
+                        {
+                          "text": "✅ Teste de atalhos de teclado concluído!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:53.065Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-d0468703ae74fbb7a0e6",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 298,
+              "column": 3
+            },
+            {
+              "title": "Funcionalidades de seleção e edição",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 8157,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🎯 Testando seleção e edição...\n"
+                        },
+                        {
+                          "text": "⚠️ Elementos selecionáveis não encontrados\n"
+                        },
+                        {
+                          "text": "✅ Teste de seleção e edição concluído!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:53.100Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-a91608a4e790e198a9b1",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 330,
+              "column": 3
+            },
+            {
+              "title": "Verificação de performance e responsividade",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 9991,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "⚡ Testando performance e responsividade...\n"
+                        },
+                        {
+                          "text": "⚡ Tempo de resposta: 35ms\n"
+                        },
+                        {
+                          "text": "✅ Interface responsiva\n"
+                        },
+                        {
+                          "text": "✅ Scroll suave testado\n"
+                        },
+                        {
+                          "text": "✅ Teste de performance concluído!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-08T18:51:53.259Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d9962e8390d3bbfa62b2-534ea56290688d5410ec",
+              "file": "specs/06-editor-funcional.spec.ts",
+              "line": 391,
               "column": 3
             }
           ]
@@ -325,9 +661,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-07-08T18:48:20.306Z",
-    "duration": 3634.287,
-    "expected": 0,
+    "startTime": "2025-07-08T18:51:42.413Z",
+    "duration": 30272.594,
+    "expected": 6,
     "skipped": 0,
     "unexpected": 1,
     "flaky": 0

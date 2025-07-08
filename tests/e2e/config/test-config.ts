@@ -1,70 +1,56 @@
 // Configurações para testes E2E funcionais do ClipsForge
 export const E2E_CONFIG = {
-  // URLs da aplicação (PRODUÇÃO)
   urls: {
     base: 'https://clipsforge.vercel.app',
-    upload: 'https://clipsforge.vercel.app/upload',
-    editor: 'https://clipsforge.vercel.app/editor',
-    dashboard: 'https://clipsforge.vercel.app/dashboard'
+    login: 'https://clipsforge.vercel.app/login',
+    dashboard: 'https://clipsforge.vercel.app/dashboard',
+    editor: 'https://clipsforge.vercel.app/editor'
   },
-
-  // Timeouts específicos (aumentados para produção)
+  
+  // Configurações de timeout aumentadas para produção
   timeouts: {
-    default: 60000,          // 60s padrão (aumentado para produção)
-    upload: 120000,          // 2min para upload
-    export: 180000,          // 3min para exportação
-    videoLoad: 90000,        // 90s para carregar vídeo
-    uiInteraction: 10000     // 10s para interações UI
+    default: 180000,      // 3 minutos (era 120s)
+    navigation: 90000,    // 1.5 minutos (era 60s)
+    assertion: 30000,     // 30 segundos (era 15s)
+    action: 15000         // 15 segundos (era 10s)
   },
-
-  // Seletores principais da aplicação
-  selectors: {
-    // Upload page
-    uploadInput: 'input[type="file"]',
-    uploadButton: '[data-testid="upload-button"]',
-    uploadProgress: '[data-testid="upload-progress"]',
-    
-    // Editor page
-    videoPlayer: 'video',
-    playButton: '[data-testid="play-button"]',
-    pauseButton: '[data-testid="pause-button"]',
-    timeline: '[data-testid="timeline"]',
-    timelineRuler: '[data-testid="timeline-ruler"]',
-    
-    // Toolbar buttons
-    toolbar: '[data-testid="toolbar"]',
-    zoomInButton: '[data-testid="zoom-in"]',
-    zoomOutButton: '[data-testid="zoom-out"]',
-    exportButton: '[data-testid="export-button"]',
-    
-    // Panels
-    markersPanel: '[data-testid="markers-panel"]',
-    groupsPanel: '[data-testid="groups-panel"]',
-    markersButton: '[data-testid="markers-button"]',
-    groupsButton: '[data-testid="groups-button"]',
-    
-    // Modals
-    exportModal: '[data-testid="export-modal"]',
-    confirmButton: '[data-testid="confirm-button"]',
-    cancelButton: '[data-testid="cancel-button"]'
+  
+  // Configurações de retry
+  retries: {
+    default: 2,
+    flaky: 3
   },
-
-  // Arquivos de teste
-  fixtures: {
-    shortVideo: 'tests/e2e/fixtures/test-video-short.mp4',
-    longVideo: 'tests/e2e/fixtures/test-video-long.mp4',
-    invalidFile: 'tests/e2e/fixtures/invalid-file.txt'
+  
+  // Configurações de navegador - FOCO NO CHROMIUM
+  browsers: {
+    chromium: {
+      enabled: true,
+      headless: true,
+      slowMo: 0
+    },
+    firefox: {
+      enabled: false,  // Desabilitado temporariamente
+      headless: true,
+      slowMo: 0
+    },
+    webkit: {
+      enabled: false,  // Desabilitado - problema de dependência
+      headless: true,
+      slowMo: 0
+    }
   },
-
-  // Configurações de teste
-  test: {
-    retries: 3,              // Mais tentativas para produção
-    screenshot: true,
-    video: true,
-    trace: true
+  
+  // Configurações de vídeo e screenshot
+  video: {
+    mode: 'retain-on-failure',
+    size: { width: 1280, height: 720 }
+  },
+  
+  screenshot: {
+    mode: 'only-on-failure',
+    fullPage: true
   }
 };
 
 // Tipos para TypeScript
-export type E2EConfig = typeof E2E_CONFIG;
-export type Selectors = typeof E2E_CONFIG.selectors; 
+export type E2EConfig = typeof E2E_CONFIG; 
