@@ -344,6 +344,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // Estado para reprodução de bloco individual
   const [playingBlock, setPlayingBlock] = useState<string | null>(null)
+  
+  // Estado para reprodução seletiva (múltiplos blocos)
+  const [selectivePlayback, setSelectivePlayback] = useState<{
+    isActive: boolean
+    selectedBlocks: string[]
+    currentBlockIndex: number
+  }>({
+    isActive: false,
+    selectedBlocks: [],
+    currentBlockIndex: 0
+  })
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -708,6 +719,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const block = splitBlocks.find(b => b.id === blockId)
     if (block) {
       setPlayingBlock(blockId)
+      setSelectivePlayback(prev => ({ ...prev, isActive: false })) // Desativar reprodução seletiva
       onSeek(block.start)
       if (!isPlaying) {
         onPlay()
@@ -715,6 +727,55 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       console.log('🎬 Reproduzindo bloco:', block.name, `(${formatTime(block.start)} - ${formatTime(block.end)})`)
     }
   }, [splitBlocks, onSeek, onPlay, isPlaying, formatTime])
+  
+  // Função para selecionar/deselecionar bloco com Ctrl+Click
+  const toggleBlockSelection = useCallback((blockId: string, isCtrlPressed: boolean) => {
+    setSplitBlocks(prev => prev.map(block => {
+      if (block.id === blockId) {
+        return { ...block, isSelected: isCtrlPressed ? !block.isSelected : true, lastModified: Date.now() }
+      }
+      // Se não é Ctrl+Click, deselecionar outros blocos
+      return isCtrlPressed ? block : { ...block, isSelected: false }
+    }))
+  }, [])
+  
+  // Função para reprodução seletiva (blocos selecionados)
+  const playSelectedBlocks = useCallback(() => {
+    const selectedBlocks = splitBlocks.filter(b => b.isSelected).sort((a, b) => a.start - b.start)
+    if (selectedBlocks.length === 0) return
+    
+    setSelectivePlayback({
+      isActive: true,
+      selectedBlocks: selectedBlocks.map(b => b.id),
+      currentBlockIndex: 0
+    })
+    
+    setPlayingBlock(null) // Desativar reprodução individual
+    onSeek(selectedBlocks[0].start)
+    if (!isPlaying) {
+      onPlay()
+    }
+    
+    console.log('🎬 Reprodução seletiva:', selectedBlocks.map(b => b.name).join(' → '))
+  }, [splitBlocks, onSeek, onPlay, isPlaying])
+  
+  // Função para selecionar todos os blocos
+  const selectAllBlocks = useCallback(() => {
+    setSplitBlocks(prev => prev.map(block => ({ 
+      ...block, 
+      isSelected: true, 
+      lastModified: Date.now() 
+    })))
+  }, [])
+  
+  // Função para deselecionar todos os blocos
+  const deselectAllBlocks = useCallback(() => {
+    setSplitBlocks(prev => prev.map(block => ({ 
+      ...block, 
+      isSelected: false, 
+      lastModified: Date.now() 
+    })))
+  }, [])
   
   // Função para parar reprodução de bloco
   const stopBlockPlayback = useCallback(() => {
@@ -913,7 +974,39 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
   useEffect(() => {
     if (isPlaying) {
-      if (playingBlock) {
+      if (selectivePlayback.isActive && selectivePlayback.selectedBlocks.length > 0) {
+        // Reprodução seletiva (múltiplos blocos)
+        const currentBlockId = selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex]
+        const currentBlock = splitBlocks.find(b => b.id === currentBlockId)
+        
+        if (currentBlock) {
+          if (currentTime >= currentBlock.end) {
+            // Passou para o próximo bloco
+            const nextIndex = selectivePlayback.currentBlockIndex + 1
+            if (nextIndex < selectivePlayback.selectedBlocks.length) {
+              // Próximo bloco
+              const nextBlockId = selectivePlayback.selectedBlocks[nextIndex]
+              const nextBlock = splitBlocks.find(b => b.id === nextBlockId)
+              if (nextBlock) {
+                setSelectivePlayback(prev => ({ ...prev, currentBlockIndex: nextIndex }))
+                onSeek(nextBlock.start)
+                console.log('🎬 Próximo bloco seletivo:', nextBlock.name)
+              }
+            } else {
+              // Terminou todos os blocos selecionados - reiniciar
+              setSelectivePlayback(prev => ({ ...prev, currentBlockIndex: 0 }))
+              const firstBlock = splitBlocks.find(b => b.id === selectivePlayback.selectedBlocks[0])
+              if (firstBlock) {
+                onSeek(firstBlock.start)
+                console.log('🎬 Reprodução seletiva reiniciada')
+              }
+            }
+          }
+          if (currentTime < currentBlock.start) {
+            onSeek(currentBlock.start)
+          }
+        }
+      } else if (playingBlock) {
         // Reprodução de bloco individual
         const block = splitBlocks.find(b => b.id === playingBlock)
         if (block) {
@@ -934,7 +1027,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         }
       }
     }
-  }, [currentTime, isPlaying, onSeek, projectTimeline, playingBlock, splitBlocks])
+  }, [currentTime, isPlaying, onSeek, projectTimeline, playingBlock, splitBlocks, selectivePlayback])
 
   // ===== EVENT LISTENERS SEPARADOS =====
   
@@ -1165,6 +1258,47 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   <Scissors size={14} className="mr-2" />
                   ✂️ Criar Blocos
                 </Button>
+              )}
+              
+              {/* Controles de seleção de blocos */}
+              {splitBlocks.length > 0 && (
+                <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllBlocks}
+                    className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
+                    title="Selecionar todos os blocos"
+                  >
+                    ✓ Todos
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={deselectAllBlocks}
+                    className="bg-gray-600 hover:bg-gray-700 text-white border-gray-500 text-xs"
+                    title="Deselecionar todos os blocos"
+                  >
+                    ✗ Nenhum
+                  </Button>
+                  
+                  {splitBlocks.some(b => b.isSelected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={playSelectedBlocks}
+                      className="bg-green-600 hover:bg-green-700 text-white border-green-500 text-xs animate-pulse"
+                      title="Reproduzir apenas blocos selecionados"
+                    >
+                      ▶️ Reproduzir Selecionados
+                    </Button>
+                  )}
+                  
+                  <div className="text-xs text-gray-400">
+                    {splitBlocks.filter(b => b.isSelected).length} de {splitBlocks.length} selecionados
+                  </div>
+                </div>
               )}
               
               {/* Botão para limpar blocos */}
@@ -1439,11 +1573,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 <div
                   key={block.id}
                   className={`absolute top-0 h-full rounded-lg border-2 transition-all duration-200 ${
-                    playingBlock === block.id
-                      ? 'border-green-400 ring-2 ring-green-400/50 animate-pulse' 
-                      : block.isSelected 
-                        ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
-                        : 'border-white/50'
+                    selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id
+                      ? 'border-purple-400 ring-2 ring-purple-400/50 animate-pulse' 
+                      : playingBlock === block.id
+                        ? 'border-green-400 ring-2 ring-green-400/50 animate-pulse' 
+                        : block.isSelected 
+                          ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
+                          : 'border-white/50'
                   } ${
                     block.isDragging 
                       ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' 
@@ -1457,10 +1593,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   }}
                   onMouseDown={(e) => {
                     if (e.detail === 1) {
-                      // Single click - reproduzir bloco
+                      // Single click - reproduzir bloco ou seleção múltipla
                       setTimeout(() => {
                         if (e.detail === 1) {
-                          playSpecificBlock(block.id)
+                          if (e.ctrlKey || e.metaKey) {
+                            // Ctrl+Click - seleção múltipla
+                            toggleBlockSelection(block.id, true)
+                          } else {
+                            // Click normal - reproduzir bloco
+                            playSpecificBlock(block.id)
+                          }
                         }
                       }, 200)
                     }
@@ -1481,11 +1623,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                     deleteBlock(block.id)
                   }}
                   title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
-🖱️ Click: Reproduzir | 🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
-${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}`}
+🖱️ Click: Reproduzir | Ctrl+Click: Seleção múltipla | 🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
+${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}
+${selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id ? '🎯 REPRODUÇÃO SELETIVA ATIVA' : ''}
+${block.isSelected ? '✅ SELECIONADO' : ''}`}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold bg-black/20 rounded-lg">
                     <span className="flex items-center space-x-1">
+                      {selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id && (
+                        <span className="text-purple-300 animate-bounce">🎯</span>
+                      )}
                       {playingBlock === block.id && (
                         <span className="text-green-300 animate-bounce">▶️</span>
                       )}
@@ -1626,7 +1773,12 @@ ${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}`}
             <span>
               Cortes: {cutSegments.length} | 
               Blocos: {splitBlocks.length} | 
-              {playingBlock && `▶️ Reproduzindo: ${splitBlocks.find(b => b.id === playingBlock)?.name} | `}
+              Selecionados: {splitBlocks.filter(b => b.isSelected).length} |
+              {selectivePlayback.isActive ? (
+                `🎯 Reprodução Seletiva: ${selectivePlayback.currentBlockIndex + 1}/${selectivePlayback.selectedBlocks.length} | `
+              ) : playingBlock ? (
+                `▶️ Reproduzindo: ${splitBlocks.find(b => b.id === playingBlock)?.name} | `
+              ) : ''}
               Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
           </div>
