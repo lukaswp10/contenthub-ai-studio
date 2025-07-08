@@ -247,6 +247,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       })
     }
   }, [duration, activeSegment.start, activeSegment.end])
+
+  // ===== SINCRONIZAR BARRA AZUL COM ÁREA AMARELA =====
+  useEffect(() => {
+    if (inPoint !== null && outPoint !== null) {
+      // Quando inPoint e outPoint existem, sincronizar barra azul com área amarela
+      const start = Math.min(inPoint, outPoint)
+      const end = Math.max(inPoint, outPoint)
+      setActiveSegment({ start, end })
+    }
+  }, [inPoint, outPoint])
   
   // ===== CONTROLES DE ZOOM =====
   const handleZoomIn = useCallback(() => setZoom(prev => Math.min(prev * 1.5, 1600)), [])
@@ -365,23 +375,33 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom, currentTime])
   
   const handleMouseUp = useCallback(() => {
+    // MELHORIA: Quando termina de arrastar, define inPoint e outPoint para criar área amarela
+    if (dragType === 'start' || dragType === 'end' || dragType === 'move') {
+      // Definir inPoint e outPoint baseado no segmento atual
+      onSeek(activeSegment.start)
+      setTimeout(() => {
+        onSetInPoint()
+        onSeek(activeSegment.end)
+        setTimeout(() => onSetOutPoint(), 10)
+      }, 10)
+    }
+    
     setIsDragging(false)
     setDragType(null)
     setDragStartX(0)
     setDragStartSegment({ start: 0, end: 0 })
-  }, [])
+  }, [dragType, activeSegment, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO DENTRO DO SEGMENTO =====
   useEffect(() => {
     if (isPlaying && activeSegment.start !== 0 && activeSegment.end !== duration) {
-      // Se estiver reproduzindo e o currentTime sair do segmento, parar ou voltar
+      // APENAS quando chegou no fim do segmento durante reprodução, volta para o início
       if (currentTime >= activeSegment.end) {
         // Chegou no fim do segmento, volta para o início
         onSeek(activeSegment.start)
-      } else if (currentTime < activeSegment.start) {
-        // Está antes do segmento, move para o início
-        onSeek(activeSegment.start)
       }
+      // REMOVIDO: não forçar volta ao início se usuário clicou antes do segmento
+      // Agora permite reprodução livre, só controla quando chega no fim
     }
   }, [currentTime, activeSegment, isPlaying, onSeek, duration])
 
