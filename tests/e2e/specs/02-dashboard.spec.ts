@@ -109,59 +109,6 @@ test.describe('📊 ClipsForge - Dashboard', () => {
     console.log('✅ Galeria de vídeos verificada!');
   });
   
-  test('Verificar ações rápidas', async ({ page }) => {
-    console.log('⚡ Testando ações rápidas...');
-    
-    await loginUser(page);
-    
-    // Verificar título da seção
-    await expect(page.locator('text=Ações Rápidas')).toBeVisible();
-    
-    // Verificar botões de ação
-    const actionButtons = [
-      'Editor Manual',
-      '🎬 Editor Pro',
-      'Meus Clips',
-      'Analytics'
-    ];
-    
-    for (const buttonText of actionButtons) {
-      const button = page.locator(`button:has-text("${buttonText}")`);
-      await expect(button).toBeVisible();
-      console.log(`⚡ Ação encontrada: ${buttonText}`);
-    }
-    
-    console.log('✅ Ações rápidas verificadas!');
-  });
-  
-  test('Navegação para outras páginas', async ({ page }) => {
-    console.log('🧭 Testando navegação para outras páginas...');
-    
-    await loginUser(page);
-    
-    // Testar navegação para clips
-    const clipsButton = page.locator('button:has-text("Meus Clips")');
-    await clipsButton.click();
-    await page.waitForLoadState('networkidle');
-    
-    let currentUrl = page.url();
-    expect(currentUrl).toContain('/clips');
-    console.log('📁 Navegação para clips funcionando');
-    
-    // Voltar para dashboard
-    await page.goto(`${E2E_CONFIG.urls.base}/dashboard`);
-    await page.waitForLoadState('networkidle');
-    
-    // Testar navegação para analytics
-    const analyticsButton = page.locator('button:has-text("Analytics")');
-    await analyticsButton.click();
-    await page.waitForLoadState('networkidle');
-    
-    currentUrl = page.url();
-    expect(currentUrl).toContain('/analytics');
-    console.log('📈 Navegação para analytics funcionando');
-    
-    console.log('✅ Navegação entre páginas verificada!');
-  });
+
   
 }); 

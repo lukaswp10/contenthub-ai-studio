@@ -124,21 +124,21 @@
   },
   "suites": [
     {
-      "title": "specs/04-editor.spec.ts",
-      "file": "specs/04-editor.spec.ts",
+      "title": "specs/05-upload-functional.spec.ts",
+      "file": "specs/05-upload-functional.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "🎬 ClipsForge - Editor",
-          "file": "specs/04-editor.spec.ts",
-          "line": 4,
+          "title": "📤 ClipsForge - Upload Funcional",
+          "file": "specs/05-upload-functional.spec.ts",
+          "line": 9,
           "column": 6,
           "specs": [
             {
-              "title": "Acesso ao editor via dashboard",
-              "ok": true,
+              "title": "Upload real de vídeo via botão selecionar",
+              "ok": false,
               "tags": [],
               "tests": [
                 {
@@ -151,51 +151,171 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 8053,
-                      "errors": [],
+                      "status": "failed",
+                      "duration": 294,
+                      "error": {
+                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
+                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
+                        "location": {
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                          "column": 16,
+                          "line": 13
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                            "column": 16,
+                            "line": 13
+                          },
+                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
+                        }
+                      ],
                       "stdout": [
                         {
-                          "text": "🎬 Testando acesso ao editor via dashboard...\n"
-                        },
-                        {
-                          "text": "🔧 Botão \"Editor Manual\" encontrado com seletor: button:has-text(\"Editor Manual\")\n"
-                        },
-                        {
-                          "text": "🖱️ Clicando no botão Editor Manual (com force)...\n"
-                        },
-                        {
-                          "text": "⏳ Aguardando navegação...\n"
-                        },
-                        {
-                          "text": "📍 URL atual após clique: https://clipsforge.vercel.app/dashboard\n"
-                        },
-                        {
-                          "text": "❌ Navegação falhou, ainda no dashboard\n"
-                        },
-                        {
-                          "text": "🔄 Tentando navegação direta...\n"
-                        },
-                        {
-                          "text": "📍 URL após navegação direta: https://clipsforge.vercel.app/editor\n"
-                        },
-                        {
-                          "text": "✅ Acesso ao editor via dashboard verificado!\n"
+                          "text": "📤 Testando upload real de vídeo...\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-07-08T18:23:13.390Z",
+                      "startTime": "2025-07-08T18:48:21.289Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium/video.webm"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                        "column": 16,
+                        "line": 13
+                      }
+                    },
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 277,
+                      "error": {
+                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
+                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
+                        "location": {
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                          "column": 16,
+                          "line": 13
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                            "column": 16,
+                            "line": 13
+                          },
+                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "📤 Testando upload real de vídeo...\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-07-08T18:48:22.498Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                        "column": 16,
+                        "line": 13
+                      }
+                    },
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 214,
+                      "error": {
+                        "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n",
+                        "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11",
+                        "location": {
+                          "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                          "column": 16,
+                          "line": 13
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                            "column": 16,
+                            "line": 13
+                          },
+                          "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8081/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/login\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 11 |\u001b[39m   \u001b[90m// Helper para fazer login\u001b[39m\n \u001b[90m 12 |\u001b[39m   \u001b[36mconst\u001b[39m loginUser \u001b[33m=\u001b[39m \u001b[36masync\u001b[39m (page\u001b[33m:\u001b[39m any) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 13 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m`${E2E_CONFIG.urls.base}/login`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 14 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 15 |\u001b[39m     \n \u001b[90m 16 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[type=\"email\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'lukaswp10@gmail.com'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at loginUser (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:13:16)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts:28:11\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "📤 Testando upload real de vídeo...\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 2,
+                      "startTime": "2025-07-08T18:48:23.618Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/lucasmartins/Documentos/clipsforge/test-results/specs-05-upload-functional-98ca1--vídeo-via-botão-selecionar-chromium-retry2/video.webm"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/05-upload-functional.spec.ts",
+                        "column": 16,
+                        "line": 13
+                      }
                     }
                   ],
-                  "status": "expected"
+                  "status": "unexpected"
                 }
               ],
-              "id": "e6e7ffa5607d3c2c7c8c-c037d45fcab37e63198d",
-              "file": "specs/04-editor.spec.ts",
-              "line": 69,
+              "id": "3554f706f1d0497bb422-f093291869a5f2b44cb5",
+              "file": "specs/05-upload-functional.spec.ts",
+              "line": 25,
               "column": 3
             }
           ]
@@ -205,11 +325,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-07-08T18:23:12.254Z",
-    "duration": 9331.19,
-    "expected": 1,
+    "startTime": "2025-07-08T18:48:20.306Z",
+    "duration": 3634.287,
+    "expected": 0,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 1,
     "flaky": 0
   }
 }

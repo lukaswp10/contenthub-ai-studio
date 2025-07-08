@@ -365,7 +365,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       >
         <Upload className="mx-auto h-8 w-8 text-gray-400 mb-3" />
         <h3 className="text-sm font-medium text-gray-900 mb-1">
-          {isDragging ? 'Solte o vídeo aqui' : '📤 Upload Rápido'}
+          {isDragging ? 'Solte o vídeo aqui' : 'Clique ou arraste um vídeo'}
         </h3>
         <p className="text-xs text-gray-600 mb-3">
           Arraste e solte ou clique para selecionar

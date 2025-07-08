@@ -96,7 +96,8 @@ test.describe('🎬 ClipsForge - Editor', () => {
       // Testar clique no Editor Manual com JavaScript
       console.log('🖱️ Tentando clique com JavaScript...');
       await page.evaluate(() => {
-        const button = document.querySelector('button:has-text("Editor Manual")') as HTMLButtonElement;
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const button = buttons.find(btn => btn.textContent?.includes('Editor Manual'));
         if (button) {
           console.log('🔧 Botão encontrado via JavaScript, clicando...');
           button.click();
