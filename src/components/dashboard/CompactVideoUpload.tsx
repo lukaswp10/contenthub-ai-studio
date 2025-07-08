@@ -16,38 +16,42 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
   onUploadComplete,
   className = ''
 }) => {
-  const { user } = useAuth()
   const navigate = useNavigate()
-  const [isDragging, setIsDragging] = useState(false)
+  const { user } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [error, setError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [successVideoId, setSuccessVideoId] = useState<string | null>(null)
-  const [galleryVideoData, setGalleryVideoData] = useState<any | null>(null)
-  
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [galleryVideoData, setGalleryVideoData] = useState<any>(null)
 
-  // Formatos aceitos
-  const acceptedFormats = ['video/mp4', 'video/mov', 'video/avi', 'video/quicktime']
-  const maxFileSize = 500 * 1024 * 1024 // 500MB
-
+  // ✨ MELHORADO: Validação de arquivo com feedback específico
   const validateFile = (file: File): string | null => {
-    if (!acceptedFormats.includes(file.type)) {
-      return 'Formato não suportado. Use MP4, MOV ou AVI.'
+    // Verificar se é um arquivo de vídeo
+    if (!isValidVideoFile(file)) {
+      return 'Formato não suportado. Use MP4, MOV, AVI, MKV, WEBM, FLV.'
     }
     
-    if (file.size > maxFileSize) {
-      return 'Arquivo muito grande. Máximo 500MB.'
+    // Verificar tamanho (limite de 500MB)
+    const maxSize = 500 * 1024 * 1024 // 500MB
+    if (file.size > maxSize) {
+      return 'Arquivo muito grande. Máximo: 500MB.'
+    }
+    
+    // Verificar tamanho mínimo (1MB)
+    const minSize = 1 * 1024 * 1024 // 1MB
+    if (file.size < minSize) {
+      return 'Arquivo muito pequeno. Mínimo: 1MB.'
     }
     
     return null
   }
 
+  // Selecionar arquivo
   const handleFileSelect = useCallback((file: File) => {
-    console.log('📁 Arquivo selecionado no upload compacto:', file.name)
-    
     const validationError = validateFile(file)
     if (validationError) {
       setError(validationError)
@@ -57,42 +61,16 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     setSelectedFile(file)
     setError(null)
     setUploadSuccess(false)
-    setSuccessVideoId(null)
     setGalleryVideoData(null)
+    console.log('📁 Arquivo selecionado no upload compacto:', file.name)
   }, [])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      handleFileSelect(files[0])
-    }
-  }, [handleFileSelect])
-
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      handleFileSelect(files[0])
-    }
-  }, [handleFileSelect])
-
+  // Limpar seleção
   const clearSelection = () => {
     setSelectedFile(null)
     setError(null)
-    setUploadProgress(0)
     setUploadSuccess(false)
+    setUploadProgress(0)
     setSuccessVideoId(null)
     setGalleryVideoData(null)
     if (fileInputRef.current) {
@@ -100,46 +78,16 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     }
   }
 
-  // ✨ NOVA FUNÇÃO: Navegar para o editor
-  const navigateToEditor = () => {
-    if (!galleryVideoData) {
-      console.error('❌ Dados do vídeo não disponíveis para navegação')
-      return
-    }
-
-    console.log('🎬 Navegando para o editor com vídeo:', galleryVideoData.name)
-    
-    navigate('/editor', {
-      state: {
-        url: galleryVideoData.cloudinaryUrl || galleryVideoData.url,
-        name: galleryVideoData.name,
-        size: galleryVideoData.size,
-        duration: galleryVideoData.duration,
-        id: galleryVideoData.id,
-        cloudinaryPublicId: galleryVideoData.cloudinaryPublicId,
-        cloudinaryUrl: galleryVideoData.cloudinaryUrl,
-      }
-    })
-  }
-
+  // ✅ Iniciar upload (100% REAL - SUPABASE)
   const startUpload = async () => {
-    if (!selectedFile || !user) return
-
-    console.log('🚀 Iniciando upload compacto:', selectedFile.name)
-    
-    setUploading(true)
-    setUploadProgress(0)
-    setError(null)
-    setUploadSuccess(false)
+    if (!selectedFile) return
 
     try {
-      // Validar arquivo antes do upload
-      if (!isValidVideoFile(selectedFile)) {
-        throw new Error('Arquivo não é um vídeo válido ou é muito grande (máx 100MB)')
-      }
-
-      // Upload real para o Cloudinary
+      setUploading(true)
       setUploadProgress(10)
+      setError(null)
+      
+      console.log('🚀 Iniciando upload compacto:', selectedFile.name)
       console.log('📤 Enviando para Cloudinary...')
       
       const cloudinaryResponse = await uploadVideoToCloudinary(selectedFile)
@@ -151,8 +99,9 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       await new Promise(resolve => setTimeout(resolve, 500))
       setUploadProgress(100)
 
-      // Salvar na galeria com dados do Cloudinary
-      const galleryVideo = saveVideoToGallery({
+      // ✅ SALVAR NO SUPABASE (100% REAL)
+      console.log('💾 Salvando no Supabase (100% REAL)...')
+      const galleryVideo = await saveVideoToGallery({
         file: selectedFile,
         url: cloudinaryResponse.secure_url,
         duration: cloudinaryResponse.duration || 0,
@@ -161,7 +110,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       })
       
       // ✨ CORREÇÃO: Salvar dados para navegação
-      setGalleryVideoData({
+      const videoDataForNavigation = {
         id: galleryVideo.id,
         name: galleryVideo.name,
         size: selectedFile.size, // Usar tamanho real em bytes
@@ -169,22 +118,35 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         url: cloudinaryResponse.secure_url,
         cloudinaryPublicId: cloudinaryResponse.public_id,
         cloudinaryUrl: cloudinaryResponse.secure_url
-      })
+      }
+      
+      setGalleryVideoData(videoDataForNavigation)
       
       // Sucesso
       setUploadSuccess(true)
       setSuccessVideoId(galleryVideo.id)
       setUploadProgress(0)
       
-      console.log('🎉 Vídeo salvo com sucesso no upload compacto!')
+      console.log('🎉 Vídeo salvo com sucesso no Supabase (100% REAL)!')
       
       // Notificar componente pai
       onUploadComplete?.(galleryVideo.id)
       
-      // ✨ CORREÇÃO: Auto-navegação para o editor após 2 segundos
+      // ✨ CORREÇÃO: Auto-navegação imediata com dados garantidos
       setTimeout(() => {
         console.log('🎬 Auto-navegando para o editor...')
-        navigateToEditor()
+        // Usar dados diretos em vez de state (evita race condition)
+        navigate('/editor', {
+          state: {
+            url: videoDataForNavigation.cloudinaryUrl || videoDataForNavigation.url,
+            name: videoDataForNavigation.name,
+            size: videoDataForNavigation.size,
+            duration: videoDataForNavigation.duration,
+            id: videoDataForNavigation.id,
+            cloudinaryPublicId: videoDataForNavigation.cloudinaryPublicId,
+            cloudinaryUrl: videoDataForNavigation.cloudinaryUrl,
+          }
+        })
       }, 2000)
       
     } catch (err) {
@@ -208,10 +170,10 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-medium text-green-800">
-                🎉 Upload concluído!
+                🎉 Upload concluído no Supabase!
               </h3>
               <p className="text-xs text-green-600 mt-1">
-                {selectedFile?.name} foi salvo na galeria
+                {selectedFile?.name} foi salvo na galeria (100% REAL)
               </p>
               <p className="text-xs text-blue-600 mt-1">
                 ⏱️ Redirecionando para o editor...
@@ -222,7 +184,52 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
           <div className="flex space-x-2">
             <Button
               size="sm"
-              onClick={navigateToEditor}
+              onClick={() => {
+                console.log('🔍 DEBUG - Estado atual do botão Editar Manual:', {
+                  galleryVideoData,
+                  hasGalleryVideoData: !!galleryVideoData,
+                  uploadSuccess,
+                  selectedFile: selectedFile?.name
+                })
+                
+                if (galleryVideoData) {
+                  console.log('✅ Navegando para editor com dados do Supabase:', galleryVideoData)
+                  navigate('/editor', {
+                    state: {
+                      url: galleryVideoData.cloudinaryUrl || galleryVideoData.url,
+                      name: galleryVideoData.name,
+                      size: galleryVideoData.size,
+                      duration: galleryVideoData.duration,
+                      id: galleryVideoData.id,
+                      cloudinaryPublicId: galleryVideoData.cloudinaryPublicId,
+                      cloudinaryUrl: galleryVideoData.cloudinaryUrl,
+                    }
+                  })
+                } else {
+                  console.error('❌ Dados do vídeo não disponíveis para navegação manual')
+                  console.log('🔍 DEBUG - Tentando aguardar dados...')
+                  
+                  // Aguardar um pouco e tentar novamente
+                  setTimeout(() => {
+                    if (galleryVideoData) {
+                      console.log('✅ Dados encontrados após aguardar:', galleryVideoData)
+                      navigate('/editor', {
+                        state: {
+                          url: galleryVideoData.cloudinaryUrl || galleryVideoData.url,
+                          name: galleryVideoData.name,
+                          size: galleryVideoData.size,
+                          duration: galleryVideoData.duration,
+                          id: galleryVideoData.id,
+                          cloudinaryPublicId: galleryVideoData.cloudinaryPublicId,
+                          cloudinaryUrl: galleryVideoData.cloudinaryUrl,
+                        }
+                      })
+                    } else {
+                      console.error('❌ Dados ainda não disponíveis após aguardar')
+                    }
+                  }, 1000)
+                }
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
             >
               🎬 Editar Manual
@@ -253,7 +260,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-medium text-gray-900">
-                Enviando {selectedFile?.name}
+                Enviando {selectedFile?.name} para Supabase
               </h3>
               <p className="text-xs text-gray-600">
                 {uploadProgress < 30 ? '⚡ Iniciando...' : 
@@ -311,35 +318,37 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
   // Estado com arquivo selecionado
   if (selectedFile) {
     return (
-      <Card className={`p-4 ${className}`}>
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Upload className="h-6 w-6 text-blue-600" />
+      <Card className={`p-4 border-blue-200 bg-blue-50 ${className}`}>
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <Check className="h-6 w-6 text-blue-600" />
             </div>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-medium text-gray-900">
-              {selectedFile.name}
-            </h3>
-            <p className="text-xs text-gray-600">
-              {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • {selectedFile.type}
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              size="sm"
-              onClick={startUpload}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Enviar
-            </Button>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-blue-800">
+                Arquivo selecionado
+              </h3>
+              <p className="text-xs text-blue-600 mt-1">
+                📁 {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
+              </p>
+            </div>
             <Button
               size="sm"
               variant="outline"
               onClick={clearSelection}
+              className="text-blue-600 border-blue-300 hover:bg-blue-100"
             >
               <X className="h-3 w-3" />
+            </Button>
+          </div>
+          
+          <div className="flex space-x-2">
+            <Button
+              onClick={startUpload}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+              disabled={!user}
+            >
+              {!user ? '🔒 Login necessário' : '🚀 Enviar para Supabase'}
             </Button>
           </div>
         </div>
@@ -347,42 +356,45 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     )
   }
 
-  // Estado inicial - zona de drop
+  // Estado inicial - área de upload
   return (
-    <Card className={className}>
-      <div
-        className={`
-          border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer
-          ${isDragging 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-          }
-        `}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-3" />
-        <h3 className="text-sm font-medium text-gray-900 mb-1">
-          {isDragging ? 'Solte o vídeo aqui' : 'Clique ou arraste um vídeo'}
-        </h3>
-        <p className="text-xs text-gray-600 mb-3">
-          Arraste e solte ou clique para selecionar
-        </p>
-        <p className="text-xs text-gray-500">
-          MP4, MOV, AVI • Máx: 500MB
-        </p>
-      </div>
-
-      {/* Hidden File Input */}
+    <Card className={`p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors cursor-pointer ${className}`}>
       <input
         ref={fileInputRef}
         type="file"
         accept="video/*"
-        onChange={handleFileInputChange}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleFileSelect(file)
+        }}
         className="hidden"
       />
+      
+      <div 
+        className="text-center"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+        <h3 className="text-sm font-medium text-gray-900 mb-2">
+          📤 Upload Rápido (Supabase)
+        </h3>
+        <p className="text-xs text-gray-600 mb-4">
+          Arraste e solte ou clique para selecionar um vídeo
+        </p>
+        <Button 
+          variant="outline" 
+          size="sm"
+          disabled={!user}
+        >
+          {!user ? '🔒 Faça login' : 'Clique ou arraste um vídeo'}
+        </Button>
+        
+        {!user && (
+          <p className="text-xs text-red-600 mt-2">
+            ⚠️ Você precisa estar logado para fazer upload
+          </p>
+        )}
+      </div>
     </Card>
   )
 } 

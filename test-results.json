@@ -67,13 +67,13 @@
       "specs": [],
       "suites": [
         {
-          "title": "🔥 ClipsForge - Timeline Stress Test Melhorado",
+          "title": "🔥 ClipsForge - Timeline Stress Test PRODUÇÃO",
           "file": "specs/11-timeline-stress-test.spec.ts",
-          "line": 327,
+          "line": 385,
           "column": 6,
           "specs": [
             {
-              "title": "Teste Completo da Timeline com Validações",
+              "title": "Teste Completo da Timeline em PRODUÇÃO REAL",
               "ok": true,
               "tags": [],
               "tests": [
@@ -88,116 +88,140 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 41631,
+                      "duration": 59322,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "🔥 INICIANDO TESTE COMPLETO DA TIMELINE...\n"
+                          "text": "🔥 INICIANDO TESTE COMPLETO DA TIMELINE EM PRODUÇÃO...\n"
                         },
                         {
-                          "text": "\n📋 FASE 1: Preparação\n"
+                          "text": "🌐 AMBIENTE: https://clipsforge.vercel.app (100% PRODUÇÃO)\n"
                         },
                         {
-                          "text": "🔐 Fazendo login...\n"
+                          "text": "\n📋 FASE 1: Preparação na PRODUÇÃO\n"
                         },
                         {
-                          "text": "✅ Login realizado com sucesso\n"
+                          "text": "🔐 Fazendo login na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "📤 Iniciando upload de vídeo...\n"
+                          "text": "✅ Login realizado com sucesso na PRODUÇÃO\n"
                         },
                         {
-                          "text": "📁 Arquivo real selecionado: videoplayback.mp4\n"
+                          "text": "📤 Fazendo upload real para PRODUÇÃO...\n"
                         },
                         {
-                          "text": "🚀 Upload iniciado\n"
+                          "text": "📁 Arquivo selecionado: videoplayback.mp4\n"
                         },
                         {
-                          "text": "✅ Upload concluído com sucesso!\n"
+                          "text": "🚀 Upload iniciado para Cloudinary (PRODUÇÃO)\n"
                         },
                         {
-                          "text": "🎬 Navegando para o editor...\n"
+                          "text": "✅ Upload concluído com sucesso na PRODUÇÃO!\n"
                         },
                         {
-                          "text": "📁 Vídeo encontrado na galeria\n"
+                          "text": "🔴 Console Error: ❌ Dados do vídeo não disponíveis para navegação\n"
                         },
                         {
-                          "text": "✅ Editor carregado\n"
+                          "text": "🎬 Navegando para editor na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "\n📋 FASE 2: Validação do Vídeo\n"
+                          "text": "📁 Vídeo encontrado na galeria da PRODUÇÃO\n"
                         },
                         {
-                          "text": "📹 Verificando se vídeo carregou...\n"
+                          "text": "✅ Editor carregado na PRODUÇÃO\n"
                         },
                         {
-                          "text": "✅ Vídeo encontrado com src\n"
+                          "text": "\n📋 FASE 2: Validação do Vídeo na PRODUÇÃO\n"
                         },
                         {
-                          "text": "⚠️ Vídeo sem duração, mas presente\n"
+                          "text": "📹 Validando vídeo na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "\n📋 FASE 3: Validação da Timeline\n"
+                          "text": "📊 ESTADO DO VÍDEO NA PRODUÇÃO: {\n  \"found\": true,\n  \"src\": \"https://res.cloudinary.com/dyqjxsnjp/video/upload/v1752008897/clipsforge/videos/i6uumrpkiinl8rib8prq.mp4\",\n  \"currentSrc\": \"https://res.cloudinary.com/dyqjxsnjp/video/upload/v1752008897/clipsforge/videos/i6uumrpkiinl8rib8prq.mp4\",\n  \"readyState\": 0,\n  \"networkState\": 3,\n  \"error\": {\n    \"code\": 4,\n    \"message\": \"\"\n  },\n  \"duration\": null,\n  \"paused\": true,\n  \"canPlay\": false\n}\n"
                         },
                         {
-                          "text": "🔍 Procurando timeline...\n"
+                          "text": "🔴 ERRO DE VÍDEO: 4 - \n"
                         },
                         {
-                          "text": "⏱️ Timeline encontrada: .absolute.bottom-0.left-0.right-0\n"
+                          "text": "⚠️ Vídeo não carregou completamente, mas continuando teste...\n"
                         },
                         {
-                          "text": "\n📋 FASE 4: Teste dos Controles\n"
+                          "text": "\n📋 FASE 3: Validação da Timeline na PRODUÇÃO\n"
                         },
                         {
-                          "text": "▶️ Testando controles de reprodução...\n"
+                          "text": "🔍 Procurando timeline na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "Controles: Play ⚠️ | Pause ⚠️\n"
+                          "text": "⏱️ Timeline encontrada na PRODUÇÃO: .absolute.bottom-0.left-0.right-0\n"
                         },
                         {
-                          "text": "\n📋 FASE 5: Teste de Navegação\n"
+                          "text": "✅ Timeline encontrada e visível na PRODUÇÃO\n"
                         },
                         {
-                          "text": "🎯 Testando navegação na timeline...\n"
+                          "text": "\n📋 FASE 4: Teste dos Controles na PRODUÇÃO\n"
                         },
                         {
-                          "text": "❌ Navegação 25% não funcionou\n"
+                          "text": "▶️ Testando controles na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "❌ Navegação 50% não funcionou\n"
+                          "text": "🔴 JS Error: The element has no supported sources.\n"
                         },
                         {
-                          "text": "❌ Navegação 75% não funcionou\n"
+                          "text": "▶️ Play: ❌\n"
                         },
                         {
-                          "text": "Navegação: 0/3 bem-sucedidas\n"
+                          "text": "⏸️ Pause: ✅\n"
                         },
                         {
-                          "text": "\n📋 FASE 6: Teste de Atalhos\n"
+                          "text": "Controles: Play ⚠️ | Pause ✅\n"
                         },
                         {
-                          "text": "⚠️ Atalho Space não teve efeito visível\n"
+                          "text": "\n📋 FASE 5: Teste de Navegação na PRODUÇÃO\n"
                         },
                         {
-                          "text": "⚠️ Atalho ArrowLeft não teve efeito visível\n"
+                          "text": "🎯 Testando navegação na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "⚠️ Atalho ArrowRight não teve efeito visível\n"
+                          "text": "❌ Navegação por clique não funcionou\n"
                         },
                         {
-                          "text": "\n📋 FASE 7: Teste de Ferramentas de Corte\n"
+                          "text": "Navegação: 0/1 (0.0%)\n"
                         },
                         {
-                          "text": "✂️ Testando ferramentas de corte...\n"
+                          "text": "\n📋 FASE 6: Teste de Atalhos na PRODUÇÃO\n"
                         },
                         {
-                          "text": "✅ Botão de corte encontrado\n"
+                          "text": "⌨️ Testando atalhos na PRODUÇÃO...\n"
                         },
                         {
-                          "text": "❌ Corte não criou novos segmentos\n"
+                          "text": "❌ Atalho Space não teve efeito\n"
                         },
                         {
-                          "text": "\n📋 FASE 8: Teste de Responsividade\n"
+                          "text": "❌ Atalho ArrowLeft não teve efeito\n"
+                        },
+                        {
+                          "text": "❌ Atalho ArrowRight não teve efeito\n"
+                        },
+                        {
+                          "text": "Atalhos: 0/3 (0.0%)\n"
+                        },
+                        {
+                          "text": "\n📋 FASE 7: Teste de Ferramentas de Corte na PRODUÇÃO\n"
+                        },
+                        {
+                          "text": "✂️ Testando ferramentas de corte na PRODUÇÃO...\n"
+                        },
+                        {
+                          "text": "❌ Erro ao testar ferramentas de corte: locator.isVisible: Error: strict mode violation: locator('button:has-text(\"✂\")') resolved to 2 elements:\n    1) <button title=\"Sistema de Corte\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 text-white hover:bg-red-600\">✂️</button> aka getByRole('button', { name: '✂️', exact: true })\n    2) <button title=\"Criar blocos em 00:00\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:text-accent-foreground h-9 rounded-md px-3 bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse\">…</button> aka getByRole('button', { name: '✂️ Criar Blocos' })\n\nCall log:\n\u001b[2m    - checking visibility of locator('button:has-text(\"✂\")')\u001b[22m\n\n    at testCuttingInProduction \u001b[90m(/home/lucasmartins/Documentos/clipsforge/\u001b[39mtests/e2e/specs/11-timeline-stress-test.spec.ts:319:54\u001b[90m)\u001b[39m\n    at \u001b[90m/home/lucasmartins/Documentos/clipsforge/\u001b[39mtests/e2e/specs/11-timeline-stress-test.spec.ts:461:28 {\n  [\u001b[32mSymbol(step)\u001b[39m]: {\n    stepId: \u001b[32m'pw:api@62'\u001b[39m,\n    location: {\n      file: \u001b[32m'/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts'\u001b[39m,\n      line: \u001b[33m319\u001b[39m,\n      column: \u001b[33m54\u001b[39m,\n      function: \u001b[32m'testCuttingInProduction'\u001b[39m\n    },\n    category: \u001b[32m'pw:api'\u001b[39m,\n    title: \u001b[32m`Is visible locator('button:has-text(\"✂\")')`\u001b[39m,\n    apiName: \u001b[32m'locator.isVisible'\u001b[39m,\n    params: { selector: \u001b[32m'button:has-text(\"✂\")'\u001b[39m, strict: \u001b[33mtrue\u001b[39m },\n    boxedStack: \u001b[90mundefined\u001b[39m,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: \u001b[36m[TestInfoImpl]\u001b[39m,\n      _stepId: \u001b[32m'pw:api@62'\u001b[39m\n    },\n    complete: \u001b[36m[Function: complete]\u001b[39m,\n    endWallTime: \u001b[33m1752008937754\u001b[39m,\n    error: {\n      message: \u001b[32m`Error: locator.isVisible: Error: strict mode violation: locator('button:has-text(\"✂\")') resolved to 2 elements:\\n`\u001b[39m +\n        \u001b[32m`    1) <button title=\"Sistema de Corte\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 text-white hover:bg-red-600\">✂️</button> aka getByRole('button', { name: '✂️', exact: true })\\n`\u001b[39m +\n        \u001b[32m`    2) <button title=\"Criar blocos em 00:00\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:text-accent-foreground h-9 rounded-md px-3 bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse\">…</button> aka getByRole('button', { name: '✂️ Criar Blocos' })\\n`\u001b[39m +\n        \u001b[32m'\\n'\u001b[39m +\n        \u001b[32m'Call log:\\n'\u001b[39m +\n        \u001b[32m`\\x1B[2m    - checking visibility of locator('button:has-text(\"✂\")')\\x1B[22m\\n`\u001b[39m,\n      stack: \u001b[32m`Error: locator.isVisible: Error: strict mode violation: locator('button:has-text(\"✂\")') resolved to 2 elements:\\n`\u001b[39m +\n        \u001b[32m`    1) <button title=\"Sistema de Corte\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 text-white hover:bg-red-600\">✂️</button> aka getByRole('button', { name: '✂️', exact: true })\\n`\u001b[39m +\n        \u001b[32m`    2) <button title=\"Criar blocos em 00:00\" class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:text-accent-foreground h-9 rounded-md px-3 bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse\">…</button> aka getByRole('button', { name: '✂️ Criar Blocos' })\\n`\u001b[39m +\n        \u001b[32m'\\n'\u001b[39m +\n        \u001b[32m'Call log:\\n'\u001b[39m +\n        \u001b[32m`\\x1B[2m    - checking visibility of locator('button:has-text(\"✂\")')\\x1B[22m\\n`\u001b[39m +\n        \u001b[32m'\\n'\u001b[39m +\n        \u001b[32m'    at testCuttingInProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:319:54)\\n'\u001b[39m +\n        \u001b[32m'    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:461:28'\u001b[39m,\n      cause: \u001b[90mundefined\u001b[39m\n    }\n  }\n}\n"
+                        },
+                        {
+                          "text": "Corte: ⚠️ Não encontrado | ⚠️ Não testado\n"
+                        },
+                        {
+                          "text": "\n📋 FASE 8: Teste de Responsividade na PRODUÇÃO\n"
+                        },
+                        {
+                          "text": "📱 Testando responsividade na PRODUÇÃO...\n"
                         },
                         {
                           "text": "✅ Timeline visível em Laptop\n"
@@ -206,48 +230,75 @@
                           "text": "✅ Timeline visível em Tablet\n"
                         },
                         {
-                          "text": "\n🎉 RELATÓRIO FINAL:\n"
+                          "text": "✅ Timeline visível em Desktop\n"
                         },
                         {
-                          "text": "===================\n"
+                          "text": "Responsividade: 3/3 (100.0%)\n"
                         },
                         {
-                          "text": "📹 Vídeo: ✅ Carregado\n"
+                          "text": "\n🎉 RELATÓRIO FINAL - PRODUÇÃO REAL:\n"
+                        },
+                        {
+                          "text": "==========================================\n"
+                        },
+                        {
+                          "text": "🌐 AMBIENTE: https://clipsforge.vercel.app\n"
+                        },
+                        {
+                          "text": "👤 USUÁRIO: lukaswp10@gmail.com\n"
+                        },
+                        {
+                          "text": "📹 Vídeo: ⚠️ Carregamento parcial\n"
                         },
                         {
                           "text": "⏱️ Timeline: ✅ Encontrada e visível\n"
                         },
                         {
-                          "text": "▶️ Controles: Play ⚠️ | Pause ⚠️\n"
+                          "text": "▶️ Controles: Play ⚠️ | Pause ✅\n"
                         },
                         {
-                          "text": "🎯 Navegação: 0/3 (0.0%)\n"
+                          "text": "🎯 Navegação: 0/1 (0.0%)\n"
                         },
                         {
                           "text": "⌨️ Atalhos: 0/3 (0.0%)\n"
                         },
                         {
-                          "text": "✂️ Corte: ✅ Encontrado | ⚠️ Não testado\n"
+                          "text": "✂️ Corte: ⚠️ Não encontrado | ⚠️ Não testado\n"
                         },
                         {
-                          "text": "📱 Responsividade: 2/2 (100.0%)\n"
+                          "text": "📱 Responsividade: 3/3 (100.0%)\n"
                         },
                         {
-                          "text": "\n🏆 SCORE GERAL: 66.7% (4/6 testes aprovados)\n"
+                          "text": "\n🔴 ERROS DETECTADOS NA PRODUÇÃO:\n"
                         },
                         {
-                          "text": "✅ BOM! Timeline funcionando adequadamente.\n"
+                          "text": "Console Errors: 1\n"
                         },
                         {
-                          "text": "===================\n\n"
+                          "text": "JS Errors: 1\n"
                         },
                         {
-                          "text": "✅ TESTE COMPLETO FINALIZADO COM SUCESSO!\n"
+                          "text": "  - Console Error: ❌ Dados do vídeo não disponíveis para navegação\n"
+                        },
+                        {
+                          "text": "  - JS Error: The element has no supported sources.\n"
+                        },
+                        {
+                          "text": "\n🏆 SCORE FINAL NA PRODUÇÃO: 42.9% (3/7 testes aprovados)\n"
+                        },
+                        {
+                          "text": "❌ CRÍTICO! Timeline com problemas na PRODUÇÃO.\n"
+                        },
+                        {
+                          "text": "==========================================\n\n"
+                        },
+                        {
+                          "text": "✅ TESTE COMPLETO DA PRODUÇÃO FINALIZADO COM SUCESSO!\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-07-08T20:00:59.458Z",
+                      "startTime": "2025-07-08T21:08:04.644Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -255,9 +306,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "f437c29bc76ad3617c0e-9a31c893d06bc1de9928",
+              "id": "f437c29bc76ad3617c0e-1458cfa5f687e4c9d381",
               "file": "specs/11-timeline-stress-test.spec.ts",
-              "line": 329,
+              "line": 387,
               "column": 3
             }
           ]
@@ -267,8 +318,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-07-08T20:00:58.358Z",
-    "duration": 43226.9,
+    "startTime": "2025-07-08T21:08:03.246Z",
+    "duration": 61217.00399999999,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,

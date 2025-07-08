@@ -41,14 +41,29 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'duration' | 'size'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [loading, setLoading] = useState(true)
 
-  // Carregar vídeos da galeria
+  // ✅ Carregar vídeos do Supabase (100% REAL)
   useEffect(() => {
-    const loadVideos = () => {
-      const galleryVideos = getGalleryVideos()
-      setVideos(galleryVideos)
-      setFilteredVideos(galleryVideos)
-      onRefresh?.()
+    const loadVideos = async () => {
+      try {
+        setLoading(true)
+        console.log('🔄 Carregando vídeos do Supabase (100% REAL)...')
+        
+        // Carregar diretamente do Supabase
+        const galleryVideos = await getGalleryVideos()
+        setVideos(galleryVideos)
+        setFilteredVideos(galleryVideos)
+        onRefresh?.()
+        
+        console.log(`✅ ${galleryVideos.length} vídeos carregados do Supabase`)
+      } catch (error) {
+        console.error('❌ Erro ao carregar vídeos:', error)
+        setVideos([])
+        setFilteredVideos([])
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadVideos()
@@ -97,7 +112,7 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
 
   // Editar vídeo
   const handleEditVideo = (video: GalleryVideo) => {
-    console.log('🎬 Editando vídeo da galeria:', video.name)
+    console.log('🎬 Editando vídeo da galeria (Supabase):', video.name)
     
     navigate('/editor', {
       state: {
@@ -112,13 +127,19 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
     })
   }
 
-  // Excluir vídeo
-  const handleDeleteVideo = (video: GalleryVideo) => {
+  // ✅ Excluir vídeo do Supabase (100% REAL)
+  const handleDeleteVideo = async (video: GalleryVideo) => {
     if (confirm(`Tem certeza que deseja excluir "${video.name}"?`)) {
-      deleteVideoFromGallery(video.id)
-      const updatedVideos = videos.filter(v => v.id !== video.id)
-      setVideos(updatedVideos)
-      console.log('🗑️ Vídeo excluído da galeria:', video.name)
+      try {
+        await deleteVideoFromGallery(video.id)
+        // Recarregar lista após exclusão
+        const updatedVideos = await getGalleryVideos()
+        setVideos(updatedVideos)
+        console.log('🗑️ Vídeo excluído do Supabase:', video.name)
+      } catch (error) {
+        console.error('❌ Erro ao excluir vídeo:', error)
+        alert('Erro ao excluir vídeo. Tente novamente.')
+      }
     }
   }
 
@@ -146,6 +167,23 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
+  // ✅ Estado de carregamento
+  if (loading) {
+    return (
+      <div className={className}>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">🎬 Meus Vídeos</h2>
+            <p className="text-gray-600">Carregando vídeos do Supabase...</p>
+          </div>
+        </div>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={className}>
       {/* Header da Galeria - SEMPRE VISÍVEL */}
@@ -154,8 +192,8 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
           <h2 className="text-2xl font-bold text-gray-900">🎬 Meus Vídeos</h2>
           <p className="text-gray-600">
             {videos.length === 0 
-              ? 'Nenhum vídeo na galeria' 
-              : `${filteredVideos.length} de ${videos.length} vídeo${videos.length !== 1 ? 's' : ''}`
+              ? 'Nenhum vídeo no Supabase' 
+              : `${filteredVideos.length} de ${videos.length} vídeo${videos.length !== 1 ? 's' : ''} (Supabase)`
             }
           </p>
         </div>
@@ -174,61 +212,60 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
 
       {/* Estado Vazio */}
       {videos.length === 0 ? (
-        <Card className="p-8 text-center">
-          <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <Upload className="h-8 w-8 text-gray-400" />
+        <Card className="p-12 text-center">
+          <div className="space-y-4">
+            <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+              <FileText className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">
-              Comece fazendo upload de um vídeo
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Transforme seus vídeos em clips virais com nossa IA avançada!
-            </p>
-            <Button 
-              onClick={() => navigate('/upload')}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Fazer Upload
-            </Button>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Nenhum vídeo no Supabase
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Comece fazendo upload de um vídeo para sua galeria
+              </p>
+              <Button onClick={() => navigate('/upload')}>
+                <Upload className="h-4 w-4 mr-2" />
+                Fazer Upload
+              </Button>
+            </div>
           </div>
         </Card>
       ) : (
         <>
           {/* Controles de Busca e Filtros */}
           <Card className="p-4 mb-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar vídeos..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar vídeos..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
                 <select
-                  value={`${sortBy}-${sortOrder}`}
-                  onChange={(e) => {
-                    const [newSortBy, newSortOrder] = e.target.value.split('-') as [typeof sortBy, typeof sortOrder]
-                    setSortBy(newSortBy)
-                    setSortOrder(newSortOrder)
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="date-desc">Mais recentes</option>
-                  <option value="date-asc">Mais antigos</option>
-                  <option value="name-asc">Nome A-Z</option>
-                  <option value="name-desc">Nome Z-A</option>
-                  <option value="duration-desc">Maior duração</option>
-                  <option value="duration-asc">Menor duração</option>
-                  <option value="size-desc">Maior tamanho</option>
-                  <option value="size-asc">Menor tamanho</option>
+                  <option value="date">Data</option>
+                  <option value="name">Nome</option>
+                  <option value="duration">Duração</option>
+                  <option value="size">Tamanho</option>
                 </select>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </Button>
 
                 <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                   <Button
