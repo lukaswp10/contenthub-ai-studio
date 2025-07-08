@@ -293,16 +293,19 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       const end = Math.max(inPoint, outPoint)
       
       // Só sincronizar se for significativamente diferente (evitar loops)
-      const currentDuration = activeSegment.end - activeSegment.start
-      const newDuration = end - start
-      const significantChange = Math.abs(newDuration - currentDuration) > 0.1 ||
-                               Math.abs(activeSegment.start - start) > 0.1
-      
-      if (significantChange) {
-        setActiveSegment({ start, end })
-      }
+      setActiveSegment(prev => {
+        const currentDuration = prev.end - prev.start
+        const newDuration = end - start
+        const significantChange = Math.abs(newDuration - currentDuration) > 0.1 ||
+                                 Math.abs(prev.start - start) > 0.1
+        
+        if (significantChange) {
+          return { start, end }
+        }
+        return prev
+      })
     }
-  }, [inPoint, outPoint, activeSegment])
+  }, [inPoint, outPoint])
   
   // ===== CONTROLES DE ZOOM =====
   const handleZoomIn = useCallback(() => setZoom(prev => Math.min(prev * 1.5, 1600)), [])
@@ -374,11 +377,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     
     if (dragState.type === 'start') {
       // Redimensionar início
-      const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
+      const newStart = Math.max(0, Math.min(dragState.startSegment.end - 1, newTime))
       setActiveSegment(prev => ({ ...prev, start: newStart }))
     } else if (dragState.type === 'end') {
       // Redimensionar fim
-      const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
+      const newEnd = Math.max(dragState.startSegment.start + 1, Math.min(duration, newTime))
       setActiveSegment(prev => ({ ...prev, end: newEnd }))
     } else if (dragState.type === 'move') {
       // Mover segmento inteiro
@@ -394,21 +397,22 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       
       setActiveSegment({ start: newStart, end: newEnd })
     }
-  }, [dragState, duration, zoom, timelineMode, activeSegment])
+  }, [dragState, duration, zoom, timelineMode])
   
   const handleDragEnd = useCallback(() => {
     if (!dragState.isDragging) return
     
     // Sincronizar área amarela com a nova posição da barra azul
-    onSeek(activeSegment.start)
-    
-    // Aguardar um frame para garantir que o seek foi processado
-    requestAnimationFrame(() => {
-      onSetInPoint()
-      onSeek(activeSegment.end)
-      requestAnimationFrame(() => {
-        onSetOutPoint()
-      })
+    setActiveSegment(currentSegment => {
+      // Definir inPoint e outPoint baseado no segmento final
+      onSeek(currentSegment.start)
+      setTimeout(() => {
+        onSetInPoint()
+        onSeek(currentSegment.end)
+        setTimeout(() => onSetOutPoint(), 50)
+      }, 50)
+      
+      return currentSegment
     })
     
     // Resetar estado de drag
@@ -418,17 +422,22 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       startX: 0,
       startSegment: { start: 0, end: 0 }
     })
-  }, [dragState.isDragging, activeSegment, onSeek, onSetInPoint, onSetOutPoint])
+  }, [dragState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
   useEffect(() => {
-    if (isPlaying && activeSegment.start !== 0 && activeSegment.end !== duration) {
-      // Só controlar se chegou no fim do segmento
-      if (currentTime >= activeSegment.end && currentTime > activeSegment.start) {
-        onSeek(activeSegment.start)
-      }
+    if (isPlaying) {
+      setActiveSegment(segment => {
+        if (segment.start !== 0 && segment.end !== duration) {
+          // Só controlar se chegou no fim do segmento
+          if (currentTime >= segment.end && currentTime > segment.start) {
+            onSeek(segment.start)
+          }
+        }
+        return segment
+      })
     }
-  }, [currentTime, activeSegment, isPlaying, onSeek, duration])
+  }, [currentTime, isPlaying, onSeek, duration])
 
   // ===== EVENT LISTENERS =====
   useEffect(() => {
@@ -448,19 +457,24 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   }, [])
   
   const handleAreaClick = useCallback((time: number) => {
-    const segmentDuration = activeSegment.end - activeSegment.start
-    const newStart = Math.max(0, Math.min(duration - segmentDuration, time))
-    const newEnd = newStart + segmentDuration
-    setActiveSegment({ start: newStart, end: newEnd })
-  }, [activeSegment, duration])
+    setActiveSegment(prev => {
+      const segmentDuration = prev.end - prev.start
+      const newStart = Math.max(0, Math.min(duration - segmentDuration, time))
+      const newEnd = newStart + segmentDuration
+      return { start: newStart, end: newEnd }
+    })
+  }, [duration])
   
   // ===== HANDLER PARA DIVISÃO =====
   const handleSplitSegment = useCallback(() => {
-    if (currentTime >= activeSegment.start && currentTime <= activeSegment.end) {
-      console.log('🎬 Dividir segmento na posição:', formatTime(currentTime))
-      // TODO: Implementar divisão real do segmento
-    }
-  }, [currentTime, activeSegment, formatTime])
+    setActiveSegment(segment => {
+      if (currentTime >= segment.start && currentTime <= segment.end) {
+        console.log('🎬 Dividir segmento na posição:', formatTime(currentTime))
+        // TODO: Implementar divisão real do segmento
+      }
+      return segment
+    })
+  }, [currentTime, formatTime])
 
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 to-transparent">
