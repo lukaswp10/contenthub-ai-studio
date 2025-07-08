@@ -80,6 +80,27 @@ interface CommandHistory {
   maxSize: number
 }
 
+// Interface para sistema de marcadores
+interface Marker {
+  id: string
+  time: number
+  name: string
+  description: string
+  category: 'todo' | 'approved' | 'review' | 'note' | 'cut' | 'sync'
+  color: string
+  icon: string
+  created: number
+  lastModified: number
+}
+
+interface MarkerCategory {
+  id: string
+  name: string
+  color: string
+  icon: string
+  shortcut?: string
+}
+
 interface IntegratedTimelineProps {
   // Player state
   isPlaying: boolean
@@ -393,6 +414,21 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // Estado para mostrar histórico de comandos
   const [showCommandHistory, setShowCommandHistory] = useState(false)
+  
+  // Estado para sistema de marcadores
+  const [markers, setMarkers] = useState<Marker[]>([])
+  const [showMarkerPanel, setShowMarkerPanel] = useState(false)
+  const [selectedMarker, setSelectedMarker] = useState<string | null>(null)
+  
+  // Categorias de marcadores predefinidas
+  const markerCategories: MarkerCategory[] = [
+    { id: 'todo', name: 'To-Do', color: '#ff6b6b', icon: '📝', shortcut: '1' },
+    { id: 'approved', name: 'Aprovado', color: '#51cf66', icon: '✅', shortcut: '2' },
+    { id: 'review', name: 'Revisar', color: '#ffd43b', icon: '👁️', shortcut: '3' },
+    { id: 'note', name: 'Nota', color: '#74c0fc', icon: '📄', shortcut: '4' },
+    { id: 'cut', name: 'Corte', color: '#ff8cc8', icon: '✂️', shortcut: '5' },
+    { id: 'sync', name: 'Sincronização', color: '#9775fa', icon: '🔄', shortcut: '6' }
+  ]
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -1115,9 +1151,87 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     }
   }, [splitBlocks, createSelectionCommand, executeCommand])
   
-  // Atalhos de teclado para Undo/Redo
+  // ===== SISTEMA DE MARCADORES =====
+  const createMarker = useCallback((time: number, category: MarkerCategory['id'] = 'note', name?: string, description?: string) => {
+    const markerCategory = markerCategories.find(c => c.id === category) || markerCategories[3] // default 'note'
+    const newMarker: Marker = {
+      id: generateUUID(),
+      time: Math.round(time * 2) / 2, // Snap to 0.5 seconds
+      name: name || `Marcador ${markers.length + 1}`,
+      description: description || '',
+      category: category as Marker['category'],
+      color: markerCategory.color,
+      icon: markerCategory.icon,
+      created: Date.now(),
+      lastModified: Date.now()
+    }
+    
+    setMarkers(prev => [...prev, newMarker].sort((a, b) => a.time - b.time))
+    console.log('📍 Marcador criado:', newMarker.name, 'em', formatTime(newMarker.time))
+    return newMarker.id
+  }, [markers.length, markerCategories, formatTime])
+  
+  const deleteMarker = useCallback((markerId: string) => {
+    setMarkers(prev => prev.filter(m => m.id !== markerId))
+    if (selectedMarker === markerId) {
+      setSelectedMarker(null)
+    }
+    console.log('🗑️ Marcador removido:', markerId)
+  }, [selectedMarker])
+  
+  const updateMarker = useCallback((markerId: string, updates: Partial<Marker>) => {
+    setMarkers(prev => prev.map(marker => 
+      marker.id === markerId 
+        ? { ...marker, ...updates, lastModified: Date.now() }
+        : marker
+    ))
+  }, [])
+  
+  const jumpToMarker = useCallback((markerId: string) => {
+    const marker = markers.find(m => m.id === markerId)
+    if (marker) {
+      onSeek(marker.time)
+      setSelectedMarker(markerId)
+      console.log('🎯 Navegando para marcador:', marker.name, 'em', formatTime(marker.time))
+    }
+  }, [markers, onSeek, formatTime])
+  
+  const getNextMarker = useCallback((currentTime: number) => {
+    return markers.find(m => m.time > currentTime)
+  }, [markers])
+  
+  const getPreviousMarker = useCallback((currentTime: number) => {
+    return markers.filter(m => m.time < currentTime).pop()
+  }, [markers])
+  
+  const jumpToNextMarker = useCallback(() => {
+    const nextMarker = getNextMarker(currentTime)
+    if (nextMarker) {
+      jumpToMarker(nextMarker.id)
+    } else {
+      console.log('⚠️ Nenhum marcador encontrado após o tempo atual')
+    }
+  }, [currentTime, getNextMarker, jumpToMarker])
+  
+  const jumpToPreviousMarker = useCallback(() => {
+    const prevMarker = getPreviousMarker(currentTime)
+    if (prevMarker) {
+      jumpToMarker(prevMarker.id)
+    } else {
+      console.log('⚠️ Nenhum marcador encontrado antes do tempo atual')
+    }
+  }, [currentTime, getPreviousMarker, jumpToMarker])
+  
+  const addMarkerAtCurrentTime = useCallback((category: MarkerCategory['id'] = 'note') => {
+    const markerId = createMarker(currentTime, category)
+    setSelectedMarker(markerId)
+    return markerId
+  }, [currentTime, createMarker])
+  
+  // Atalhos de teclado para Undo/Redo e Marcadores
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Atalhos de Undo/Redo
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'z':
@@ -1136,13 +1250,53 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
             e.preventDefault()
             redoCommand()
             break
+          case 'm':
+            // Ctrl+M = Mostrar/ocultar painel de marcadores
+            e.preventDefault()
+            setShowMarkerPanel(prev => !prev)
+            break
+        }
+      }
+      
+      // Atalhos de marcadores (sem modifier keys)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        switch (e.key) {
+          case 'm':
+            // M = Adicionar marcador no tempo atual
+            e.preventDefault()
+            addMarkerAtCurrentTime('note')
+            break
+          case 'M':
+            // Shift+M = Próximo marcador
+            e.preventDefault()
+            jumpToNextMarker()
+            break
+          case ',':
+            // , = Marcador anterior
+            e.preventDefault()
+            jumpToPreviousMarker()
+            break
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+            // 1-6 = Adicionar marcador de categoria específica
+            e.preventDefault()
+            const categoryIndex = parseInt(e.key) - 1
+            const category = markerCategories[categoryIndex]
+            if (category) {
+              addMarkerAtCurrentTime(category.id)
+            }
+            break
         }
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undoCommand, redoCommand])
+  }, [undoCommand, redoCommand, addMarkerAtCurrentTime, jumpToNextMarker, jumpToPreviousMarker, markerCategories])
   
   // Função para parar reprodução de bloco
   const stopBlockPlayback = useCallback(() => {
@@ -1897,17 +2051,62 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 ↪️ Redo
               </Button>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCommandHistory(!showCommandHistory)}
-                className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 text-xs"
-                title="Mostrar/ocultar histórico de comandos"
-              >
-                📋 ({commandHistory.commands.length})
-              </Button>
+                              <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCommandHistory(!showCommandHistory)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 text-xs"
+                  title="Mostrar/ocultar histórico de comandos"
+                >
+                  📋 ({commandHistory.commands.length})
+                </Button>
+              </div>
+              
+              {/* Controles de Marcadores */}
+              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addMarkerAtCurrentTime('note')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
+                  title="Adicionar marcador no tempo atual (M)"
+                >
+                  📍 Marcador
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={jumpToPreviousMarker}
+                  disabled={!getPreviousMarker(currentTime)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  title="Marcador anterior (,)"
+                >
+                  ⬅️
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={jumpToNextMarker}
+                  disabled={!getNextMarker(currentTime)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  title="Próximo marcador (Shift+M)"
+                >
+                  ➡️
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMarkerPanel(!showMarkerPanel)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
+                  title="Mostrar/ocultar painel de marcadores (Ctrl+M)"
+                >
+                  📝 ({markers.length})
+                </Button>
+              </div>
             </div>
-          </div>
         )}
         
         {/* ===== RÉGUA ===== */}
@@ -2034,6 +2233,62 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 />
               )}
               
+              {/* Marcadores personalizados */}
+              {markers.map(marker => (
+                <div
+                  key={marker.id}
+                  className={`absolute top-0 h-full z-30 cursor-pointer group transition-all ${
+                    selectedMarker === marker.id ? 'scale-110' : 'hover:scale-105'
+                  }`}
+                  style={{ left: `${calculateTimelinePosition(marker.time, duration, zoom)}%` }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    jumpToMarker(marker.id)
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    // Double click para editar marcador
+                    setSelectedMarker(marker.id)
+                    setShowMarkerPanel(true)
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    deleteMarker(marker.id)
+                  }}
+                  title={`${marker.icon} ${marker.name}
+📅 ${formatTime(marker.time)}
+📝 ${marker.description || 'Sem descrição'}
+🏷️ ${markerCategories.find(c => c.id === marker.category)?.name}
+🖱️ Click: Navegar | 🖱️🖱️ Double: Editar | 🖱️➡️ Right: Deletar`}
+                >
+                  {/* Linha do marcador */}
+                  <div 
+                    className="absolute w-0.5 h-full shadow-lg"
+                    style={{ backgroundColor: marker.color }}
+                  />
+                  
+                  {/* Ícone do marcador */}
+                  <div 
+                    className={`absolute -top-2 -left-3 w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-sm font-bold transition-all ${
+                      selectedMarker === marker.id ? 'ring-2 ring-yellow-400 animate-pulse' : 'group-hover:ring-2 group-hover:ring-white/50'
+                    }`}
+                    style={{ backgroundColor: marker.color }}
+                  >
+                    {marker.icon}
+                  </div>
+                  
+                  {/* Label do marcador (apenas em timeline expandida) */}
+                  {timelineMode === 'expanded' && (
+                    <div 
+                      className="absolute -bottom-8 -left-8 px-2 py-1 rounded text-xs font-medium text-white shadow-lg max-w-24 truncate opacity-0 group-hover:opacity-100 transition-opacity z-40"
+                      style={{ backgroundColor: marker.color }}
+                    >
+                      {marker.name}
+                    </div>
+                  )}
+                </div>
+              ))}
+              
               {/* Área de seleção amarela */}
               {inPoint !== null && outPoint !== null && (
                 <div
@@ -2147,6 +2402,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
 🖱️ Click: Reproduzir | Ctrl+Click: Seleção múltipla | Alt+Drag: Mover bloco
 🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
+
+📍 MARCADORES:
+M: Novo marcador | Shift+M: Próximo | ,: Anterior | 1-6: Categorias
+Ctrl+M: Painel de marcadores | Click marcador: Navegar
+
 ${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}
 ${selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id ? '🎯 REPRODUÇÃO SELETIVA ATIVA' : ''}
 ${block.isSelected ? '✅ SELECIONADO' : ''}
@@ -2327,6 +2587,138 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
           </div>
         )}
         
+        {/* ===== PAINEL DE MARCADORES ===== */}
+        {showMarkerPanel && (
+          <div className="bg-gradient-to-r from-blue-800 to-blue-700 rounded-lg p-4 border border-blue-500/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold flex items-center space-x-2">
+                <span>📝 Gerenciador de Marcadores</span>
+                <span className="text-xs bg-blue-600 px-2 py-1 rounded">
+                  {markers.length} marcadores | {selectedMarker ? 'Selecionado' : 'Nenhum selecionado'}
+                </span>
+              </h3>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addMarkerAtCurrentTime('note')}
+                  className="text-white hover:bg-blue-600 text-xs"
+                  title="Adicionar marcador"
+                >
+                  ➕ Novo
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMarkerPanel(false)}
+                  className="text-white hover:bg-blue-600"
+                  title="Fechar painel"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            
+            {/* Botões de categoria rápida */}
+            <div className="flex flex-wrap gap-1 mb-3">
+              {markerCategories.map(category => (
+                <Button
+                  key={category.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addMarkerAtCurrentTime(category.id)}
+                  className="text-white border-blue-500 hover:bg-blue-600 text-xs px-2 py-1"
+                  style={{ backgroundColor: category.color + '40' }}
+                  title={`Adicionar ${category.name} (${category.shortcut})`}
+                >
+                  {category.icon} {category.name}
+                </Button>
+              ))}
+            </div>
+            
+            {markers.length === 0 ? (
+              <div className="text-center py-8 text-blue-200">
+                <div className="text-4xl mb-2">📍</div>
+                <p className="text-sm">Nenhum marcador criado ainda</p>
+                <p className="text-xs text-blue-300 mt-1">
+                  Pressione M para adicionar um marcador no tempo atual
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {markers.map(marker => {
+                  const category = markerCategories.find(c => c.id === marker.category)
+                  return (
+                    <div
+                      key={marker.id}
+                      className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-all ${
+                        selectedMarker === marker.id
+                          ? 'bg-blue-600 text-white border border-blue-400'
+                          : 'bg-blue-700/50 text-blue-200 hover:bg-blue-700'
+                      }`}
+                      onClick={() => jumpToMarker(marker.id)}
+                      title="Clique para navegar para este marcador"
+                    >
+                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <div 
+                          className="w-4 h-4 rounded-full border border-white/30 flex items-center justify-center text-xs flex-shrink-0"
+                          style={{ backgroundColor: marker.color }}
+                        >
+                          {marker.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{marker.name}</div>
+                          {marker.description && (
+                            <div className="text-blue-300 truncate text-xs">{marker.description}</div>
+                          )}
+                        </div>
+                        <div className="text-blue-300 font-mono text-xs flex-shrink-0">
+                          {formatTime(marker.time)}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Editar marcador - simplesmente alternar nome por agora
+                            const newName = prompt('Nome do marcador:', marker.name)
+                            if (newName && newName !== marker.name) {
+                              updateMarker(marker.id, { name: newName })
+                            }
+                          }}
+                          className="text-blue-200 hover:text-white hover:bg-blue-600 p-1 h-auto"
+                          title="Editar marcador"
+                        >
+                          ✏️
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteMarker(marker.id)
+                          }}
+                          className="text-red-200 hover:text-white hover:bg-red-600 p-1 h-auto"
+                          title="Deletar marcador"
+                        >
+                          🗑️
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            
+            <div className="mt-3 text-xs text-blue-200 flex items-center justify-between">
+              <span>💡 M: Novo marcador | Shift+M: Próximo | ,: Anterior</span>
+              <span>1-6: Categorias rápidas</span>
+            </div>
+          </div>
+        )}
+        
         {/* ===== PAINEL DE HISTÓRICO DE COMANDOS ===== */}
         {showCommandHistory && commandHistory.commands.length > 0 && (
           <div className="bg-gradient-to-r from-purple-800 to-purple-700 rounded-lg p-4 border border-purple-500/50">
@@ -2433,10 +2825,13 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
               Cortes: {cutSegments.length} | 
               Blocos: {splitBlocks.length} | 
               Selecionados: {splitBlocks.filter(b => b.isSelected).length} |
+              Marcadores: {markers.length} |
               {selectivePlayback.isActive ? (
                 `🎯 Reprodução Seletiva: ${selectivePlayback.currentBlockIndex + 1}/${selectivePlayback.selectedBlocks.length} | `
               ) : playingBlock ? (
                 `▶️ Reproduzindo: ${splitBlocks.find(b => b.id === playingBlock)?.name} | `
+              ) : selectedMarker ? (
+                `📍 Marcador: ${markers.find(m => m.id === selectedMarker)?.name} | `
               ) : ''}
               Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
