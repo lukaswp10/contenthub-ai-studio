@@ -101,6 +101,37 @@ interface MarkerCategory {
   shortcut?: string
 }
 
+// Interface para sistema de grupos
+interface BlockGroup {
+  id: string
+  name: string
+  color: string
+  icon: string
+  isCollapsed: boolean
+  blockIds: string[]
+  parentGroupId?: string
+  childGroupIds: string[]
+  layer: number
+  created: number
+  lastModified: number
+  metadata: {
+    totalDuration: number
+    blockCount: number
+    hasSubgroups: boolean
+    isLocked: boolean
+  }
+}
+
+interface LayerInfo {
+  id: string
+  name: string
+  color: string
+  isVisible: boolean
+  isLocked: boolean
+  opacity: number
+  zIndex: number
+}
+
 interface IntegratedTimelineProps {
   // Player state
   isPlaying: boolean
@@ -419,6 +450,17 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [markers, setMarkers] = useState<Marker[]>([])
   const [showMarkerPanel, setShowMarkerPanel] = useState(false)
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null)
+  
+  // Estado para sistema de grupos e layers
+  const [blockGroups, setBlockGroups] = useState<BlockGroup[]>([])
+  const [layers, setLayers] = useState<LayerInfo[]>([
+    { id: 'layer-1', name: 'Layer 1', color: '#3b82f6', isVisible: true, isLocked: false, opacity: 100, zIndex: 1 },
+    { id: 'layer-2', name: 'Layer 2', color: '#10b981', isVisible: true, isLocked: false, opacity: 100, zIndex: 2 },
+    { id: 'layer-3', name: 'Layer 3', color: '#f59e0b', isVisible: true, isLocked: false, opacity: 100, zIndex: 3 }
+  ])
+  const [showGroupPanel, setShowGroupPanel] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const [draggedGroup, setDraggedGroup] = useState<string | null>(null)
   
   // Categorias de marcadores predefinidas
   const markerCategories: MarkerCategory[] = [
@@ -1228,6 +1270,237 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     return markerId
   }, [currentTime, createMarker])
   
+  // ===== SISTEMA DE GRUPOS E LAYERS =====
+  const createGroup = useCallback((name: string, blockIds: string[], parentGroupId?: string, layer: number = 1) => {
+    const blocks = splitBlocks.filter(b => blockIds.includes(b.id))
+    if (blocks.length === 0) return null
+    
+    const totalDuration = blocks.reduce((sum, block) => sum + (block.end - block.start), 0)
+    const groupColors = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#f97316']
+    
+    const newGroup: BlockGroup = {
+      id: generateUUID(),
+      name: name || `Grupo ${blockGroups.length + 1}`,
+      color: groupColors[blockGroups.length % groupColors.length],
+      icon: '📁',
+      isCollapsed: false,
+      blockIds,
+      parentGroupId,
+      childGroupIds: [],
+      layer,
+      created: Date.now(),
+      lastModified: Date.now(),
+      metadata: {
+        totalDuration,
+        blockCount: blocks.length,
+        hasSubgroups: false,
+        isLocked: false
+      }
+    }
+    
+    setBlockGroups(prev => {
+      const updated = [...prev, newGroup]
+      
+      // Atualizar grupo pai se existir
+      if (parentGroupId) {
+        return updated.map(group => 
+          group.id === parentGroupId 
+            ? { ...group, childGroupIds: [...group.childGroupIds, newGroup.id], metadata: { ...group.metadata, hasSubgroups: true } }
+            : group
+        )
+      }
+      
+      return updated
+    })
+    
+    console.log('📁 Grupo criado:', newGroup.name, 'com', blockIds.length, 'blocos')
+    return newGroup.id
+  }, [splitBlocks, blockGroups.length])
+  
+  const deleteGroup = useCallback((groupId: string) => {
+    const group = blockGroups.find(g => g.id === groupId)
+    if (!group) return
+    
+    setBlockGroups(prev => {
+      let updated = prev.filter(g => g.id !== groupId)
+      
+      // Remover das referências de grupos pais
+      if (group.parentGroupId) {
+        updated = updated.map(g => 
+          g.id === group.parentGroupId 
+            ? { 
+                ...g, 
+                childGroupIds: g.childGroupIds.filter(id => id !== groupId),
+                metadata: { ...g.metadata, hasSubgroups: g.childGroupIds.length > 1 }
+              }
+            : g
+        )
+      }
+      
+      // Remover grupos filhos
+      group.childGroupIds.forEach(childId => {
+        updated = updated.filter(g => g.id !== childId)
+      })
+      
+      return updated
+    })
+    
+    if (selectedGroup === groupId) {
+      setSelectedGroup(null)
+    }
+    
+    console.log('🗑️ Grupo removido:', group.name)
+  }, [blockGroups, selectedGroup])
+  
+  const toggleGroupCollapse = useCallback((groupId: string) => {
+    setBlockGroups(prev => prev.map(group => 
+      group.id === groupId 
+        ? { ...group, isCollapsed: !group.isCollapsed, lastModified: Date.now() }
+        : group
+    ))
+  }, [])
+  
+  const updateGroup = useCallback((groupId: string, updates: Partial<BlockGroup>) => {
+    setBlockGroups(prev => prev.map(group => 
+      group.id === groupId 
+        ? { ...group, ...updates, lastModified: Date.now() }
+        : group
+    ))
+  }, [])
+  
+  const addBlockToGroup = useCallback((blockId: string, groupId: string) => {
+    const block = splitBlocks.find(b => b.id === blockId)
+    if (!block) return
+    
+    setBlockGroups(prev => prev.map(group => 
+      group.id === groupId 
+        ? { 
+            ...group, 
+            blockIds: [...group.blockIds, blockId],
+            metadata: { 
+              ...group.metadata, 
+              blockCount: group.metadata.blockCount + 1,
+              totalDuration: group.metadata.totalDuration + (block.end - block.start)
+            },
+            lastModified: Date.now()
+          }
+        : group
+    ))
+  }, [splitBlocks])
+  
+  const removeBlockFromGroup = useCallback((blockId: string, groupId: string) => {
+    const block = splitBlocks.find(b => b.id === blockId)
+    if (!block) return
+    
+    setBlockGroups(prev => prev.map(group => 
+      group.id === groupId 
+        ? { 
+            ...group, 
+            blockIds: group.blockIds.filter(id => id !== blockId),
+            metadata: { 
+              ...group.metadata, 
+              blockCount: group.metadata.blockCount - 1,
+              totalDuration: group.metadata.totalDuration - (block.end - block.start)
+            },
+            lastModified: Date.now()
+          }
+        : group
+    ))
+  }, [splitBlocks])
+  
+  const getBlockGroup = useCallback((blockId: string) => {
+    return blockGroups.find(group => group.blockIds.includes(blockId))
+  }, [blockGroups])
+  
+  const getGroupBlocks = useCallback((groupId: string) => {
+    const group = blockGroups.find(g => g.id === groupId)
+    if (!group) return []
+    
+    return splitBlocks.filter(block => group.blockIds.includes(block.id))
+  }, [blockGroups, splitBlocks])
+  
+  const selectGroup = useCallback((groupId: string) => {
+    const group = blockGroups.find(g => g.id === groupId)
+    if (!group) return
+    
+    // Selecionar todos os blocos do grupo
+    setSplitBlocks(prev => prev.map(block => ({
+      ...block,
+      isSelected: group.blockIds.includes(block.id),
+      lastModified: Date.now()
+    })))
+    
+    setSelectedGroup(groupId)
+    console.log('📁 Grupo selecionado:', group.name, 'com', group.blockIds.length, 'blocos')
+  }, [blockGroups])
+  
+  const createGroupFromSelected = useCallback(() => {
+    const selectedBlocks = splitBlocks.filter(b => b.isSelected)
+    if (selectedBlocks.length < 2) {
+      console.warn('⚠️ Selecione pelo menos 2 blocos para criar um grupo')
+      return null
+    }
+    
+    const groupName = prompt('Nome do grupo:', `Grupo ${blockGroups.length + 1}`)
+    if (!groupName) return null
+    
+    const groupId = createGroup(groupName, selectedBlocks.map(b => b.id))
+    if (groupId) {
+      setSelectedGroup(groupId)
+      setShowGroupPanel(true)
+    }
+    
+    return groupId
+  }, [splitBlocks, blockGroups.length, createGroup])
+  
+  const duplicateGroup = useCallback((groupId: string) => {
+    const group = blockGroups.find(g => g.id === groupId)
+    if (!group) return
+    
+    const groupBlocks = getGroupBlocks(groupId)
+    const newBlockIds: string[] = []
+    
+    // Duplicar todos os blocos do grupo
+    groupBlocks.forEach(block => {
+      const newBlock = createSplitBlock(
+        generateUUID(),
+        block.end + 0.5, // Posicionar após o bloco original
+        block.end + 0.5 + (block.end - block.start),
+        `${block.name} (Cópia)`,
+        block.color,
+        block.parentId,
+        block.depth
+      )
+      
+      setSplitBlocks(prev => [...prev, newBlock])
+      newBlockIds.push(newBlock.id)
+    })
+    
+    // Criar novo grupo com os blocos duplicados
+    const newGroupId = createGroup(`${group.name} (Cópia)`, newBlockIds, group.parentGroupId, group.layer)
+    if (newGroupId) {
+      setSelectedGroup(newGroupId)
+    }
+    
+    console.log('📁 Grupo duplicado:', group.name)
+  }, [blockGroups, getGroupBlocks, createGroup])
+  
+  const moveGroupToLayer = useCallback((groupId: string, targetLayer: number) => {
+    updateGroup(groupId, { layer: targetLayer })
+    
+    // Mover todos os blocos do grupo para a nova layer
+    const group = blockGroups.find(g => g.id === groupId)
+    if (group) {
+      setSplitBlocks(prev => prev.map(block => 
+        group.blockIds.includes(block.id) 
+          ? { ...block, depth: targetLayer, lastModified: Date.now() }
+          : block
+      ))
+    }
+    
+    console.log('📁 Grupo movido para layer:', targetLayer)
+  }, [blockGroups, updateGroup])
+  
   // Atalhos de teclado para Undo/Redo e Marcadores
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1255,6 +1528,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
             e.preventDefault()
             setShowMarkerPanel(prev => !prev)
             break
+          case 'g':
+            // Ctrl+G = Criar grupo dos blocos selecionados
+            e.preventDefault()
+            createGroupFromSelected()
+            break
+          case 'u':
+            // Ctrl+U = Mostrar/ocultar painel de grupos
+            e.preventDefault()
+            setShowGroupPanel(prev => !prev)
+            break
         }
       }
       
@@ -1281,22 +1564,34 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
           case '3':
           case '4':
           case '5':
-          case '6':
-            // 1-6 = Adicionar marcador de categoria específica
-            e.preventDefault()
-            const categoryIndex = parseInt(e.key) - 1
-            const category = markerCategories[categoryIndex]
-            if (category) {
-              addMarkerAtCurrentTime(category.id)
-            }
-            break
+                     case '6':
+             // 1-6 = Adicionar marcador de categoria específica
+             e.preventDefault()
+             const categoryIndex = parseInt(e.key) - 1
+             const category = markerCategories[categoryIndex]
+             if (category) {
+               addMarkerAtCurrentTime(category.id)
+             }
+             break
+           case 'g':
+             // G = Criar grupo dos blocos selecionados
+             e.preventDefault()
+             createGroupFromSelected()
+             break
+           case 'u':
+             // U = Expandir/colapsar grupo selecionado
+             e.preventDefault()
+             if (selectedGroup) {
+               toggleGroupCollapse(selectedGroup)
+             }
+             break
         }
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undoCommand, redoCommand, addMarkerAtCurrentTime, jumpToNextMarker, jumpToPreviousMarker, markerCategories])
+  }, [undoCommand, redoCommand, addMarkerAtCurrentTime, jumpToNextMarker, jumpToPreviousMarker, markerCategories, createGroupFromSelected, selectedGroup, toggleGroupCollapse])
   
   // Função para parar reprodução de bloco
   const stopBlockPlayback = useCallback(() => {
@@ -2106,6 +2401,52 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   📝 ({markers.length})
                 </Button>
               </div>
+              
+              {/* Controles de Grupos */}
+              <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={createGroupFromSelected}
+                  disabled={splitBlocks.filter(b => b.isSelected).length < 2}
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  title="Criar grupo dos blocos selecionados (G ou Ctrl+G)"
+                >
+                  📁 Grupo
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedGroup && selectGroup(selectedGroup)}
+                  disabled={!selectedGroup}
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  title="Selecionar blocos do grupo"
+                >
+                  ✅ Selecionar
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedGroup && toggleGroupCollapse(selectedGroup)}
+                  disabled={!selectedGroup}
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  title="Expandir/colapsar grupo (U)"
+                >
+                  {selectedGroup && blockGroups.find(g => g.id === selectedGroup)?.isCollapsed ? '📂' : '📁'}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGroupPanel(!showGroupPanel)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-purple-500 text-xs"
+                  title="Mostrar/ocultar painel de grupos (Ctrl+U)"
+                >
+                  🗂️ ({blockGroups.length})
+                </Button>
+              </div>
             </div>
         )}
         
@@ -2340,28 +2681,36 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               )}
               
               {/* BLOCOS CRIADOS PELA DIVISÃO */}
-              {splitBlocks.map(block => (
-                <div
-                  key={block.id}
-                  className={`absolute top-0 h-full rounded-lg border-2 transition-all duration-200 ${
-                    selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id
-                      ? 'border-purple-400 ring-2 ring-purple-400/50 animate-pulse' 
-                      : playingBlock === block.id
-                        ? 'border-green-400 ring-2 ring-green-400/50 animate-pulse' 
-                        : block.isSelected 
-                          ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
-                          : 'border-white/50'
-                  } ${
-                    block.isDragging 
-                      ? 'cursor-grabbing shadow-2xl ring-4 ring-yellow-400/50 z-30 transform scale-105 brightness-125' 
-                      : 'cursor-grab hover:brightness-110 z-20'
-                  }`}
-                  style={{
-                    left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
-                    width: `${calculateTimelinePosition(block.end - block.start, duration, zoom)}%`,
-                    backgroundColor: block.color,
-                    minWidth: '40px'
-                  }}
+              {splitBlocks.map(block => {
+                const blockGroup = getBlockGroup(block.id)
+                const isGroupCollapsed = blockGroup?.isCollapsed || false
+                
+                return (
+                  <div
+                    key={block.id}
+                    className={`absolute top-0 h-full rounded-lg border-2 transition-all duration-200 ${
+                      selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id
+                        ? 'border-purple-400 ring-2 ring-purple-400/50 animate-pulse' 
+                        : playingBlock === block.id
+                          ? 'border-green-400 ring-2 ring-green-400/50 animate-pulse' 
+                          : block.isSelected 
+                            ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
+                            : 'border-white/50'
+                    } ${
+                      block.isDragging 
+                        ? 'cursor-grabbing shadow-2xl ring-4 ring-yellow-400/50 z-30 transform scale-105 brightness-125' 
+                        : 'cursor-grab hover:brightness-110 z-20'
+                    } ${
+                      blockGroup ? `ring-2 ring-offset-1` : ''
+                    } ${
+                      isGroupCollapsed ? 'opacity-50' : ''
+                    }`}
+                                      style={{
+                      left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
+                      width: `${calculateTimelinePosition(block.end - block.start, duration, zoom)}%`,
+                      backgroundColor: block.color,
+                      minWidth: '40px'
+                    }}
                   onMouseDown={(e) => {
                     if (e.button === 0) { // Botão esquerdo
                       if (e.altKey) {
@@ -2407,6 +2756,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
 M: Novo marcador | Shift+M: Próximo | ,: Anterior | 1-6: Categorias
 Ctrl+M: Painel de marcadores | Click marcador: Navegar
 
+📁 GRUPOS:
+G: Criar grupo | Ctrl+G: Criar grupo | U: Expandir/colapsar | Ctrl+U: Painel
+
+${blockGroup ? `📁 GRUPO: ${blockGroup.name} (${blockGroup.isCollapsed ? 'Colapsado' : 'Expandido'})` : ''}
 ${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}
 ${selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id ? '🎯 REPRODUÇÃO SELETIVA ATIVA' : ''}
 ${block.isSelected ? '✅ SELECIONADO' : ''}
@@ -2427,8 +2780,22 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
                       {block.depth > 0 && (
                         <span className="text-blue-300">{'→'.repeat(block.depth)}</span>
                       )}
+                      {blockGroup && (
+                        <span className="text-purple-300" title={`Grupo: ${blockGroup.name}`}>🗂️</span>
+                      )}
                     </span>
                   </div>
+                  
+                  {/* Indicador de grupo */}
+                  {blockGroup && (
+                    <div 
+                      className="absolute -top-1 -left-1 w-3 h-3 rounded-full border border-white/50 flex items-center justify-center text-xs"
+                      style={{ backgroundColor: blockGroup.color }}
+                      title={`Grupo: ${blockGroup.name}`}
+                    >
+                      📁
+                    </div>
+                  )}
                   
                   {/* Indicador de seleção */}
                   {block.isSelected && (
@@ -2445,7 +2812,8 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
                     <div className="absolute left-0 top-0 w-1 h-full bg-white/30 rounded-l-lg" />
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -2583,6 +2951,163 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
               >
                 <span className="text-sm">⬆️</span>
               </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* ===== PAINEL DE GRUPOS ===== */}
+        {showGroupPanel && (
+          <div className="bg-gradient-to-r from-purple-800 to-purple-700 rounded-lg p-4 border border-purple-500/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold flex items-center space-x-2">
+                <span>🗂️ Gerenciador de Grupos</span>
+                <span className="text-xs bg-purple-600 px-2 py-1 rounded">
+                  {blockGroups.length} grupos | {selectedGroup ? 'Selecionado' : 'Nenhum selecionado'}
+                </span>
+              </h3>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={createGroupFromSelected}
+                  disabled={splitBlocks.filter(b => b.isSelected).length < 2}
+                  className="text-white hover:bg-purple-600 text-xs"
+                  title="Criar grupo dos selecionados"
+                >
+                  ➕ Novo Grupo
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGroupPanel(false)}
+                  className="text-white hover:bg-purple-600"
+                  title="Fechar painel"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            
+            {/* Informações de layers */}
+            <div className="flex flex-wrap gap-1 mb-3">
+              {layers.map(layer => (
+                <div
+                  key={layer.id}
+                  className="flex items-center space-x-1 px-2 py-1 rounded text-xs border border-purple-500"
+                  style={{ backgroundColor: layer.color + '20' }}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full border border-white/30"
+                    style={{ backgroundColor: layer.color }}
+                  />
+                  <span className="text-white">{layer.name}</span>
+                  <span className="text-purple-200">
+                    ({blockGroups.filter(g => g.layer === layer.zIndex).length})
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            {blockGroups.length === 0 ? (
+              <div className="text-center py-8 text-purple-200">
+                <div className="text-4xl mb-2">📁</div>
+                <p className="text-sm">Nenhum grupo criado ainda</p>
+                <p className="text-xs text-purple-300 mt-1">
+                  Selecione 2+ blocos e pressione G para criar um grupo
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {blockGroups.map(group => (
+                  <div
+                    key={group.id}
+                    className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-all ${
+                      selectedGroup === group.id
+                        ? 'bg-purple-600 text-white border border-purple-400'
+                        : 'bg-purple-700/50 text-purple-200 hover:bg-purple-700'
+                    }`}
+                    onClick={() => selectGroup(group.id)}
+                    title="Clique para selecionar todos os blocos do grupo"
+                  >
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <div 
+                        className="w-4 h-4 rounded-full border border-white/30 flex items-center justify-center text-xs flex-shrink-0"
+                        style={{ backgroundColor: group.color }}
+                      >
+                        {group.isCollapsed ? '📂' : '📁'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate flex items-center space-x-1">
+                          <span>{group.name}</span>
+                          {group.metadata.isLocked && <span>🔒</span>}
+                          {group.metadata.hasSubgroups && <span>📁</span>}
+                        </div>
+                        <div className="text-purple-300 text-xs">
+                          {group.metadata.blockCount} blocos | {formatTime(group.metadata.totalDuration)} | Layer {group.layer}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleGroupCollapse(group.id)
+                        }}
+                        className="text-purple-200 hover:text-white hover:bg-purple-600 p-1 h-auto"
+                        title="Expandir/colapsar grupo"
+                      >
+                        {group.isCollapsed ? '📂' : '📁'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          duplicateGroup(group.id)
+                        }}
+                        className="text-blue-200 hover:text-white hover:bg-blue-600 p-1 h-auto"
+                        title="Duplicar grupo"
+                      >
+                        📋
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const newName = prompt('Nome do grupo:', group.name)
+                          if (newName && newName !== group.name) {
+                            updateGroup(group.id, { name: newName })
+                          }
+                        }}
+                        className="text-purple-200 hover:text-white hover:bg-purple-600 p-1 h-auto"
+                        title="Editar grupo"
+                      >
+                        ✏️
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteGroup(group.id)
+                        }}
+                        className="text-red-200 hover:text-white hover:bg-red-600 p-1 h-auto"
+                        title="Deletar grupo"
+                      >
+                        🗑️
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="mt-3 text-xs text-purple-200 flex items-center justify-between">
+              <span>💡 G: Novo grupo | U: Expandir/colapsar | Ctrl+G/Ctrl+U: Atalhos</span>
+              <span>Click: Selecionar | Drag: Reordenar</span>
             </div>
           </div>
         )}
@@ -2826,12 +3351,15 @@ ${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
               Blocos: {splitBlocks.length} | 
               Selecionados: {splitBlocks.filter(b => b.isSelected).length} |
               Marcadores: {markers.length} |
+              Grupos: {blockGroups.length} |
               {selectivePlayback.isActive ? (
                 `🎯 Reprodução Seletiva: ${selectivePlayback.currentBlockIndex + 1}/${selectivePlayback.selectedBlocks.length} | `
               ) : playingBlock ? (
                 `▶️ Reproduzindo: ${splitBlocks.find(b => b.id === playingBlock)?.name} | `
               ) : selectedMarker ? (
                 `📍 Marcador: ${markers.find(m => m.id === selectedMarker)?.name} | `
+              ) : selectedGroup ? (
+                `📁 Grupo: ${blockGroups.find(g => g.id === selectedGroup)?.name} | `
               ) : ''}
               Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
