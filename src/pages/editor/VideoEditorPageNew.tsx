@@ -19,6 +19,7 @@ import {
   Heart, Tag, Archive, FileVideo, Bookmark
 } from 'lucide-react'
 import IntegratedTimeline from '../../components/VideoEditor/timeline/IntegratedTimeline'
+import { exportService } from '../../services/exportService'
 
 // ===== INTERFACES =====
 interface VideoLocationState {
@@ -185,6 +186,7 @@ const VideoEditorPage: React.FC = () => {
   const [activeTool, setActiveTool] = useState<'select' | 'cut' | 'text' | 'image' | 'narration'>('select')
   const [activePanel, setActivePanel] = useState<'captions' | 'effects' | 'transitions' | 'audio' | 'motion' | 'export' | 'settings' | 'cuts' | 'narration' | 'gallery' | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   
   // ===== ESTADO DO SISTEMA DE CORTE =====
   const [cutSegments, setCutSegments] = useState<CutSegment[]>([])
@@ -1799,6 +1801,90 @@ const VideoEditorPage: React.FC = () => {
   const handleGoBack = () => {
     navigate('/upload')
   }
+
+  // ===== FUNÇÃO DE EXPORTAÇÃO =====
+  const handleExportVideo = async () => {
+    if (cutSegments.length === 0) {
+      alert('Adicione segmentos para exportar')
+      return
+    }
+
+    try {
+      // Inicializar FFmpeg se necessário
+      await exportService.initialize()
+      
+      // Mostrar progresso de exportação
+      const progressElement = document.querySelector('.export-progress')
+      if (progressElement) {
+        progressElement.classList.remove('hidden')
+      }
+      
+      // Converter segmentos para formato do exportService
+      const videoSegments = cutSegments.map(segment => ({
+        id: segment.id,
+        start: segment.start,
+        end: segment.end,
+        duration: segment.end - segment.start,
+        file: videoData?.file || null,
+        url: videoData?.url || '',
+        name: segment.name
+      }))
+      
+      // Configurações de exportação padrão
+      const exportSettings = exportService.getPreset('high')
+      
+      // Criar job de exportação
+      const exportJob = {
+        id: `export-${Date.now()}`,
+        segments: videoSegments,
+        settings: exportSettings,
+        onProgress: (progress: number) => {
+          const progressBar = document.querySelector('.export-progress .bg-green-500')
+          const progressText = document.querySelector('.export-progress .text-gray-400:last-child')
+          if (progressBar) {
+            (progressBar as HTMLElement).style.width = `${progress}%`
+          }
+          if (progressText) {
+            progressText.textContent = `Progresso: ${Math.round(progress)}%`
+          }
+        },
+        onComplete: (result: any) => {
+          // Download do arquivo
+          const a = document.createElement('a')
+          a.href = result.url
+          a.download = `${videoData?.name || 'video'}_editado.mp4`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          
+          // Ocultar progresso
+          const progressElement = document.querySelector('.export-progress')
+          if (progressElement) {
+            progressElement.classList.add('hidden')
+          }
+          
+          alert('Exportação concluída com sucesso!')
+        },
+        onError: (error: string) => {
+          console.error('Erro na exportação:', error)
+          alert('Erro na exportação: ' + error)
+          
+          // Ocultar progresso
+          const progressElement = document.querySelector('.export-progress')
+          if (progressElement) {
+            progressElement.classList.add('hidden')
+          }
+        }
+      }
+      
+      // Iniciar exportação
+      await exportService.exportVideo(exportJob)
+      
+    } catch (error) {
+      console.error('Erro ao inicializar exportação:', error)
+      alert('Erro ao inicializar exportação: ' + error)
+    }
+  }
   
   // ===== EFFECTS =====
   // ===== FUNÇÃO PARA SALVAR DADOS LEVES NO SESSIONSTORAGE =====
@@ -2357,6 +2443,8 @@ const VideoEditorPage: React.FC = () => {
                 controls={false}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                aria-label={`Vídeo: ${videoData.name}`}
+                title={`Reproduzindo: ${videoData.name}`}
               />
 
               {/* Resize Handles */}
@@ -3921,8 +4009,114 @@ const VideoEditorPage: React.FC = () => {
                 </div>
               )}
               
+              {/* Painel de Exportação */}
+              {activePanel === 'export' && (
+                <div className="p-4">
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-white mb-2">📤 Exportar Vídeo</h3>
+                      <p className="text-sm text-gray-400">Configure as opções de exportação</p>
+                    </div>
+                    
+                    {/* Presets de Qualidade */}
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-3">🎯 Presets de Qualidade</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button className="export-preset-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm" data-testid="preset-tiktok">
+                          📱 TikTok (9:16)
+                        </button>
+                        <button className="export-preset-btn bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded text-sm" data-testid="preset-instagram">
+                          📷 Instagram (1:1)
+                        </button>
+                        <button className="export-preset-btn bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm" data-testid="preset-youtube">
+                          🎬 YouTube (16:9)
+                        </button>
+                        <button className="export-preset-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm" data-testid="preset-twitter">
+                          🐦 Twitter (16:9)
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Configurações de Qualidade */}
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-3">⚙️ Configurações</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">Qualidade</label>
+                          <select className="export-quality-select w-full bg-gray-600 text-white rounded px-3 py-2 text-sm" data-testid="quality-select">
+                            <option value="low">Baixa (480p)</option>
+                            <option value="medium">Média (720p)</option>
+                            <option value="high" selected>Alta (1080p)</option>
+                            <option value="ultra">Ultra (4K)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">Formato</label>
+                          <select className="export-format-select w-full bg-gray-600 text-white rounded px-3 py-2 text-sm" data-testid="format-select">
+                            <option value="mp4" selected>MP4</option>
+                            <option value="webm">WebM</option>
+                            <option value="avi">AVI</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Opções Avançadas */}
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-3">🔧 Opções Avançadas</h4>
+                      <div className="space-y-3">
+                        <label className="flex items-center text-sm text-gray-300">
+                          <input type="checkbox" className="mr-2" />
+                          Incluir legendas
+                        </label>
+                        <label className="flex items-center text-sm text-gray-300">
+                          <input type="checkbox" className="mr-2" />
+                          Incluir áudio de narração
+                        </label>
+                        <label className="flex items-center text-sm text-gray-300">
+                          <input type="checkbox" className="mr-2" />
+                          Otimizar para web
+                        </label>
+                      </div>
+                    </div>
+                    
+                    {/* Botão de Exportação */}
+                    <div className="text-center">
+                      <button 
+                        className="export-btn bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                        disabled={cutSegments.length === 0}
+                        data-testid="export-start-btn"
+                        aria-label="Iniciar exportação do vídeo"
+                        onClick={() => handleExportVideo()}
+                      >
+                        🚀 Iniciar Exportação
+                      </button>
+                      {cutSegments.length === 0 && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Adicione segmentos para exportar
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Barra de Progresso (oculta inicialmente) */}
+                    <div className="export-progress hidden bg-gray-700 rounded-lg p-4" data-testid="export-progress">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-white">Exportando...</span>
+                        <span className="text-sm text-gray-400">45%</span>
+                      </div>
+                      <div className="w-full bg-gray-600 rounded-full h-2">
+                        <div className="bg-green-500 h-2 rounded-full" style={{ width: '45%' }}></div>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">
+                        Tempo restante: ~2 minutos
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Outros painéis simplificados */}
-              {activePanel !== 'captions' && activePanel !== 'cuts' && activePanel !== 'narration' && activePanel !== 'gallery' && (
+              {activePanel !== 'captions' && activePanel !== 'cuts' && activePanel !== 'narration' && activePanel !== 'gallery' && activePanel !== 'export' && (
                 <div className="p-4">
                   <div className="text-center text-gray-400">
                     <p>Painel {activePanel} será implementado na próxima fase</p>
@@ -3953,6 +4147,10 @@ const VideoEditorPage: React.FC = () => {
             <span>Clipes: {clips.length}</span>
             <span>•</span>
             <span>Ferramenta: {activeTool}</span>
+            <span>•</span>
+            <span className="performance-indicator">
+              ⚡ Performance: {cutSegments.length > 50 ? 'Otimizando...' : 'Excelente'}
+            </span>
             <span>•</span>
             {isRecording ? (
               <span className="text-red-400">🔴 Gravando</span>
