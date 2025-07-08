@@ -335,19 +335,21 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     if (dragType === 'seek') {
       onSeek(newTime)
     } else if (dragType === 'start') {
-      // CONECTAR COM O SISTEMA REAL: Quando arrasta handle de início, define inPoint
+      // CONTROLE REAL: Quando arrasta handle de início, limita reprodução
       const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
       setActiveSegment(prev => ({ ...prev, start: newStart }))
-      // Simular clique no botão de entrada para definir inPoint real
-      onSeek(newStart)
-      setTimeout(() => onSetInPoint(), 10)
+      // Se vídeo estiver reproduzindo fora do segmento, mover para o início
+      if (currentTime < newStart) {
+        onSeek(newStart)
+      }
     } else if (dragType === 'end') {
-      // CONECTAR COM O SISTEMA REAL: Quando arrasta handle de fim, define outPoint
+      // CONTROLE REAL: Quando arrasta handle de fim, limita reprodução
       const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
       setActiveSegment(prev => ({ ...prev, end: newEnd }))
-      // Simular clique no botão de saída para definir outPoint real
-      onSeek(newEnd)
-      setTimeout(() => onSetOutPoint(), 10)
+      // Se vídeo estiver reproduzindo fora do segmento, mover para o fim
+      if (currentTime > newEnd) {
+        onSeek(newEnd)
+      }
     } else if (dragType === 'move') {
       const deltaX = e.clientX - dragStartX
       const deltaTime = (deltaX / rect.width) * duration / scaleFactor
@@ -355,15 +357,12 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       const newStart = Math.max(0, Math.min(duration - segmentDuration, dragStartSegment.start + deltaTime))
       const newEnd = newStart + segmentDuration
       setActiveSegment({ start: newStart, end: newEnd })
-      // CONECTAR COM O SISTEMA REAL: Quando move segmento, atualiza inPoint e outPoint
-      onSeek(newStart)
-      setTimeout(() => {
-        onSetInPoint()
-        onSeek(newEnd)
-        setTimeout(() => onSetOutPoint(), 10)
-      }, 10)
+      // Se vídeo estiver reproduzindo fora do segmento, mover para dentro
+      if (currentTime < newStart || currentTime > newEnd) {
+        onSeek(newStart)
+      }
     }
-  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom, onSetInPoint, onSetOutPoint])
+  }, [isDragging, dragType, onSeek, duration, activeSegment, dragStartX, dragStartSegment, timelineMode, zoom, currentTime])
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
@@ -372,6 +371,20 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setDragStartSegment({ start: 0, end: 0 })
   }, [])
   
+  // ===== CONTROLE DE REPRODUÇÃO DENTRO DO SEGMENTO =====
+  useEffect(() => {
+    if (isPlaying && activeSegment.start !== 0 && activeSegment.end !== duration) {
+      // Se estiver reproduzindo e o currentTime sair do segmento, parar ou voltar
+      if (currentTime >= activeSegment.end) {
+        // Chegou no fim do segmento, volta para o início
+        onSeek(activeSegment.start)
+      } else if (currentTime < activeSegment.start) {
+        // Está antes do segmento, move para o início
+        onSeek(activeSegment.start)
+      }
+    }
+  }, [currentTime, activeSegment, isPlaying, onSeek, duration])
+
   // ===== EVENT LISTENERS =====
   useEffect(() => {
     if (isDragging) {
