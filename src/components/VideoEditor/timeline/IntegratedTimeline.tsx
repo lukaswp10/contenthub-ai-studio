@@ -341,6 +341,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   
   // Estado separado para timeline do projeto (barra amarela editável)
   const [projectTimeline, setProjectTimeline] = useState<ProjectTimeline>({ start: 0, end: 0 })
+  
+  // Estado para reprodução de bloco individual
+  const [playingBlock, setPlayingBlock] = useState<string | null>(null)
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -700,27 +703,28 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     console.log('🎬 Blocos raiz criados:', newBlocks)
   }, [splitHandleState.isVisible, splitHandleState.position, projectTimeline, splitBlocks.length])
   
-  // Função para selecionar/deselecionar bloco
-  const toggleBlockSelection = useCallback((blockId: string) => {
-    setSplitBlocks(prev => prev.map(block => 
-      block.id === blockId 
-        ? { ...block, isSelected: !block.isSelected, lastModified: Date.now() }
-        : block
-    ))
+  // Função para reproduzir bloco específico
+  const playSpecificBlock = useCallback((blockId: string) => {
+    const block = splitBlocks.find(b => b.id === blockId)
+    if (block) {
+      setPlayingBlock(blockId)
+      onSeek(block.start)
+      if (!isPlaying) {
+        onPlay()
+      }
+      console.log('🎬 Reproduzindo bloco:', block.name, `(${formatTime(block.start)} - ${formatTime(block.end)})`)
+    }
+  }, [splitBlocks, onSeek, onPlay, isPlaying, formatTime])
+  
+  // Função para parar reprodução de bloco
+  const stopBlockPlayback = useCallback(() => {
+    setPlayingBlock(null)
+    console.log('⏹️ Parou reprodução de bloco')
   }, [])
   
-  // Função para obter blocos visíveis (sem filhos se pai existe)
-  const getVisibleBlocks = useCallback(() => {
-    return splitBlocks.filter(block => {
-      // Se tem pai, só mostrar se pai não tem filhos visíveis
-      if (block.parentId) {
-        const parent = splitBlocks.find(b => b.id === block.parentId)
-        return parent && parent.metadata.hasChildren
-      }
-      // Se é raiz, mostrar apenas se não tem filhos
-      return !block.metadata.hasChildren
-    })
-  }, [splitBlocks])
+
+  
+
   
   // ===== HANDLERS PARA DRAG & DROP DE BLOCOS =====
   
@@ -746,55 +750,49 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     ))
   }, [splitBlocks])
   
-  // Função para deletar bloco selecionado
-  const deleteSelectedBlocks = useCallback(() => {
-    setSplitBlocks(prev => {
-      const selectedIds = prev.filter(b => b.isSelected).map(b => b.id)
-      
-      // Remover blocos selecionados e seus filhos
-      const filteredBlocks = prev.filter(block => {
-        if (selectedIds.includes(block.id)) return false
-        if (block.parentId && selectedIds.includes(block.parentId)) return false
-        return true
-      })
-      
-      // Atualizar childIds dos pais
-      return filteredBlocks.map(block => {
-        if (block.childIds.length > 0) {
-          const validChildIds = block.childIds.filter(childId => 
-            filteredBlocks.some(b => b.id === childId)
-          )
-          return {
-            ...block,
-            childIds: validChildIds,
-            metadata: {
-              ...block.metadata,
-              hasChildren: validChildIds.length > 0
-            }
-          }
+  // Função para deletar bloco (remove do vídeo original)
+  const deleteBlock = useCallback((blockId: string) => {
+    const blockToDelete = splitBlocks.find(b => b.id === blockId)
+    if (!blockToDelete) return
+    
+    // Parar reprodução se estiver reproduzindo este bloco
+    if (playingBlock === blockId) {
+      setPlayingBlock(null)
+      onPause()
+    }
+    
+    // Calcular duração do bloco a ser removido
+    const blockDuration = blockToDelete.end - blockToDelete.start
+    
+    // Remover bloco da lista
+    setSplitBlocks(prev => prev.filter(block => block.id !== blockId))
+    
+    // Atualizar timeline do projeto (diminuir barra amarela)
+    setProjectTimeline(prev => ({
+      start: prev.start,
+      end: Math.max(prev.start + 1, prev.end - blockDuration) // Diminuir duração
+    }))
+    
+    // Reajustar posições dos outros blocos (mover para a esquerda)
+    setSplitBlocks(prev => prev.map(block => {
+      if (block.start > blockToDelete.end) {
+        // Bloco está após o deletado - mover para a esquerda
+        return {
+          ...block,
+          start: block.start - blockDuration,
+          end: block.end - blockDuration,
+          lastModified: Date.now()
         }
-        return block
-      })
-    })
-  }, [])
+      }
+      return block
+    }))
+    
+    console.log('🗑️ Bloco deletado:', blockToDelete.name, `(-${formatTime(blockDuration)} do vídeo)`)
+  }, [splitBlocks, playingBlock, onPause, formatTime])
   
-  // Função para selecionar todos os blocos
-  const selectAllBlocks = useCallback(() => {
-    setSplitBlocks(prev => prev.map(block => ({ 
-      ...block, 
-      isSelected: true, 
-      lastModified: Date.now() 
-    })))
-  }, [])
+
   
-  // Função para deselecionar todos os blocos
-  const deselectAllBlocks = useCallback(() => {
-    setSplitBlocks(prev => prev.map(block => ({ 
-      ...block, 
-      isSelected: false, 
-      lastModified: Date.now() 
-    })))
-  }, [])
+  
   
   const handleBlockMove = useCallback((e: MouseEvent) => {
     if (!blockDragState.isDragging || !blockDragState.blockId) return
@@ -913,19 +911,30 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   }, [moveSegmentState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
-  // Reprodução limitada à barra amarela (projectTimeline)
   useEffect(() => {
-    if (isPlaying && projectTimeline.start !== projectTimeline.end) {
-      // Se chegou no fim da timeline do projeto, voltar ao início
-      if (currentTime >= projectTimeline.end) {
-        onSeek(projectTimeline.start)
-      }
-      // Se playhead está antes do início da timeline, mover para o início
-      if (currentTime < projectTimeline.start) {
-        onSeek(projectTimeline.start)
+    if (isPlaying) {
+      if (playingBlock) {
+        // Reprodução de bloco individual
+        const block = splitBlocks.find(b => b.id === playingBlock)
+        if (block) {
+          if (currentTime >= block.end) {
+            onSeek(block.start) // Loop do bloco
+          }
+          if (currentTime < block.start) {
+            onSeek(block.start)
+          }
+        }
+      } else if (projectTimeline.start !== projectTimeline.end) {
+        // Reprodução da timeline do projeto
+        if (currentTime >= projectTimeline.end) {
+          onSeek(projectTimeline.start)
+        }
+        if (currentTime < projectTimeline.start) {
+          onSeek(projectTimeline.start)
+        }
       }
     }
-  }, [currentTime, isPlaying, onSeek, projectTimeline])
+  }, [currentTime, isPlaying, onSeek, projectTimeline, playingBlock, splitBlocks])
 
   // ===== EVENT LISTENERS SEPARADOS =====
   
@@ -1172,46 +1181,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               )}
               
-              {/* Controles de gerenciamento de blocos */}
-              {splitBlocks.length > 0 && (
-                <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllBlocks}
-                    className="bg-blue-600 hover:bg-blue-700 text-white border-blue-500 text-xs"
-                    title="Selecionar todos os blocos"
-                  >
-                    ✓ Todos
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={deselectAllBlocks}
-                    className="bg-gray-600 hover:bg-gray-700 text-white border-gray-500 text-xs"
-                    title="Deselecionar todos os blocos"
-                  >
-                    ✗ Nenhum
-                  </Button>
-                  
-                  {splitBlocks.some(b => b.isSelected) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={deleteSelectedBlocks}
-                      className="bg-red-600 hover:bg-red-700 text-white border-red-500 text-xs"
-                      title="Deletar blocos selecionados"
-                    >
-                      🗑️ Deletar
-                    </Button>
-                  )}
-                  
-                  <div className="text-xs text-gray-400">
-                    {splitBlocks.filter(b => b.isSelected).length} de {getVisibleBlocks().length} selecionados
-                  </div>
-                </div>
-              )}
+
               
               {/* Botão original (quando não há handle vermelho) */}
               {currentTime >= projectTimeline.start && currentTime <= projectTimeline.end && !splitHandleState.isVisible && (
@@ -1465,17 +1435,19 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               )}
               
               {/* BLOCOS CRIADOS PELA DIVISÃO */}
-              {getVisibleBlocks().map(block => (
+              {splitBlocks.map(block => (
                 <div
                   key={block.id}
                   className={`absolute top-0 h-full rounded-lg border-2 transition-all duration-200 ${
-                    block.isSelected 
-                      ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
-                      : 'border-white/50'
+                    playingBlock === block.id
+                      ? 'border-green-400 ring-2 ring-green-400/50 animate-pulse' 
+                      : block.isSelected 
+                        ? 'border-yellow-400 ring-2 ring-yellow-400/50' 
+                        : 'border-white/50'
                   } ${
                     block.isDragging 
                       ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' 
-                      : 'cursor-grab hover:brightness-110 z-20'
+                      : 'cursor-pointer hover:brightness-110 z-20'
                   }`}
                   style={{
                     left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
@@ -1485,10 +1457,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   }}
                   onMouseDown={(e) => {
                     if (e.detail === 1) {
-                      // Single click - selecionar
+                      // Single click - reproduzir bloco
                       setTimeout(() => {
                         if (e.detail === 1) {
-                          toggleBlockSelection(block.id)
+                          playSpecificBlock(block.id)
                         }
                       }, 200)
                     }
@@ -1503,12 +1475,20 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                     const splitTime = block.start + (block.end - block.start) * clickPercentage
                     splitSpecificBlock(block.id, splitTime)
                   }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    // Right click - deletar bloco
+                    deleteBlock(block.id)
+                  }}
                   title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
-Profundidade: ${block.depth} | UUID: ${block.uuid.slice(0, 8)}...
-Single click: Selecionar | Double click: Dividir`}
+🖱️ Click: Reproduzir | 🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
+${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}`}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold bg-black/20 rounded-lg">
                     <span className="flex items-center space-x-1">
+                      {playingBlock === block.id && (
+                        <span className="text-green-300 animate-bounce">▶️</span>
+                      )}
                       <span>{block.name}</span>
                       {block.metadata.hasChildren && (
                         <span className="text-yellow-300">📁</span>
@@ -1547,7 +1527,14 @@ Single click: Selecionar | Double click: Dividir`}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={isPlaying ? onPause : onPlay}
+                onClick={() => {
+                  if (isPlaying) {
+                    onPause()
+                    stopBlockPlayback()
+                  } else {
+                    onPlay()
+                  }
+                }}
                 className={`text-white px-1.5 py-0.5 rounded transition-all hover:brightness-110 ${
                   isPlaying ? 'bg-green-600/80 hover:bg-green-600' : 'bg-blue-600/80 hover:bg-blue-600'
                 }`}
@@ -1638,87 +1625,14 @@ Single click: Selecionar | Double click: Dividir`}
             </span>
             <span>
               Cortes: {cutSegments.length} | 
-              Blocos: {splitBlocks.length} (Visíveis: {getVisibleBlocks().length}) | 
-              Selecionados: {splitBlocks.filter(b => b.isSelected).length} |
+              Blocos: {splitBlocks.length} | 
+              {playingBlock && `▶️ Reproduzindo: ${splitBlocks.find(b => b.id === playingBlock)?.name} | `}
               Zoom: {zoom}% | Duração: {formatTime(duration)}
             </span>
           </div>
         )}
         
-        {/* ===== INFORMAÇÕES DOS BLOCOS ===== */}
-        {splitBlocks.length > 0 && timelineMode !== 'mini' && (
-          <div className="bg-gray-800/50 px-3 py-2 rounded-lg">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-              <span>Estrutura de Blocos (Sistema Hierárquico):</span>
-              <span>
-                Total: {splitBlocks.length} | 
-                Raiz: {splitBlocks.filter(b => b.metadata.isRoot).length} |
-                Filhos: {splitBlocks.filter(b => !b.metadata.isRoot).length} |
-                Visíveis: {getVisibleBlocks().length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              {getVisibleBlocks().map(block => (
-                <div
-                  key={block.id}
-                  className={`flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-all border ${
-                    block.isSelected 
-                      ? 'bg-yellow-500/20 border-yellow-400/50 ring-1 ring-yellow-400/30' 
-                      : block.isDragging 
-                        ? 'bg-white/20 ring-2 ring-white/30 border-white/50' 
-                        : 'bg-gray-700 hover:bg-gray-600 border-gray-600'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="w-4 h-4 rounded-full border-2 border-white/30"
-                        style={{ backgroundColor: block.color }}
-                      />
-                      <span className="text-white font-semibold">{block.name}</span>
-                      {block.metadata.hasChildren && (
-                        <span className="text-yellow-300" title="Tem filhos">📁</span>
-                      )}
-                      {block.depth > 0 && (
-                        <span className="text-blue-300" title={`Profundidade: ${block.depth}`}>
-                          {'→'.repeat(block.depth)}
-                        </span>
-                      )}
-                      {block.isSelected && (
-                        <span className="text-yellow-400" title="Selecionado">✓</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 text-gray-400">
-                    <span>
-                      {formatTime(block.start)} - {formatTime(block.end)}
-                    </span>
-                    <span className="text-gray-500">
-                      ({formatTime(block.end - block.start)})
-                    </span>
-                    <span className="text-xs text-gray-600">
-                      UUID: {block.uuid.slice(0, 8)}...
-                    </span>
-                    {block.metadata.splitCount > 0 && (
-                      <span className="text-xs text-blue-400">
-                        Divisões: {block.metadata.splitCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              
-              {/* Instruções de uso */}
-              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-900/50 rounded border border-gray-700">
-                💡 <strong>Instruções:</strong> 
-                Single click = Selecionar | 
-                Double click = Dividir bloco | 
-                Botões: ✓Todos/✗Nenhum/🗑️Deletar
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   )
