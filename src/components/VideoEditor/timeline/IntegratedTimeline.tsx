@@ -44,6 +44,11 @@ interface ActiveSegment {
   end: number
 }
 
+interface ProjectTimeline {
+  start: number
+  end: number
+}
+
 interface IntegratedTimelineProps {
   // Player state
   isPlaying: boolean
@@ -275,6 +280,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const [zoom, setZoom] = useState(100)
   const [timelineMode, setTimelineMode] = useState<TimelineMode>('compact')
   const [activeSegment, setActiveSegment] = useState<ActiveSegment>({ start: 0, end: 0 })
+  
+  // Estado separado para timeline do projeto (barra amarela editável)
+  const [projectTimeline, setProjectTimeline] = useState<ProjectTimeline>({ start: 0, end: 0 })
   // Estados de drag COMPLETAMENTE separados
   const [startHandleState, setStartHandleState] = useState<{
     isDragging: boolean
@@ -338,15 +346,22 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const timelineRef = useRef<HTMLDivElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   
-  // ===== INICIALIZAÇÃO DO SEGMENTO =====
-  // Barra amarela sempre começa com vídeo completo (timeline do projeto)
+  // ===== INICIALIZAÇÃO DOS SEGMENTOS =====
   useEffect(() => {
     if (duration > 0 && activeSegment.start === 0 && activeSegment.end === 0) {
-      const newSegment = {
-        start: 0,        // Início do vídeo (0%)
-        end: duration    // Fim completo do vídeo (100%)
+      // Barra AZUL = Espaço total disponível (sempre 0-duration)
+      const newActiveSegment = {
+        start: 0,        // Início do vídeo
+        end: duration    // Fim completo do vídeo
       }
-      setActiveSegment(newSegment)
+      setActiveSegment(newActiveSegment)
+      
+      // Barra AMARELA = Timeline do projeto (inicialmente 100%, mas editável)
+      const newProjectTimeline = {
+        start: 0,        // Início do projeto
+        end: duration    // Fim do projeto (editável pelo usuário)
+      }
+      setProjectTimeline(newProjectTimeline)
     }
   }, [duration, activeSegment.start, activeSegment.end])
 
@@ -429,12 +444,21 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, timelineRef.current)
     const newTime = calculateTimeFromPosition(percentage, duration, zoom)
     
-    onSeek(newTime)
-  }, [zoom, duration, onSeek, startHandleState.isDragging, endHandleState.isDragging, moveSegmentState.isDragging])
+    // Verificar se clique está dentro da barra amarela (timeline do projeto)
+    const isInActiveArea = newTime >= projectTimeline.start && newTime <= projectTimeline.end
+    
+    if (isInActiveArea) {
+      onSeek(newTime)
+    } else {
+      // Clique na área morta - mover para o início da timeline do projeto
+      console.log('🚫 Clique na área morta - movendo para início da timeline do projeto')
+      onSeek(projectTimeline.start)
+    }
+  }, [zoom, duration, onSeek, projectTimeline, startHandleState.isDragging, endHandleState.isDragging, moveSegmentState.isDragging])
   
   // ===== HANDLERS DE DRAG SEPARADOS =====
   
-  // Handler específico para handle de INÍCIO
+  // Handler específico para handle de INÍCIO (controla barra amarela)
   const handleStartHandleDragStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -442,11 +466,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setStartHandleState({
       isDragging: true,
       startX: e.clientX,
-      initialValue: activeSegment.start
+      initialValue: projectTimeline.start
     })
-  }, [activeSegment.start])
+  }, [projectTimeline.start])
   
-  // Handler específico para handle de FIM  
+  // Handler específico para handle de FIM (controla barra amarela)
   const handleEndHandleDragStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -454,11 +478,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setEndHandleState({
       isDragging: true,
       startX: e.clientX,
-      initialValue: activeSegment.end
+      initialValue: projectTimeline.end
     })
-  }, [activeSegment.end])
+  }, [projectTimeline.end])
   
-  // Handler específico para MOVER segmento
+  // Handler específico para MOVER segmento (barra amarela)
   const handleMoveSegmentDragStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -466,9 +490,9 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setMoveSegmentState({
       isDragging: true,
       startX: e.clientX,
-      startSegment: { ...activeSegment }
+      startSegment: { ...projectTimeline }
     })
-  }, [activeSegment])
+  }, [projectTimeline])
   
   // ===== HANDLERS PARA HANDLE DE DIVISÃO (VERMELHO) =====
   
@@ -492,10 +516,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, container)
     const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    // Limitar movimento dentro do segmento azul
+    // Limitar movimento dentro da timeline do projeto (barra amarela)
     const constrainedTime = Math.max(
-      activeSegment.start + 0.1,
-      Math.min(activeSegment.end - 0.1, newTime)
+      projectTimeline.start + 0.1,
+      Math.min(projectTimeline.end - 0.1, newTime)
     )
     
     setSplitHandleState(prev => ({
@@ -521,7 +545,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const newBlocks: SplitBlock[] = [
       {
         id: blockId1,
-        start: activeSegment.start,
+        start: projectTimeline.start,
         end: splitTime,
         name: `Bloco 1`,
         color: '#10B981', // Verde
@@ -530,7 +554,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       {
         id: blockId2,
         start: splitTime,
-        end: activeSegment.end,
+        end: projectTimeline.end,
         name: `Bloco 2`,
         color: '#8B5CF6', // Roxo
         isDragging: false
@@ -543,7 +567,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     setSplitHandleState(prev => ({ ...prev, isVisible: false }))
     
     console.log('🎬 Blocos criados:', newBlocks)
-  }, [splitHandleState.isVisible, splitHandleState.position, activeSegment])
+  }, [splitHandleState.isVisible, splitHandleState.position, projectTimeline])
   
   // ===== HANDLERS PARA DRAG & DROP DE BLOCOS =====
   
@@ -607,7 +631,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     })
   }, [blockDragState.isDragging, blockDragState.blockId])
 
-  // Handlers de movimento separados
+  // Handlers de movimento separados - controla barra amarela (projectTimeline)
   const handleStartHandleMove = useCallback((e: MouseEvent) => {
     if (!startHandleState.isDragging) return
     
@@ -617,10 +641,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, container)
     const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    // Redimensionar início (não pode passar do fim)
-    const newStart = Math.max(0, Math.min(activeSegment.end - 1, newTime))
-    setActiveSegment(prev => ({ ...prev, start: newStart }))
-  }, [startHandleState.isDragging, activeSegment.end, duration, zoom, timelineMode])
+    // Redimensionar início da barra amarela (não pode passar do fim)
+    const newStart = Math.max(0, Math.min(projectTimeline.end - 1, newTime))
+    setProjectTimeline(prev => ({ ...prev, start: newStart }))
+  }, [startHandleState.isDragging, projectTimeline.end, duration, zoom, timelineMode])
   
   const handleEndHandleMove = useCallback((e: MouseEvent) => {
     if (!endHandleState.isDragging) return
@@ -631,10 +655,10 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const { percentage } = getCoordinatesFromEvent(e, container)
     const newTime = calculateTimeFromPosition(percentage, duration, timelineMode === 'mini' ? 100 : zoom)
     
-    // Redimensionar fim (não pode passar do início)
-    const newEnd = Math.max(activeSegment.start + 1, Math.min(duration, newTime))
-    setActiveSegment(prev => ({ ...prev, end: newEnd }))
-  }, [endHandleState.isDragging, activeSegment.start, duration, zoom, timelineMode])
+    // Redimensionar fim da barra amarela (não pode passar do início)
+    const newEnd = Math.max(projectTimeline.start + 1, Math.min(duration, newTime))
+    setProjectTimeline(prev => ({ ...prev, end: newEnd }))
+  }, [endHandleState.isDragging, projectTimeline.start, duration, zoom, timelineMode])
   
   const handleMoveSegmentMove = useCallback((e: MouseEvent) => {
     if (!moveSegmentState.isDragging) return
@@ -652,7 +676,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const newStart = Math.max(0, Math.min(duration - segmentDuration, moveSegmentState.startSegment.start + deltaTime))
     const newEnd = newStart + segmentDuration
     
-    setActiveSegment({ start: newStart, end: newEnd })
+    setProjectTimeline({ start: newStart, end: newEnd })
   }, [moveSegmentState, duration, zoom, timelineMode])
   
   // Handlers de finalização separados
@@ -669,34 +693,34 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   const handleMoveSegmentEnd = useCallback(() => {
     if (!moveSegmentState.isDragging) return
     
-    // Sincronizar área amarela apenas quando mover o segmento inteiro
-    setActiveSegment(currentSegment => {
-      onSeek(currentSegment.start)
+    // Sincronizar área amarela com a timeline do projeto
+    setProjectTimeline(currentTimeline => {
+      onSeek(currentTimeline.start)
       setTimeout(() => {
         onSetInPoint()
-        onSeek(currentSegment.end)
+        onSeek(currentTimeline.end)
         setTimeout(() => onSetOutPoint(), 50)
       }, 50)
-      return currentSegment
+      return currentTimeline
     })
     
     setMoveSegmentState({ isDragging: false, startX: 0, startSegment: { start: 0, end: 0 } })
   }, [moveSegmentState.isDragging, onSeek, onSetInPoint, onSetOutPoint])
   
   // ===== CONTROLE DE REPRODUÇÃO INTELIGENTE =====
+  // Reprodução limitada à barra amarela (projectTimeline)
   useEffect(() => {
-    if (isPlaying) {
-      setActiveSegment(segment => {
-        if (segment.start !== 0 && segment.end !== duration) {
-          // Só controlar se chegou no fim do segmento
-          if (currentTime >= segment.end && currentTime > segment.start) {
-            onSeek(segment.start)
-          }
-        }
-        return segment
-      })
+    if (isPlaying && projectTimeline.start !== projectTimeline.end) {
+      // Se chegou no fim da timeline do projeto, voltar ao início
+      if (currentTime >= projectTimeline.end) {
+        onSeek(projectTimeline.start)
+      }
+      // Se playhead está antes do início da timeline, mover para o início
+      if (currentTime < projectTimeline.start) {
+        onSeek(projectTimeline.start)
+      }
     }
-  }, [currentTime, isPlaying, onSeek, duration])
+  }, [currentTime, isPlaying, onSeek, projectTimeline])
 
   // ===== EVENT LISTENERS SEPARADOS =====
   
@@ -766,7 +790,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   }, [])
   
   const handleAreaClick = useCallback((time: number) => {
-    setActiveSegment(prev => {
+    setProjectTimeline(prev => {
       const segmentDuration = prev.end - prev.start
       const newStart = Math.max(0, Math.min(duration - segmentDuration, time))
       const newEnd = newStart + segmentDuration
@@ -944,7 +968,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               )}
               
               {/* Botão original (quando não há handle vermelho) */}
-              {currentTime >= activeSegment.start && currentTime <= activeSegment.end && !splitHandleState.isVisible && (
+              {currentTime >= projectTimeline.start && currentTime <= projectTimeline.end && !splitHandleState.isVisible && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1070,12 +1094,29 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               onClick={handleTimelineClick}
               style={{ width: `${zoom}%` }}
             >
-              {/* Fundo da timeline */}
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-600" />
+              {/* Fundo da timeline - AZUL (espaço total) */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-800 to-blue-700" />
               
-              {/* Barra Redimensionável Principal */}
+              {/* Áreas mortas (antes e depois da timeline do projeto) */}
+              <div 
+                className="absolute inset-y-0 left-0 bg-gray-600/70 opacity-50"
+                style={{ 
+                  width: `${calculateTimelinePosition(projectTimeline.start, duration, zoom)}%` 
+                }}
+                title="Área morta - clique sem efeito"
+              />
+              <div 
+                className="absolute inset-y-0 bg-gray-600/70 opacity-50"
+                style={{ 
+                  left: `${calculateTimelinePosition(projectTimeline.end, duration, zoom)}%`,
+                  width: `${100 - calculateTimelinePosition(projectTimeline.end, duration, zoom)}%`
+                }}
+                title="Área morta - clique sem efeito"
+              />
+              
+              {/* Barra Redimensionável Principal - Timeline do Projeto (AMARELA) */}
               <ResizableSegment
-                segment={activeSegment}
+                segment={projectTimeline}
                 duration={duration}
                 currentTime={currentTime}
                 dragType={
@@ -1087,7 +1128,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 isMainTimeline={true}
                 zoom={zoom}
                 formatTime={formatTime}
-                onSegmentChange={handleSegmentChange}
+                onSegmentChange={(newSegment) => setProjectTimeline(newSegment)}
                 onDragStart={undefined} // Usando novos handlers específicos
                 onAreaClick={handleAreaClick}
                 containerRef={timelineRef}
@@ -1225,14 +1266,14 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </Button>
             </div>
             
-            {/* Barra redimensionável mini */}
+            {/* Barra redimensionável mini - Timeline do Projeto */}
             <div 
               ref={progressBarRef}
-              className="flex-1 relative h-2 bg-gray-700 rounded-full transition-colors group cursor-pointer"
-              title="Timeline com segmento redimensionável"
+              className="flex-1 relative h-2 bg-blue-700 rounded-full transition-colors group cursor-pointer"
+              title="Timeline do projeto (barra amarela)"
             >
               <ResizableSegment
-                segment={activeSegment}
+                segment={projectTimeline}
                 duration={duration}
                 currentTime={currentTime}
                 dragType={
@@ -1244,7 +1285,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 isMainTimeline={false}
                 zoom={100}
                 formatTime={formatTime}
-                onSegmentChange={handleSegmentChange}
+                onSegmentChange={(newSegment) => setProjectTimeline(newSegment)}
                 onDragStart={undefined}
                 onAreaClick={handleAreaClick}
                 containerRef={progressBarRef}
@@ -1288,7 +1329,16 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
         {timelineMode !== 'mini' && (
           <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-800/50 px-3 py-2 rounded-lg">
             <span>
-              Segmento Ativo: {formatTime(activeSegment.start)} - {formatTime(activeSegment.end)} ({formatTime(activeSegment.end - activeSegment.start)})
+              🟡 Timeline do Projeto: {formatTime(projectTimeline.start)} - {formatTime(projectTimeline.end)} ({formatTime(projectTimeline.end - projectTimeline.start)})
+              {projectTimeline.start !== activeSegment.start || projectTimeline.end !== activeSegment.end ? (
+                <span className="ml-2 text-blue-400">
+                  | 🔵 Espaço Total: {formatTime(activeSegment.start)} - {formatTime(activeSegment.end)}
+                </span>
+              ) : (
+                <span className="ml-2 text-green-400">
+                  | ✅ Usando todo o espaço disponível
+                </span>
+              )}
               {splitHandleState.isVisible && (
                 <span className="ml-2 text-red-400">
                   | ✂️ Divisão: {formatTime(splitHandleState.position)}
