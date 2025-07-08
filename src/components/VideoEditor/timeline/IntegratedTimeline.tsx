@@ -419,11 +419,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     isDragging: boolean
     startX: number
     startTime: number
+    currentX: number
+    dropZone: {
+      isActive: boolean
+      insertIndex: number
+      insertTime: number
+    }
   }>({
     blockId: null,
     isDragging: false,
     startX: 0,
-    startTime: 0
+    startTime: 0,
+    currentX: 0,
+    dropZone: {
+      isActive: false,
+      insertIndex: -1,
+      insertTime: 0
+    }
   })
   
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -899,7 +911,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       blockId,
       isDragging: true,
       startX: e.clientX,
-      startTime: block.start
+      startTime: block.start,
+      currentX: e.clientX,
+      dropZone: {
+        isActive: false,
+        insertIndex: -1,
+        insertTime: 0
+      }
     })
     
     // Marcar bloco como sendo arrastado e atualizar lastModified
@@ -963,16 +981,58 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     const block = splitBlocks.find(b => b.id === blockDragState.blockId)
     if (!block) return
     
-    const deltaX = e.clientX - blockDragState.startX
     const rect = container.getBoundingClientRect()
-    const deltaPercentage = (deltaX / rect.width) * 100
+    const mouseX = e.clientX - rect.left
+    const percentage = (mouseX / rect.width) * 100
     const scaleFactor = timelineMode === 'mini' ? 1 : (zoom / 100)
-    const deltaTime = (deltaPercentage / scaleFactor / 100) * duration
+    const newTime = (percentage / scaleFactor / 100) * duration
     
+    // Atualizar posição atual do mouse
+    setBlockDragState(prev => ({ ...prev, currentX: e.clientX }))
+    
+    // Calcular drop zone (onde o bloco seria inserido)
+    const otherBlocks = splitBlocks.filter(b => b.id !== blockDragState.blockId).sort((a, b) => a.start - b.start)
+    let insertIndex = 0
+    let insertTime = newTime
+    
+    // Snap to grid (a cada 0.5 segundos)
+    insertTime = Math.round(insertTime * 2) / 2
+    
+    // Encontrar posição de inserção entre outros blocos
+    for (let i = 0; i < otherBlocks.length; i++) {
+      if (insertTime <= otherBlocks[i].start) {
+        insertIndex = i
+        break
+      }
+      insertIndex = i + 1
+    }
+    
+    // Garantir que não sobreponha outros blocos
     const blockDuration = block.end - block.start
-    const newStart = Math.max(0, Math.min(duration - blockDuration, blockDragState.startTime + deltaTime))
+    if (insertIndex > 0 && insertTime < otherBlocks[insertIndex - 1].end) {
+      insertTime = otherBlocks[insertIndex - 1].end
+    }
+    if (insertIndex < otherBlocks.length && insertTime + blockDuration > otherBlocks[insertIndex].start) {
+      insertTime = otherBlocks[insertIndex].start - blockDuration
+    }
+    
+    // Garantir que não saia dos limites
+    insertTime = Math.max(0, Math.min(duration - blockDuration, insertTime))
+    
+    const newStart = insertTime
     const newEnd = newStart + blockDuration
     
+    // Atualizar drop zone
+    setBlockDragState(prev => ({
+      ...prev,
+      dropZone: {
+        isActive: true,
+        insertIndex,
+        insertTime: newStart
+      }
+    }))
+    
+    // Atualizar posição do bloco
     setSplitBlocks(prev => prev.map(b => 
       b.id === blockDragState.blockId ? { ...b, start: newStart, end: newEnd } : b
     ))
@@ -990,7 +1050,13 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
       blockId: null,
       isDragging: false,
       startX: 0,
-      startTime: 0
+      startTime: 0,
+      currentX: 0,
+      dropZone: {
+        isActive: false,
+        insertIndex: -1,
+        insertTime: 0
+      }
     })
   }, [blockDragState.isDragging, blockDragState.blockId])
 
@@ -1713,6 +1779,20 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </div>
               )}
               
+              {/* INDICADOR DE DROP ZONE */}
+              {blockDragState.dropZone.isActive && blockDragState.isDragging && (
+                <div
+                  className="absolute top-0 w-1 h-full bg-yellow-400 shadow-lg z-40 animate-pulse"
+                  style={{ 
+                    left: `${calculateTimelinePosition(blockDragState.dropZone.insertTime, duration, zoom)}%` 
+                  }}
+                  title={`Drop zone: ${formatTime(blockDragState.dropZone.insertTime)}`}
+                >
+                  <div className="absolute -top-2 -left-2 w-5 h-5 bg-yellow-400 rounded-full animate-ping" />
+                  <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-yellow-400 rounded-full animate-ping" />
+                </div>
+              )}
+              
               {/* BLOCOS CRIADOS PELA DIVISÃO */}
               {splitBlocks.map(block => (
                 <div
@@ -1727,8 +1807,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                           : 'border-white/50'
                   } ${
                     block.isDragging 
-                      ? 'cursor-grabbing shadow-2xl ring-4 ring-white/30 z-30' 
-                      : 'cursor-pointer hover:brightness-110 z-20'
+                      ? 'cursor-grabbing shadow-2xl ring-4 ring-yellow-400/50 z-30 transform scale-105 brightness-125' 
+                      : 'cursor-grab hover:brightness-110 z-20'
                   }`}
                   style={{
                     left: `${calculateTimelinePosition(block.start, duration, zoom)}%`,
@@ -1737,19 +1817,25 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                     minWidth: '40px'
                   }}
                   onMouseDown={(e) => {
-                    if (e.detail === 1) {
-                      // Single click - reproduzir bloco ou seleção múltipla
-                      setTimeout(() => {
-                        if (e.detail === 1) {
-                          if (e.ctrlKey || e.metaKey) {
-                            // Ctrl+Click - seleção múltipla
-                            toggleBlockSelection(block.id, true)
-                          } else {
-                            // Click normal - reproduzir bloco
-                            playSpecificBlock(block.id)
+                    if (e.button === 0) { // Botão esquerdo
+                      if (e.altKey) {
+                        // Alt+Click - iniciar drag
+                        e.preventDefault()
+                        handleBlockDragStart(e, block.id)
+                      } else if (e.detail === 1) {
+                        // Single click - reproduzir bloco ou seleção múltipla
+                        setTimeout(() => {
+                          if (e.detail === 1) {
+                            if (e.ctrlKey || e.metaKey) {
+                              // Ctrl+Click - seleção múltipla
+                              toggleBlockSelection(block.id, true)
+                            } else {
+                              // Click normal - reproduzir bloco
+                              playSpecificBlock(block.id)
+                            }
                           }
-                        }
-                      }, 200)
+                        }, 200)
+                      }
                     }
                   }}
                   onDoubleClick={(e) => {
@@ -1768,10 +1854,12 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                     deleteBlock(block.id)
                   }}
                   title={`${block.name} (${formatTime(block.start)} - ${formatTime(block.end)})
-🖱️ Click: Reproduzir | Ctrl+Click: Seleção múltipla | 🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
+🖱️ Click: Reproduzir | Ctrl+Click: Seleção múltipla | Alt+Drag: Mover bloco
+🖱️🖱️ Double: Dividir | 🖱️➡️ Right: Deletar
 ${playingBlock === block.id ? '▶️ REPRODUZINDO ESTE BLOCO' : ''}
 ${selectivePlayback.isActive && selectivePlayback.selectedBlocks[selectivePlayback.currentBlockIndex] === block.id ? '🎯 REPRODUÇÃO SELETIVA ATIVA' : ''}
-${block.isSelected ? '✅ SELECIONADO' : ''}`}
+${block.isSelected ? '✅ SELECIONADO' : ''}
+${block.isDragging ? '🔄 MOVENDO BLOCO' : ''}`}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold bg-black/20 rounded-lg">
                     <span className="flex items-center space-x-1">
