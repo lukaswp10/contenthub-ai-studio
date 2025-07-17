@@ -7,7 +7,7 @@
  * @author ClipsForge Team
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import {
@@ -165,11 +165,11 @@ const VideoEditorPage: React.FC = () => {
   })
 
   // ===== LOGGER CONDICIONAL =====
-  const logger = {
+  const logger = useMemo(() => ({
     log: process.env.NODE_ENV === 'development' ? console.log : () => {},
     error: console.error, // Sempre mostrar erros
     warn: console.warn   // Sempre mostrar warnings
-  }
+  }), [])
   
   // ===== ESTADO PRINCIPAL =====
   const [videoData, setVideoData] = useState<VideoLocationState | null>(null)
