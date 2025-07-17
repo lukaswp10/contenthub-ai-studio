@@ -292,29 +292,76 @@ const formatFileSize = (bytes: number): string => {
 }
 
 // ✅ FUNÇÕES DE TRANSCRIÇÃO (mantidas para compatibilidade)
-export const saveTranscriptionToGallery = (videoId: string, transcription: {
-  words: TranscriptionWord[]
-  text: string
-  language?: string
-  confidence?: number
+export const saveTranscriptionToGallery = (videoId: string, data: {
+  transcription: string
+  words?: any[]
   provider?: 'whisper' | 'assemblyai' | 'webspeech'
 }): boolean => {
-  console.warn('⚠️ saveTranscriptionToGallery: Função localStorage removida - usar Supabase')
+  // Log reduzido - apenas em desenvolvimento
+  const cacheKey = `save_${videoId}`
+  if (!transcriptionCache.has(cacheKey)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📝 saveTranscriptionToGallery: Migrado para Supabase')
+    }
+    transcriptionCache.set(cacheKey, true)
+  }
   return false
 }
 
+// Cache para hasTranscription para evitar warnings repetitivos
+const transcriptionCache = new Map<string, boolean>()
+const cacheExpiry = new Map<string, number>()
+const CACHE_DURATION = 60000 // 1 minuto
+
 export const hasTranscription = (videoId: string): boolean => {
-  console.warn('⚠️ hasTranscription: Função localStorage removida - usar Supabase')
+  // Verificar cache primeiro para evitar logs repetitivos
+  if (transcriptionCache.has(videoId)) {
+    const expiry = cacheExpiry.get(videoId) || 0
+    if (Date.now() < expiry) {
+      return transcriptionCache.get(videoId) || false
+    }
+    // Cache expirado, remover
+    transcriptionCache.delete(videoId)
+    cacheExpiry.delete(videoId)
+  }
+
+  // Log reduzido - apenas primeira vez por video
+  if (!transcriptionCache.has(videoId)) {
+    // Log silencioso para produção - só mostra se em modo debug
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📝 hasTranscription(${videoId}): Migrado para Supabase`)
+    }
+  }
+  
+  // Cachear resultado para evitar futuros logs
+  transcriptionCache.set(videoId, false)
+  cacheExpiry.set(videoId, Date.now() + CACHE_DURATION)
+  
+  // Sempre retorna false (migrado para Supabase)
   return false
 }
 
 export const getTranscriptionFromGallery = (videoId: string) => {
-  console.warn('⚠️ getTranscriptionFromGallery: Função localStorage removida - usar Supabase')
+  // Log reduzido - apenas em desenvolvimento
+  const cacheKey = `get_${videoId}`
+  if (!transcriptionCache.has(cacheKey)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📝 getTranscriptionFromGallery: Migrado para Supabase')
+    }
+    transcriptionCache.set(cacheKey, true)
+  }
   return null
 }
 
 export const saveOriginalCaptions = (videoId: string, captions: TranscriptionWord[]): boolean => {
-  console.warn('⚠️ saveOriginalCaptions: Função localStorage removida - usar Supabase')
+  // Log reduzido - apenas em desenvolvimento
+  const cacheKey = `captions_${videoId}`
+  if (!transcriptionCache.has(cacheKey)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📝 saveOriginalCaptions: Migrado para Supabase')
+    }
+    transcriptionCache.set(cacheKey, true)
+  }
   return false
 }
 
