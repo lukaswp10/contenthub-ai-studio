@@ -44,7 +44,7 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   const [loading, setLoading] = useState(true)
 
   // ✅ Carregar vídeos do Supabase (versão original sem cache problemático)
-  const loadVideos = useCallback(async () => {
+  const loadVideos = async () => {
     try {
       setLoading(true)
       console.log('🔄 Carregando vídeos do Supabase (100% REAL)...')
@@ -54,9 +54,6 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
       setVideos(galleryVideos)
       setFilteredVideos(galleryVideos)
       
-      // Atualizar galeria
-      console.log('📁 Galeria atualizada')
-      
       console.log(`✅ ${galleryVideos.length} vídeos carregados do Supabase`)
     } catch (error) {
       console.error('❌ Erro ao carregar vídeos:', error)
@@ -65,24 +62,17 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
     } finally {
       setLoading(false)
     }
-  }, []) // ✅ Dependências vazias para evitar loops
+  }
 
   // ✅ Carregar vídeos apenas uma vez na montagem
   useEffect(() => {
     loadVideos()
-  }, [loadVideos])
-
-  // ✅ Função de refresh chamada pelo onRefresh 
-  useEffect(() => {
-    if (onRefresh) {
-      onRefresh()
-    }
-  }, [videos, onRefresh])
+  }, []) // ✅ Dependências vazias para carregar apenas uma vez
 
   // ✅ Função de refresh para recarregar manualmente
   const handleRefreshVideos = useCallback(() => {
     loadVideos()
-  }, [loadVideos])
+  }, [])
 
   // Filtrar e ordenar vídeos
   useEffect(() => {
