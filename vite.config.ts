@@ -7,7 +7,14 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 8080,
-    open: false
+    open: false,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
+    fs: {
+      allow: ['..']
+    }
   },
   resolve: {
     alias: {
@@ -20,6 +27,10 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['@supabase/supabase-js', 'react', 'react-dom'],
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+  },
+  worker: {
+    format: 'es'
   },
   build: {
     target: 'esnext',

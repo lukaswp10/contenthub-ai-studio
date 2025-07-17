@@ -143,11 +143,15 @@ export class ExportService {
     if (this.initialized) return;
 
     try {
-      // Load FFmpeg with progress tracking
+      console.log('🔄 Initializing FFmpeg.wasm...');
+      
+      // Use stable version 0.12.2 with jsdelivr CDN (most reliable)
+      const baseUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.2/dist/umd';
+      
       await this.ffmpeg.load({
-        coreURL: await toBlobURL(`https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm`, 'application/wasm'),
-        workerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js`, 'text/javascript')
+        coreURL: await toBlobURL(`${baseUrl}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, 'application/wasm'),
+        workerURL: await toBlobURL(`${baseUrl}/ffmpeg-core.worker.js`, 'text/javascript')
       });
 
       this.initialized = true;
