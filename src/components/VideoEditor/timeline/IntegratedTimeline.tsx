@@ -1881,11 +1881,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
     // Sincronizar área amarela com a timeline do projeto
     setProjectTimeline(currentTimeline => {
       onSeek(currentTimeline.start)
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         onSetInPoint()
         onSeek(currentTimeline.end)
-        setTimeout(() => onSetOutPoint(), 50)
-      }, 50)
+        requestAnimationFrame(() => onSetOutPoint())
+      })
       return currentTimeline
     })
     
@@ -2792,17 +2792,18 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                         handleBlockDragStart(e, block.id)
                       } else if (e.detail === 1) {
                         // Single click - reproduzir bloco ou seleção múltipla
-                        setTimeout(() => {
-                          if (e.detail === 1) {
-                            if (e.ctrlKey || e.metaKey) {
-                              // Ctrl+Click - seleção múltipla
-                              toggleBlockSelection(block.id, true)
-                            } else {
-                              // Click normal - reproduzir bloco
-                              playSpecificBlock(block.id)
-                            }
+                        const isCtrlPressed = e.ctrlKey || e.metaKey
+                        
+                        // Use requestAnimationFrame instead of setTimeout to avoid setState during render
+                        requestAnimationFrame(() => {
+                          if (isCtrlPressed) {
+                            // Ctrl+Click - seleção múltipla
+                            toggleBlockSelection(block.id, true)
+                          } else {
+                            // Click normal - reproduzir bloco
+                            playSpecificBlock(block.id)
                           }
-                        }, 200)
+                        })
                       }
                     }
                   }}

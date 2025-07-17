@@ -7,7 +7,18 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 8080,
-    open: false
+    open: false,
+    headers: {
+      // Headers mais permissivos para permitir vídeos
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    },
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Accept-Ranges'],
+      credentials: false, // Alterado para false para evitar conflitos
+      exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges']
+    }
   },
   resolve: {
     alias: {
@@ -19,7 +30,17 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['@supabase/supabase-js', 'react', 'react-dom'],
+    include: [
+      '@supabase/supabase-js', 
+      'react', 
+      'react-dom',
+      '@ffmpeg/ffmpeg',
+      '@ffmpeg/util'
+    ],
+    exclude: ['@ffmpeg/core'],
+  },
+  worker: {
+    format: 'es'
   },
   build: {
     target: 'esnext',

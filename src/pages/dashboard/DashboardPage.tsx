@@ -77,9 +77,10 @@ export const DashboardPage: React.FC = () => {
   }
 
   // Calcular métricas para o dashboard
-  const totalClips = clips.length
-  const totalShares = clips.reduce((sum, clip) => sum + clip.shares, 0)
-  const recentClips = [...clips]
+  const safeClips = clips || []
+  const totalClips = safeClips.length
+  const totalShares = safeClips.reduce((sum, clip) => sum + clip.shares, 0)
+  const recentClips = [...safeClips]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 3)
 
@@ -285,6 +286,7 @@ export const DashboardPage: React.FC = () => {
                       <video 
                         src={clip.thumbnail}
                         className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
                         muted
                       />
                     ) : (

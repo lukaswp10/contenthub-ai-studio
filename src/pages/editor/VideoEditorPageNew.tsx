@@ -19,6 +19,7 @@ import {
   Heart, Tag, Archive, FileVideo, Bookmark
 } from 'lucide-react'
 import IntegratedTimeline from '../../components/VideoEditor/timeline/IntegratedTimeline'
+import ExportModal from '../../components/VideoEditor/ExportModal'
 import { exportService } from '../../services/exportService'
 
 // ===== INTERFACES =====
@@ -187,6 +188,7 @@ const VideoEditorPage: React.FC = () => {
   const [activePanel, setActivePanel] = useState<'captions' | 'effects' | 'transitions' | 'audio' | 'motion' | 'export' | 'settings' | 'cuts' | 'narration' | 'gallery' | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showFFmpegExportModal, setShowFFmpegExportModal] = useState(false)
   
   // ===== ESTADO DO SISTEMA DE CORTE =====
   const [cutSegments, setCutSegments] = useState<CutSegment[]>([])
@@ -1812,11 +1814,60 @@ const VideoEditorPage: React.FC = () => {
     navigate('/upload')
   }
 
+  // ===== FUNÇÃO DE EXPORTAÇÃO COM FFMPEG MODAL =====
+  const handleOpenExportModal = () => {
+    if (cutSegments.length === 0) {
+      // Se não há cortes, perguntar se quer exportar o vídeo inteiro
+      const exportWhole = confirm('⚠️ Nenhum corte encontrado!\n\n🎬 Deseja exportar o vídeo inteiro?\n\n✅ OK = Exportar vídeo completo\n❌ Cancelar = Criar cortes primeiro')
+      
+      if (exportWhole) {
+        // Criar automaticamente um segmento com o vídeo inteiro
+        const wholeVideoSegment: CutSegment = {
+          id: `whole-video-${Date.now()}`,
+          start: 0,
+          end: duration,
+          name: 'Vídeo Completo',
+          selected: true,
+          color: '#3b82f6'
+        }
+        setCutSegments([wholeVideoSegment])
+        console.log('🎬 Segmento do vídeo completo criado automaticamente')
+        
+        // Aguardar um frame para o estado atualizar
+        setTimeout(() => {
+          setShowFFmpegExportModal(true)
+        }, 100)
+        return
+      } else {
+        alert('💡 COMO CRIAR CORTES:\n\n1️⃣ Use os controles da timeline para navegar\n2️⃣ Defina pontos de entrada e saída\n3️⃣ Use o botão "Aplicar Corte" (amarelo)\n4️⃣ Repita para criar mais segmentos\n\n🎯 Depois clique em "Exportar" novamente!')
+        return
+      }
+    }
+    setShowFFmpegExportModal(true)
+  }
+
+  const handleExportComplete = (result: any) => {
+    console.log('✅ Exportação concluída:', result)
+    setShowFFmpegExportModal(false)
+    
+    // Mostrar notificação de sucesso
+    alert(`🎉 Exportação concluída com sucesso!\n\n📁 Arquivo: ${result.settings.format.toUpperCase()}\n⏱️ Tamanho: ${(result.size / 1024 / 1024).toFixed(1)} MB\n\n📥 O download iniciou automaticamente!`)
+  }
+
   // ===== FUNÇÃO DE EXPORTAÇÃO =====
   const handleExportVideo = async () => {
     if (cutSegments.length === 0) {
-      alert('Adicione segmentos para exportar')
-      return
+      // Criar automaticamente um segmento com o vídeo inteiro se não houver cortes
+      const wholeVideoSegment: CutSegment = {
+        id: `whole-video-${Date.now()}`,
+        start: 0,
+        end: duration,
+        name: 'Vídeo Completo',
+        selected: true,
+        color: '#3b82f6'
+      }
+      setCutSegments([wholeVideoSegment])
+      console.log('🎬 Segmento do vídeo completo criado para exportação')
     }
 
     try {
@@ -1829,8 +1880,18 @@ const VideoEditorPage: React.FC = () => {
         progressElement.classList.remove('hidden')
       }
       
+      // Aguardar atualização do estado se segmento foi criado automaticamente
+      const currentSegments = cutSegments.length > 0 ? cutSegments : [{
+        id: `whole-video-temp`,
+        start: 0,
+        end: duration,
+        name: 'Vídeo Completo',
+        selected: true,
+        color: '#3b82f6'
+      }]
+
       // Converter segmentos para formato do exportService
-      const videoSegments = cutSegments.map(segment => ({
+      const videoSegments = currentSegments.map(segment => ({
         id: segment.id,
         start: segment.start,
         end: segment.end,
@@ -2176,6 +2237,7 @@ const VideoEditorPage: React.FC = () => {
               variant="default"
               size="sm"
               className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleOpenExportModal}
             >
               <Download size={16} className="mr-2" />
               Exportar
@@ -2451,8 +2513,28 @@ const VideoEditorPage: React.FC = () => {
                 src={videoData.url}
                 className="w-full h-full object-contain bg-black"
                 controls={false}
+                crossOrigin="anonymous"
+                preload="metadata"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onError={(e) => {
+                  console.error('❌ Erro ao carregar vídeo:', e);
+                  console.log('🔍 URL do vídeo:', videoData.url);
+                }}
+                onLoadStart={() => {
+                  // Log only once per unique URL to avoid spam
+                  if (!(window as any).lastVideoLoadUrl || (window as any).lastVideoLoadUrl !== videoData.url) {
+                    console.log('🔄 Iniciando carregamento do vídeo:', videoData.url);
+                    (window as any).lastVideoLoadUrl = videoData.url;
+                  }
+                }}
+                onCanPlay={() => {
+                  // Log only once per unique URL to avoid spam
+                  if (!(window as any).lastVideoReadyUrl || (window as any).lastVideoReadyUrl !== videoData.url) {
+                    console.log('✅ Vídeo pronto para reprodução:', videoData.url);
+                    (window as any).lastVideoReadyUrl = videoData.url;
+                  }
+                }}
                 aria-label={`Vídeo: ${videoData.name}`}
                 title={`Reproduzindo: ${videoData.name}`}
               />
@@ -4163,6 +4245,30 @@ const VideoEditorPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ===== EXPORT MODAL FFMPEG ===== */}
+      {showFFmpegExportModal && (
+        <ExportModal
+          isOpen={showFFmpegExportModal}
+          onClose={() => setShowFFmpegExportModal(false)}
+          segments={cutSegments.map(segment => ({
+            id: segment.id,
+            startTime: segment.start,
+            endTime: segment.end,
+            duration: segment.end - segment.start,
+            selected: true,
+            file: videoData?.file,
+            url: videoData?.url || '',
+            name: segment.name || `Segmento ${segment.id}`,
+            type: 'video' as const
+          }))}
+          onExportComplete={handleExportComplete}
+          onSaveToCloud={async (result) => {
+            console.log('💾 Salvando na nuvem:', result)
+            // Aqui pode integrar com Cloudinary se necessário
+          }}
+        />
+      )}
     </div>
   )
 }

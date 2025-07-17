@@ -47,7 +47,12 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   const loadVideos = async () => {
     try {
       setLoading(true)
-      console.log('🔄 Carregando vídeos do Supabase (100% REAL)...')
+      // Log only if not recently logged to avoid spam
+      const now = Date.now();
+      if (!(window as any).lastSupabaseLoadLog || now - (window as any).lastSupabaseLoadLog > 5000) {
+        console.log('🔄 Carregando vídeos do Supabase (100% REAL)...');
+        (window as any).lastSupabaseLoadLog = now;
+      }
       
       // Carregar diretamente do Supabase
       const galleryVideos = await getGalleryVideos()
