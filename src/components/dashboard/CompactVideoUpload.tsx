@@ -19,7 +19,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
   const navigate = useNavigate()
   const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -34,19 +34,19 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
     if (!isValidVideoFile(file)) {
       return 'Formato não suportado. Use MP4, MOV, AVI, MKV, WEBM, FLV.'
     }
-    
+
     // Verificar tamanho (limite de 500MB)
     const maxSize = 500 * 1024 * 1024 // 500MB
     if (file.size > maxSize) {
       return 'Arquivo muito grande. Máximo: 500MB.'
     }
-    
+
     // Verificar tamanho mínimo (1MB)
     const minSize = 1 * 1024 * 1024 // 1MB
     if (file.size < minSize) {
       return 'Arquivo muito pequeno. Mínimo: 1MB.'
     }
-    
+
     return null
   }
 
@@ -86,12 +86,12 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
       setUploading(true)
       setUploadProgress(10)
       setError(null)
-      
+
       console.log('🚀 Iniciando upload compacto:', selectedFile.name)
       console.log('📤 Enviando para Cloudinary...')
-      
+
       const cloudinaryResponse = await uploadVideoToCloudinary(selectedFile)
-      
+
       setUploadProgress(90)
       console.log('✅ Upload concluído no Cloudinary:', cloudinaryResponse.secure_url)
 
@@ -108,7 +108,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         cloudinaryPublicId: cloudinaryResponse.public_id,
         cloudinaryUrl: cloudinaryResponse.secure_url
       })
-      
+
       // ✨ CORREÇÃO: Salvar dados para navegação
       const videoDataForNavigation = {
         id: galleryVideo.id,
@@ -119,24 +119,24 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         cloudinaryPublicId: cloudinaryResponse.public_id,
         cloudinaryUrl: cloudinaryResponse.secure_url
       }
-      
+
       setGalleryVideoData(videoDataForNavigation)
-      
+
       // Sucesso
       setUploadSuccess(true)
       setSuccessVideoId(galleryVideo.id)
       setUploadProgress(0)
-      
+
       console.log('🎉 Vídeo salvo com sucesso no Supabase (100% REAL)!')
-      
+
       // Notificar componente pai
       onUploadComplete?.(galleryVideo.id)
-      
+
       // ✨ CORREÇÃO: Auto-navegação imediata com dados garantidos
       setTimeout(() => {
         console.log('🎬 Auto-navegando para o editor...')
         console.log('🔍 DEBUG - videoDataForNavigation:', videoDataForNavigation)
-        
+
         if (videoDataForNavigation && videoDataForNavigation.cloudinaryUrl) {
           console.log('✅ Navegando com dados válidos:', videoDataForNavigation.name)
           navigate('/editor', {
@@ -153,7 +153,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         } else {
           console.error('❌ Dados do vídeo não disponíveis para navegação')
           console.log('🔍 DEBUG - Tentando usar galleryVideoData:', galleryVideoData)
-          
+
           // Fallback: tentar usar galleryVideoData
           if (galleryVideoData && galleryVideoData.cloudinaryUrl) {
             console.log('✅ Usando fallback galleryVideoData')
@@ -173,7 +173,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
           }
         }
       }, 2000)
-      
+
     } catch (err) {
       console.error('❌ Erro no upload compacto:', err)
       setError(err instanceof Error ? err.message : 'Erro no upload. Tente novamente.')
@@ -205,7 +205,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
               </p>
             </div>
           </div>
-          
+
           <div className="flex space-x-2">
             <Button
               size="sm"
@@ -216,7 +216,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
                   uploadSuccess,
                   selectedFile: selectedFile?.name
                 })
-                
+
                 if (galleryVideoData) {
                   console.log('✅ Navegando para editor com dados do Supabase:', galleryVideoData)
                   navigate('/editor', {
@@ -233,7 +233,7 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
                 } else {
                   console.error('❌ Dados do vídeo não disponíveis para navegação manual')
                   console.log('🔍 DEBUG - Tentando aguardar dados...')
-                  
+
                   // Aguardar um pouco e tentar novamente
                   setTimeout(() => {
                     if (galleryVideoData) {
@@ -288,19 +288,19 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
                 Enviando {selectedFile?.name} para Supabase
               </h3>
               <p className="text-xs text-gray-600">
-                {uploadProgress < 30 ? '⚡ Iniciando...' : 
-                 uploadProgress < 70 ? '📡 Enviando...' : 
-                 uploadProgress < 95 ? '✅ Quase pronto...' : 
-                 '🎉 Finalizando...'}
+                {uploadProgress < 30 ? '⚡ Iniciando...' :
+                  uploadProgress < 70 ? '📡 Enviando...' :
+                    uploadProgress < 95 ? '✅ Quase pronto...' :
+                      '🎉 Finalizando...'}
               </p>
             </div>
             <div className="text-xs text-gray-500">
               {Math.round(uploadProgress)}%
             </div>
           </div>
-          
+
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-gradient-to-r from-blue-600 to-green-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
@@ -366,14 +366,14 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
               <X className="h-3 w-3" />
             </Button>
           </div>
-          
+
           <div className="flex space-x-2">
             <Button
               onClick={startUpload}
               className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
               disabled={!user}
             >
-              {!user ? '🔒 Login necessário' : '🚀 Enviar para Supabase'}
+              {!user ? '🔒 Login necessário' : '🚀 Enviar video'}
             </Button>
           </div>
         </div>
@@ -394,8 +394,8 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         }}
         className="hidden"
       />
-      
-      <div 
+
+      <div
         className="text-center"
         onClick={() => fileInputRef.current?.click()}
       >
@@ -406,14 +406,14 @@ export const CompactVideoUpload: React.FC<CompactVideoUploadProps> = ({
         <p className="text-xs text-gray-600 mb-4">
           Arraste e solte ou clique para selecionar um vídeo
         </p>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           disabled={!user}
         >
           {!user ? '🔒 Faça login' : 'Clique ou arraste um vídeo'}
         </Button>
-        
+
         {!user && (
           <p className="text-xs text-red-600 mt-2">
             ⚠️ Você precisa estar logado para fazer upload
