@@ -1080,6 +1080,16 @@ const VideoEditorPage: React.FC = () => {
     setMarkers(prev => [...prev.filter(m => m.type !== 'out'), marker])
   }, [currentTime])
   
+  // ===== FUNÇÃO DE LIMPEZA COMPLETA (mesma do botão "Limpar" que funciona) =====
+  const handleClearAll = useCallback(() => {
+    setCutSegments([])
+    setSelectedSegment(null)
+    setInPoint(null)
+    setOutPoint(null)
+    setMarkers([])
+    console.log('🧹 Limpeza completa realizada')
+  }, [])
+  
   const handleCreateCut = useCallback(() => {
     if (inPoint !== null && outPoint !== null) {
       const start = Math.min(inPoint, outPoint)
@@ -3039,6 +3049,7 @@ const VideoEditorPage: React.FC = () => {
               onCreateCut={handleCreateCut}
               onUndoCut={handleUndoCut}
               onJumpToSegment={handleJumpToSegment}
+              onClearAll={handleClearAll}
               formatTime={formatTime}
               getTimelinePosition={getTimelinePosition}
               cutHistory={cutHistory}
@@ -3257,17 +3268,6 @@ const VideoEditorPage: React.FC = () => {
                            Saída
                          </Button>
                          
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={handleSplitAtCurrentTime}
-                           disabled={cutSegments.length === 0}
-                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                           title="Dividir no tempo atual [S]"
-                         >
-                           <Split size={12} className="mr-1" />
-                           Dividir
-                         </Button>
                          
                          <Button
                            variant="outline"

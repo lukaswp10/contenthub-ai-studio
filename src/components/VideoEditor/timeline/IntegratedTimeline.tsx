@@ -159,6 +159,7 @@ interface IntegratedTimelineProps {
   onCreateCut: () => void
   onUndoCut: () => void
   onJumpToSegment: (segment: CutSegment) => void
+  onClearAll: () => void
   
   // Formatação
   formatTime: (time: number) => string
@@ -421,6 +422,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
   onCreateCut,
   onUndoCut,
   onJumpToSegment,
+  onClearAll,
   formatTime,
   getTimelinePosition,
   cutHistory
@@ -2086,6 +2088,23 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
             </Button>
           )}
           
+          {inPoint !== null && outPoint !== null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Aplicar o corte - mesma função do botão "Limpar" 
+                onSetInPoint?.()
+                onSetOutPoint?.()
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white text-xs animate-pulse ml-2"
+              title="Aplicar corte na parte selecionada"
+            >
+              <Scissors size={12} className="mr-1" />
+              ✂️ Aplicar Corte
+            </Button>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
@@ -2165,19 +2184,24 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </div>
               
               {/* Botão de divisão */}
-              {/* Botão para criar blocos (quando handle vermelho está visível) */}
-              {splitHandleState.isVisible && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={createSplitBlocks}
-                  className="bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse"
-                  title={`Criar blocos em ${formatTime(splitHandleState.position)}`}
-                >
-                  <Scissors size={14} className="mr-2" />
-                  ✂️ Criar Blocos
-                </Button>
-              )}
+              {/* Botão Limpar - sempre visível */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Aplicar o corte - mesma função do botão "Limpar" original
+                  onClearAll?.()
+                }}
+                className={`text-black font-semibold border-yellow-300 ${
+                  inPoint !== null && outPoint !== null 
+                    ? 'bg-yellow-300 hover:bg-yellow-400 animate-pulse' 
+                    : 'bg-yellow-200 hover:bg-yellow-300'
+                }`}
+                title="Limpar todos os cortes, seleções e marcadores"
+              >
+                <Scissors size={14} className="mr-2" />
+                Aplicar Corte
+              </Button>
               
               {/* Seletor de qualidade de exportação */}
               {splitBlocks.some(b => b.isSelected) && (
@@ -2282,7 +2306,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               
 
               
-              {/* Botão original (quando não há handle vermelho) */}
+              {/* Botão original (quando não há handle vermelho)
               {currentTime >= projectTimeline.start && currentTime <= projectTimeline.end && !splitHandleState.isVisible && (
                 <Button
                   variant="outline"
@@ -2294,7 +2318,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   <Scissors size={14} className="mr-2" />
                   Dividir Aqui
                 </Button>
-              )}
+              )} */}
               
               {/* Controles de zoom */}
               <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
@@ -2371,7 +2395,8 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               </Button>
             </div>
             
-            {/* Controles de Undo/Redo */}
+            {/* BOTÕES REMOVIDOS - Controles de Undo/Redo, Marcadores e Grupos */}
+            {/* 
             <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
               <Button
                 variant="outline"
@@ -2395,7 +2420,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 ↪️ Redo
               </Button>
               
-                              <Button
+              <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowCommandHistory(!showCommandHistory)}
@@ -2406,7 +2431,6 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               </div>
               
-              {/* Controles de Marcadores */}
               <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
                 <Button
                   variant="outline"
@@ -2451,7 +2475,6 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                 </Button>
               </div>
               
-              {/* Controles de Grupos */}
               <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
                 <Button
                   variant="outline"
@@ -2496,6 +2519,7 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
                   🗂️ ({blockGroups.length})
               </Button>
             </div>
+            */}
           </div>
         )}
         
