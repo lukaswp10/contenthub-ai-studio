@@ -48,7 +48,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 180000
+        "timeout": 120000
       }
     ],
     "shard": null,
@@ -69,7 +69,7 @@
         {
           "title": "🔥 ClipsForge - Timeline Stress Test PRODUÇÃO",
           "file": "specs/11-timeline-stress-test.spec.ts",
-          "line": 588,
+          "line": 657,
           "column": 6,
           "specs": [
             {
@@ -78,7 +78,7 @@
               "tags": [],
               "tests": [
                 {
-                  "timeout": 180000,
+                  "timeout": 120000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -88,25 +88,25 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 3556,
+                      "duration": 6873,
                       "error": {
-                        "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n",
-                        "stack": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33",
+                        "message": "ReferenceError: __dirname is not defined",
+                        "stack": "ReferenceError: __dirname is not defined\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5",
                         "location": {
                           "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                          "column": 55,
-                          "line": 40
+                          "column": 30,
+                          "line": 103
                         },
-                        "snippet": "\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
                             "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                            "column": 55,
-                            "line": 40
+                            "column": 30,
+                            "line": 103
                           },
-                          "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n\n\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33\u001b[22m"
+                          "message": "ReferenceError: __dirname is not defined\n\n\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5\u001b[22m"
                         }
                       ],
                       "stdout": [
@@ -123,15 +123,21 @@
                           "text": "🔐 Fazendo login na PRODUÇÃO...\n"
                         },
                         {
+                          "text": "🔍 CONFIG SUPABASE NO TESTE: {\n  \"methods\": {\n    \"windowEnv\": \"não definido\",\n    \"globalThis\": \"não definido\",\n    \"supabaseModule\": \"não carregado\",\n    \"hasSupabaseScript\": \"ausente\",\n    \"isPlaywright\": \"SIM\",\n    \"isTestEnv\": \"SIM\"\n  },\n  \"currentUrl\": \"https://clipsforge.vercel.app/login\",\n  \"localStorage\": {\n    \"supabaseAuth\": \"ausente\"\n  },\n  \"scripts\": []\n}\n"
+                        },
+                        {
                           "text": "✅ Login realizado com sucesso na PRODUÇÃO\n"
                         },
                         {
                           "text": "📤 Fazendo upload real para PRODUÇÃO...\n"
+                        },
+                        {
+                          "text": "📁 ESTADO DA GALERIA ANTES DO UPLOAD: {\n  \"galleryElement\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\",\n  \"videoCount\": 0,\n  \"hasSupabaseText\": true,\n  \"bodyText\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\"\n}\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-07-08T21:37:05.757Z",
+                      "startTime": "2025-07-09T17:45:57.824Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -152,33 +158,33 @@
                       ],
                       "errorLocation": {
                         "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                        "column": 55,
-                        "line": 40
+                        "column": 30,
+                        "line": 103
                       }
                     },
                     {
                       "workerIndex": 1,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 4635,
+                      "duration": 6054,
                       "error": {
-                        "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n",
-                        "stack": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33",
+                        "message": "ReferenceError: __dirname is not defined",
+                        "stack": "ReferenceError: __dirname is not defined\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5",
                         "location": {
                           "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                          "column": 55,
-                          "line": 40
+                          "column": 30,
+                          "line": 103
                         },
-                        "snippet": "\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
                             "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                            "column": 55,
-                            "line": 40
+                            "column": 30,
+                            "line": 103
                           },
-                          "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n\n\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33\u001b[22m"
+                          "message": "ReferenceError: __dirname is not defined\n\n\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5\u001b[22m"
                         }
                       ],
                       "stdout": [
@@ -195,15 +201,21 @@
                           "text": "🔐 Fazendo login na PRODUÇÃO...\n"
                         },
                         {
+                          "text": "🔍 CONFIG SUPABASE NO TESTE: {\n  \"methods\": {\n    \"windowEnv\": \"não definido\",\n    \"globalThis\": \"não definido\",\n    \"supabaseModule\": \"não carregado\",\n    \"hasSupabaseScript\": \"ausente\",\n    \"isPlaywright\": \"SIM\",\n    \"isTestEnv\": \"SIM\"\n  },\n  \"currentUrl\": \"https://clipsforge.vercel.app/login\",\n  \"localStorage\": {\n    \"supabaseAuth\": \"ausente\"\n  },\n  \"scripts\": []\n}\n"
+                        },
+                        {
                           "text": "✅ Login realizado com sucesso na PRODUÇÃO\n"
                         },
                         {
                           "text": "📤 Fazendo upload real para PRODUÇÃO...\n"
+                        },
+                        {
+                          "text": "📁 ESTADO DA GALERIA ANTES DO UPLOAD: {\n  \"galleryElement\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\",\n  \"videoCount\": 0,\n  \"hasSupabaseText\": true,\n  \"bodyText\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\"\n}\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 1,
-                      "startTime": "2025-07-08T21:37:11.000Z",
+                      "startTime": "2025-07-09T17:46:05.861Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -229,33 +241,33 @@
                       ],
                       "errorLocation": {
                         "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                        "column": 55,
-                        "line": 40
+                        "column": 30,
+                        "line": 103
                       }
                     },
                     {
                       "workerIndex": 2,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 3652,
+                      "duration": 5830,
                       "error": {
-                        "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n",
-                        "stack": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33",
+                        "message": "ReferenceError: __dirname is not defined",
+                        "stack": "ReferenceError: __dirname is not defined\n    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\n    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5",
                         "location": {
                           "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                          "column": 55,
-                          "line": 40
+                          "column": 30,
+                          "line": 103
                         },
-                        "snippet": "\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
                             "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                            "column": 55,
-                            "line": 40
+                            "column": 30,
+                            "line": 103
                           },
-                          "message": "Error: expect.toBeVisible: Error: strict mode violation: locator('text=📤 Upload Rápido') resolved to 2 elements:\n    1) <h2 class=\"text-xl font-bold text-gray-900 mb-4\">📤 Upload Rápido</h2> aka getByRole('heading', { name: '📤 Upload Rápido', exact: true })\n    2) <h3 class=\"text-sm font-medium text-gray-900 mb-2\">📤 Upload Rápido (Supabase)</h3> aka getByRole('heading', { name: '📤 Upload Rápido (Supabase)' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=📤 Upload Rápido')\u001b[22m\n\n\n\u001b[0m \u001b[90m 38 |\u001b[39m   \n \u001b[90m 39 |\u001b[39m   \u001b[90m// Verificar área de upload\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 40 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'text=📤 Upload Rápido'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 41 |\u001b[39m   \n \u001b[90m 42 |\u001b[39m   \u001b[90m// Usar vídeo real que funciona\u001b[39m\n \u001b[90m 43 |\u001b[39m   \u001b[36mconst\u001b[39m testVideoPath \u001b[33m=\u001b[39m \u001b[32m'/home/lucasmartins/Downloads/videoplayback.mp4'\u001b[39m\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:40:55)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:617:33\u001b[22m"
+                          "message": "ReferenceError: __dirname is not defined\n\n\u001b[0m \u001b[90m 101 |\u001b[39m   \n \u001b[90m 102 |\u001b[39m   \u001b[90m// Fazer upload do arquivo\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 103 |\u001b[39m   \u001b[36mconst\u001b[39m filePath \u001b[33m=\u001b[39m path\u001b[33m.\u001b[39mjoin(__dirname\u001b[33m,\u001b[39m \u001b[32m'../../fixtures/videoplayback.mp4'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 104 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'📁 Arquivo selecionado:'\u001b[39m\u001b[33m,\u001b[39m path\u001b[33m.\u001b[39mbasename(filePath))\u001b[33m;\u001b[39m\n \u001b[90m 105 |\u001b[39m   \n \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m uploadButton\u001b[33m.\u001b[39msetInputFiles(filePath)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at uploadVideoToProduction (/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:103:30)\u001b[22m\n\u001b[2m    at /home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts:686:5\u001b[22m"
                         }
                       ],
                       "stdout": [
@@ -272,15 +284,21 @@
                           "text": "🔐 Fazendo login na PRODUÇÃO...\n"
                         },
                         {
+                          "text": "🔍 CONFIG SUPABASE NO TESTE: {\n  \"methods\": {\n    \"windowEnv\": \"não definido\",\n    \"globalThis\": \"não definido\",\n    \"supabaseModule\": \"não carregado\",\n    \"hasSupabaseScript\": \"ausente\",\n    \"isPlaywright\": \"SIM\",\n    \"isTestEnv\": \"SIM\"\n  },\n  \"currentUrl\": \"https://clipsforge.vercel.app/login\",\n  \"localStorage\": {\n    \"supabaseAuth\": \"ausente\"\n  },\n  \"scripts\": []\n}\n"
+                        },
+                        {
                           "text": "✅ Login realizado com sucesso na PRODUÇÃO\n"
                         },
                         {
                           "text": "📤 Fazendo upload real para PRODUÇÃO...\n"
+                        },
+                        {
+                          "text": "📁 ESTADO DA GALERIA ANTES DO UPLOAD: {\n  \"galleryElement\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\",\n  \"videoCount\": 0,\n  \"hasSupabaseText\": true,\n  \"bodyText\": \"\\n    CFClipsForge Prolukaswp10@gmail.comSairBem-vindo ao ClipsForge Pro! 👋Pronto para transformar seus vídeos em clips virais? Comece fazendo o upload do seu primeiro vídeo.Total de Clips0Total de Views0Engajamento0%Shares0📤 Upload Rápido📤 Upload Rápido (Supabase)Arraste e solte ou clique para selecionar um vídeoClique ou arraste um vídeo🎬 Meus VídeosCarregando vídeos do Supabase...Ações RápidasEditor ManualMeus ClipsAnalyticsCrie seu primeiro clip viral!Faça upload de um vídeo e nossa IA cr\"\n}\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 2,
-                      "startTime": "2025-07-08T21:37:17.590Z",
+                      "startTime": "2025-07-09T17:46:13.297Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -301,8 +319,8 @@
                       ],
                       "errorLocation": {
                         "file": "/home/lucasmartins/Documentos/clipsforge/tests/e2e/specs/11-timeline-stress-test.spec.ts",
-                        "column": 55,
-                        "line": 40
+                        "column": 30,
+                        "line": 103
                       }
                     }
                   ],
@@ -311,7 +329,7 @@
               ],
               "id": "f437c29bc76ad3617c0e-1458cfa5f687e4c9d381",
               "file": "specs/11-timeline-stress-test.spec.ts",
-              "line": 590,
+              "line": 659,
               "column": 3
             }
           ]
@@ -321,8 +339,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-07-08T21:37:04.791Z",
-    "duration": 17044.115,
+    "startTime": "2025-07-09T17:45:55.674Z",
+    "duration": 23649.606,
     "expected": 0,
     "skipped": 0,
     "unexpected": 1,
