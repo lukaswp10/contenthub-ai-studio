@@ -42,63 +42,46 @@ export const VideoGallery: React.FC<VideoGalleryProps> = ({
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'duration' | 'size'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [loading, setLoading] = useState(true)
-  const [lastLoadTime, setLastLoadTime] = useState(0)
 
-  // ✅ Carregar vídeos do Supabase com debounce e cache (preservando funcionalidade)
-  const loadVideos = useCallback(async (force = false) => {
-    const now = Date.now()
-    const CACHE_TIME = 15000 // 15 segundos de cache (reduzido para não afetar UX)
-    
-    // Evitar chamadas muito frequentes APENAS se não forçado
-    if (!force && now - lastLoadTime < CACHE_TIME) {
-      console.log('🚀 Cache ativo - evitando reload desnecessário (otimização ativa)')
-      return
-    }
-
+  // ✅ Carregar vídeos do Supabase (versão original sem cache problemático)
+  const loadVideos = useCallback(async () => {
     try {
       setLoading(true)
-      console.log('🔄 Carregando vídeos do Supabase... (otimizado)')
+      console.log('🔄 Carregando vídeos do Supabase (100% REAL)...')
       
-      // Carregar diretamente do Supabase (mantendo lógica original)
+      // Carregar diretamente do Supabase
       const galleryVideos = await getGalleryVideos()
       setVideos(galleryVideos)
       setFilteredVideos(galleryVideos)
-      setLastLoadTime(now)
       
-      // Preservar callback original
-      if (onRefresh) {
-        onRefresh()
-      }
+      // Atualizar galeria
+      console.log('📁 Galeria atualizada')
       
-      console.log(`✅ ${galleryVideos.length} vídeos carregados do Supabase (cache atualizado)`)
+      console.log(`✅ ${galleryVideos.length} vídeos carregados do Supabase`)
     } catch (error) {
       console.error('❌ Erro ao carregar vídeos:', error)
-      // Preservar comportamento original em caso de erro
       setVideos([])
       setFilteredVideos([])
     } finally {
       setLoading(false)
     }
-  }, [lastLoadTime]) // ✅ Remover onRefresh das dependências para evitar loops
+  }, []) // ✅ Dependências vazias para evitar loops
 
-  // ✅ Carregar vídeos apenas uma vez na montagem + controle de dependências
+  // ✅ Carregar vídeos apenas uma vez na montagem
   useEffect(() => {
-    loadVideos(true)
-    
-    // Recarregar apenas quando a janela ganha foco (usuario voltou)
-    const handleFocus = () => {
-      // Debounce de 1 segundo para window focus
-      setTimeout(() => loadVideos(false), 1000)
-    }
-    
-    window.addEventListener('focus', handleFocus)
-    
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [loadVideos]) // ✅ Incluir loadVideos mas com memoização para evitar loops
+    loadVideos()
+  }, [loadVideos])
 
-  // ✅ Memoizar função de refetch para evitar re-renders
+  // ✅ Função de refresh chamada pelo onRefresh 
+  useEffect(() => {
+    if (onRefresh) {
+      onRefresh()
+    }
+  }, [videos, onRefresh])
+
+  // ✅ Função de refresh para recarregar manualmente
   const handleRefreshVideos = useCallback(() => {
-    loadVideos(true)
+    loadVideos()
   }, [loadVideos])
 
   // Filtrar e ordenar vídeos
