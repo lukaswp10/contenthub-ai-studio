@@ -2093,12 +2093,11 @@ const IntegratedTimeline: React.FC<IntegratedTimelineProps> = ({
               variant="outline"
               size="sm"
               onClick={() => {
-                // Aplicar o corte - mesma função do botão "Limpar" 
-                onSetInPoint?.()
-                onSetOutPoint?.()
+                // Aplicar o corte - CRIAR SEGMENTO DE VERDADE
+                onCreateCut?.()
               }}
               className="bg-green-600 hover:bg-green-700 text-white text-xs animate-pulse ml-2"
-              title="Aplicar corte na parte selecionada"
+              title="Aplicar corte na parte selecionada - CRIA SEGMENTO"
             >
               <Scissors size={12} className="mr-1" />
               ✂️ Aplicar Corte
