@@ -34,7 +34,7 @@ serve(async (req) => {
 
     // Obter arquivo do FormData
     const formData = await req.formData()
-    const file = formData.get('file') as File
+    const file = formData.get('file') as File || formData.get('video') as File
     
     if (!file) {
       return new Response(

@@ -33,31 +33,20 @@ export class TranscriptionUnifiedService {
    */
   private detectEnvironment(): TranscriptionConfig {
     const isProduction = import.meta.env.MODE === 'production'
-    const hasLocalApiKey = !!import.meta.env.VITE_OPENAI_API_KEY
     
     console.log('🔍 DETECÇÃO DE AMBIENTE:', {
       mode: import.meta.env.MODE,
       isProduction,
-      hasLocalApiKey,
-      env: import.meta.env
+      strategy: 'Edge Function First'
     })
 
-    if (isProduction) {
-      // PRODUÇÃO: Edge Function primeiro, depois fallback direto
-      return {
-        environment: 'production',
-        primaryMethod: 'edge-function',
-        fallbackMethod: 'direct-openai',
-        debug: true
-      }
-    } else {
-      // DESENVOLVIMENTO: Local ENV primeiro, depois Edge Function
-      return {
-        environment: 'development',
-        primaryMethod: hasLocalApiKey ? 'local-env' : 'edge-function',
-        fallbackMethod: hasLocalApiKey ? 'edge-function' : 'direct-openai',
-        debug: true
-      }
+    // ESTRATÉGIA UNIVERSAL: Edge Function primeiro, sempre
+    // Isso garante que outros developers só precisem fazer git pull
+    return {
+      environment: isProduction ? 'production' : 'development',
+      primaryMethod: 'edge-function',
+      fallbackMethod: 'direct-openai',
+      debug: true
     }
   }
 
