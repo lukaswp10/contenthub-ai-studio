@@ -1889,8 +1889,6 @@ export default function TesteJogoPage() {
     try {
       console.log(`🎯 ANÁLISE DE PREDIÇÃO MASSIVA INICIADA`)
       
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
       const csvData = resultsList.filter(r => r.source === 'csv')
       const manualData = resultsList.filter(r => r.source === 'manual')
       
@@ -1910,6 +1908,13 @@ export default function TesteJogoPage() {
         dataToAnalyze = resultsList.slice(-200)
         console.log(`🔧 MODO BÁSICO: ${dataToAnalyze.length} registros`)
       }
+      
+      // 🕐 DELAY REALÍSTICO baseado no volume de dados para análise profunda
+      const processingTime = Math.min(5000, Math.max(1500, dataToAnalyze.length * 2))
+      console.log(`⏳ Processando ${dataToAnalyze.length} registros - Tempo estimado: ${(processingTime/1000).toFixed(1)}s`)
+      console.log(`🧠 Iniciando análise com 8 algoritmos ML em paralelo...`)
+      
+      await new Promise(resolve => setTimeout(resolve, processingTime))
       
       // Executar todos os algoritmos em paralelo para máxima precisão
       const [
@@ -1994,6 +1999,18 @@ export default function TesteJogoPage() {
       console.log(`🎯 Cor predita: ${ensembleResult.prediction.toUpperCase()}`)
       console.log(`📊 Confiança: ${ensembleResult.confidence.toFixed(1)}%`)
       console.log(`🔢 Números esperados: ${expectedNumbers.join(', ')}`)
+      console.log(``)
+      console.log(`📋 DETALHES DOS 8 ALGORITMOS:`)
+      console.log(`🧠 Neural: ${neuralResult.prediction} (${neuralResult.confidence.toFixed(1)}%)`)
+      console.log(`📊 Frequência: ${massiveFrequencyResult.prediction} (${massiveFrequencyResult.confidence.toFixed(1)}%)`) 
+      console.log(`🔢 Fibonacci: ${fibonacciResult.prediction} (${fibonacciResult.confidence.toFixed(1)}%)`)
+      console.log(`🔗 Markov: ${markovResult.prediction} (${markovResult.confidence.toFixed(1)}%)`)
+      console.log(`🔄 Ciclos: ${periodicResult.prediction} (${periodicResult.confidence.toFixed(1)}%)`)
+      console.log(`📐 Progressões: ${progressionResult.prediction} (${progressionResult.confidence.toFixed(1)}%)`)
+      console.log(`📈 Correlação: ${correlationResult.prediction} (${correlationResult.confidence.toFixed(1)}%)`)
+      console.log(`🔄 Tendências: ${trendResult.prediction} (${trendResult.confidence.toFixed(1)}%)`)
+      console.log(``)
+      console.log(`⚡ ENSEMBLE FINAL: ${ensembleResult.probabilities.red.toFixed(1)}% RED | ${ensembleResult.probabilities.black.toFixed(1)}% BLACK | ${ensembleResult.probabilities.white.toFixed(1)}% WHITE`)
       
     } catch (error) {
       console.error('❌ Erro na análise massiva:', error)
@@ -4027,6 +4044,14 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                         </div>
                       </div>
                     )}
+                  </div>
+                ) : isProcessing ? (
+                  <div className="bg-blue-900/50 p-4 rounded-lg border border-blue-500/50 text-center">
+                    <div className="text-blue-300 animate-pulse">🧠 ANALISANDO DADOS...</div>
+                    <div className="text-sm text-blue-400 mt-1">8 Algoritmos ML processando {results.length} números</div>
+                    <div className="text-xs text-gray-400 mt-2">
+                      🔄 Neural • 📊 Frequência • 🔢 Fibonacci • 🔗 Markov • 🔄 Ciclos • 📐 Progressões • 📈 Correlação • 🔄 Tendências
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-gray-900/50 p-4 rounded-lg border border-orange-500/50 text-center">
