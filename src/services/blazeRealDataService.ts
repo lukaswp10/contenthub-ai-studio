@@ -309,12 +309,12 @@ class BlazeRealDataService {
    * POLLING VIA PROXY
    */
   private startProxyPolling(): void {
-    console.log('🚀 Iniciando polling via proxy a cada 4 segundos...')
+    console.log('🚀 Iniciando polling via proxy a cada 2 segundos (TEMPO REAL)...')
     
-    // Polling a cada 4 segundos
+    // Polling a cada 2 segundos para captura mais rápida
     this.pollingInterval = setInterval(() => {
       this.checkViaProxy()
-    }, 4000)
+    }, 2000) // Reduzido para captura mais frequente
   }
 
   /**
@@ -377,10 +377,17 @@ class BlazeRealDataService {
       // Verificar se é um jogo novo (considerar ID e timestamp)
       const dataTimestamp = new Date(data.timestamp_blaze || data.created_at).getTime()
       const isOldData = dataTimestamp < (Date.now() - (24 * 60 * 60 * 1000)) // Dados de mais de 24h são considerados antigos
+      const timeDiff = Math.abs(Date.now() - dataTimestamp) / 1000 // Diferença em segundos
       
-      if (this.lastKnownRound && this.lastKnownRound === gameId && !isOldData) {
-        console.log(`🔄 Aguardando novo jogo... (atual: ${data.number})`)
+      // Se é o mesmo ID E é muito recente (menos de 5 minutos), aguardar
+      if (this.lastKnownRound && this.lastKnownRound === gameId && timeDiff < 300 && !isOldData) {
+        console.log(`🔄 Aguardando novo jogo... (atual: ${data.number}, ${Math.round(timeDiff)}s atrás)`)
         return
+      }
+      
+      // Se é o mesmo ID mas é antigo (mais de 5 minutos), processar mesmo assim
+      if (this.lastKnownRound && this.lastKnownRound === gameId && timeDiff >= 300) {
+        console.log(`🔄 Mesmo ID mas dados antigos, forçando processamento (${Math.round(timeDiff)}s atrás)`)
       }
       
       // Se são dados antigos, forçar reset e tentar novamente
@@ -455,16 +462,22 @@ class BlazeRealDataService {
         return
       }
 
-      // Verificar se já existe este round_id
-      const { data: existing } = await supabase
-        .from('blaze_real_data')
-        .select('id')
-        .eq('round_id', roundId)
-        .single()
+      // Verificar duplicata local (não bloquear por Supabase)
+      console.log(`🔄 Processando round: ${roundId}`)
+      
+      // Tentar verificar no Supabase (opcional)
+      try {
+        const { data: existing } = await supabase
+          .from('blaze_real_data')
+          .select('id')
+          .eq('round_id', roundId)
+          .single()
 
-      if (existing) {
-        console.log(`⚠️ Round ${roundId} já existe`)
-        return
+        if (existing) {
+          console.log(`⚠️ Round ${roundId} já existe no Supabase (mas processando mesmo assim)`)
+        }
+      } catch (error) {
+        console.log(`⚠️ Não foi possível verificar duplicata no Supabase (continuando)`)
       }
 
       // Normalizar dados para salvar
@@ -473,20 +486,25 @@ class BlazeRealDataService {
         round_id: roundId
       }
 
-      // Salvar no Supabase
-      const { error } = await supabase
-        .from('blaze_real_data')
-        .insert(normalizedData)
-
-      if (error) {
-        console.log('❌ Erro salvando no Supabase:', error)
-        return
-      }
-
-      console.log(`✅ DADOS REAIS SALVOS: ${normalizedData.number} (${normalizedData.color})`)
-
-      // Emitir evento para a interface
+      // Emitir evento para a interface SEMPRE (independente do Supabase)
       this.emitRealData(data)
+      console.log(`📡 DADOS EMITIDOS PARA INTERFACE: ${normalizedData.number} (${normalizedData.color})`)
+
+      // Tentar salvar no Supabase (opcional - não bloquear se falhar)
+      try {
+        const { error } = await supabase
+          .from('blaze_real_data')
+          .insert(normalizedData)
+
+        if (error) {
+          console.log('⚠️ Supabase falhou (não crítico):', error.message || error)
+          console.log('✅ Dados ainda assim enviados para interface')
+        } else {
+          console.log(`💾 DADOS SALVOS NO SUPABASE: ${normalizedData.number} (${normalizedData.color})`)
+        }
+      } catch (supabaseError) {
+        console.log('⚠️ Supabase indisponível (continuando sem ele):', supabaseError)
+      }
 
       // Gerar predição automática
       await this.makePredictionBasedOnRealData()
