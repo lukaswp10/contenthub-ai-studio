@@ -1022,17 +1022,28 @@ export default function TesteJogoPage() {
         setResults(updatedResults);
         updateStats(updatedResults);
         
-        // GERAR PREDIÇÃO AUTOMÁTICA EM TEMPO REAL
-        if (updatedResults.length >= 5 && !isProcessing) {
-          console.log(`🧠 Nova predição automática em tempo real com ${updatedResults.length} dados...`);
+        // GERAR PREDIÇÃO AUTOMÁTICA EM TEMPO REAL (prioritário para dados reais)
+        const realTimeData = updatedResults.filter(r => r.batch === 'real_time_blaze');
+        if (realTimeData.length >= 5 && !isProcessing) {
+          console.log(`🚀 PREDIÇÃO AUTOMÁTICA: ${realTimeData.length} dados REAIS da Blaze detectados!`);
           setTimeout(async () => {
             try {
               await analyzePredictionMassive(updatedResults);
-              console.log('✅ Predição atualizada após novo dado real');
+              console.log('✅ Predição gerada com dados reais da Blaze em tempo real');
             } catch (error) {
               console.log('⚠️ Erro na predição automática:', error);
             }
-          }, 1000); // Delay pequeno para garantir que o estado foi atualizado
+          }, 500); // Delay menor para dados reais
+        } else if (updatedResults.length >= 5 && realTimeData.length < 5) {
+          console.log(`🧠 Predição com dados mistos: ${updatedResults.length} total (${realTimeData.length} reais)`);
+          setTimeout(async () => {
+            try {
+              await analyzePredictionMassive(updatedResults);
+              console.log('✅ Predição atualizada com dados disponíveis');
+            } catch (error) {
+              console.log('⚠️ Erro na predição automática:', error);
+            }
+          }, 1000);
         }
       };
 
@@ -3502,9 +3513,9 @@ export default function TesteJogoPage() {
   };
   
   /**
-   * Obter últimos 20 números para exibição visual (memoizada para evitar re-renders)
+   * Obter TODOS os números para exibição visual infinita (memoizada para evitar re-renders)
    */
-  const getLast20Numbers = useMemo((): DoubleResult[] => {
+  const getAllNumbers = useMemo((): DoubleResult[] => {
     // Combinar dados reais e manuais
     const allData = [...results];
     
@@ -3531,15 +3542,14 @@ export default function TesteJogoPage() {
       return duplicateIndex === index;
     });
     
-    // Ordenar por timestamp descrescente e pegar os 20 mais recentes
+    // Ordenar por timestamp descrescente - MOSTRAR TODOS (sem limite de 20)
     const sortedResults = uniqueData.sort((a, b) => b.timestamp - a.timestamp);
-    const last20 = sortedResults.slice(0, 20);
     
-    if (last20.length > 0) {
-      console.log(`📊 getLast20Numbers retornando ${last20.length} resultados (${realDataHistory.length} reais + ${results.length} manuais)`);
+    if (sortedResults.length > 0) {
+      console.log(`📊 getAllNumbers retornando ${sortedResults.length} resultados INFINITOS (${realDataHistory.length} reais + ${results.length} manuais)`);
     }
     
-    return last20.reverse(); // Reverse para mostrar mais antigo primeiro na interface
+    return sortedResults.reverse(); // Reverse para mostrar mais antigo primeiro na interface
   }, [results.length, realDataHistory.length]); // ✅ MEMOIZAÇÃO: Só recalcula se LENGTH mudar
   
   /**
@@ -4385,56 +4395,50 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   </div>
                 ) : (
                   <div className="bg-gray-900/50 p-4 rounded-lg border border-orange-500/50 text-center">
-                    <div className="text-orange-300">🎯 Aguardando dados para predição...</div>
-                    <div className="text-sm text-gray-400 mt-1">Adicione pelo menos 5 números</div>
+                    <div className="text-orange-300">🎯 Aguardando dados reais da Blaze...</div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      {isCapturingReal ? 
+                        `Aguardando 5+ números reais (${getAllNumbers.filter(r => r.batch === 'real_time_blaze').length}/5)` :
+                        'Clique em "Conectar Blaze" para começar'
+                      }
+                    </div>
                   </div>
                 )}
                 
-                {/* INPUT RÁPIDO */}
-                <div className="bg-green-900/30 p-4 rounded-lg border border-green-500/50">
-                  <div className="text-green-300 font-semibold mb-2 text-center">
-                    📝 ADICIONAR RESULTADO RÁPIDO
+                {/* SISTEMA AUTOMÁTICO EM TEMPO REAL */}
+                <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-500/50">
+                  <div className="text-blue-300 font-semibold mb-2 text-center">
+                    🤖 SISTEMA AUTOMÁTICO ATIVO
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="14"
-                      value={quickInput}
-                      onChange={(e) => setQuickInput(e.target.value)}
-                      onKeyPress={handleQuickInputKeyPress}
-                      placeholder="0-14"
-                      className="text-center text-xl font-bold"
-                      style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
-                    />
-                    <Button
-                      onClick={quickAddNumber}
-                      disabled={!quickInput.trim()}
-                      className="bg-green-600 hover:bg-green-500 px-6 font-bold"
-                    >
-                      ⚡ ADD
-                    </Button>
-                  </div>
-                  <div className="text-xs text-gray-400 text-center mt-2">
-                    Enter para adicionar | 0=Branco | 1-7=Vermelho | 8-14=Preto
+                  <div className="text-center">
+                    <div className="text-sm text-blue-200 mb-2">
+                      {isCapturingReal ? (
+                        <span className="text-green-400">✅ Capturando dados reais da Blaze automaticamente</span>
+                      ) : (
+                        <span className="text-yellow-400">⏳ Clique em "Conectar Blaze" para ativar</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Sistema detecta novos números automaticamente • Predições geradas em tempo real
+                    </div>
                   </div>
                 </div>
               </div>
               
-              {/* HISTÓRICO VISUAL ÚLTIMOS 20 */}
+              {/* HISTÓRICO VISUAL INFINITO */}
               <div className="bg-gray-900/50 p-4 rounded-lg border border-orange-500/50">
                 <div className="text-orange-300 font-semibold mb-3 text-center">
-                  📊 ÚLTIMOS 20 RESULTADOS
+                  📊 HISTÓRICO COMPLETO TEMPO REAL
                   <div className="text-xs text-orange-200 mt-1">
-                    {getLast20Numbers.length > 0 && (
+                    {getAllNumbers.length > 0 && (
                       <>
-                        Mais recente: {new Date(Math.max(...getLast20Numbers.map(r => r.timestamp))).toLocaleTimeString('pt-BR')}
+                        Mais recente: {new Date(Math.max(...getAllNumbers.map(r => r.timestamp))).toLocaleTimeString('pt-BR')} • Total: {getAllNumbers.length}
                       </>
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-10 gap-1 mb-3">
-                  {getLast20Numbers.map((result, index) => (
+                <div className="grid grid-cols-10 gap-1 mb-3 max-h-32 overflow-y-auto">
+                  {getAllNumbers.map((result, index) => (
                     <div
                       key={`${result.id}-${index}`}
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transform hover:scale-110 transition-all duration-200 ${
@@ -5099,58 +5103,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         {/* ETAPA 3: Sistema de Aprendizado Contínuo - Interface Completa */}
         
         {/* Seção de Input Manual Melhorada */}
-        <Card className="bg-gradient-to-r from-green-800/60 to-emerald-800/60 border-green-400">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-green-300 text-lg">🎲 ENTRADA MANUAL DE NÚMEROS</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-sm text-green-200 mb-3 bg-green-900/30 p-3 rounded">
-              🔹 <strong>Opção 3:</strong> Digite manualmente os números que saíram na Blaze
-              <br />
-              🔹 <strong>Formato:</strong> 0=branco | 1-7=vermelho | 8-14=preto
-              <br />
-              🔹 <strong>Entrada rápida:</strong> Digite vários números separados por espaço ou vírgula (ex: 5 12 0 7)
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex gap-3 items-center">
-                <Input
-                  type="text"
-                  value={currentInput}
-                  onChange={(e) => setCurrentInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ex: 5 12 0 7 ou 5,12,0,7 (Enter para adicionar)"
-                  className="bg-gray-800 border-green-500 text-white placeholder-gray-400 flex-1"
-                />
-                <Button 
-                  onClick={addNumber}
-                  disabled={isProcessing || !currentInput.trim()}
-                  className="bg-green-600 hover:bg-green-500 px-6 py-2 font-semibold"
-                  title="Adicionar número(s) e gerar predição automática"
-                >
-                  {isProcessing ? '🔄' : '➕ ADD'}
-                </Button>
-                <Button 
-                  onClick={analyzeMassivePattern}
-                  disabled={isProcessing || processedNumbers.length < 5}
-                  className="bg-blue-600 hover:bg-blue-500 px-6 py-2 font-semibold"
-                  title="Análise completa com 8 algoritmos ML"
-                >
-                  {isProcessing ? '🧠 Analisando...' : '🎯 Analisar'}
-                </Button>
-              </div>
-              
-              {inputError && (
-                <div className="text-red-400 text-sm font-semibold">
-                  ⚠️ {inputError}
-                </div>
-              )}
-              
-              <div className="text-sm text-gray-300">
-                💡 Digite múltiplos números separados por espaço ou vírgula (ex: "1 5 0 12 3")
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* SEÇÃO DE DADOS REAIS DA BLAZE */}
         <Card className="bg-gradient-to-r from-orange-800/60 to-red-800/60 border-orange-400">
@@ -5578,11 +5531,11 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   </div>
                 </div>
 
-                {/* Últimos 20 Resultados */}
+                {/* Histórico Completo */}
                 <div>
-                  <div className="text-gray-300 font-semibold mb-2">🕒 Últimos 20 Resultados:</div>
-                  <div className="flex gap-1 flex-wrap">
-                    {getLast20Numbers.map((result, index) => (
+                  <div className="text-gray-300 font-semibold mb-2">🕒 Histórico Completo:</div>
+                  <div className="flex gap-1 flex-wrap max-h-24 overflow-y-auto">
+                    {getAllNumbers.map((result, index) => (
                       <div
                         key={result.id || index}
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -5596,7 +5549,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       </div>
                     ))}
                   </div>
-                  {getLast20Numbers.length === 0 && (
+                  {getAllNumbers.length === 0 && (
                     <div className="text-gray-500 text-sm italic">
                       Nenhum número registrado ainda...
                     </div>
