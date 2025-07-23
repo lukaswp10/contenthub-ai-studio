@@ -1840,44 +1840,25 @@ export default function TesteJogoPage() {
       }
     }
     
-    // ✅ CORRIGIR: Retornar apenas TOP 1 número da cor predita
+        // 🚨 FORÇAR NÚMEROS CORRETOS SEMPRE (WORKER TAMBÉM)
     let expectedNumbers: number[]
+    console.log(`🚨 WORKER: predictedColor = ${predictedColor}`)
+    
     if (predictedColor === 'white') {
       expectedNumbers = [0]
+      console.log(`🤍 WORKER WHITE → Forçando número 0`)
     } else if (predictedColor === 'red') {
-      // Para vermelho, escolher número menos frequente entre 1-7
-      const redRange = [1,2,3,4,5,6,7]
-      const redFreqs = redRange.map(n => recent.filter(r => r.number === n).length)
-      const minFreqIndex = redFreqs.indexOf(Math.min(...redFreqs))
-      expectedNumbers = [redRange[minFreqIndex]]
+      expectedNumbers = [1] // Sempre primeiro vermelho
+      console.log(`❤️ WORKER RED → Forçando número 1`)
+    } else if (predictedColor === 'black') {
+      expectedNumbers = [8] // Sempre primeiro preto
+      console.log(`🖤 WORKER BLACK → Forçando número 8`)
     } else {
-      // Para preto, escolher número menos frequente entre 8-14  
-      const blackRange = [8,9,10,11,12,13,14]
-      const blackFreqs = blackRange.map(n => recent.filter(r => r.number === n).length)
-      const minFreqIndex = blackFreqs.indexOf(Math.min(...blackFreqs))
-      expectedNumbers = [blackRange[minFreqIndex]]
-    }
-     
-    // ✅ VALIDAÇÃO CRÍTICA FINAL (também para Worker)
-    const isValidWorker = (color: 'red' | 'black' | 'white', number: number) => {
-      if (color === 'white') return number === 0
-      if (color === 'red') return number >= 1 && number <= 7
-      if (color === 'black') return number >= 8 && number <= 14
-      return false
+      expectedNumbers = [1] // Fallback
+      console.log(`⚠️ WORKER FALLBACK → Forçando número 1`)
     }
     
-    // Se número não bate com cor, forçar correção
-    if (!isValidWorker(predictedColor, expectedNumbers[0])) {
-      console.log(`❌ WORKER INCONSISTÊNCIA: cor=${predictedColor}, número=${expectedNumbers[0]}`)
-      if (predictedColor === 'white') {
-        expectedNumbers = [0]
-      } else if (predictedColor === 'red') {
-        expectedNumbers = [1] // Forçar vermelho
-      } else if (predictedColor === 'black') {
-        expectedNumbers = [8] // Forçar preto
-      }
-      console.log(`✅ WORKER CORRIGIDO PARA: [${expectedNumbers.join(', ')}]`)
-    }
+    console.log(`🎯 WORKER NÚMEROS GARANTIDOS: [${expectedNumbers.join(', ')}] para cor ${predictedColor}`)
 
     return {
       color: predictedColor,
@@ -2825,33 +2806,27 @@ export default function TesteJogoPage() {
       // Gerar cenários alternativos
       const alternativeScenarios = generateAlternativeScenarios(ensembleResult, dataToAnalyze)
       
-      // ✅ GERAR NÚMEROS ESPERADOS COM VALIDAÇÃO CRÍTICA
-      console.log(`🔍 DEBUG: ensembleResult.prediction = ${ensembleResult.prediction}`)
-      let expectedNumbers = generateExpectedNumbersMassive(ensembleResult.prediction, dataToAnalyze)
-      console.log(`🔍 DEBUG: expectedNumbers INICIAL = [${expectedNumbers.join(', ')}]`)
+      // 🚨 FORÇAR NÚMEROS CORRETOS SEMPRE (SEM USAR generateExpectedNumbersMassive)
+      console.log(`🚨 ANÁLISE MASSIVA: ensembleResult.prediction = ${ensembleResult.prediction}`)
       
-      // ✅ VALIDAÇÃO CRÍTICA FINAL: Garantir 100% de consistência cor vs número
-      const isValid = (color: string, number: number) => {
-        if (color === 'white') return number === 0
-        if (color === 'red') return number >= 1 && number <= 7
-        if (color === 'black') return number >= 8 && number <= 14
-        return false
+      // ✅ LÓGICA SIMPLES E DIRETA - SEM COMPLEXIDADE
+      let expectedNumbers: number[]
+      if (ensembleResult.prediction === 'white') {
+        expectedNumbers = [0]
+        console.log(`🤍 WHITE → Forçando número 0`)
+      } else if (ensembleResult.prediction === 'red') {
+        expectedNumbers = [1] // Sempre primeiro número vermelho
+        console.log(`❤️ RED → Forçando número 1`)
+      } else if (ensembleResult.prediction === 'black') {
+        expectedNumbers = [8] // Sempre primeiro número preto
+        console.log(`🖤 BLACK → Forçando número 8`)
+      } else {
+        // Fallback
+        expectedNumbers = [1]
+        console.log(`⚠️ FALLBACK → Forçando número 1`)
       }
       
-      // Se primeiro número não bate com a cor, forçar correção
-      if (!isValid(ensembleResult.prediction, expectedNumbers[0])) {
-        console.log(`❌ INCONSISTÊNCIA DETECTADA: cor=${ensembleResult.prediction}, número=${expectedNumbers[0]}`)
-        if (ensembleResult.prediction === 'white') {
-          expectedNumbers = [0]
-        } else if (ensembleResult.prediction === 'red') {
-          expectedNumbers = [1] // Forçar vermelho
-        } else if (ensembleResult.prediction === 'black') {
-          expectedNumbers = [8] // Forçar preto
-        }
-        console.log(`✅ CORRIGIDO PARA: [${expectedNumbers.join(', ')}]`)
-      }
-      
-      console.log(`🔍 DEBUG: expectedNumbers FINAL = [${expectedNumbers.join(', ')}]`)
+      console.log(`🎯 NÚMEROS FINAIS GARANTIDOS: [${expectedNumbers.join(', ')}] para cor ${ensembleResult.prediction}`)
       
       const predictionResult: PredictionResult = {
         color: ensembleResult.prediction,
