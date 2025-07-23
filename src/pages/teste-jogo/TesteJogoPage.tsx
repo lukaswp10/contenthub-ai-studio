@@ -1002,7 +1002,7 @@ export default function TesteJogoPage() {
       
       // Verificar dados a cada 5 segundos
       // Escutar novos dados via eventos (não polling do Supabase antigo)
-      const handleNewRealData = (event: CustomEvent) => {
+      const handleNewRealData = async (event: CustomEvent) => {
         const data = event.detail;
         console.log('📡 Novo dado REAL capturado:', data);
         setLastRealData(data);
@@ -1018,12 +1018,77 @@ export default function TesteJogoPage() {
           batch: 'real_time_blaze'
         };
         
-        setResults(prev => [blazeResult, ...prev]);
-        updateStats([blazeResult, ...results]);
+        const updatedResults = [...results, blazeResult];
+        setResults(updatedResults);
+        updateStats(updatedResults);
+        
+        // GERAR PREDIÇÃO AUTOMÁTICA EM TEMPO REAL
+        if (updatedResults.length >= 5 && !isProcessing) {
+          console.log(`🧠 Nova predição automática em tempo real com ${updatedResults.length} dados...`);
+          setTimeout(async () => {
+            try {
+              await analyzePredictionMassive(updatedResults);
+              console.log('✅ Predição atualizada após novo dado real');
+            } catch (error) {
+              console.log('⚠️ Erro na predição automática:', error);
+            }
+          }, 1000); // Delay pequeno para garantir que o estado foi atualizado
+        }
       };
 
       // Adicionar listener para novos dados reais
       window.addEventListener('blazeRealData', handleNewRealData as any);
+      
+      // Forçar uma primeira captura para popular os dados iniciais
+      setTimeout(async () => {
+        try {
+          const recentData = await blazeRealDataService.getRecentBlazeData(20);
+          if (recentData && recentData.length > 0) {
+            console.log(`📊 Carregados ${recentData.length} dados recentes da Blaze`);
+            setRealDataHistory(recentData);
+            
+            // Adicionar ao sistema principal também
+            const blazeResults = recentData.map((data: any) => ({
+              id: data.round_id || data.id || `real_${Date.now()}_${Math.random()}`,
+              number: data.number,
+              color: data.color,
+              timestamp: new Date(data.timestamp_blaze || data.created_at).getTime(),
+              source: 'manual' as const,
+              batch: 'real_time_blaze'
+            }));
+            
+            setResults(prev => [...blazeResults, ...prev]);
+            updateStats([...blazeResults, ...results]);
+            
+            // Gerar predição inicial automaticamente
+            if (blazeResults.length >= 5) {
+              console.log(`🧠 Gerando predição inicial com ${blazeResults.length} dados reais...`);
+              await analyzePredictionMassive(blazeResults);
+            }
+          }
+        } catch (error) {
+          console.log('⚠️ Não foi possível carregar dados iniciais:', error);
+        }
+      }, 2000);
+      
+      // Sistema de polling contínuo para capturar novos dados
+      const startPolling = () => {
+        const pollingInterval = setInterval(async () => {
+          if (isCapturingReal) {
+            try {
+              console.log('🔄 Verificando novos dados da Blaze...');
+              // O blazeRealDataService já fará a verificação automaticamente
+              // Este polling só garante que o sistema continue ativo
+            } catch (error) {
+              console.log('⚠️ Erro no polling:', error);
+            }
+          } else {
+            clearInterval(pollingInterval);
+          }
+        }, 15000); // A cada 15 segundos
+      };
+      
+      startPolling();
       
     } catch (error) {
       console.error('❌ Erro ao iniciar captura:', error);
@@ -3430,9 +3495,39 @@ export default function TesteJogoPage() {
    * Obter últimos 20 números para exibição visual (ordenados por timestamp)
    */
   const getLast20Numbers = (): DoubleResult[] => {
+    // Combinar dados reais e manuais
+    const allData = [...results];
+    
+    // Adicionar dados do realDataHistory se disponíveis
+    if (realDataHistory.length > 0) {
+      const realResults = realDataHistory.map((data: any) => ({
+        id: data.round_id || data.id || `real_${data.timestamp || Date.now()}`,
+        number: data.number,
+        color: data.color as 'red' | 'black' | 'white',
+        timestamp: new Date(data.timestamp_blaze || data.created_at || data.timestamp || Date.now()).getTime(),
+        source: 'manual' as const,
+        batch: 'real_time_blaze'
+      }));
+      
+      allData.push(...realResults);
+    }
+    
+    // Remover duplicatas baseado em ID e timestamp
+    const uniqueData = allData.filter((item, index, arr) => {
+      const duplicateIndex = arr.findIndex(i => 
+        (i.id === item.id) || 
+        (Math.abs(i.timestamp - item.timestamp) < 1000 && i.number === item.number)
+      );
+      return duplicateIndex === index;
+    });
+    
     // Ordenar por timestamp descrescente e pegar os 20 mais recentes
-    const sortedResults = [...results].sort((a, b) => b.timestamp - a.timestamp);
-    return sortedResults.slice(0, 20).reverse(); // Reverse para mostrar mais antigo primeiro
+    const sortedResults = uniqueData.sort((a, b) => b.timestamp - a.timestamp);
+    const last20 = sortedResults.slice(0, 20);
+    
+    console.log(`📊 getLast20Numbers retornando ${last20.length} resultados (${realDataHistory.length} reais + ${results.length} manuais)`);
+    
+    return last20.reverse(); // Reverse para mostrar mais antigo primeiro na interface
   };
   
   /**
@@ -5475,20 +5570,25 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 <div>
                   <div className="text-gray-300 font-semibold mb-2">🕒 Últimos 20 Resultados:</div>
                   <div className="flex gap-1 flex-wrap">
-                    {processedNumbers.slice(-20).map((num, index) => (
+                    {getLast20Numbers().map((result, index) => (
                       <div
-                        key={index}
+                        key={result.id || index}
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                          num === 0 ? 'bg-white text-black' :
-                          num <= 7 ? 'bg-red-600 text-white' :
+                          result.number === 0 ? 'bg-white text-black' :
+                          result.number <= 7 ? 'bg-red-600 text-white' :
                           'bg-gray-700 text-white'
                         }`}
-                        title={`Número: ${num} | ${num === 0 ? 'Branco' : num <= 7 ? 'Vermelho' : 'Preto'}`}
+                        title={`Número: ${result.number} | ${result.color === 'white' ? 'Branco' : result.color === 'red' ? 'Vermelho' : 'Preto'} | ${new Date(result.timestamp).toLocaleString('pt-BR')}`}
                       >
-                        {num}
+                        {result.number}
                       </div>
                     ))}
                   </div>
+                  {getLast20Numbers().length === 0 && (
+                    <div className="text-gray-500 text-sm italic">
+                      Nenhum número registrado ainda...
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

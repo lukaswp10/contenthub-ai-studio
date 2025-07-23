@@ -785,26 +785,87 @@ class BlazeRealDataService {
   }
 
   /**
+   * EXECUTAR SCRIPT CHROMIUM LOCALMENTE (DESENVOLVIMENTO)
+   */
+  private async executeChromiumScriptLocally(): Promise<ChromiumCaptureResult> {
+    try {
+      console.log('🎯 EXECUTANDO: Script Chromium em desenvolvimento...')
+      
+      // Simular dados reais para desenvolvimento (você pode implementar WebSocket ou outro método)
+      // Para agora, vamos fazer uma requisição direta que sabemos que funciona
+      const response = await fetch('https://blaze.com/api/roulette_games/recent?limit=1', {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Direct API failed: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (Array.isArray(data) && data.length > 0) {
+        const game = data[0]
+        
+        // Converter para formato esperado
+        const result: ChromiumCaptureResult = {
+          numero: game.roll,
+          cor: game.color,
+          corNome: game.color === 0 ? 'WHITE' : game.color === 1 ? 'RED' : 'BLACK',
+          corEmoji: game.color === 0 ? '⚪' : game.color === 1 ? '🔴' : '⚫',
+          id: game.id,
+          timestamp: game.created_at,
+          url: 'local_development_api'
+        }
+        
+        console.log(`✅ DESENVOLVIMENTO: Dados obtidos - ${result.corEmoji} ${result.corNome} (${result.numero})`)
+        return result
+      } else {
+        throw new Error('No game data received from direct API')
+      }
+      
+    } catch (error) {
+      console.error('❌ DESENVOLVIMENTO: Erro ao executar script:', error)
+      throw error
+    }
+  }
+
+  /**
    * NOVA ESTRATÉGIA: CAPTURA VIA CHROMIUM
    */
   private async tryChromiumCapture(): Promise<void> {
     try {
       console.log('🎯 CHROMIUM: Iniciando captura via navegador...')
       
-      // Fazer requisição ao nosso endpoint que executa o script Chromium
-      const response = await fetch('/api/chromium-capture', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'capture_blaze' })
-      })
+      // Detectar ambiente
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       
-      if (!response.ok) {
-        throw new Error(`Chromium capture failed: ${response.status}`)
+      let result: ChromiumCaptureResult;
+      
+      if (isDevelopment) {
+        // EM DESENVOLVIMENTO: Executar script diretamente
+        console.log('🔧 DESENVOLVIMENTO: Executando script Chromium local...')
+        result = await this.executeChromiumScriptLocally()
+      } else {
+        // EM PRODUÇÃO: Usar endpoint API
+        console.log('🚀 PRODUÇÃO: Usando endpoint /api/chromium-capture...')
+        const response = await fetch('/api/chromium-capture', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ action: 'capture_blaze' })
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Chromium capture failed: ${response.status}`)
+        }
+        
+        result = await response.json()
       }
-      
-      const result: ChromiumCaptureResult = await response.json()
       
       // Converter para formato padrão
       const data: BlazeRealData = {
@@ -865,19 +926,30 @@ class BlazeRealDataService {
    */
   private async checkViaChromium(): Promise<void> {
     try {
-      const response = await fetch('/api/chromium-capture', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'capture_blaze' })
-      })
+      // Detectar ambiente
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      
+      let result: ChromiumCaptureResult;
+      
+      if (isDevelopment) {
+        // EM DESENVOLVIMENTO: Executar script diretamente
+        result = await this.executeChromiumScriptLocally()
+      } else {
+        // EM PRODUÇÃO: Usar endpoint API
+        const response = await fetch('/api/chromium-capture', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ action: 'capture_blaze' })
+        })
 
-      if (!response.ok) {
-        throw new Error(`Chromium polling failed: ${response.status}`)
+        if (!response.ok) {
+          throw new Error(`Chromium polling failed: ${response.status}`)
+        }
+
+        result = await response.json()
       }
-
-      const result: ChromiumCaptureResult = await response.json()
       
       // Verificar se é um jogo novo
       if (this.lastKnownRound && this.lastKnownRound === result.id) {
