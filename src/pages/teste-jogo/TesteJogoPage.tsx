@@ -1141,8 +1141,9 @@ export default function TesteJogoPage() {
     }, 3000);
 
     // Listener para dados reais recebidos
-    const handleRealData = (event: CustomEvent) => {
-      const data = event.detail;
+    const handleRealData = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
       console.log('📡 Dados reais recebidos via evento:', data);
       setLastRealData(data);
       setRealDataHistory(prev => [data, ...prev.slice(0, 19)]);
@@ -1161,15 +1162,16 @@ export default function TesteJogoPage() {
     };
 
     // Listener para erros de conexão
-    const handleConnectionError = (event: CustomEvent) => {
-      const errorData = event.detail;
+    const handleConnectionError = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const errorData = customEvent.detail;
       console.log('❌ ERRO DE CONEXÃO CRÍTICO:', errorData);
       
       setIsCapturingReal(false);
-      setConnectionStatus('ERRO FATAL - SEM DADOS');
+      setConnectionStatus('ERRO FATAL - PROXY INDISPONÍVEL');
       
       // Exibir alerta visual para o usuário
-      alert(`❌ ERRO FATAL: ${errorData.error}\n\n🛑 Sistema parado - Não é possível conectar com dados reais da Blaze.\n\nVerifique sua conexão ou tente novamente mais tarde.`);
+      alert(`❌ ERRO FATAL: ${errorData.error}\n\n🛑 Sistema parado - Não é possível conectar com dados reais da Blaze.\n\nUse entrada manual ou upload de CSV para continuar.`);
     };
 
     // Adicionar listeners
@@ -4390,18 +4392,25 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         {/* CSV Import Section - SEMPRE VISÍVEL */}
         <Card className="bg-gradient-to-r from-purple-800/60 to-blue-800/60 border-purple-400">
           <CardHeader className="pb-2">
-            <CardTitle className="text-purple-300 text-lg">📊 IMPORTAÇÃO MASSIVA CSV (Ilimitado)</CardTitle>
+            <CardTitle className="text-purple-300 text-lg">📊 UPLOAD DE HISTÓRICO CSV</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
             <div className="flex flex-col gap-3">
+              <div className="text-sm text-purple-200 mb-2">
+                🔹 <strong>Opção 1:</strong> Upload de arquivo CSV com histórico da Blaze para análise
+                <br />
+                🔹 <strong>Formatos aceitos:</strong> número,cor | apenas números (0-14) | com timestamps
+                <br />
+                🔹 <strong>Capacidade:</strong> Até 100k+ registros processados em chunks para máxima performance
+              </div>
               <div className="flex gap-3 items-center">
                 <Button 
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isImporting || dataManager.processingChunks}
                   className="bg-purple-600 hover:bg-purple-500 px-6 py-2 font-semibold"
-                  title="Importar arquivo CSV com até 100k+ registros"
+                  title="Importar arquivo CSV com histórico de números da Blaze"
                 >
-                  {isImporting ? '🔄 Processando...' : dataManager.processingChunks ? '⚡ Analisando...' : '📂 Selecionar CSV Massivo'}
+                  {isImporting ? '🔄 Processando CSV...' : dataManager.processingChunks ? '⚡ Analisando dados...' : '📂 Selecionar Arquivo CSV'}
                 </Button>
                 <input
                   ref={fileInputRef}
@@ -4411,8 +4420,8 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   style={{ display: 'none' }}
                 />
                 {!compactMode && (
-                  <div className="text-sm text-gray-300">
-                    📈 Suporte: 100k+ registros | Formato: Número, Cor, Hora, Data
+                  <div className="text-sm text-purple-300 bg-purple-900/30 px-3 py-1 rounded">
+                    💡 Exemplo: 5,red,2025-01-18T15:30:00Z ou apenas 5,7,12,0,3
                   </div>
                 )}
               </div>
@@ -4946,9 +4955,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         {/* Seção de Input Manual Melhorada */}
         <Card className="bg-gradient-to-r from-green-800/60 to-emerald-800/60 border-green-400">
           <CardHeader className="pb-2">
-            <CardTitle className="text-green-300 text-lg">🎲 ENTRADA MANUAL + ANÁLISE MASSIVA</CardTitle>
+            <CardTitle className="text-green-300 text-lg">🎲 ENTRADA MANUAL DE NÚMEROS</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
+            <div className="text-sm text-green-200 mb-3 bg-green-900/30 p-3 rounded">
+              🔹 <strong>Opção 3:</strong> Digite manualmente os números que saíram na Blaze
+              <br />
+              🔹 <strong>Formato:</strong> 0=branco | 1-7=vermelho | 8-14=preto
+              <br />
+              🔹 <strong>Entrada rápida:</strong> Digite vários números separados por espaço ou vírgula (ex: 5 12 0 7)
+            </div>
             <div className="flex flex-col gap-3">
               <div className="flex gap-3 items-center">
                 <Input
@@ -4956,22 +4972,24 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   value={currentInput}
                   onChange={(e) => setCurrentInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Digite números: 0=branco, 1-7=vermelho, 8-14=preto"
-                  className="bg-gray-800 border-green-500 text-white placeholder-gray-400"
+                  placeholder="Ex: 5 12 0 7 ou 5,12,0,7 (Enter para adicionar)"
+                  className="bg-gray-800 border-green-500 text-white placeholder-gray-400 flex-1"
                 />
                 <Button 
                   onClick={addNumber}
                   disabled={isProcessing || !currentInput.trim()}
                   className="bg-green-600 hover:bg-green-500 px-6 py-2 font-semibold"
+                  title="Adicionar número(s) e gerar predição automática"
                 >
-                  {isProcessing ? '🔄' : '➕ Adicionar'}
+                  {isProcessing ? '🔄' : '➕ ADD'}
                 </Button>
                 <Button 
                   onClick={analyzeMassivePattern}
-                  disabled={isProcessing || processedNumbers.length < 10}
+                  disabled={isProcessing || processedNumbers.length < 5}
                   className="bg-blue-600 hover:bg-blue-500 px-6 py-2 font-semibold"
+                  title="Análise completa com 8 algoritmos ML"
                 >
-                  {isProcessing ? '🧠 Analisando...' : '🎯 Analisar Massivo'}
+                  {isProcessing ? '🧠 Analisando...' : '🎯 Analisar'}
                 </Button>
               </div>
               
@@ -4992,20 +5010,37 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         <Card className="bg-gradient-to-r from-orange-800/60 to-red-800/60 border-orange-400">
           <CardHeader className="pb-3">
             <CardTitle className="text-orange-300 text-xl flex items-center justify-between">
-              ⚡ DADOS REAIS BLAZE (13s por rodada)
+              ⚡ DADOS REAIS DA BLAZE
               <div className="flex items-center gap-2">
                 <span className={`text-sm px-2 py-1 rounded ${
-                  connectionStatus === 'DADOS REAIS' 
+                  connectionStatus === 'CONECTADO - PROXY DADOS REAIS' 
                     ? 'bg-green-600 text-green-100' 
-                    : 'bg-red-600 text-red-100'
+                    : connectionStatus === 'ERRO FATAL - PROXY INDISPONÍVEL'
+                    ? 'bg-red-600 text-red-100'
+                    : 'bg-yellow-600 text-yellow-100'
                 }`}>
-                  {connectionStatus}
+                  {connectionStatus === 'CONECTADO - PROXY DADOS REAIS' ? 'CONECTADO' : 
+                   connectionStatus === 'ERRO FATAL - PROXY INDISPONÍVEL' ? 'DESCONECTADO' : 
+                   'AGUARDANDO'}
                 </span>
-                <span className="text-sm text-gray-400">⏰ 16:50:35</span>
+                <span className="text-sm text-gray-400">⏰ {new Date().toLocaleTimeString()}</span>
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
+            <div className="text-sm text-orange-200 mb-4 bg-orange-900/30 p-3 rounded">
+              🔹 <strong>Opção 2:</strong> Conectar diretamente com a API da Blaze para capturar números em tempo real
+              <br />
+              🔹 <strong>Funcionamento:</strong> Sistema captura automaticamente cada novo resultado a cada ~13 segundos
+              <br />
+              🔹 <strong>Predições:</strong> IA analisa padrões e gera predições automáticas em tempo real
+              {connectionStatus !== 'CONECTADO - PROXY DADOS REAIS' && (
+                <>
+                  <br />
+                  ⚠️ <strong>Status atual:</strong> {connectionStatus === 'ERRO FATAL - PROXY INDISPONÍVEL' ? 'Não foi possível conectar. Use entrada manual ou CSV.' : 'Aguardando conexão...'}
+                </>
+              )}
+            </div>
             
             {/* Controles principais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

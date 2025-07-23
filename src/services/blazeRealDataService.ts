@@ -83,69 +83,60 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIAS PARA DESENVOLVIMENTO LOCAL
+   * ESTRATÉGIAS PARA DESENVOLVIMENTO LOCAL - USANDO API PROXY LOCAL
    */
   private async tryDevelopmentStrategies(): Promise<void> {
     try {
-      console.log('🎯 Tentando proxies públicos para CORS...')
+      console.log('🎯 DESENVOLVIMENTO: Usando API proxy local...')
       
-      const PUBLIC_PROXIES = [
-        'https://cors-anywhere.herokuapp.com/',
-        'https://api.allorigins.win/get?url=',
-        'https://thingproxy.freeboard.io/fetch/'
-      ]
+      // Usar o proxy da API local criado especificamente para isso
+      const LOCAL_PROXY_URL = `${window.location.origin}/api/blaze-proxy`
       
-      const TARGET_URL = 'https://blaze.com/api/roulette_games/recent?limit=1'
+      console.log(`📡 Testando proxy local: ${LOCAL_PROXY_URL}`)
       
-      for (let i = 0; i < PUBLIC_PROXIES.length; i++) {
-        const proxy = PUBLIC_PROXIES[i]
-        try {
-          console.log(`📡 Tentando proxy ${i + 1}: ${proxy}`)
-          
-          let url = proxy + encodeURIComponent(TARGET_URL)
-          if (proxy.includes('allorigins')) {
-            url = proxy + encodeURIComponent(TARGET_URL)
+      const response = await Promise.race([
+        fetch(LOCAL_PROXY_URL, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
           }
-          
-          const response = await Promise.race([
-            fetch(url, {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json'
-              }
-            }),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Timeout')), 5000)
-            )
-          ])
-          
-          if (response.ok) {
-            let data = await response.json()
-            
-            // Handle allorigins wrapper
-            if (proxy.includes('allorigins') && data.contents) {
-              data = JSON.parse(data.contents)
-            }
-            
-            if (Array.isArray(data) && data.length > 0) {
-              console.log('✅ Proxy funcionou! Iniciando polling...')
-              this.currentProxy = proxy
-              this.startPolling()
-              return
-            }
-          }
-        } catch (error) {
-          console.log(`❌ Proxy ${i + 1} falhou:`, error instanceof Error ? error.message : String(error))
-        }
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout - Proxy local não respondeu')), 10000)
+        )
+      ])
+      
+      if (!response.ok) {
+        throw new Error(`Proxy local retornou ${response.status}: ${response.statusText}`)
       }
       
-      // Se todos os proxies falharam, tentar fetch direto
-      console.log('🎯 Tentando fetch direto (pode falhar por CORS)...')
-      await this.tryDirectFetch()
+      const result = await response.json()
+      
+      if (!result.success || !result.data) {
+        throw new Error('Proxy local retornou dados inválidos')
+      }
+      
+      console.log('✅ PROXY LOCAL FUNCIONANDO! Dados reais da Blaze obtidos:')
+      console.log(`🎯 Número: ${result.data.number}`)
+      console.log(`🎨 Cor: ${result.data.color}`)
+      console.log(`🆔 ID: ${result.data.id}`)
+      
+             // Configurar para usar proxy local
+       this.currentStrategy = 'PROXY_DADOS_REAIS'
+      this.lastKnownRound = result.data.round_id
+      
+      // Processar primeiro dado
+      await this.processRealData(result.data)
+      
+      // Iniciar polling
+      this.startProxyPolling()
       
     } catch (error) {
-      console.error('❌ TODAS as estratégias falharam:', error instanceof Error ? error.message : String(error))
-      this.handleFatalError('Não foi possível conectar com dados reais da Blaze - CORS bloqueado em desenvolvimento')
+      console.error('❌ PROXY LOCAL FALHOU:', error instanceof Error ? error.message : String(error))
+      console.log('🛑 SISTEMA PARADO - Não é possível obter dados reais da Blaze')
+      console.log('💡 SOLUÇÃO: Use upload de CSV ou entrada manual para adicionar números')
+      
+      this.handleFatalError('Não foi possível conectar com dados reais da Blaze - Use entrada manual ou CSV')
     }
   }
 
@@ -183,9 +174,11 @@ class BlazeRealDataService {
   private async testProxyConnection(): Promise<void> {
     try {
       console.log('🎯 Testando conexão via proxy local...')
-      console.log(`📡 URL: ${this.PROXY_URL}`)
       
-      const response = await fetch(this.PROXY_URL, {
+      const proxyUrl = `${window.location.origin}${this.PROXY_URL}`
+      console.log(`📡 URL: ${proxyUrl}`)
+      
+      const response = await fetch(proxyUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -196,11 +189,13 @@ class BlazeRealDataService {
         throw new Error(`Proxy HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const data = await response.json()
+      const result = await response.json()
       
-      if (!data || !data.round_id) {
+      if (!result.success || !result.data || !result.data.round_id) {
         throw new Error('Proxy retornou dados inválidos')
       }
+      
+      const data = result.data
 
       // Sucesso! Iniciar polling
       console.log('✅ CONEXÃO VIA PROXY ESTABELECIDA!')
@@ -249,7 +244,10 @@ class BlazeRealDataService {
    */
   private async checkViaProxy(): Promise<void> {
     try {
-      const response = await fetch(this.PROXY_URL, {
+      // Usar proxy local para desenvolvimento e produção
+      const proxyUrl = `${window.location.origin}${this.PROXY_URL}`
+      
+      const response = await fetch(proxyUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -260,12 +258,14 @@ class BlazeRealDataService {
         throw new Error(`Proxy HTTP ${response.status}`)
       }
 
-      const data = await response.json()
+      const result = await response.json()
       
-      if (!data || !data.round_id) {
-        console.log('⚠️ Proxy retornou dados vazios')
+      if (!result.success || !result.data || !result.data.round_id) {
+        console.log('⚠️ Proxy retornou dados vazios ou inválidos')
         return
       }
+      
+      const data = result.data
 
       // Verificar se é um jogo novo
       if (this.lastKnownRound && this.lastKnownRound === data.round_id) {
