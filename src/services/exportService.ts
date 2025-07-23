@@ -145,23 +145,13 @@ export class ExportService {
     try {
       console.log('🔄 Initializing FFmpeg.wasm...');
       
-<<<<<<< HEAD
-      // Use stable version 0.12.2 with jsdelivr CDN (most reliable)
-      const baseUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.2/dist/umd';
-      
-      await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseUrl}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, 'application/wasm'),
-        workerURL: await toBlobURL(`${baseUrl}/ffmpeg-core.worker.js`, 'text/javascript')
-      });
-=======
-      // Strategy: Try with crossOrigin anonymous first
+      // Strategy: Try multiple CDNs with fallback support
       const cdnUrls = [
+        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.2/dist/umd', // Stable version first
         'https://unpkg.com/@ffmpeg/core@0.12.4/dist/umd',
         'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd',
         'https://cdn.skypack.dev/@ffmpeg/core@0.12.4/dist/umd'
       ];
->>>>>>> 7eab94fa190344f95b7c50ab1bf87b7c1073e987
 
       let loadError = null;
       
