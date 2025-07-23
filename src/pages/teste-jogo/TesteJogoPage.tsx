@@ -1233,16 +1233,19 @@ export default function TesteJogoPage() {
   // FUNÇÕES DE ESTATÍSTICAS DE PREDIÇÕES
   // ===================================================================
 
-  // Registrar nova predição
+  // Registrar nova predição - VERSÃO MELHORADA
   const registerPrediction = (prediction: PredictionResult) => {
+    const predictionData = {
+      color: prediction.color,
+      numbers: prediction.expectedNumbers,
+      confidence: prediction.confidence,
+      timestamp: Date.now(),
+      id: `pred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+
     const newStats = {
       ...predictionStats,
-      lastPrediction: {
-        color: prediction.color,
-        numbers: prediction.expectedNumbers,
-        confidence: prediction.confidence,
-        timestamp: Date.now()
-      },
+      lastPrediction: predictionData,
       waitingForResult: true,
       totalPredictions: predictionStats.totalPredictions + 1
     };
@@ -1252,38 +1255,70 @@ export default function TesteJogoPage() {
     // Salvar no localStorage
     try {
       localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
+      console.log(`✅ PREDIÇÃO SALVA: ${prediction.color.toUpperCase()} | ID: ${predictionData.id}`);
     } catch (error) {
       console.warn('⚠️ Erro ao salvar estatísticas:', error);
     }
     
-    console.log(`📝 Predição registrada: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%)`);
+    console.log(`📝 NOVA PREDIÇÃO REGISTRADA: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%) | Aguardando resultado...`);
   };
 
-  // ✅ VERIFICAR ACERTO E ATIVAR APRENDIZADO AUTOMÁTICO
+  // ✅ SISTEMA MELHORADO DE VERIFICAÇÃO DE ACURÁCIA
   const checkPredictionAccuracy = async (realResult: any) => {
+    console.log(`🔍 VERIFICANDO ACURÁCIA: Resultado real recebido:`, realResult);
+    
     try {
-      // Verificar se há predição ativa para confirmação
-      if (activePredictionId) {
-        console.log(`🎯 CONFIRMANDO PREDIÇÃO: ${activePredictionId}`)
-        
-        // Confirmar resultado no sistema de aprendizado
-        await predictionAccuracyService.confirmResult(
-          activePredictionId,
-          realResult.color as 'red' | 'black' | 'white',
-          realResult.number
-        )
-        
-        console.log('✅ SISTEMA DE APRENDIZADO ATIVADO! Modelos sendo ajustados automaticamente...')
-        setActivePredictionId(null) // Limpar ID após confirmação
+      // VALIDAÇÃO: Verificar se o resultado está no formato correto
+      if (!realResult || typeof realResult.color !== 'string' || typeof realResult.number !== 'number') {
+        console.warn('⚠️ DADOS INVÁLIDOS: Resultado não tem formato esperado:', realResult);
+        return;
       }
 
-      // Atualizar estatísticas locais da interface
+      // Normalizar cor para comparação
+      const normalizedResultColor = realResult.color.toLowerCase();
+      
+      // Verificar se há predição ativa para confirmação no sistema ML
+      if (activePredictionId) {
+        console.log(`🎯 CONFIRMANDO PREDIÇÃO ML: ${activePredictionId}`)
+        
+        try {
+          await predictionAccuracyService.confirmResult(
+            activePredictionId,
+            normalizedResultColor as 'red' | 'black' | 'white',
+            realResult.number
+          )
+          console.log('✅ SISTEMA ML ATUALIZADO!')
+          setActivePredictionId(null)
+        } catch (mlError) {
+          console.warn('⚠️ Erro no sistema ML:', mlError)
+        }
+      }
+
+      // VERIFICAÇÃO PRINCIPAL: Atualizar estatísticas da interface
       setPredictionStats(prev => {
-        if (!prev.waitingForResult || !prev.lastPrediction) {
-          return prev; // Não há predição aguardando na interface
+        console.log(`🔍 ESTADO ATUAL:`, {
+          waitingForResult: prev.waitingForResult,
+          hasLastPrediction: !!prev.lastPrediction,
+          lastPredictionColor: prev.lastPrediction?.color,
+          realResultColor: normalizedResultColor
+        });
+
+        // VALIDAÇÃO: Verificar se há predição aguardando
+        if (!prev.waitingForResult) {
+          console.log('⚠️ SKIP: Não há predição aguardando resultado');
+          return prev;
         }
 
-        const isCorrect = prev.lastPrediction.color === realResult.color;
+        if (!prev.lastPrediction) {
+          console.log('⚠️ SKIP: Não há predição registrada');
+          return prev;
+        }
+
+        // COMPARAÇÃO: Verificar se acertou
+        const predictionColor = prev.lastPrediction.color.toLowerCase();
+        const isCorrect = predictionColor === normalizedResultColor;
+        
+        // CÁLCULOS: Atualizar estatísticas
         const newCorrect = prev.correctPredictions + (isCorrect ? 1 : 0);
         const newIncorrect = prev.incorrectPredictions + (isCorrect ? 0 : 1);
         const newTotal = newCorrect + newIncorrect;
@@ -1291,10 +1326,9 @@ export default function TesteJogoPage() {
         const newStreak = isCorrect ? prev.streak + 1 : 0;
         const newMaxStreak = Math.max(newStreak, prev.maxStreak);
 
-        console.log(isCorrect ? 
-          `✅ INTERFACE: ACERTOU! Predição: ${prev.lastPrediction.color} = Resultado: ${realResult.color} | Streak: ${newStreak}` :
-          `❌ INTERFACE: ERROU! Predição: ${prev.lastPrediction.color} ≠ Resultado: ${realResult.color} | Streak quebrada`
-        );
+        // LOG DETALHADO
+        console.log(`${isCorrect ? '✅ ACERTOU!' : '❌ ERROU!'} Predição: ${predictionColor} | Resultado: ${normalizedResultColor}`);
+        console.log(`📊 ESTATÍSTICAS: ${newCorrect}/${newTotal} acertos (${newAccuracy.toFixed(1)}%) | Streak: ${newStreak} | Recorde: ${newMaxStreak}`);
 
         const newStats = {
           ...prev,
@@ -1304,12 +1338,13 @@ export default function TesteJogoPage() {
           waitingForResult: false,
           streak: newStreak,
           maxStreak: newMaxStreak,
-          lastPrediction: null
+          lastPrediction: null // Limpar após verificação
         };
         
-        // Salvar estatísticas no localStorage
+        // PERSISTÊNCIA: Salvar no localStorage
         try {
           localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
+          console.log(`✅ ESTATÍSTICAS ATUALIZADAS E SALVAS!`);
         } catch (error) {
           console.warn('⚠️ Erro ao salvar estatísticas:', error);
         }
@@ -1317,18 +1352,18 @@ export default function TesteJogoPage() {
         return newStats;
       });
 
-      // Se sistema ML avançado está ativo, notificar sobre resultado
+      // SISTEMA ML: Atualizar modelos se ativo
       if (advancedMLPrediction) {
         try {
           const blazeDataPoint = {
             number: realResult.number,
-            color: realResult.color as 'red' | 'black' | 'white',
+            color: normalizedResultColor as 'red' | 'black' | 'white',
             timestamp: Date.now(),
             round_id: realResult.round_id || `real_${Date.now()}`
           }
           
           await advancedMLService.updateModelPerformance(advancedMLPrediction, blazeDataPoint)
-          console.log('🤖 MODELOS ML ATUALIZADOS com resultado real!')
+          console.log('🤖 MODELOS ML ATUALIZADOS!')
           
         } catch (mlError) {
           console.warn('⚠️ Erro atualizando modelos ML:', mlError)
@@ -1336,7 +1371,7 @@ export default function TesteJogoPage() {
       }
 
     } catch (error) {
-      console.error('❌ Erro verificando acerto da predição:', error)
+      console.error('❌ ERRO CRÍTICO na verificação de acurácia:', error)
     }
   };
 
@@ -1365,7 +1400,8 @@ export default function TesteJogoPage() {
         setLastRealData(data);
         setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
         
-        // Verificar acerto da predição
+        // VERIFICAÇÃO ÚNICA: Verificar acerto da predição (evitar duplicação)
+        console.log('📡 NOVO DADO REAL - Verificando acurácia...');
         checkPredictionAccuracy(data);
         
         // Adicionar ao sistema principal
@@ -1635,7 +1671,8 @@ export default function TesteJogoPage() {
       setLastRealData(data);
       setRealDataHistory(prev => [data, ...prev.slice(0, 19)]);
       
-      // Verificar acerto da predição
+      // VERIFICAÇÃO PRINCIPAL: Verificar acerto da predição
+      console.log('📡 EVENTO REAL DATA - Verificando acurácia...');
       checkPredictionAccuracy(data);
       
       // Adicionar ao sistema principal
@@ -5520,11 +5557,45 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 
                 {predictionStats.waitingForResult && (
                   <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-400">
-                    <div className="text-yellow-200 font-semibold animate-pulse">
+                    <div className="text-yellow-200 font-semibold animate-pulse mb-2">
                       ⏳ AGUARDANDO PRÓXIMO RESULTADO PARA VERIFICAR PALPITE...
                     </div>
+                    {predictionStats.lastPrediction && (
+                      <div className="text-xs text-yellow-300">
+                        📝 Palpite: {predictionStats.lastPrediction.color.toUpperCase()} | 
+                        🆔 ID: {predictionStats.lastPrediction.id?.slice(-8)} | 
+                        ⏰ {new Date(predictionStats.lastPrediction.timestamp).toLocaleTimeString()}
+                      </div>
+                    )}
                   </div>
                 )}
+                
+                {/* DEBUG: Status da verificação em tempo real */}
+                <div className="mt-4 bg-gray-800/50 p-3 rounded-lg border border-gray-600">
+                  <div className="text-gray-300 font-semibold text-sm mb-2">🔍 DEBUG - Status do Sistema:</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-gray-400">
+                      Predição ativa: <span className={predictionStats.waitingForResult ? 'text-yellow-300' : 'text-gray-500'}>
+                        {predictionStats.waitingForResult ? '✅ SIM' : '❌ NÃO'}
+                      </span>
+                    </div>
+                    <div className="text-gray-400">
+                      Última verificação: <span className="text-blue-300">
+                        {lastRealData ? new Date(lastRealData.timestamp || Date.now()).toLocaleTimeString() : 'Nenhuma'}
+                      </span>
+                    </div>
+                    <div className="text-gray-400">
+                      Dados reais conectados: <span className={isCapturingReal ? 'text-green-300' : 'text-red-300'}>
+                        {isCapturingReal ? '🟢 CONECTADO' : '🔴 DESCONECTADO'}
+                      </span>
+                    </div>
+                    <div className="text-gray-400">
+                      Total verificações: <span className="text-purple-300">
+                        {predictionStats.totalPredictions || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
