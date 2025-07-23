@@ -60,6 +60,16 @@ class BlazeRealDataService {
   private readonly PROXY_URL = '/api/blaze-proxy'
 
   /**
+   * MAPEAR COR DA BLAZE
+   */
+  private mapColor(roll: number, colorIndex: number): 'red' | 'black' | 'white' {
+    if (colorIndex === 0) return 'white';  // Branco (0)
+    if (roll >= 1 && roll <= 7) return 'red';    // Vermelho (1-7)
+    if (roll >= 8 && roll <= 14) return 'black';  // Preto (8-14)
+    return 'white'; // Fallback
+  }
+
+  /**
    * ESTRATÉGIA: DETECÇÃO INTELIGENTE DESENVOLVIMENTO VS PRODUÇÃO
    */
   async startCapturing(): Promise<void> {
@@ -112,14 +122,31 @@ class BlazeRealDataService {
       
       const result = await response.json()
       
-      if (!result.success || !result.data) {
+      let data;
+      
+      // Verificar formato da resposta (Vercel vs Vite proxy)
+      if (result.success && result.data) {
+        // Formato Vercel: {success: true, data: {...}}
+        data = result.data;
+      } else if (Array.isArray(result) && result.length > 0) {
+        // Formato Vite proxy: Array direto da Blaze
+        const game = result[0];
+        data = {
+          id: game.id,
+          number: game.roll,
+          color: this.mapColor(game.roll, game.color),
+          round_id: game.id,
+          timestamp_blaze: game.created_at,
+          source: 'blaze_proxy_vite'
+        };
+      } else {
         throw new Error('Proxy local retornou dados inválidos')
       }
       
       console.log('✅ PROXY LOCAL FUNCIONANDO! Dados reais da Blaze obtidos:')
-      console.log(`🎯 Número: ${result.data.number}`)
-      console.log(`🎨 Cor: ${result.data.color}`)
-      console.log(`🆔 ID: ${result.data.id}`)
+      console.log(`🎯 Número: ${data.number}`)
+      console.log(`🎨 Cor: ${data.color}`)
+      console.log(`🆔 ID: ${data.id}`)
       
              // Configurar para usar proxy local
        this.currentStrategy = 'PROXY_DADOS_REAIS'
@@ -685,17 +712,6 @@ class BlazeRealDataService {
       console.log('⚠️ Supabase indisponível:', error instanceof Error ? error.message : String(error))
     }
   }
-
-  /**
-   * MAPEAR COR DO JOGO
-   */
-  private mapColor(roll: number, color: any): 'red' | 'black' | 'white' {
-    if (color === 0) return 'white'
-    if (roll >= 1 && roll <= 7) return 'red'
-    if (roll >= 8 && roll <= 14) return 'black'
-    return 'white'
-  }
-
 
 
   /**
