@@ -148,12 +148,12 @@ class BlazeRealDataService {
       console.log(`🎨 Cor: ${data.color}`)
       console.log(`🆔 ID: ${data.id}`)
       
-             // Configurar para usar proxy local
-       this.currentStrategy = 'PROXY_DADOS_REAIS'
-      this.lastKnownRound = result.data.round_id
+      // Configurar para usar proxy local
+      this.currentStrategy = 'PROXY_DADOS_REAIS'
+      this.lastKnownRound = data.id || data.round_id
       
       // Processar primeiro dado
-      await this.processRealData(result.data)
+      await this.processRealData(data)
       
       // Iniciar polling
       this.startProxyPolling()
@@ -315,26 +315,28 @@ class BlazeRealDataService {
         throw new Error('Resposta não é JSON válido')
       }
       
-      if (!data || !data.round_id) {
+      // Verificar se dados são válidos (aceita id ou round_id)
+      const gameId = data.round_id || data.id
+      if (!data || !gameId) {
         console.log('⚠️ Dados processados são inválidos')
         return
       }
 
       // Verificar se é um jogo novo
-      if (this.lastKnownRound && this.lastKnownRound === data.round_id) {
+      if (this.lastKnownRound && this.lastKnownRound === gameId) {
         console.log(`🔄 Aguardando novo jogo... (atual: ${data.number})`)
         return
       }
 
       // NOVO JOGO REAL DETECTADO VIA PROXY!
       console.log(`🆕 NOVO JOGO REAL VIA PROXY!`)
-      console.log(`📊 ID: ${data.round_id}`)
+      console.log(`📊 ID: ${gameId}`)
       console.log(`🎯 Número: ${data.number}`)
       console.log(`🎨 Cor: ${data.color}`)
-      console.log(`⏰ Horário: ${data.timestamp_blaze}`)
+      console.log(`⏰ Horário: ${data.timestamp_blaze || 'agora'}`)
 
       await this.processRealData(data)
-      this.lastKnownRound = data.round_id
+      this.lastKnownRound = gameId
       
       // Emitir evento para interface
       if (typeof window !== 'undefined') {
@@ -372,29 +374,42 @@ class BlazeRealDataService {
    */
   private async processRealData(data: BlazeRealData): Promise<void> {
     try {
+      // Garantir que round_id esteja definido
+      const roundId = data.round_id || data.id
+      if (!roundId) {
+        console.log('❌ Dados inválidos: ID não encontrado')
+        return
+      }
+
       // Verificar se já existe este round_id
       const { data: existing } = await supabase
         .from('blaze_real_data')
         .select('id')
-        .eq('round_id', data.round_id)
+        .eq('round_id', roundId)
         .single()
 
       if (existing) {
-        console.log(`⚠️ Round ${data.round_id} já existe`)
+        console.log(`⚠️ Round ${roundId} já existe`)
         return
+      }
+
+      // Normalizar dados para salvar
+      const normalizedData = {
+        ...data,
+        round_id: roundId
       }
 
       // Salvar no Supabase
       const { error } = await supabase
         .from('blaze_real_data')
-        .insert(data)
+        .insert(normalizedData)
 
       if (error) {
         console.log('❌ Erro salvando no Supabase:', error)
         return
       }
 
-      console.log(`✅ DADOS REAIS SALVOS: ${data.number} (${data.color})`)
+      console.log(`✅ DADOS REAIS SALVOS: ${normalizedData.number} (${normalizedData.color})`)
 
       // Emitir evento para a interface
       this.emitRealData(data)
