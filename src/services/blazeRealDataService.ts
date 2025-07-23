@@ -1,14 +1,34 @@
+/**
+ * 🎯 BLAZE REAL DATA SERVICE - ClipsForge Pro
+ * 
+ * Serviço para captura de dados reais da Blaze em tempo real
+ * Múltiplas estratégias: Chromium > Proxy > Direct API
+ * 
+ * @version 3.0.0 - CHROMIUM INTEGRATION
+ * @author ClipsForge Team
+ */
+
 import { supabase } from '../lib/supabase'
+
+// ===== TYPES =====
 
 interface BlazeRealData {
   id?: string
+  round_id?: string
   number: number
   color: 'red' | 'black' | 'white'
-  round_id: string
-  timestamp_blaze: string
-  timestamp_captured?: string
+  timestamp_blaze?: string
   source: string
-  created_at?: string
+}
+
+interface ChromiumCaptureResult {
+  numero: number
+  cor: number
+  corNome: 'WHITE' | 'RED' | 'BLACK'
+  corEmoji: '⚪' | '🔴' | '⚫'
+  id: string
+  timestamp: string
+  url: string
 }
 
 interface SystemPrediction {
@@ -48,6 +68,8 @@ interface SystemPerformance {
   last_updated: string
 }
 
+// ===== SERVICE CLASS =====
+
 class BlazeRealDataService {
   private isCapturing: boolean = false
   private currentStrategy: string = 'DESCONECTADO'
@@ -55,9 +77,35 @@ class BlazeRealDataService {
   private lastKnownRound: string | null = null
   private currentProxy: string | null = null
   private listeners: Array<(update: any) => void> = []
+  private chromiumAvailable: boolean = false
   
   // URL do nosso proxy local
   private readonly PROXY_URL = '/api/blaze-proxy'
+
+  constructor() {
+    // Verificar se Chromium está disponível
+    this.checkChromiumAvailability()
+  }
+
+  /**
+   * VERIFICAR DISPONIBILIDADE DO CHROMIUM
+   */
+  private async checkChromiumAvailability(): Promise<void> {
+    try {
+      // Verificar se o script Chromium existe
+      const response = await fetch('/scripts/blaze-chrome-capture.cjs', { method: 'HEAD' })
+      this.chromiumAvailable = response.ok
+      
+      if (this.chromiumAvailable) {
+        console.log('✅ CHROMIUM: Estratégia de captura avançada disponível')
+      } else {
+        console.log('⚠️ CHROMIUM: Não disponível, usando estratégias alternativas')
+      }
+    } catch (error) {
+      this.chromiumAvailable = false
+      console.log('⚠️ CHROMIUM: Verificação falhou, usando estratégias alternativas')
+    }
+  }
 
   /**
    * MAPEAR COR DA BLAZE
@@ -70,7 +118,7 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIA: DETECÇÃO INTELIGENTE DESENVOLVIMENTO VS PRODUÇÃO
+   * ESTRATÉGIA: DETECÇÃO INTELIGENTE COM CHROMIUM PRIORITÁRIO
    */
   async startCapturing(): Promise<void> {
     if (this.isCapturing) {
@@ -80,7 +128,14 @@ class BlazeRealDataService {
 
     this.isCapturing = true
     
-    // Detectar ambiente
+    // Prioridade 1: Chromium (mais confiável)
+    if (this.chromiumAvailable) {
+      console.log('🚀 CHROMIUM: Usando captura avançada via navegador...')
+      await this.tryChromiumCapture()
+      return
+    }
+    
+    // Prioridade 2: Estratégias por ambiente
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     
     if (isDevelopment) {
@@ -697,7 +752,7 @@ class BlazeRealDataService {
        await this.saveBlazeDataToSupabase(blazeData)
       
       // Atualizar controle
-      this.lastKnownRound = blazeData.round_id
+      this.lastKnownRound = blazeData.round_id || null
       
     } catch (error) {
       console.error('❌ Erro processando dados:', error instanceof Error ? error.message : String(error))
@@ -729,6 +784,150 @@ class BlazeRealDataService {
     }
   }
 
+  /**
+   * NOVA ESTRATÉGIA: CAPTURA VIA CHROMIUM
+   */
+  private async tryChromiumCapture(): Promise<void> {
+    try {
+      console.log('🎯 CHROMIUM: Iniciando captura via navegador...')
+      
+      // Fazer requisição ao nosso endpoint que executa o script Chromium
+      const response = await fetch('/api/chromium-capture', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'capture_blaze' })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Chromium capture failed: ${response.status}`)
+      }
+      
+      const result: ChromiumCaptureResult = await response.json()
+      
+      // Converter para formato padrão
+      const data: BlazeRealData = {
+        id: result.id,
+        round_id: result.id,
+        number: result.numero,
+        color: result.corNome.toLowerCase() as 'red' | 'black' | 'white',
+        timestamp_blaze: result.timestamp,
+        source: 'chromium_capture'
+      }
+      
+      console.log('✅ CHROMIUM: Dados capturados com sucesso!')
+      console.log(`🎯 Número: ${data.number}`)
+      console.log(`🎨 Cor: ${data.color}`)
+      console.log(`🆔 ID: ${data.id}`)
+      console.log(`⏰ Timestamp: ${data.timestamp_blaze}`)
+      
+             // Configurar estratégia e processar dados
+       this.currentStrategy = 'CHROMIUM_REAL_TIME'
+       this.lastKnownRound = data.id || null
+      
+      // Processar primeiro dado
+      await this.processRealData(data)
+      
+      // Iniciar polling via Chromium
+      this.startChromiumPolling()
+      
+    } catch (error) {
+      console.error('❌ CHROMIUM FALHOU:', error instanceof Error ? error.message : String(error))
+      console.log('🔄 FALLBACK: Tentando estratégias alternativas...')
+      
+      // Fallback para estratégias tradicionais
+      this.chromiumAvailable = false
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      
+      if (isDevelopment) {
+        await this.tryDevelopmentStrategies()
+      } else {
+        await this.testProxyConnection()
+      }
+    }
+  }
+
+  /**
+   * POLLING VIA CHROMIUM
+   */
+  private startChromiumPolling(): void {
+    console.log('🚀 Iniciando polling via Chromium a cada 15 segundos...')
+    
+    // Polling a cada 15 segundos (Chromium é mais pesado)
+    this.pollingInterval = setInterval(() => {
+      this.checkViaChromium()
+    }, 15000)
+  }
+
+  /**
+   * VERIFICAR VIA CHROMIUM
+   */
+  private async checkViaChromium(): Promise<void> {
+    try {
+      const response = await fetch('/api/chromium-capture', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'capture_blaze' })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Chromium polling failed: ${response.status}`)
+      }
+
+      const result: ChromiumCaptureResult = await response.json()
+      
+      // Verificar se é um jogo novo
+      if (this.lastKnownRound && this.lastKnownRound === result.id) {
+        console.log(`🔄 Aguardando novo jogo... (atual: ${result.numero})`)
+        return
+      }
+
+      // NOVO JOGO REAL DETECTADO VIA CHROMIUM!
+      console.log(`🆕 NOVO JOGO REAL VIA CHROMIUM!`)
+      console.log(`�� ID: ${result.id}`)
+      console.log(`🎯 Número: ${result.numero}`)
+      console.log(`🎨 Cor: ${result.corNome}`)
+      console.log(`⏰ Horário: ${result.timestamp}`)
+
+      // Converter para formato padrão
+      const data: BlazeRealData = {
+        id: result.id,
+        round_id: result.id,
+        number: result.numero,
+        color: result.corNome.toLowerCase() as 'red' | 'black' | 'white',
+        timestamp_blaze: result.timestamp,
+        source: 'chromium_polling'
+      }
+
+             await this.processRealData(data)
+       this.lastKnownRound = result.id || null
+      
+      // Emitir evento para interface
+      if (typeof window !== 'undefined') {
+        const realDataEvent = new CustomEvent('blazeRealData', { 
+          detail: data
+        });
+        window.dispatchEvent(realDataEvent);
+        console.log('📡 Evento blazeRealData emitido (Chromium):', data);
+      }
+
+    } catch (error) {
+      console.log('❌ ERRO CHROMIUM POLLING:', error instanceof Error ? error.message : String(error))
+      console.log('🔄 FALLBACK: Voltando para estratégias tradicionais...')
+      
+      // Fallback para proxy tradicional
+      this.stopCapturing()
+      this.chromiumAvailable = false
+      
+      // Reiniciar com estratégias tradicionais
+      setTimeout(() => {
+        this.startCapturing()
+      }, 5000)
+    }
+  }
 
   /**
    * LIDAR COM ERRO FATAL
