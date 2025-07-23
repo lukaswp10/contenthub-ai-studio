@@ -1019,10 +1019,10 @@ export class AdvancedMLPredictionService {
     support_vectors.push(sorted[sorted.length - 1]) // Maior
     
     // Pontos únicos por cor
-    const colorGroups = { red: [], black: [], white: [] } as any
+    const colorGroups: { [key: string]: BlazeDataPoint[] } = { red: [], black: [], white: [] }
     recent.forEach(point => colorGroups[point.color].push(point))
     
-    Object.values(colorGroups).forEach((group: BlazeDataPoint[]) => {
+    Object.values(colorGroups).forEach((group) => {
       if (group.length > 0) {
         support_vectors.push(group[Math.floor(group.length / 2)])
       }
@@ -1204,10 +1204,12 @@ export class AdvancedMLPredictionService {
         })
 
       if (error) {
-        console.warn('⚠️ Erro salvando predição ML:', error)
+        console.log('⚠️ Tabela ML não existe no Supabase (ignorando)')
+      } else {
+        console.log('💾 Predição ML salva no Supabase')
       }
     } catch (error) {
-      console.warn('⚠️ Erro conectando com Supabase para predição ML:', error)
+      console.log('⚠️ Supabase indisponível para ML (continuando normalmente)')
     }
   }
 

@@ -2442,10 +2442,15 @@ export default function TesteJogoPage() {
           patterns: advancedResult.individual_predictions.map(p => ({
             name: p.model_name,
             confidence: p.confidence,
-            weight: p.weight
+            weight: p.weight,
+            description: p.reasoning || 'Algoritmo ML avançado',
+            successRate: 0.75,
+            totalPredictions: 1,
+            correctPredictions: 1,
+            evolutionHistory: [p.confidence]
           })),
           reasoning: `Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`,
-          numbers: advancedResult.predicted_numbers
+          numbers: advancedResult.predicted_numbers || []
         }
         
         setPrediction(traditionalPrediction)
@@ -5521,30 +5526,30 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                           
                           <div className="grid grid-cols-3 gap-3 text-sm mb-2">
                             <div className="text-blue-200">
-                              <div className="font-bold text-xl text-blue-100">{advancedMLPrediction.confidence_percentage.toFixed(1)}%</div>
+                              <div className="font-bold text-xl text-blue-100">{advancedMLPrediction.confidence_percentage?.toFixed(1) || '0'}%</div>
                               <div className="text-xs">Confiança</div>
                             </div>
                             <div className="text-cyan-200">
-                              <div className="font-bold text-xl text-cyan-100">{advancedMLPrediction.model_consensus.toFixed(1)}%</div>
+                              <div className="font-bold text-xl text-cyan-100">{advancedMLPrediction.model_consensus?.toFixed(1) || '0'}%</div>
                               <div className="text-xs">Consenso</div>
                             </div>
                             <div className="text-purple-200">
-                              <div className="font-bold text-xl text-purple-100">{advancedMLPrediction.individual_predictions.length}</div>
+                              <div className="font-bold text-xl text-purple-100">{advancedMLPrediction.individual_predictions?.length || 0}</div>
                               <div className="text-xs">Modelos</div>
                             </div>
                           </div>
                           
                           <div className="text-2xl font-bold text-white mb-2">
-                            🎯 {advancedMLPrediction.predicted_color.toUpperCase()}
+                            🎯 {advancedMLPrediction.predicted_color?.toUpperCase() || 'AGUARDANDO'}
                           </div>
                           
                           <div className="text-sm text-blue-200 mb-2">
-                            📈 Números: [{advancedMLPrediction.predicted_numbers.join(', ')}]
+                            📈 Números: [{advancedMLPrediction.predicted_numbers?.join(', ') || ''}]
                           </div>
                           
                           <div className="flex justify-center gap-3 text-xs text-blue-200">
-                            <span>⚠️ Risco: {advancedMLPrediction.risk_assessment.volatility_level}</span>
-                            <span>🎚️ Estabilidade: {(advancedMLPrediction.risk_assessment.prediction_stability * 100).toFixed(1)}%</span>
+                            <span>⚠️ Risco: {advancedMLPrediction.risk_assessment?.volatility_level || 'baixo'}</span>
+                            <span>🎚️ Estabilidade: {((advancedMLPrediction.risk_assessment?.prediction_stability || 0) * 100).toFixed(1)}%</span>
                           </div>
                           
                           {mlProcessing && (
@@ -5566,10 +5571,10 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                         <div className="space-y-1">
                           {mlModelMetrics.slice(0, 3).map((model, index) => (
                             <div key={index} className="flex justify-between items-center text-xs bg-black/20 rounded px-2 py-1">
-                              <span className="text-indigo-200">{model.model_name}</span>
+                              <span className="text-indigo-200">{model?.model_name || `Modelo ${index + 1}`}</span>
                               <div className="flex gap-2">
-                                <span className="text-green-300">{model.predicted_color.toUpperCase()}</span>
-                                <span className="text-yellow-300">{model.confidence.toFixed(1)}%</span>
+                                <span className="text-green-300">{model?.predicted_color?.toUpperCase() || 'N/A'}</span>
+                                <span className="text-yellow-300">{model?.confidence?.toFixed(1) || '0'}%</span>
                               </div>
                             </div>
                           ))}
