@@ -912,16 +912,26 @@ export default function TesteJogoPage() {
   const [realDataHistory, setRealDataHistory] = useState<any[]>([]);
   const [lastRealData, setLastRealData] = useState<any>(null);
 
-  // Estados para estatísticas de predições
-  const [predictionStats, setPredictionStats] = useState({
-    totalPredictions: 0,
-    correctPredictions: 0,
-    incorrectPredictions: 0,
-    accuracy: 0,
-    lastPrediction: null as any,
-    waitingForResult: false,
-    streak: 0,
-    maxStreak: 0
+  // Estados para estatísticas de predições - PERSISTENTE
+  const [predictionStats, setPredictionStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('blaze_prediction_stats')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('⚠️ Erro ao carregar estatísticas salvas:', error)
+    }
+    return {
+      totalPredictions: 0,
+      correctPredictions: 0,
+      incorrectPredictions: 0,
+      accuracy: 0,
+      lastPrediction: null as any,
+      waitingForResult: false,
+      streak: 0,
+      maxStreak: 0
+    }
   });
 
   // Estados para sistema ML avançado
@@ -1225,8 +1235,8 @@ export default function TesteJogoPage() {
 
   // Registrar nova predição
   const registerPrediction = (prediction: PredictionResult) => {
-    setPredictionStats(prev => ({
-      ...prev,
+    const newStats = {
+      ...predictionStats,
       lastPrediction: {
         color: prediction.color,
         numbers: prediction.expectedNumbers,
@@ -1234,8 +1244,18 @@ export default function TesteJogoPage() {
         timestamp: Date.now()
       },
       waitingForResult: true,
-      totalPredictions: prev.totalPredictions + 1
-    }));
+      totalPredictions: predictionStats.totalPredictions + 1
+    };
+    
+    setPredictionStats(newStats);
+    
+    // Salvar no localStorage
+    try {
+      localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
+    } catch (error) {
+      console.warn('⚠️ Erro ao salvar estatísticas:', error);
+    }
+    
     console.log(`📝 Predição registrada: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%)`);
   };
 
@@ -1276,7 +1296,7 @@ export default function TesteJogoPage() {
           `❌ INTERFACE: ERROU! Predição: ${prev.lastPrediction.color} ≠ Resultado: ${realResult.color} | Streak quebrada`
         );
 
-        return {
+        const newStats = {
           ...prev,
           correctPredictions: newCorrect,
           incorrectPredictions: newIncorrect,
@@ -1286,6 +1306,15 @@ export default function TesteJogoPage() {
           maxStreak: newMaxStreak,
           lastPrediction: null
         };
+        
+        // Salvar estatísticas no localStorage
+        try {
+          localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
+        } catch (error) {
+          console.warn('⚠️ Erro ao salvar estatísticas:', error);
+        }
+        
+        return newStats;
       });
 
       // Se sistema ML avançado está ativo, notificar sobre resultado
@@ -1811,9 +1840,23 @@ export default function TesteJogoPage() {
       }
     }
     
-    // Números mais prováveis baseados na cor predita
-    const expectedNumbers = predictedColor === 'white' ? [0] : 
-      predictedColor === 'red' ? [1,2,3,4,5,6,7] : [8,9,10,11,12,13,14]
+    // ✅ CORRIGIR: Retornar apenas TOP 1 número da cor predita
+    let expectedNumbers: number[]
+    if (predictedColor === 'white') {
+      expectedNumbers = [0]
+    } else if (predictedColor === 'red') {
+      // Para vermelho, escolher número menos frequente entre 1-7
+      const redRange = [1,2,3,4,5,6,7]
+      const redFreqs = redRange.map(n => recent.filter(r => r.number === n).length)
+      const minFreqIndex = redFreqs.indexOf(Math.min(...redFreqs))
+      expectedNumbers = [redRange[minFreqIndex]]
+    } else {
+      // Para preto, escolher número menos frequente entre 8-14  
+      const blackRange = [8,9,10,11,12,13,14]
+      const blackFreqs = blackRange.map(n => recent.filter(r => r.number === n).length)
+      const minFreqIndex = blackFreqs.indexOf(Math.min(...blackFreqs))
+      expectedNumbers = [blackRange[minFreqIndex]]
+    }
      
     return {
       color: predictedColor,
@@ -1822,10 +1865,10 @@ export default function TesteJogoPage() {
         `Análise de ${data.length} números com Web Workers`,
         `Tendência recente: R:${colorCounts.red} B:${colorCounts.black} W:${colorCounts.white}`,
         `Algoritmos ML indicam: ${predictedColor.toUpperCase()}`,
-        `Números prováveis: ${expectedNumbers.slice(0, 3).join(', ')}`
+        `Número mais provável: ${expectedNumbers[0]}`
       ],
       patterns: mlPatterns.current,
-      expectedNumbers: expectedNumbers.slice(0, 3),
+      expectedNumbers: expectedNumbers,
       probabilities: {
         red: predictedColor === 'red' ? confidence : (1 - confidence) / 2,
         black: predictedColor === 'black' ? confidence : (1 - confidence) / 2,
@@ -2644,7 +2687,9 @@ export default function TesteJogoPage() {
             evolutionHistory: [p.confidence]
           })),
           reasoning: [`Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`],
-          expectedNumbers: advancedResult.predicted_numbers || [],
+          expectedNumbers: advancedResult.predicted_numbers ? [advancedResult.predicted_numbers[0]] : 
+            (advancedResult.predicted_color === 'red' ? [1] : 
+             advancedResult.predicted_color === 'black' ? [8] : [0]),
           // Gerar probabilidades baseadas na predição
           probabilities: {
             red: advancedResult.predicted_color === 'red' ? advancedResult.confidence_percentage / 100 : 
@@ -2696,12 +2741,19 @@ export default function TesteJogoPage() {
         console.log(`🔧 MODO BÁSICO+: ${dataToAnalyze.length} registros`)
       }
       
-      // 🕐 DELAY REALÍSTICO baseado no volume de dados para análise profunda
-      const processingTime = Math.min(5000, Math.max(1500, dataToAnalyze.length * 2))
-      console.log(`⏳ Processando ${dataToAnalyze.length} registros - Tempo estimado: ${(processingTime/1000).toFixed(1)}s`)
-      console.log(`🧠 Iniciando análise com 8 algoritmos ML em paralelo...`)
+      // 🕐 DELAY INTELIGENTE: 4-6 segundos para análise profunda baseado na complexidade
+      const baseDelay = 4000; // 4 segundos base
+      const complexityFactor = Math.min(2000, dataToAnalyze.length * 1); // Até 2s extra baseado na quantidade de dados
+      const analysisDelay = baseDelay + complexityFactor;
       
-      await new Promise(resolve => setTimeout(resolve, processingTime))
+      console.log(`⏳ ANÁLISE PROFUNDA: ${dataToAnalyze.length} registros - Tempo de análise: ${(analysisDelay/1000).toFixed(1)}s`)
+      console.log(`🧠 Aguardando ${(analysisDelay/1000).toFixed(1)} segundos para análise ML completa...`)
+      
+      // Mostrar estado de loading para o usuário
+      setIsProcessing(true);
+      
+      // Delay inteligente para análise mais precisa
+      await new Promise(resolve => setTimeout(resolve, analysisDelay))
       
       // Executar todos os algoritmos em paralelo para máxima precisão
       const [
@@ -3483,16 +3535,20 @@ export default function TesteJogoPage() {
         return false
       })
       
-      // Se não temos números válidos, usar padrão
+      // Se não temos números válidos, usar padrão CORRETO
       if (validatedNumbers.length === 0) {
         console.log(`⚠️ ERRO: Números inválidos para ${color}, usando padrão`)
-        if (color === 'red') return [1, 2, 3]
-        if (color === 'black') return [8, 9, 10]
-        if (color === 'white') return [0]
+        if (color === 'red') return [1] // TOP 1 vermelho
+        if (color === 'black') return [8] // TOP 1 preto  
+        if (color === 'white') return [0] // TOP 1 branco
       }
       
-      console.log(`🔍 DEBUG: Retornando números VALIDADOS [${validatedNumbers.join(', ')}] para cor ${color}`)
-      return validatedNumbers.slice(0, 3) // Máximo 3 números
+      // ✅ RETORNAR APENAS O TOP 1 (conforme solicitado)
+      const finalNumber = validatedNumbers.length > 0 ? [validatedNumbers[0]] : 
+        (color === 'red' ? [1] : color === 'black' ? [8] : [0])
+      
+      console.log(`🔍 DEBUG: Retornando TOP 1 número [${finalNumber[0]}] para cor ${color}`)
+      return finalNumber
   }
 
   const findLastSeen = (number: number, data: DoubleResult[]) => {
@@ -5090,8 +5146,8 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
               <div className="space-y-4">
                 {prediction ? (
                   <div className="bg-gray-900/50 p-4 rounded-lg border border-orange-500/50">
-                    <div className="text-center mb-3">
-                      <div className="text-sm text-orange-300 mb-1">🎯 PRÓXIMA COR PREDITA:</div>
+                    <div className="text-center mb-4">
+                      <div className="text-sm text-orange-300 mb-2">🎯 PRÓXIMA COR PREDITA:</div>
                       <div className={`text-4xl font-bold px-6 py-3 rounded-lg inline-block ${
                         prediction.color === 'red' ? 'bg-red-600 text-white' :
                         prediction.color === 'black' ? 'bg-gray-700 text-white' :
@@ -5104,23 +5160,69 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       </div>
                     </div>
                     
-                    {/* Números Esperados */}
+                    {/* TODAS AS PROBABILIDADES COM BARRAS VISUAIS */}
+                    <div className="mb-4">
+                      <div className="text-sm text-orange-300 mb-3 text-center">📊 PROBABILIDADES COMPLETAS:</div>
+                      <div className="space-y-2">
+                        {/* RED */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 text-sm text-red-300 font-semibold">🔴 RED</div>
+                          <div className="flex-1 bg-gray-800 rounded-full h-6 relative overflow-hidden">
+                            <div 
+                              className="bg-red-600 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${((prediction?.probabilities?.red || 0) * 100)}%` }}
+                            ></div>
+                            <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+                              {((prediction?.probabilities?.red || 0) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* BLACK */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 text-sm text-gray-300 font-semibold">⚫ BLACK</div>
+                          <div className="flex-1 bg-gray-800 rounded-full h-6 relative overflow-hidden">
+                            <div 
+                              className="bg-gray-600 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${((prediction?.probabilities?.black || 0) * 100)}%` }}
+                            ></div>
+                            <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+                              {((prediction?.probabilities?.black || 0) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* WHITE */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 text-sm text-white font-semibold">⚪ WHITE</div>
+                          <div className="flex-1 bg-gray-800 rounded-full h-6 relative overflow-hidden">
+                            <div 
+                              className="bg-white h-full rounded-full transition-all duration-300"
+                              style={{ width: `${((prediction?.probabilities?.white || 0) * 100)}%` }}
+                            ></div>
+                            <div className="absolute inset-0 flex items-center justify-center text-gray-900 text-xs font-bold">
+                              {((prediction?.probabilities?.white || 0) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* NÚMERO MAIS PROVÁVEL (TOP 1) */}
                     {prediction.expectedNumbers && prediction.expectedNumbers.length > 0 && (
                       <div className="text-center">
-                        <div className="text-sm text-orange-300 mb-2">🎲 Números Mais Prováveis:</div>
-                        <div className="flex gap-2 justify-center">
-                          {prediction.expectedNumbers.slice(0, 3).map((num, index) => (
-                            <div
-                              key={index}
-                              className={`w-12 h-12 rounded-lg flex items-center justify-center text-lg font-bold ${
-                                num === 0 ? 'bg-white text-black' :
-                                num <= 7 ? 'bg-red-600 text-white' :
-                                'bg-gray-700 text-white'
-                              }`}
-                            >
-                              {num}
-                            </div>
-                          ))}
+                        <div className="text-sm text-orange-300 mb-2">🎲 NÚMERO MAIS PROVÁVEL:</div>
+                        <div className="flex justify-center">
+                          <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold border-2 ${
+                            prediction.expectedNumbers[0] === 0 ? 'bg-white text-black border-gray-300' :
+                            prediction.expectedNumbers[0] <= 7 ? 'bg-red-600 text-white border-red-400' :
+                            'bg-gray-700 text-white border-gray-500'
+                          }`}>
+                            {prediction.expectedNumbers[0]}
+                          </div>
+                        </div>
+                        <div className="text-xs text-orange-200 mt-1">
+                          Baseado em análise ML de {results.length} números
                         </div>
                       </div>
                     )}
