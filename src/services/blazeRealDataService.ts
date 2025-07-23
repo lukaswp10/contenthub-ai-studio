@@ -99,8 +99,8 @@ class BlazeRealDataService {
     try {
       console.log('🎯 DESENVOLVIMENTO: Usando API proxy local...')
       
-      // Usar o proxy da API local criado especificamente para isso
-      const LOCAL_PROXY_URL = `${window.location.origin}/api/blaze-proxy`
+      // Usar o proxy da API local criado especificamente para isso (sempre porta 8080)
+      const LOCAL_PROXY_URL = `http://localhost:8080/api/blaze-proxy`
       
       console.log(`📡 Testando proxy local: ${LOCAL_PROXY_URL}`)
       
@@ -271,8 +271,9 @@ class BlazeRealDataService {
    */
   private async checkViaProxy(): Promise<void> {
     try {
-      // Usar proxy local para desenvolvimento e produção
-      const proxyUrl = `${window.location.origin}${this.PROXY_URL}`
+      // Usar proxy local para desenvolvimento e produção (sempre porta 8080 em dev)
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const proxyUrl = isDevelopment ? `http://localhost:8080${this.PROXY_URL}` : `${window.location.origin}${this.PROXY_URL}`
       
       const response = await fetch(proxyUrl, {
         method: 'GET',
