@@ -557,34 +557,111 @@ class BlazeRealDataService {
   }
 
   /**
-   * GERAR PREDIÇÃO BASEADA EM DADOS REAIS
+   * GERAR PREDIÇÃO BASEADA EM DADOS REAIS - SISTEMA ML AVANÇADO
    */
   private async makePredictionBasedOnRealData(): Promise<void> {
     try {
-      // Buscar últimos 20 dados reais
-      const { data: recentData } = await supabase
+      // Buscar dados históricos suficientes para ML avançado
+      const { data: historicalData } = await supabase
         .from('blaze_real_data')
         .select('*')
         .order('timestamp_blaze', { ascending: false })
-        .limit(20)
+        .limit(100) // Mais dados para ML avançado
 
-      if (!recentData || recentData.length < 5) {
-        console.log('⚠️ Dados insuficientes para predição automática (mínimo 5 números)')
+      if (!historicalData || historicalData.length < 20) {
+        console.log('⚠️ Dados insuficientes para predição ML avançada (mínimo 20 números)')
+        await this.fallbackToSimplePrediction(historicalData || [])
         return
       }
 
-      // Análise simples de frequência
-      const colorCounts = { red: 0, black: 0, white: 0 }
-      const numberCounts: { [key: number]: number } = {}
+      console.log('🚀 Iniciando predição com ML avançado...')
 
+      // Tentar usar sistema ML avançado
+      try {
+        const { advancedMLService } = await import('./advancedMLPredictionService')
+        
+        // Converter dados para formato ML
+        const blazeDataPoints = historicalData.map(item => ({
+          number: item.number,
+          color: item.color as 'red' | 'black' | 'white',
+          timestamp: new Date(item.timestamp_blaze || item.created_at).getTime(),
+          round_id: item.round_id
+        })).reverse() // Ordem cronológica
+
+        // Executar predição avançada
+        const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints)
+
+        // Converter para formato sistema
+        const prediction: SystemPrediction = {
+          predicted_color: advancedPrediction.predicted_color,
+          predicted_numbers: advancedPrediction.predicted_numbers,
+          confidence_percentage: Math.round(advancedPrediction.confidence_percentage),
+          ml_algorithms_used: {
+            ensemble_learning: true,
+            lstm: true,
+            xgboost: true,
+            random_forest: true,
+            svm: true,
+            transformer: true,
+            gru: true,
+            model_consensus: advancedPrediction.model_consensus,
+            individual_models: advancedPrediction.individual_predictions.length,
+            feature_engineering: true,
+            fourier_analysis: true,
+            technical_indicators: true,
+            risk_assessment: advancedPrediction.risk_assessment,
+            meta_analysis: advancedPrediction.meta_analysis
+          },
+          data_size_used: blazeDataPoints.length,
+          round_target: 'next'
+        }
+
+        // Salvar predição avançada
+        const { error } = await supabase
+          .from('system_predictions')
+          .insert(prediction)
+
+        if (!error) {
+          console.log(`🤖 PREDIÇÃO ML AVANÇADA: ${prediction.predicted_color} (${prediction.confidence_percentage}%)`)
+          console.log(`📊 Consensus: ${advancedPrediction.model_consensus}% | Modelos: ${advancedPrediction.individual_predictions.length}`)
+          console.log(`🎯 Números: [${prediction.predicted_numbers.join(', ')}]`)
+          console.log(`⚠️ Risco: ${advancedPrediction.risk_assessment.volatility_level} | Estabilidade: ${(advancedPrediction.risk_assessment.prediction_stability * 100).toFixed(1)}%`)
+        }
+
+        // Salvar predição detalhada para análise
+        await this.saveAdvancedPredictionDetails(advancedPrediction)
+
+              } catch (mlError) {
+          console.warn('⚠️ Sistema ML avançado falhou, usando fallback:', mlError)
+          await this.fallbackToSimplePrediction(historicalData || [])
+        }
+
+    } catch (error) {
+      console.log('❌ Erro gerando predição:', error)
+    }
+  }
+
+  /**
+   * FALLBACK: PREDIÇÃO SIMPLES QUANDO ML AVANÇADO FALHA
+   */
+  private async fallbackToSimplePrediction(data: any[]): Promise<void> {
+    try {
+      const recentData = data?.slice(0, 20) || []
+
+      if (recentData.length < 5) {
+        console.log('⚠️ Dados insuficientes para qualquer predição')
+        return
+      }
+
+      // Análise simples de frequência (sistema original)
+      const colorCounts = { red: 0, black: 0, white: 0 }
+      
       recentData.forEach(item => {
         if (item.color in colorCounts) {
           colorCounts[item.color as keyof typeof colorCounts]++
         }
-        numberCounts[item.number] = (numberCounts[item.number] || 0) + 1
       })
 
-      // Predição baseada na cor menos frequente
       const totalGames = recentData.length
       const colorPercentages = {
         red: (colorCounts.red / totalGames) * 100,
@@ -596,7 +673,6 @@ class BlazeRealDataService {
         colorPercentages[a] < colorPercentages[b] ? a : b
       )
 
-      // Números mais prováveis para a cor predita
       const numbersForColor = recentData
         .filter(item => item.color === leastFrequentColor)
         .map(item => item.number)
@@ -606,22 +682,64 @@ class BlazeRealDataService {
         predicted_color: leastFrequentColor,
         predicted_numbers: numbersForColor.length > 0 ? numbersForColor : [0],
         confidence_percentage: Math.round(100 - colorPercentages[leastFrequentColor]),
-        ml_algorithms_used: { frequency_analysis: true, real_data: recentData.length },
+        ml_algorithms_used: { 
+          frequency_analysis: true, 
+          real_data: recentData.length,
+          fallback_mode: true,
+          advanced_ml_failed: true
+        },
         data_size_used: recentData.length,
         round_target: 'next'
       }
 
-      // Salvar predição
       const { error } = await supabase
         .from('system_predictions')
         .insert(prediction)
 
       if (!error) {
-        console.log(`🤖 Predição baseada em dados reais: ${prediction.predicted_color} (${prediction.confidence_percentage}%)`)
+        console.log(`🤖 Predição simples (fallback): ${prediction.predicted_color} (${prediction.confidence_percentage}%)`)
       }
 
     } catch (error) {
-      console.log('❌ Erro gerando predição:', error)
+      console.log('❌ Erro na predição fallback:', error)
+    }
+  }
+
+  /**
+   * SALVAR DETALHES DA PREDIÇÃO AVANÇADA
+   */
+  private async saveAdvancedPredictionDetails(prediction: any): Promise<void> {
+    try {
+      // Salvar métricas detalhadas para análise
+      const detailedRecord = {
+        timestamp: new Date().toISOString(),
+        prediction_id: `adv_${Date.now()}`,
+        predicted_color: prediction.predicted_color,
+        confidence: prediction.confidence_percentage,
+        model_consensus: prediction.model_consensus,
+        individual_predictions: prediction.individual_predictions,
+        feature_importance: prediction.feature_importance,
+        risk_assessment: prediction.risk_assessment,
+        meta_analysis: prediction.meta_analysis,
+        volatility_level: prediction.risk_assessment.volatility_level,
+        pattern_strength: prediction.risk_assessment.pattern_strength,
+        prediction_stability: prediction.risk_assessment.prediction_stability,
+        ensemble_agreement: prediction.meta_analysis.ensemble_agreement,
+        model_diversity: prediction.meta_analysis.model_diversity
+      }
+
+      const { error } = await supabase
+        .from('ml_prediction_analytics')
+        .insert(detailedRecord)
+
+      if (error) {
+        console.warn('⚠️ Não foi possível salvar analytics ML:', error.message)
+      } else {
+        console.log('📊 Analytics ML salvos com sucesso')
+      }
+
+    } catch (error) {
+      console.warn('⚠️ Erro salvando analytics ML:', error)
     }
   }
 

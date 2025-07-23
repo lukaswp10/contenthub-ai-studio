@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import blazeRealDataService from '@/services/blazeRealDataService'
+import { advancedMLService } from '@/services/advancedMLPredictionService'
+import { predictionAccuracyService } from '@/services/predictionAccuracyService'
 
 // ===================================================================
 // INTERFACES E TIPOS - Sistema de Análise Massiva
@@ -917,6 +919,14 @@ export default function TesteJogoPage() {
     streak: 0,
     maxStreak: 0
   });
+
+  // Estados para sistema ML avançado
+  const [advancedMLPrediction, setAdvancedMLPrediction] = useState<any>(null)
+  const [mlModelMetrics, setMLModelMetrics] = useState<any[]>([])
+  const [mlInsights, setMLInsights] = useState<any>(null)
+  const [mlProcessing, setMLProcessing] = useState(false)
+  const [activePredictionId, setActivePredictionId] = useState<string | null>(null)
+
   const [isImportingHistorical, setIsImportingHistorical] = useState(false);
 
   // ===================================================================
@@ -2329,6 +2339,89 @@ export default function TesteJogoPage() {
    * Sistema de predição massiva com múltiplos algoritmos
    * Utiliza todos os padrões encontrados para gerar predições precisas
    */
+
+  /**
+   * ===================================================================
+   * SISTEMA ML AVANÇADO - ENSEMBLE LEARNING DE PONTA
+   * ===================================================================
+   */
+  const runAdvancedMLPrediction = async (resultsList: DoubleResult[]) => {
+    if (resultsList.length < 20) {
+      console.log('⚠️ Dados insuficientes para ML avançado (mínimo 20), usando sistema tradicional')
+      return null
+    }
+
+    setMLProcessing(true)
+    
+    try {
+      console.log('🚀 INICIANDO PREDIÇÃO ML AVANÇADA - ENSEMBLE LEARNING')
+      
+      // Converter dados para formato ML
+      const blazeDataPoints = resultsList.map(item => ({
+        number: item.number,
+        color: item.color as 'red' | 'black' | 'white',
+        timestamp: item.timestamp,
+        round_id: item.id
+      })).sort((a, b) => a.timestamp - b.timestamp) // Ordem cronológica
+
+      // Executar predição avançada
+      const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints)
+      setAdvancedMLPrediction(advancedPrediction)
+
+      // Registrar predição para monitoramento
+      const context = {
+        hour_of_day: new Date().getHours(),
+        day_of_week: new Date().getDay(),
+        volatility_level: advancedPrediction.risk_assessment.volatility_level,
+        recent_streak: calculateCurrentStreak(resultsList),
+        data_quality: Math.min(resultsList.length / 100, 1.0),
+        market_conditions: 'normal'
+      }
+
+      const predictionId = await predictionAccuracyService.registerPrediction(
+        advancedPrediction.predicted_color,
+        advancedPrediction.predicted_numbers,
+        advancedPrediction.confidence_percentage,
+        advancedPrediction.individual_predictions.map(p => p.model_id),
+        advancedPrediction.feature_importance,
+        context
+      )
+
+      setActivePredictionId(predictionId)
+
+      // Obter métricas dos modelos
+      const metrics = predictionAccuracyService.getCurrentMetrics()
+      setMLModelMetrics(advancedPrediction.individual_predictions)
+
+      console.log('✅ PREDIÇÃO ML AVANÇADA CONCLUÍDA:', {
+        color: advancedPrediction.predicted_color,
+        confidence: advancedPrediction.confidence_percentage,
+        consensus: advancedPrediction.model_consensus,
+        risk: advancedPrediction.risk_assessment.volatility_level,
+        models: advancedPrediction.individual_predictions.length
+      })
+
+      return advancedPrediction
+
+    } catch (error) {
+      console.error('❌ Erro no ML avançado:', error)
+      return null
+    } finally {
+      setMLProcessing(false)
+    }
+  }
+
+  const calculateCurrentStreak = (data: DoubleResult[]): number => {
+    if (data.length === 0) return 0
+    const latest = data[data.length - 1]
+    let streak = 1
+    for (let i = data.length - 2; i >= 0; i--) {
+      if (data[i].color === latest.color) streak++
+      else break
+    }
+    return streak
+  }
+
   const analyzePredictionMassive = async (resultsList: DoubleResult[]) => {
     if (resultsList.length < 10) return
 
@@ -2336,6 +2429,31 @@ export default function TesteJogoPage() {
     
     try {
       console.log(`🎯 ANÁLISE DE PREDIÇÃO MASSIVA INICIADA`)
+      
+      // PRIORIDADE 1: Tentar ML avançado primeiro
+      const advancedResult = await runAdvancedMLPrediction(resultsList)
+      if (advancedResult) {
+        console.log('✅ Usando predição ML avançada!')
+        
+        // Converter para formato tradicional para compatibilidade
+        const traditionalPrediction: PredictionResult = {
+          color: advancedResult.predicted_color,
+          confidence: advancedResult.confidence_percentage,
+          patterns: advancedResult.individual_predictions.map(p => ({
+            name: p.model_name,
+            confidence: p.confidence,
+            weight: p.weight
+          })),
+          reasoning: `Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`,
+          numbers: advancedResult.predicted_numbers
+        }
+        
+        setPrediction(traditionalPrediction)
+        setIsProcessing(false)
+        return
+      }
+      
+      console.log('⚠️ ML avançado não disponível, usando sistema tradicional...')
       
       const csvData = resultsList.filter(r => r.source === 'csv')
       const manualData = resultsList.filter(r => r.source === 'manual')
@@ -5391,6 +5509,79 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                         )}
                       </div>
                     </div>
+
+                    {/* Interface ML Avançado */}
+                    {advancedMLPrediction && (
+                      <div className="bg-gradient-to-r from-blue-600/80 to-cyan-600/80 rounded-lg p-4 border-2 border-blue-400">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                            <span className="text-blue-100 font-semibold">🧠 ML AVANÇADO - ENSEMBLE LEARNING</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-3 text-sm mb-2">
+                            <div className="text-blue-200">
+                              <div className="font-bold text-xl text-blue-100">{advancedMLPrediction.confidence_percentage.toFixed(1)}%</div>
+                              <div className="text-xs">Confiança</div>
+                            </div>
+                            <div className="text-cyan-200">
+                              <div className="font-bold text-xl text-cyan-100">{advancedMLPrediction.model_consensus.toFixed(1)}%</div>
+                              <div className="text-xs">Consenso</div>
+                            </div>
+                            <div className="text-purple-200">
+                              <div className="font-bold text-xl text-purple-100">{advancedMLPrediction.individual_predictions.length}</div>
+                              <div className="text-xs">Modelos</div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-2xl font-bold text-white mb-2">
+                            🎯 {advancedMLPrediction.predicted_color.toUpperCase()}
+                          </div>
+                          
+                          <div className="text-sm text-blue-200 mb-2">
+                            📈 Números: [{advancedMLPrediction.predicted_numbers.join(', ')}]
+                          </div>
+                          
+                          <div className="flex justify-center gap-3 text-xs text-blue-200">
+                            <span>⚠️ Risco: {advancedMLPrediction.risk_assessment.volatility_level}</span>
+                            <span>🎚️ Estabilidade: {(advancedMLPrediction.risk_assessment.prediction_stability * 100).toFixed(1)}%</span>
+                          </div>
+                          
+                          {mlProcessing && (
+                            <div className="text-xs text-yellow-300 mt-2 animate-pulse">
+                              🧠 Processando com 6 algoritmos ML...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Modelos ML Individuais */}
+                    {mlModelMetrics.length > 0 && (
+                      <div className="bg-gradient-to-r from-indigo-600/80 to-purple-600/80 rounded-lg p-3 border-2 border-indigo-400">
+                        <div className="text-center mb-2">
+                          <span className="text-indigo-100 font-semibold text-sm">🎯 MODELOS INDIVIDUAIS</span>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          {mlModelMetrics.slice(0, 3).map((model, index) => (
+                            <div key={index} className="flex justify-between items-center text-xs bg-black/20 rounded px-2 py-1">
+                              <span className="text-indigo-200">{model.model_name}</span>
+                              <div className="flex gap-2">
+                                <span className="text-green-300">{model.predicted_color.toUpperCase()}</span>
+                                <span className="text-yellow-300">{model.confidence.toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {mlModelMetrics.length > 3 && (
+                            <div className="text-xs text-gray-400 text-center">
+                              +{mlModelMetrics.length - 3} modelos adicionais
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Palpite Principal IA */}
                     <div className="bg-gradient-to-r from-purple-600/80 to-pink-600/80 rounded-lg p-4 border-2 border-purple-400">
