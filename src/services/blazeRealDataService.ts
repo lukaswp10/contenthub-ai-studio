@@ -138,7 +138,7 @@ class BlazeRealDataService {
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     
     if (isDevelopment) {
-      console.log('🚀 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS)...')
+      logThrottled('dev-proxy-init', '🚀 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS)...')
       await this.tryDevelopmentStrategies()
     } else {
       console.log('🚀 PRODUÇÃO: Usando proxy serverless...')
@@ -197,11 +197,8 @@ class BlazeRealDataService {
         throw new Error('Proxy local retornou dados inválidos')
       }
       
-      console.log('✅ PROXY LOCAL FUNCIONANDO! Dados reais da Blaze obtidos:')
-      console.log(`🎯 Número: ${data.number}`)
-      console.log(`🎨 Cor: ${data.color}`)
-      console.log(`🆔 ID: ${data.id}`)
-      console.log(`📅 Data: ${data.timestamp_blaze}`)
+      logThrottled('proxy-functioning', '✅ PROXY LOCAL FUNCIONANDO! Dados reais da Blaze obtidos:')
+      logThrottled('proxy-data-details', `🎯 Número: ${data.number} | 🎨 Cor: ${data.color} | 🆔 ID: ${data.id} | 📅 Data: ${data.timestamp_blaze}`)
       
       // Configurar para usar proxy local
       this.currentStrategy = 'PROXY_DADOS_REAIS_AUTOMATICO'
@@ -213,7 +210,7 @@ class BlazeRealDataService {
       // Iniciar polling automático
       this.startProxyPolling()
       
-      console.log('🎯 SISTEMA AUTOMÁTICO: Captura iniciada com sucesso!')
+      logThrottled('system-auto-started', '🎯 SISTEMA AUTOMÁTICO: Captura iniciada com sucesso!')
       
     } catch (error) {
       console.error('❌ PROXY LOCAL FALHOU:', error instanceof Error ? error.message : String(error))
@@ -569,7 +566,7 @@ class BlazeRealDataService {
     if (typeof window !== 'undefined') {
       const event = new CustomEvent('blazeRealData', { detail: data })
       window.dispatchEvent(event)
-      console.log('📡 Dados reais emitidos para interface')
+      logThrottled('data-emitted-to-interface', '📡 Dados reais emitidos para interface')
     }
   }
 

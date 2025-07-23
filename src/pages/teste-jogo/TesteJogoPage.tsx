@@ -1410,7 +1410,7 @@ export default function TesteJogoPage() {
   // ===================================================================
   
   useEffect(() => {
-    console.log('🚀 ETAPA 5: Inicializando sistemas de performance avançada...')
+    logThrottled('performance-init', '🚀 ETAPA 5: Inicializando sistemas de performance avançada...')
     
     // Verificar se já foi inicializado para evitar re-inicialização
     if (optimizedDB.current && workerManager.current) {
@@ -1428,7 +1428,7 @@ export default function TesteJogoPage() {
     const workerCount = Math.min(navigator.hardwareConcurrency || 4, 8) // Máximo 8 workers
     workerManager.current = new MLWorkerManager(workerCount)
     
-    console.log(`💼 ${workerCount} Web Workers inicializados para processamento paralelo`)
+    logThrottled('workers-init', `💼 ${workerCount} Web Workers inicializados para processamento paralelo`)
     
     // Atualizar status do sistema
     setSystemStatus(prev => ({
@@ -1456,11 +1456,11 @@ export default function TesteJogoPage() {
     
     cleanupIntervals.current.push(memoryCleanupInterval, dataCleanupInterval)
     
-    console.log('✅ ETAPA 5: Sistemas de performance inicializados com sucesso!')
+    logThrottled('performance-success', '✅ ETAPA 5: Sistemas de performance inicializados com sucesso!')
     
     return () => {
       // Cleanup na desmontagem APENAS uma vez
-      console.log('🧹 Cleanup de performance systems...')
+      logThrottled('performance-cleanup', '🧹 Cleanup de performance systems...')
       cleanupPerformanceSystems()
     }
   }, []) // ✅ Array vazio - executa apenas uma vez
@@ -1483,7 +1483,7 @@ export default function TesteJogoPage() {
   useEffect(() => {
     const loadInitialData = async () => {
       if (optimizedDB.current && !dataAlreadyLoaded) {
-        console.log('📊 Carregando dados salvos uma única vez...')
+        logThrottled('loading-saved-data', '📊 Carregando dados salvos uma única vez...')
         await loadSavedDataWhenNeeded()
       }
     }
@@ -1499,7 +1499,7 @@ export default function TesteJogoPage() {
   // ===================================================================
   
   useEffect(() => {
-    console.log('🚀 AUTO-START: Iniciando captura automática de dados reais da Blaze...');
+    logThrottled('auto-start-init', '🚀 AUTO-START: Iniciando captura automática de dados reais da Blaze...');
     
     // 🎯 INICIAR CAPTURA AUTOMATICAMENTE
     const initializeAutoCapture = async () => {
@@ -2498,13 +2498,7 @@ export default function TesteJogoPage() {
       const metrics = predictionAccuracyService.getCurrentMetrics()
       setMLModelMetrics(advancedPrediction.individual_predictions)
 
-      console.log('✅ PREDIÇÃO ML AVANÇADA CONCLUÍDA:', {
-        color: advancedPrediction.predicted_color,
-        confidence: advancedPrediction.confidence_percentage,
-        consensus: advancedPrediction.model_consensus,
-        risk: advancedPrediction.risk_assessment.volatility_level,
-        models: advancedPrediction.individual_predictions.length
-      })
+      logThrottled('ml-prediction-result', `✅ PREDIÇÃO ML AVANÇADA CONCLUÍDA: ${advancedPrediction.predicted_color} (${advancedPrediction.confidence_percentage.toFixed(1)}%) | Consensus: ${advancedPrediction.model_consensus}% | Risk: ${advancedPrediction.risk_assessment.volatility_level} | Models: ${advancedPrediction.individual_predictions.length}`)
 
       return advancedPrediction
 
