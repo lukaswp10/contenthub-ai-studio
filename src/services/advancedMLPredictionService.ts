@@ -136,6 +136,15 @@ export class AdvancedMLPredictionService {
       if (historicalData.length < 20) {
         throw new Error('Dados insuficientes para predição avançada (mínimo 20 pontos)')
       }
+      
+      // 🧠 ATUALIZAR DADOS HISTÓRICOS COM TODOS OS DADOS DISPONÍVEIS
+      this.historical_data = historicalData // USAR TODOS OS DADOS PASSADOS!
+      console.log(`🔥 ML AVANÇADO: Analisando ${this.historical_data.length.toLocaleString()} números históricos COMPLETOS`)
+      
+      // 📊 ESTATÍSTICAS DOS DADOS
+      const csvCount = historicalData.filter(d => d.round_id.includes('csv')).length
+      const realCount = historicalData.length - csvCount
+      console.log(`📊 DADOS COMPLETOS: ${csvCount.toLocaleString()} CSV + ${realCount.toLocaleString()} Reais = ${historicalData.length.toLocaleString()} TOTAL`)
 
       // Etapa 1: Feature Engineering Avançado
       const features = await this.extractAdvancedFeatures(historicalData)
@@ -169,8 +178,14 @@ export class AdvancedMLPredictionService {
    */
   private async extractAdvancedFeatures(data: BlazeDataPoint[]): Promise<AdvancedFeatures> {
     const latest = data[data.length - 1]
-    const last10 = data.slice(-10)
-    const last20 = data.slice(-20)
+    // ✅ USAR DADOS ADAPTATIVOS - MAIS DADOS = ANÁLISE MAIS PROFUNDA
+    const sampleSize10 = Math.min(data.length, Math.max(10, Math.floor(data.length * 0.05))) // 5% ou mín 10
+    const sampleSize20 = Math.min(data.length, Math.max(20, Math.floor(data.length * 0.1)))  // 10% ou mín 20
+    
+    const last10 = data.slice(-sampleSize10)
+    const last20 = data.slice(-sampleSize20)
+    
+    console.log(`🔧 FEATURES: Usando ${sampleSize10} e ${sampleSize20} amostras de ${data.length.toLocaleString()} dados totais`)
     
     // Análise de frequência
     const colorCounts = { red: 0, black: 0, white: 0 }
@@ -1576,11 +1591,16 @@ export class AdvancedMLPredictionService {
       return [0] // Branco só tem um número
     }
     
-    // 🧠 ANÁLISE AVANÇADA PARA NÚMEROS ESPECÍFICOS
+    // 🧠 ANÁLISE AVANÇADA PARA NÚMEROS ESPECÍFICOS - USANDO TODOS OS DADOS!
     const range = color === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
-    const data = this.historical_data.slice(-200) // Mais dados para análises avançadas
+    const data = this.historical_data // ✅ USAR TODOS OS DADOS HISTÓRICOS SEM LIMITAÇÃO!
     
-    console.log(`🧠 ANÁLISE AVANÇADA COMPLETA: ${color} - analisando ${data.length} números históricos`)
+    console.log(`🧠 ANÁLISE SUPER COMPLETA: ${color} - analisando ${data.length.toLocaleString()} números históricos COMPLETOS`)
+    
+    // 📊 Análise da qualidade dos dados
+    const csvData = data.filter(d => d.round_id.includes('csv') || !d.round_id.includes('-'))
+    const realData = data.filter(d => !d.round_id.includes('csv') && d.round_id.includes('-'))
+    console.log(`📊 QUALIDADE: ${csvData.length.toLocaleString()} CSV + ${realData.length.toLocaleString()} Reais para análise ${color}`)
     
     // 1️⃣ ANÁLISE DE FREQUÊNCIA 
     const frequencies = range.map(num => ({
@@ -1674,6 +1694,8 @@ export class AdvancedMLPredictionService {
       return scores
     }
     
+    console.log(`🔗 MARKOV: Analisando ${data.length.toLocaleString()} transições para cadeias de Markov`)
+    
     // Criar matriz de transição
     const transitions: { [key: number]: { [key: number]: number } } = {}
     range.forEach(from => {
@@ -1718,6 +1740,8 @@ export class AdvancedMLPredictionService {
       range.forEach(num => scores[num] = 0.5)
       return scores
     }
+    
+    console.log(`📊 FOURIER: Detectando ciclos em ${data.length.toLocaleString()} pontos para análise avançada`)
     
     // Analisar periodicidades para cada número
     range.forEach(num => {
@@ -1770,9 +1794,14 @@ export class AdvancedMLPredictionService {
       return scores
     }
     
-    const recentWindow = 10
+    console.log(`📈 MOMENTUM: Calculando indicadores com ${data.length.toLocaleString()} pontos de momentum`)
+    
+    // ✅ USAR JANELAS ADAPTATIVAS BASEADAS NO TOTAL DE DADOS
+    const recentWindow = Math.min(data.length / 4, Math.max(10, Math.floor(data.length * 0.02))) // 2% dos dados ou mín 10
     const recent = data.slice(-recentWindow)
     const previous = data.slice(-recentWindow * 2, -recentWindow)
+    
+    console.log(`📈 MOMENTUM DETALHADO: Janela recente ${recentWindow}, anterior ${recentWindow} de ${data.length.toLocaleString()} total`)
     
     range.forEach(num => {
       // Momentum baseado na mudança de frequência
@@ -1804,8 +1833,12 @@ export class AdvancedMLPredictionService {
   
   // 🔥 BÔNUS POR STREAKS E REVERSÕES
   private calculateStreakBonus(data: BlazeDataPoint[], targetNumber: number): number {
-    const recent = data.slice(-5)
+    // ✅ USAR AMOSTRA ADAPTATIVA PARA STREAK BONUS
+    const streakWindow = Math.max(5, Math.floor(data.length * 0.01)) // 1% dos dados ou mín 5
+    const recent = data.slice(-streakWindow)
     const hasTargetNumber = recent.some(d => d.number === targetNumber)
+    
+    console.log(`🔥 STREAK: Analisando ${streakWindow} números recentes para ${targetNumber} de ${data.length.toLocaleString()} total`)
     
     if (hasTargetNumber) {
       return -0.2 // Penalizar se apareceu recentemente
@@ -1835,14 +1868,18 @@ export class AdvancedMLPredictionService {
   }
 
   private assessRisk(data: BlazeDataPoint[], prediction: EnsemblePrediction): RiskAssessment {
-    const recent_volatility = this.calculateVolatility(data.slice(-10))
+    // ✅ USAR AMOSTRAS ADAPTATIVAS PARA RISK ASSESSMENT
+    const volatilityWindow = Math.max(10, Math.floor(data.length * 0.02)) // 2% ou mín 10
+    const frequencyWindow = Math.max(20, Math.floor(data.length * 0.05))  // 5% ou mín 20
+    
+    const recent_volatility = this.calculateVolatility(data.slice(-volatilityWindow))
     const pattern_strength = prediction.model_consensus / 100
     
-    // Calcular anomaly score
+    // Calcular anomaly score com dados adaptativos
     const color_frequencies = {
-      red: data.slice(-20).filter(d => d.color === 'red').length / 20,
-      black: data.slice(-20).filter(d => d.color === 'black').length / 20,
-      white: data.slice(-20).filter(d => d.color === 'white').length / 20
+      red: data.slice(-frequencyWindow).filter(d => d.color === 'red').length / frequencyWindow,
+      black: data.slice(-frequencyWindow).filter(d => d.color === 'black').length / frequencyWindow,
+      white: data.slice(-frequencyWindow).filter(d => d.color === 'white').length / frequencyWindow
     }
     
     const expected_freq = { red: 0.47, black: 0.47, white: 0.06 }
