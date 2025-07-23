@@ -5485,6 +5485,51 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           </CardContent>
         </Card>
 
+        {/* 🎯 ESTATÍSTICAS DE ACERTOS/ERROS - POSIÇÃO DESTACADA */}
+        {predictionStats.totalPredictions > 0 && (
+          <Card className="bg-gradient-to-r from-green-600/90 to-emerald-600/90 border-2 border-green-400 shadow-xl">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-green-100 font-bold text-xl">🎯 ESTATÍSTICAS DOS PALPITES</span>
+                  <div className="w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6 mb-4">
+                  <div className="bg-green-700/50 p-4 rounded-xl border border-green-400">
+                    <div className="font-bold text-4xl text-green-100">{predictionStats.correctPredictions}</div>
+                    <div className="text-green-200 font-semibold">✅ ACERTOS</div>
+                  </div>
+                  <div className="bg-red-700/50 p-4 rounded-xl border border-red-400">
+                    <div className="font-bold text-4xl text-red-200">{predictionStats.incorrectPredictions}</div>
+                    <div className="text-red-200 font-semibold">❌ ERROS</div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 p-4 rounded-xl border border-green-300 mb-4">
+                  <div className="text-3xl font-bold text-white mb-2">
+                    🏆 {predictionStats.accuracy.toFixed(1)}% DE PRECISÃO
+                  </div>
+                  <div className="flex justify-center gap-6 text-green-200">
+                    <span className="font-semibold">📈 Sequência: {predictionStats.streak}</span>
+                    <span className="font-semibold">🏆 Recorde: {predictionStats.maxStreak}</span>
+                    <span className="font-semibold">📊 Total: {predictionStats.totalPredictions}</span>
+                  </div>
+                </div>
+                
+                {predictionStats.waitingForResult && (
+                  <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-400">
+                    <div className="text-yellow-200 font-semibold animate-pulse">
+                      ⏳ AGUARDANDO PRÓXIMO RESULTADO PARA VERIFICAR PALPITE...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Controles de Seções */}
         {!compactMode && (
           <Card className="bg-gradient-to-r from-gray-700/60 to-slate-700/60 border-gray-500">
@@ -6042,53 +6087,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   {/* Sistema Automático Permanente */}
                   <div className="w-full space-y-3">
                     
-                    {/* Estatísticas de Predições */}
-                    <div className="bg-gradient-to-r from-green-600/80 to-emerald-600/80 rounded-lg p-4 border-2 border-green-400">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                          <span className="text-green-100 font-semibold">📊 ESTATÍSTICAS DOS PALPITES</span>
-                        </div>
-                        
-                        {predictionStats.totalPredictions > 0 ? (
-                          <>
-                            <div className="grid grid-cols-2 gap-4 text-sm mb-2">
-                              <div className="text-green-200">
-                                <div className="font-bold text-2xl text-green-100">{predictionStats.correctPredictions}</div>
-                                <div className="text-xs">✅ Acertos</div>
-                              </div>
-                              <div className="text-red-200">
-                                <div className="font-bold text-2xl text-red-300">{predictionStats.incorrectPredictions}</div>
-                                <div className="text-xs">❌ Erros</div>
-                              </div>
-                            </div>
-                            
-                            <div className="text-lg font-bold text-white mb-1">
-                              🎯 {predictionStats.accuracy.toFixed(1)}% de Acerto
-                            </div>
-                            
-                            <div className="flex justify-center gap-4 text-xs text-green-200">
-                              <span>📈 Sequência: {predictionStats.streak}</span>
-                              <span>🏆 Máximo: {predictionStats.maxStreak}</span>
-                              <span>📊 Total: {predictionStats.totalPredictions}</span>
-                            </div>
-                            
-                            {predictionStats.waitingForResult && (
-                              <div className="text-xs text-yellow-300 mt-2 animate-pulse">
-                                ⏳ Aguardando próximo resultado para verificar palpite...
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-green-200">
-                            <div className="text-sm mb-1">🎯 Aguardando primeiro palpite...</div>
-                            <div className="text-xs text-gray-300">
-                              Sistema registrará acertos e erros automaticamente
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    {/* Estatísticas de Predições movidas para posição mais visível */}
 
                     {/* Interface ML Avançado */}
                     {advancedMLPrediction && (
