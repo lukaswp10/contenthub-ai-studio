@@ -606,18 +606,20 @@ class BlazeRealDataService {
    */
   private async makePredictionBasedOnRealData(): Promise<void> {
     try {
-      // Buscar dados históricos suficientes para ML avançado
+      // ✅ ETAPA 2: BUSCAR TODOS OS DADOS HISTÓRICOS DISPONÍVEIS
       const { data: historicalData } = await supabase
         .from('blaze_real_data')
         .select('*')
         .order('timestamp_blaze', { ascending: false })
-        .limit(100) // Mais dados para ML avançado
+        .limit(10000) // EXPANSÃO MASSIVA: 100x mais dados!
 
-      if (!historicalData || historicalData.length < 20) {
-        console.log('⚠️ Dados insuficientes para predição ML avançada (mínimo 20 números)')
+      if (!historicalData || historicalData.length < 50) {
+        console.log('⚠️ Dados insuficientes para predição ML avançada (mínimo 50 números)')
         await this.fallbackToSimplePrediction(historicalData || [])
         return
       }
+
+      console.log(`🚀 ETAPA 2: ANÁLISE MASSIVA com ${historicalData.length} dados históricos!`)
 
       console.log('🚀 Iniciando predição com ML avançado...')
 
@@ -691,12 +693,15 @@ class BlazeRealDataService {
    */
   private async fallbackToSimplePrediction(data: any[]): Promise<void> {
     try {
-      const recentData = data?.slice(0, 20) || []
+      // ✅ ETAPA 2: FALLBACK MELHORADO - USAR MAIS DADOS
+      const recentData = data?.slice(0, 200) || [] // 10x mais dados no fallback
 
-      if (recentData.length < 5) {
+      if (recentData.length < 10) {
         console.log('⚠️ Dados insuficientes para qualquer predição')
         return
       }
+
+      console.log(`🔧 FALLBACK MELHORADO: Analisando ${recentData.length} números`)
 
       // Análise simples de frequência (sistema original)
       const colorCounts = { red: 0, black: 0, white: 0 }

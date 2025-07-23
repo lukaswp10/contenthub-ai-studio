@@ -2490,8 +2490,9 @@ export default function TesteJogoPage() {
    * ===================================================================
    */
   const runAdvancedMLPrediction = async (resultsList: DoubleResult[]) => {
-    if (resultsList.length < 20) {
-      console.log('⚠️ Dados insuficientes para ML avançado (mínimo 20), usando sistema tradicional')
+    // ✅ ETAPA 2: SISTEMA ML COM MUITO MAIS DADOS
+    if (resultsList.length < 50) {
+      console.log('⚠️ Dados insuficientes para ML avançado (mínimo 50), usando sistema tradicional')
       return null
     }
 
@@ -2614,21 +2615,30 @@ export default function TesteJogoPage() {
       const csvData = resultsList.filter(r => r.source === 'csv')
       const manualData = resultsList.filter(r => r.source === 'manual')
       
-      // Estratégia inteligente baseada no volume de dados
+      // ✅ ETAPA 2: ESTRATÉGIA MASSIVA - USAR TODOS OS DADOS DISPONÍVEIS
       let dataToAnalyze: DoubleResult[]
       
-      if (csvData.length >= 10000) {
-        dataToAnalyze = [...csvData.slice(-5000), ...manualData.slice(-100)]
-        console.log(`🚀 MODO ULTRA: ${csvData.slice(-5000).length} CSV + ${manualData.slice(-100).length} Manual`)
+      if (csvData.length >= 50000) {
+        dataToAnalyze = [...csvData, ...manualData] // TODOS OS DADOS!
+        console.log(`🚀 MODO ULTIMATE: ${csvData.length} CSV + ${manualData.length} Manual = ${dataToAnalyze.length} TOTAL`)
+      } else if (csvData.length >= 20000) {
+        dataToAnalyze = [...csvData, ...manualData.slice(-500)]
+        console.log(`🚀 MODO ULTRA+: ${csvData.length} CSV + ${manualData.slice(-500).length} Manual = ${dataToAnalyze.length} TOTAL`)
+      } else if (csvData.length >= 10000) {
+        dataToAnalyze = [...csvData, ...manualData.slice(-200)]
+        console.log(`🚀 MODO ULTRA: ${csvData.length} CSV + ${manualData.slice(-200).length} Manual = ${dataToAnalyze.length} TOTAL`)
+      } else if (csvData.length >= 5000) {
+        dataToAnalyze = [...csvData, ...manualData.slice(-100)]
+        console.log(`🎯 MODO AVANÇADO+: ${csvData.length} CSV + ${manualData.slice(-100).length} Manual = ${dataToAnalyze.length} TOTAL`)
       } else if (csvData.length >= 1000) {
-        dataToAnalyze = [...csvData.slice(-2000), ...manualData.slice(-50)]
-        console.log(`🎯 MODO AVANÇADO: ${csvData.slice(-2000).length} CSV + ${manualData.slice(-50).length} Manual`)
+        dataToAnalyze = [...csvData, ...manualData.slice(-50)]
+        console.log(`🎯 MODO AVANÇADO: ${csvData.length} CSV + ${manualData.slice(-50).length} Manual = ${dataToAnalyze.length} TOTAL`)
       } else if (csvData.length >= 100) {
         dataToAnalyze = [...csvData, ...manualData.slice(-100)]
-        console.log(`📊 MODO COMPLETO: ${csvData.length} CSV + ${manualData.slice(-100).length} Manual`)
+        console.log(`📊 MODO COMPLETO: ${csvData.length} CSV + ${manualData.slice(-100).length} Manual = ${dataToAnalyze.length} TOTAL`)
       } else {
-        dataToAnalyze = resultsList.slice(-200)
-        console.log(`🔧 MODO BÁSICO: ${dataToAnalyze.length} registros`)
+        dataToAnalyze = resultsList.slice(-500) // 2.5x mais dados no modo básico
+        console.log(`🔧 MODO BÁSICO+: ${dataToAnalyze.length} registros`)
       }
       
       // 🕐 DELAY REALÍSTICO baseado no volume de dados para análise profunda
@@ -2772,12 +2782,12 @@ export default function TesteJogoPage() {
   const neuralSequenceEvolved = async (data: DoubleResult[]) => {
     const weights = neuralWeights.current
     
-    if (data.length < 10) return { confidence: 35, prediction: 'red' as const }
+    if (data.length < 50) return { confidence: 35, prediction: 'red' as const }
     
-    console.log(`🧠 Neural Evolutivo: Analisando ${data.length} registros`)
+    console.log(`🧠 Neural Evolutivo ETAPA 2: Analisando ${data.length} registros`)
     
-    // Análise de múltiplas camadas neurais
-    const recent = data.slice(-50)
+    // ✅ ETAPA 2: ANÁLISE NEURAL COM MUITO MAIS DADOS
+    const recent = data.slice(-Math.min(500, data.length)) // 10x mais dados para análise neural
     
     // Layer 1: Análise de padrões de sequência (janela deslizante)
     let sequenceScores = { red: 0, black: 0, white: 0 }
@@ -2913,9 +2923,9 @@ export default function TesteJogoPage() {
    * Busca sequências matemáticas nos números
    */
   const fibonacciPatternDetection = async (data: DoubleResult[]) => {
-    if (data.length < 15) return { confidence: 30, prediction: 'red' as const }
+    if (data.length < 50) return { confidence: 30, prediction: 'red' as const }
     
-    console.log(`🔢 Fibonacci: Analisando ${data.length} registros`)
+    console.log(`🔢 Fibonacci ETAPA 2: Analisando ${data.length} registros com análise profunda`)
     
     const analysis = massivePatternAnalysis.current
     const fibSequences = analysis.fibonacciSequences
@@ -2994,9 +3004,9 @@ export default function TesteJogoPage() {
    * Análise probabilística baseada em estados
    */
   const markovChain4thOrder = async (data: DoubleResult[]) => {
-    if (data.length < 25) return { confidence: 45, prediction: 'red' as const }
+    if (data.length < 100) return { confidence: 45, prediction: 'red' as const }
     
-    console.log(`🔗 Markov 4ª Ordem: Analisando ${data.length} registros`)
+    console.log(`🔗 Markov 4ª Ordem ETAPA 2: Analisando ${data.length} registros com matriz de transição completa`)
     
     const analysis = massivePatternAnalysis.current
     const markovChains = analysis.markovChains
