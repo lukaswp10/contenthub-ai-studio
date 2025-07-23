@@ -178,22 +178,18 @@ export class AdvancedMLPredictionService {
    */
   private async extractAdvancedFeatures(data: BlazeDataPoint[]): Promise<AdvancedFeatures> {
     const latest = data[data.length - 1]
-    // ✅ USAR DADOS ADAPTATIVOS - MAIS DADOS = ANÁLISE MAIS PROFUNDA
-    const sampleSize10 = Math.min(data.length, Math.max(10, Math.floor(data.length * 0.05))) // 5% ou mín 10
-    const sampleSize20 = Math.min(data.length, Math.max(20, Math.floor(data.length * 0.1)))  // 10% ou mín 20
+    // 🔥 USAR 100% DOS DADOS SEMPRE - SEM LIMITAÇÕES!
+    const allData = data // TODOS OS DADOS DISPONÍVEIS
     
-    const last10 = data.slice(-sampleSize10)
-    const last20 = data.slice(-sampleSize20)
+    console.log(`🔥 FEATURES COMPLETAS: Usando TODOS os ${data.length.toLocaleString()} dados históricos - 0% de limitação!`)
     
-    console.log(`🔧 FEATURES: Usando ${sampleSize10} e ${sampleSize20} amostras de ${data.length.toLocaleString()} dados totais`)
-    
-    // Análise de frequência
+    // Análise de frequência COM TODOS OS DADOS
     const colorCounts = { red: 0, black: 0, white: 0 }
-    last10.forEach(d => colorCounts[d.color]++)
+    allData.forEach(d => colorCounts[d.color]++)
     
-    // Análise de momentum
+    // Análise de momentum COM TODOS OS DADOS
     const colorStreak = this.calculateColorStreak(data)
-    const volatility = this.calculateVolatility(last20)
+    const volatility = this.calculateVolatility(allData)
     
     // Análise de Fourier para detectar periodicidades
     const fourierAnalysis = this.performFourierAnalysis(data)
@@ -211,10 +207,10 @@ export class AdvancedMLPredictionService {
       hour_of_day: new Date(latest.timestamp).getHours(),
       day_of_week: new Date(latest.timestamp).getDay(),
       
-      // Frequências
-      red_frequency_last_10: colorCounts.red / 10,
-      black_frequency_last_10: colorCounts.black / 10,
-      white_frequency_last_10: colorCounts.white / 10,
+      // Frequências COM TODOS OS DADOS
+      red_frequency_last_10: colorCounts.red / data.length,
+      black_frequency_last_10: colorCounts.black / data.length,
+      white_frequency_last_10: colorCounts.white / data.length,
       
       // Momentum
       color_streak: colorStreak.length,
@@ -329,7 +325,7 @@ export class AdvancedMLPredictionService {
    */
   private async runLSTMModel(model: MLModel, features: AdvancedFeatures, data: BlazeDataPoint[]): Promise<ModelPrediction> {
     // Preparar sequência temporal
-    const sequence = data.slice(-10).map(d => ({
+    const sequence = data.map(d => ({ // TODOS OS DADOS!
       number: d.number / 14, // Normalizar 0-14 -> 0-1
       color_red: d.color === 'red' ? 1 : 0,
       color_black: d.color === 'black' ? 1 : 0,
@@ -1300,7 +1296,7 @@ export class AdvancedMLPredictionService {
   private performFourierAnalysis(data: BlazeDataPoint[]): { dominantFreq: number; amplitude: number; phase: number } {
     if (data.length < 8) return { dominantFreq: 0, amplitude: 0, phase: 0 }
     
-    const numbers = data.slice(-16).map(d => d.number) // Últimos 16 para FFT
+    const numbers = data.map(d => d.number) // TODOS OS NÚMEROS PARA FFT!
     const n = numbers.length
     
     // FFT simplificada para detectar periodicidade dominante
@@ -1338,10 +1334,10 @@ export class AdvancedMLPredictionService {
     if (data.length < 10) return { ma10: 7, ema: 7, rsi: 0.5 }
     
     const numbers = data.map(d => d.number)
-    const last10 = numbers.slice(-10)
+    const allNumbers = numbers // TODOS OS NÚMEROS!
     
-    // Moving Average
-    const ma10 = last10.reduce((sum, n) => sum + n, 0) / 10
+    // Moving Average COM TODOS OS NÚMEROS
+    const ma10 = allNumbers.reduce((sum, n) => sum + n, 0) / allNumbers.length
     
     // Exponential Moving Average
     const alpha = 2 / (10 + 1)
@@ -1354,8 +1350,8 @@ export class AdvancedMLPredictionService {
     const gains: number[] = []
     const losses: number[] = []
     
-    for (let i = 1; i < last10.length; i++) {
-      const change = last10[i] - last10[i - 1]
+    for (let i = 1; i < allNumbers.length; i++) {
+      const change = allNumbers[i] - allNumbers[i - 1]
       if (change > 0) gains.push(change)
       else losses.push(Math.abs(change))
     }
@@ -1385,7 +1381,7 @@ export class AdvancedMLPredictionService {
     const goldenRatio = this.analyzeGoldenRatio(numbers)
     
     // Shannon entropy
-    const entropy = this.calculateShannonEntropy(data.slice(-10))
+    const entropy = this.calculateShannonEntropy(data) // TODOS OS DADOS!
     
     return { fibonacci, goldenRatio, entropy }
   }
@@ -1471,7 +1467,7 @@ export class AdvancedMLPredictionService {
   private calculateAutocorrelation(data: BlazeDataPoint[]): number {
     if (data.length < 4) return 0
     
-    const numbers = data.slice(-8).map(d => d.number)
+    const numbers = data.map(d => d.number) // TODOS OS NÚMEROS!
     const n = numbers.length
     const mean = numbers.reduce((sum, n) => sum + n, 0) / n
     
@@ -1511,7 +1507,7 @@ export class AdvancedMLPredictionService {
 
   private getSupportVectors(data: BlazeDataPoint[]): BlazeDataPoint[] {
     // Simplificação: usar pontos extremos como support vectors
-    const recent = data.slice(-20)
+    const recent = data // TODOS OS DADOS!
     const support_vectors: BlazeDataPoint[] = []
     
     // Pontos com números extremos
@@ -1796,17 +1792,16 @@ export class AdvancedMLPredictionService {
     
     console.log(`📈 MOMENTUM: Calculando indicadores com ${data.length.toLocaleString()} pontos de momentum`)
     
-    // ✅ USAR JANELAS ADAPTATIVAS BASEADAS NO TOTAL DE DADOS
-    const recentWindow = Math.min(data.length / 4, Math.max(10, Math.floor(data.length * 0.02))) // 2% dos dados ou mín 10
-    const recent = data.slice(-recentWindow)
-    const previous = data.slice(-recentWindow * 2, -recentWindow)
+    // 🔥 USAR TODOS OS DADOS SEM LIMITAÇÃO DE JANELA!
+    const recent = data // TODOS OS DADOS RECENTES = TODOS OS DADOS!
+    const previous = data // COMPARAR COM TODOS OS DADOS TAMBÉM!
     
-    console.log(`📈 MOMENTUM DETALHADO: Janela recente ${recentWindow}, anterior ${recentWindow} de ${data.length.toLocaleString()} total`)
+    console.log(`🔥 MOMENTUM TOTAL: Usando TODOS os ${data.length.toLocaleString()} dados para análise de momentum - SEM LIMITAÇÃO!`)
     
     range.forEach(num => {
-      // Momentum baseado na mudança de frequência
-      const recentFreq = recent.filter(d => d.number === num).length / recentWindow
-      const previousFreq = previous.filter(d => d.number === num).length / recentWindow
+      // Momentum baseado na mudança de frequência COM TODOS OS DADOS
+      const recentFreq = recent.filter(d => d.number === num).length / recent.length
+      const previousFreq = previous.filter(d => d.number === num).length / previous.length
       const momentum = recentFreq - previousFreq
       
       // Volatilidade baseada na distribuição recente
@@ -1814,7 +1809,7 @@ export class AdvancedMLPredictionService {
       let volatility = 0
       if (positions.length > 1) {
         const avgPosition = positions.reduce((a, b) => a + b, 0) / positions.length
-        volatility = Math.sqrt(positions.reduce((a, b) => a + Math.pow(b - avgPosition, 2), 0) / positions.length) / recentWindow
+        volatility = Math.sqrt(positions.reduce((a, b) => a + Math.pow(b - avgPosition, 2), 0) / positions.length) / recent.length
       }
       
       // Score combinado
@@ -1833,12 +1828,11 @@ export class AdvancedMLPredictionService {
   
   // 🔥 BÔNUS POR STREAKS E REVERSÕES
   private calculateStreakBonus(data: BlazeDataPoint[], targetNumber: number): number {
-    // ✅ USAR AMOSTRA ADAPTATIVA PARA STREAK BONUS
-    const streakWindow = Math.max(5, Math.floor(data.length * 0.01)) // 1% dos dados ou mín 5
-    const recent = data.slice(-streakWindow)
+    // 🔥 USAR TODOS OS DADOS PARA STREAK - SEM LIMITAÇÃO!
+    const recent = data // TODOS OS DADOS!
     const hasTargetNumber = recent.some(d => d.number === targetNumber)
     
-    console.log(`🔥 STREAK: Analisando ${streakWindow} números recentes para ${targetNumber} de ${data.length.toLocaleString()} total`)
+    console.log(`🔥 STREAK TOTAL: Analisando TODOS os ${data.length.toLocaleString()} números para ${targetNumber} - SEM LIMITAÇÃO!`)
     
     if (hasTargetNumber) {
       return -0.2 // Penalizar se apareceu recentemente
@@ -1868,18 +1862,15 @@ export class AdvancedMLPredictionService {
   }
 
   private assessRisk(data: BlazeDataPoint[], prediction: EnsemblePrediction): RiskAssessment {
-    // ✅ USAR AMOSTRAS ADAPTATIVAS PARA RISK ASSESSMENT
-    const volatilityWindow = Math.max(10, Math.floor(data.length * 0.02)) // 2% ou mín 10
-    const frequencyWindow = Math.max(20, Math.floor(data.length * 0.05))  // 5% ou mín 20
-    
-    const recent_volatility = this.calculateVolatility(data.slice(-volatilityWindow))
+    // 🔥 USAR TODOS OS DADOS PARA RISK ASSESSMENT - SEM LIMITAÇÃO!
+    const recent_volatility = this.calculateVolatility(data) // TODOS OS DADOS!
     const pattern_strength = prediction.model_consensus / 100
     
-    // Calcular anomaly score com dados adaptativos
+    // Calcular anomaly score com TODOS os dados
     const color_frequencies = {
-      red: data.slice(-frequencyWindow).filter(d => d.color === 'red').length / frequencyWindow,
-      black: data.slice(-frequencyWindow).filter(d => d.color === 'black').length / frequencyWindow,
-      white: data.slice(-frequencyWindow).filter(d => d.color === 'white').length / frequencyWindow
+      red: data.filter(d => d.color === 'red').length / data.length,
+      black: data.filter(d => d.color === 'black').length / data.length,
+      white: data.filter(d => d.color === 'white').length / data.length
     }
     
     const expected_freq = { red: 0.47, black: 0.47, white: 0.06 }
@@ -2035,9 +2026,9 @@ export class AdvancedMLPredictionService {
     
     // Avaliar performance dos últimos 50 pontos
     this.models.forEach(model => {
-      const recent_correct = model.prediction_history.slice(-50).filter(h => h === 1).length
-      const recent_total = Math.min(model.prediction_history.length, 50)
-      const recent_accuracy = recent_total > 0 ? recent_correct / recent_total : 0.5
+      const recent_correct = model.prediction_history.filter(h => h === 1).length // TODOS OS HISTÓRICOS!
+              const recent_total = model.prediction_history.length // TODOS OS HISTÓRICOS!
+        const recent_accuracy = recent_total > 0 ? recent_correct / recent_total : 0.5
       
       performance.set(model.id, recent_accuracy)
     })
@@ -2052,7 +2043,7 @@ export class AdvancedMLPredictionService {
     const stats: { [key: string]: any } = {}
     
     this.models.forEach(model => {
-      const recent_predictions = model.prediction_history.slice(-20)
+      const recent_predictions = model.prediction_history // TODOS OS HISTÓRICOS!
       const recent_accuracy = recent_predictions.length > 0 
         ? recent_predictions.filter(h => h === 1).length / recent_predictions.length 
         : 0
