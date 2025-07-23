@@ -422,6 +422,7 @@ export const VideoUpload: React.FC<VideoUploadProps> = ({
                 src={cloudinaryUrl || previewUrl || undefined}
                 controls
                 preload="metadata"
+                crossOrigin="anonymous"
                 className="w-full h-full object-contain"
                 onLoadedMetadata={() => {
                   console.log('Metadata carregada:', {

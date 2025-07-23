@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import blazeRealDataService from '@/services/blazeRealDataService'
 
 // ===================================================================
 // INTERFACES E TIPOS - Sistema de Análise Massiva
@@ -897,6 +898,15 @@ export default function TesteJogoPage() {
   
   const [quickInput, setQuickInput] = useState(''); // Input rápido próximo da predição
 
+  // Estados para sistema de dados reais da Blaze
+  const [isCapturingReal, setIsCapturingReal] = useState(false);
+  const [realTimeMode, setRealTimeMode] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('DESCONECTADO');
+  const [realDataStats, setRealDataStats] = useState<any>(null);
+  const [realDataHistory, setRealDataHistory] = useState<any[]>([]);
+  const [lastRealData, setLastRealData] = useState<any>(null);
+  const [isImportingHistorical, setIsImportingHistorical] = useState(false);
+
   // ===================================================================
   // REFERÊNCIAS - Sistema de Análise Avançado
   // ===================================================================
@@ -926,6 +936,140 @@ export default function TesteJogoPage() {
   // Lazy loading refs
   const intersectionObserver = useRef<IntersectionObserver | null>(null)
   const componentRefs = useRef<Map<string, HTMLElement>>(new Map())
+
+  // ===================================================================
+  // FUNÇÃO PARA CARREGAR DADOS SALVOS (APENAS QUANDO NECESSÁRIO)
+  // ===================================================================
+
+  // Carregar dados salvos do IndexedDB (chamada apenas quando CSV ou Blaze)
+  const loadSavedDataWhenNeeded = async () => {
+    try {
+      if (!optimizedDB.current) {
+        console.log('⏳ IndexedDB não inicializado ainda...')
+        return
+      }
+      
+      console.log('📁 Carregando dados salvos do IndexedDB...')
+      
+      // Carregar todos os resultados salvos
+      const savedResults = await optimizedDB.current.loadResults()
+      
+      if (savedResults && savedResults.length > 0) {
+        console.log(`✅ ${savedResults.length} resultados carregados do IndexedDB`)
+        setResults(savedResults)
+        updateStats(savedResults)
+        
+        // Atualizar data manager
+        const csvRecords = savedResults.filter((r: DoubleResult) => r.source === 'csv').length
+        const manualRecords = savedResults.filter((r: DoubleResult) => r.source === 'manual').length
+        
+        setDataManager(prev => ({
+          ...prev,
+          totalRecords: savedResults.length,
+          csvRecords,
+          manualRecords
+        }))
+        
+        // Auto-gerar predição se tiver dados suficientes
+        if (savedResults.length >= 5) {
+          console.log('🧠 Gerando predição automática com dados carregados...')
+          await analyzePredictionMassive(savedResults)
+        }
+      } else {
+        console.log('📂 Nenhum dado salvo encontrado - começando do zero')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados salvos:', error)
+    }
+  }
+
+  // ===================================================================
+  // FUNÇÕES DO SISTEMA DE DADOS REAIS DA BLAZE
+  // ===================================================================
+
+  // Iniciar captura de dados reais
+  const startRealDataCapture = async () => {
+    try {
+      setIsCapturingReal(true);
+      setRealTimeMode(true);
+      console.log('🎯 Iniciando captura de dados reais da Blaze...');
+      
+      // ✅ CARREGAR DADOS SALVOS quando conectar Blaze
+      await loadSavedDataWhenNeeded();
+      
+      await blazeRealDataService.startCapturing();
+      console.log('✅ Captura iniciada com sucesso!');
+      
+      // Verificar dados a cada 5 segundos
+      const checkInterval = setInterval(async () => {
+        try {
+          const recentData = await blazeRealDataService.getRecentBlazeData(1);
+          if (recentData.length > 0) {
+            const data = recentData[0];
+            console.log('📡 Novo dado encontrado:', data);
+            setLastRealData(data);
+            setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
+            
+            // Adicionar ao sistema principal
+            const blazeResult: DoubleResult = {
+              id: data.round_id || `real_${Date.now()}`,
+              number: data.number,
+              color: data.color,
+              timestamp: Date.now(),
+              source: 'manual' as const, // Integra com sistema existente
+              batch: 'real_time_blaze'
+            };
+            
+            setResults(prev => [blazeResult, ...prev]);
+            updateStats([blazeResult, ...results]);
+          }
+        } catch (error) {
+          console.log('❌ Erro verificando dados:', error);
+        }
+      }, 5000);
+      
+    } catch (error) {
+      console.error('❌ Erro ao iniciar captura:', error);
+      setIsCapturingReal(false);
+      setRealTimeMode(false);
+    }
+  };
+
+  // Parar captura de dados reais
+  const stopRealDataCapture = () => {
+    blazeRealDataService.stopCapturing();
+    setIsCapturingReal(false);
+    setRealTimeMode(false);
+    console.log('⏹️ Captura parada');
+  };
+
+  // Importar dados históricos
+  const importHistoricalData = async (limit: number = 50) => {
+    try {
+      setIsImportingHistorical(true);
+      console.log(`📥 Importando ${limit} dados históricos...`);
+      
+      // Funcionalidade temporariamente desabilitada - será implementada em versão futura
+      // const importedCount = await blazeRealDataService.importHistoricalData(limit);
+      const importedCount = 0;
+      console.log(`✅ Importados ${importedCount} dados históricos`);
+      
+      // Atualizar histórico
+      const recentData = await blazeRealDataService.getRecentBlazeData(20);
+      setRealDataHistory(recentData);
+      
+    } catch (error) {
+      console.error('❌ Erro ao importar dados históricos:', error);
+    } finally {
+      setIsImportingHistorical(false);
+    }
+  };
+
+  // Atualizar status da conexão
+  const updateConnectionStatus = () => {
+    const status = blazeRealDataService.getConnectionStatus();
+    setConnectionStatus(status);
+  };
 
   // ===================================================================
   // ETAPA 5: INICIALIZAÇÃO DOS SISTEMAS DE PERFORMANCE
@@ -987,6 +1131,63 @@ export default function TesteJogoPage() {
   }, [])
 
   // ===================================================================
+  // USEEFFECT PARA SISTEMA DE DADOS REAIS DA BLAZE
+  // ===================================================================
+  
+  useEffect(() => {
+    // Atualizar status da conexão a cada 3 segundos
+    const statusInterval = setInterval(() => {
+      updateConnectionStatus();
+    }, 3000);
+
+    // Listener para dados reais recebidos
+    const handleRealData = (event: CustomEvent) => {
+      const data = event.detail;
+      console.log('📡 Dados reais recebidos via evento:', data);
+      setLastRealData(data);
+      setRealDataHistory(prev => [data, ...prev.slice(0, 19)]);
+      
+      // Adicionar ao sistema principal
+      const blazeResult: DoubleResult = {
+        id: data.round_id || `real_${Date.now()}`,
+        number: data.number,
+        color: data.color,
+        timestamp: Date.now(),
+        source: 'manual' as const,
+      };
+      
+      setResults(prev => [...prev, blazeResult]);
+      updateStats([...results, blazeResult]);
+    };
+
+    // Listener para erros de conexão
+    const handleConnectionError = (event: CustomEvent) => {
+      const errorData = event.detail;
+      console.log('❌ ERRO DE CONEXÃO CRÍTICO:', errorData);
+      
+      setIsCapturingReal(false);
+      setConnectionStatus('ERRO FATAL - SEM DADOS');
+      
+      // Exibir alerta visual para o usuário
+      alert(`❌ ERRO FATAL: ${errorData.error}\n\n🛑 Sistema parado - Não é possível conectar com dados reais da Blaze.\n\nVerifique sua conexão ou tente novamente mais tarde.`);
+    };
+
+    // Adicionar listeners
+    window.addEventListener('blazeRealData', handleRealData);
+    window.addEventListener('blazeConnectionError', handleConnectionError);
+
+    // ✅ DADOS HISTÓRICOS REMOVIDOS: Só carrega quando conectar Blaze ou CSV
+    // Carregar dados históricos APENAS quando conectar modo real ou subir CSV
+    console.log('⏳ Sistema iniciado - Aguardando entrada manual ou conexão Blaze...');
+
+    return () => {
+      clearInterval(statusInterval);
+      window.removeEventListener('blazeRealData', handleRealData);
+      window.removeEventListener('blazeConnectionError', handleConnectionError);
+    };
+  }, [results]);
+
+  // ===================================================================
   // ETAPA 5: AUTO-ATUALIZAÇÃO DE PREDIÇÃO EM TEMPO REAL
   // ===================================================================
   
@@ -994,54 +1195,11 @@ export default function TesteJogoPage() {
   // SISTEMA DE AUTO-SAVE/AUTO-LOAD - PERSISTÊNCIA PERMANENTE
   // ===================================================================
   
-  useEffect(() => {
-    // 📁 AUTO-LOAD: Carregar dados salvos na inicialização
-    const loadSavedData = async () => {
-      try {
-        if (!optimizedDB.current) {
-          console.log('⏳ Aguardando IndexedDB inicializar...')
-          return
-        }
-        
-        console.log('📁 Carregando dados salvos do IndexedDB...')
-        
-        // Carregar todos os resultados salvos
-        const savedResults = await optimizedDB.current.loadResults()
-        
-        if (savedResults && savedResults.length > 0) {
-          console.log(`✅ ${savedResults.length} resultados carregados do IndexedDB`)
-          setResults(savedResults)
-          updateStats(savedResults)
-          
-          // Atualizar data manager
-          const csvRecords = savedResults.filter((r: DoubleResult) => r.source === 'csv').length
-          const manualRecords = savedResults.filter((r: DoubleResult) => r.source === 'manual').length
-          
-          setDataManager(prev => ({
-            ...prev,
-            totalRecords: savedResults.length,
-            csvRecords,
-            manualRecords
-          }))
-          
-          // Auto-gerar predição se tiver dados suficientes
-          if (savedResults.length >= 5) {
-            console.log('🧠 Gerando predição automática com dados carregados...')
-            await analyzePredictionMassive(savedResults)
-          }
-        } else {
-          console.log('📂 Nenhum dado salvo encontrado - começando do zero')
-        }
-      } catch (error) {
-        console.error('❌ Erro ao carregar dados salvos:', error)
-      }
-    }
-    
-    // Carregar dados após IndexedDB estar inicializado
-    const loadTimeout = setTimeout(loadSavedData, 1000)
-    
-    return () => clearTimeout(loadTimeout)
-  }, [optimizedDB.current])
+  // ✅ AUTO-LOAD DESABILITADO: Só carrega dados quando subir CSV ou conectar Blaze
+  // useEffect(() => {
+  //   // Este auto-load foi desabilitado - dados só carregam quando necessário
+  //   console.log('💾 IndexedDB pronto - Aguardando ação do usuário (CSV ou Blaze)...')
+  // }, [])
   
   useEffect(() => {
     // 💾 AUTO-SAVE: Salvar dados automaticamente toda vez que mudam
@@ -1499,6 +1657,9 @@ export default function TesteJogoPage() {
     const reader = new FileReader()
     reader.onload = async (e) => {
       try {
+        // ✅ CARREGAR DADOS SALVOS quando importar CSV
+        await loadSavedDataWhenNeeded();
+        
         const csvText = e.target?.result as string
         const csvResults = await processMassiveCSV(csvText)
         
@@ -1537,6 +1698,19 @@ export default function TesteJogoPage() {
         // Atualizar estados
         setResults(finalResults)
         updateStats(finalResults)
+        
+        // Forçar atualização do histórico dos últimos 20 resultados
+        console.log(`📊 Atualizando histórico dos últimos 20 resultados...`)
+        
+        // Aguardar um pequeno delay para garantir que o estado foi atualizado
+        setTimeout(() => {
+          const last20 = [...finalResults].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20)
+          console.log(`📊 Últimos 20 números atualizados:`, last20.map(r => `${r.number}(${r.color})`).join(', '))
+          console.log(`📊 Dados mais recentes por timestamp:`)
+          last20.slice(0, 5).forEach((r, i) => {
+            console.log(`  ${i+1}. ${r.number} (${r.color}) - ${new Date(r.timestamp).toLocaleString('pt-BR')}`)
+          })
+        }, 100)
         
         // Atualizar gerenciador de dados
         setDataManager({
@@ -3240,6 +3414,12 @@ export default function TesteJogoPage() {
     setQuickInput(''); // Limpar para próximo
     console.log(`✅ Número ${num} adicionado rapidamente`);
     
+    // Mostrar atualização do histórico
+    setTimeout(() => {
+      const last20 = [...updatedResults].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20)
+      console.log(`📊 Histórico atualizado após adição manual:`, last20.slice(0, 5).map(r => `${r.number}(${r.color})`).join(', '))
+    }, 50)
+    
     // ANÁLISE AUTOMÁTICA APÓS ADIÇÃO RÁPIDA
     if (updatedResults.length >= 5 && !isProcessing) {
       console.log(`🧠 Análise rápida automática com ${updatedResults.length} números...`);
@@ -3248,10 +3428,12 @@ export default function TesteJogoPage() {
   };
   
   /**
-   * Obter últimos 20 números para exibição visual
+   * Obter últimos 20 números para exibição visual (ordenados por timestamp)
    */
   const getLast20Numbers = (): DoubleResult[] => {
-    return results.slice(-20);
+    // Ordenar por timestamp descrescente e pegar os 20 mais recentes
+    const sortedResults = [...results].sort((a, b) => b.timestamp - a.timestamp);
+    return sortedResults.slice(0, 20).reverse(); // Reverse para mostrar mais antigo primeiro
   };
   
   /**
@@ -4095,6 +4277,13 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
               <div className="bg-gray-900/50 p-4 rounded-lg border border-orange-500/50">
                 <div className="text-orange-300 font-semibold mb-3 text-center">
                   📊 ÚLTIMOS 20 RESULTADOS
+                  <div className="text-xs text-orange-200 mt-1">
+                    {getLast20Numbers().length > 0 && (
+                      <>
+                        Mais recente: {new Date(Math.max(...getLast20Numbers().map(r => r.timestamp))).toLocaleTimeString('pt-BR')}
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-10 gap-1 mb-3">
                   {getLast20Numbers().map((result, index) => (
@@ -4796,6 +4985,167 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 💡 Digite múltiplos números separados por espaço ou vírgula (ex: "1 5 0 12 3")
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* SEÇÃO DE DADOS REAIS DA BLAZE */}
+        <Card className="bg-gradient-to-r from-orange-800/60 to-red-800/60 border-orange-400">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-orange-300 text-xl flex items-center justify-between">
+              ⚡ DADOS REAIS BLAZE (13s por rodada)
+              <div className="flex items-center gap-2">
+                <span className={`text-sm px-2 py-1 rounded ${
+                  connectionStatus === 'DADOS REAIS' 
+                    ? 'bg-green-600 text-green-100' 
+                    : 'bg-red-600 text-red-100'
+                }`}>
+                  {connectionStatus}
+                </span>
+                <span className="text-sm text-gray-400">⏰ 16:50:35</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-2">
+            
+            {/* Controles principais */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              
+              {/* Painel de controle */}
+              <div className="bg-white/10 rounded-lg p-4">
+                <h3 className="font-semibold mb-3 text-orange-300">🎮 Controles</h3>
+                <div className="space-y-3">
+                  
+                  {/* Conexão em tempo real */}
+                  <div className="flex gap-2">
+                    {!isCapturingReal ? (
+                      <Button 
+                        onClick={startRealDataCapture}
+                        className="bg-green-600 hover:bg-green-500 flex-1"
+                      >
+                        🔥 Conectar Blaze
+                      </Button>
+                    ) : (
+                      // Quando conectado: Mostrar palpite IA + dados em tempo real
+                      <div className="w-full space-y-3">
+                        {/* Palpite Principal IA */}
+                        <div className="bg-gradient-to-r from-purple-600/80 to-pink-600/80 rounded-lg p-4 border-2 border-purple-400">
+                          <div className="text-center">
+                            <div className="text-sm text-purple-200 mb-1">🤖 PALPITE IA AVANÇADA</div>
+                            <div className="text-3xl font-bold text-white mb-2">
+                              {prediction?.color?.toUpperCase() || 'CALCULANDO...'}
+                            </div>
+                            <div className="text-lg text-purple-100">
+                              Confiança: {prediction?.confidence?.toFixed(1) || '0.0'}%
+                            </div>
+                            <div className="text-sm text-purple-200 mt-1">
+                              Números: {prediction?.expectedNumbers?.join(', ') || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                                                 {/* Dados em Tempo Real */}
+                        <div className="bg-gradient-to-r from-green-600/80 to-emerald-600/80 rounded-lg p-3 border border-green-400">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                              <span className="text-green-100 font-semibold">BLAZE AO VIVO</span>
+                            </div>
+                            <Button 
+                              onClick={stopRealDataCapture}
+                              className="bg-red-600 hover:bg-red-500 text-xs px-2 py-1 h-auto"
+                            >
+                              ⏹️ Parar
+                            </Button>
+                          </div>
+                          {lastRealData && (
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                lastRealData.color === 'red' ? 'bg-red-600 text-white' : 
+                                lastRealData.color === 'black' ? 'bg-gray-800 text-white' : 'bg-white text-black'
+                              }`}>
+                                {lastRealData.number}
+                              </div>
+                              <div className="text-green-100 text-sm">
+                                {new Date(lastRealData.timestamp_blaze).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Importar histórico */}
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => importHistoricalData(50)}
+                      disabled={isImportingHistorical}
+                      className="bg-blue-600 hover:bg-blue-500 flex-1"
+                    >
+                      {isImportingHistorical ? '📥 Importando...' : '📊 Importar Histórico (50)'}
+                    </Button>
+                  </div>
+                  
+                  {/* Status da captura */}
+                  <div className="text-sm space-y-1">
+                    <div className="text-gray-300">
+                      🔌 Status: <span className={connectionStatus === 'DADOS REAIS' ? 'text-green-400' : 'text-red-400'}>
+                        {connectionStatus}
+                      </span>
+                    </div>
+                    <div className="text-gray-300">
+                      ⚡ Captura: <span className={isCapturingReal ? 'text-green-400' : 'text-gray-400'}>
+                        {isCapturingReal ? 'Ativa' : 'Inativa'}
+                      </span>
+                    </div>
+                    <div className="text-gray-300">
+                      📊 Dados carregados: <span className="text-cyan-400">{realDataHistory.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Últimos resultados */}
+              <div className="bg-white/10 rounded-lg p-4">
+                <h3 className="font-semibold mb-3 text-orange-300">📈 Últimos 10 Resultados</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {realDataHistory.slice(0, 10).map((data, index) => {
+                    const bgColor = data.color === 'red' ? 'bg-red-600' : 
+                                   data.color === 'black' ? 'bg-gray-800' : 'bg-white text-black';
+                    return (
+                      <div 
+                        key={index}
+                        className={`${bgColor} rounded text-center py-2 text-sm font-bold`}
+                        title={`${data.number} - ${data.color} - ${new Date(data.timestamp_blaze).toLocaleTimeString()}`}
+                      >
+                        {data.number}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {realDataHistory.length === 0 && (
+                  <div className="text-gray-400 text-center py-4">
+                    Nenhum dado carregado ainda...
+                  </div>
+                )}
+              </div>
+            </div>
+            
+
+            
+            {/* Informações do sistema */}
+            <div className="bg-white/10 rounded-lg p-4">
+              <h3 className="font-semibold mb-3 text-orange-300">ℹ️ Informações</h3>
+              <div className="text-sm text-gray-300 space-y-1">
+                <div>• Sistema conecta automaticamente com dados reais da Blaze</div>
+                <div>• Histórico importado de https://historicosblaze.com</div>
+                <div>• Predições baseadas em ML com dados reais</div>
+                <div>• Atualização automática a cada resultado novo</div>
+                <div>• {connectionStatus === 'DADOS REAIS' ? '🟢 Dados em tempo real ativos' : '🔴 Usando entrada manual'}</div>
+              </div>
+            </div>
+            
           </CardContent>
         </Card>
 

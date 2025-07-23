@@ -145,6 +145,7 @@ export class ExportService {
     try {
       console.log('🔄 Initializing FFmpeg.wasm...');
       
+<<<<<<< HEAD
       // Use stable version 0.12.2 with jsdelivr CDN (most reliable)
       const baseUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.2/dist/umd';
       
@@ -153,12 +154,68 @@ export class ExportService {
         wasmURL: await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, 'application/wasm'),
         workerURL: await toBlobURL(`${baseUrl}/ffmpeg-core.worker.js`, 'text/javascript')
       });
+=======
+      // Strategy: Try with crossOrigin anonymous first
+      const cdnUrls = [
+        'https://unpkg.com/@ffmpeg/core@0.12.4/dist/umd',
+        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/umd',
+        'https://cdn.skypack.dev/@ffmpeg/core@0.12.4/dist/umd'
+      ];
+>>>>>>> 7eab94fa190344f95b7c50ab1bf87b7c1073e987
 
-      this.initialized = true;
-      console.log('✅ FFmpeg.wasm initialized successfully');
+      let loadError = null;
+      
+      for (const baseUrl of cdnUrls) {
+        try {
+          console.log(`🔄 Trying CDN: ${baseUrl}`);
+          
+          // Create URLs with crossOrigin support
+          const coreURL = await toBlobURL(`${baseUrl}/ffmpeg-core.js`, 'text/javascript');
+          const wasmURL = await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, 'application/wasm');
+          const workerURL = await toBlobURL(`${baseUrl}/ffmpeg-core.worker.js`, 'text/javascript');
+          
+          // Load FFmpeg with current CDN
+          await this.ffmpeg.load({
+            coreURL,
+            wasmURL,
+            workerURL
+          });
+
+          this.initialized = true;
+          console.log(`✅ FFmpeg.wasm initialized successfully with CDN: ${baseUrl}`);
+          return;
+          
+        } catch (error) {
+          console.warn(`⚠️ Failed to load from ${baseUrl}:`, error);
+          loadError = error;
+          
+          // Try alternative approach for this CDN
+          try {
+            console.log(`🔄 Trying alternative approach for: ${baseUrl}`);
+            
+            await this.ffmpeg.load({
+              coreURL: `${baseUrl}/ffmpeg-core.js`,
+              wasmURL: `${baseUrl}/ffmpeg-core.wasm`, 
+              workerURL: `${baseUrl}/ffmpeg-core.worker.js`
+            });
+
+            this.initialized = true;
+            console.log(`✅ FFmpeg.wasm initialized with alternative approach: ${baseUrl}`);
+            return;
+            
+          } catch (altError) {
+            console.warn(`⚠️ Alternative approach also failed for ${baseUrl}:`, altError);
+            continue;
+          }
+        }
+      }
+
+      // If all approaches fail, throw error
+      throw new Error(`Failed to initialize FFmpeg from any CDN. Last error: ${loadError}`);
+      
     } catch (error) {
       console.error('❌ Failed to initialize FFmpeg.wasm:', error);
-      throw new Error('Failed to initialize video export engine');
+      throw new Error('Failed to initialize video export engine. Please check your internet connection.');
     }
   }
 

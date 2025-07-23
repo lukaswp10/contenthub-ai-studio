@@ -11,6 +11,14 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Embedder-Policy': 'credentialless',
       'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    },
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Accept-Ranges'],
+      credentials: false,
+      exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges']
     },
     fs: {
       allow: ['..']
@@ -26,8 +34,14 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['@supabase/supabase-js', 'react', 'react-dom'],
-    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+    include: [
+      '@supabase/supabase-js', 
+      'react', 
+      'react-dom',
+      '@ffmpeg/ffmpeg',
+      '@ffmpeg/util'
+    ],
+    exclude: ['@ffmpeg/core']
   },
   worker: {
     format: 'es'
