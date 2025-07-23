@@ -79,6 +79,11 @@ class BlazeRealDataService {
   private listeners: Array<(update: any) => void> = []
   private chromiumAvailable: boolean = false
   
+  // Sistema de throttling de logs
+  private lastWaitingLogTime: number = 0
+  private waitingLogCount: number = 0
+  private readonly LOG_THROTTLE_INTERVAL = 30000 // Log "waiting" apenas a cada 30 segundos
+  
   // URL do nosso proxy local
   private readonly PROXY_URL = '/api/blaze-proxy'
 
@@ -381,7 +386,13 @@ class BlazeRealDataService {
       
       // Se é o mesmo ID E é muito recente (menos de 5 minutos), aguardar
       if (this.lastKnownRound && this.lastKnownRound === gameId && timeDiff < 300 && !isOldData) {
-        console.log(`🔄 Aguardando novo jogo... (atual: ${data.number}, ${Math.round(timeDiff)}s atrás)`)
+        // Log throttling: apenas a cada 30 segundos para reduzir poluição
+        const now = Date.now()
+        if (now - this.lastWaitingLogTime > this.LOG_THROTTLE_INTERVAL) {
+          this.waitingLogCount++
+          console.log(`🔄 Aguardando novo jogo... (atual: ${data.number}, ${Math.round(timeDiff)}s atrás) [${this.waitingLogCount}x]`)
+          this.lastWaitingLogTime = now
+        }
         return
       }
       
@@ -451,6 +462,35 @@ class BlazeRealDataService {
   }
 
   /**
+   * Gerar UUID válido a partir de string
+   */
+  private generateUuidFromString(str: string): string {
+    // Se já parece um UUID, usar como está
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+      return str
+    }
+    
+    // Criar hash mais robusto
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32bit integer
+    }
+    
+    // Gerar UUID v4 válido baseado no hash
+    const hex = Math.abs(hash).toString(16).padStart(8, '0').repeat(4).substr(0, 32)
+    
+    return [
+      hex.substr(0, 8),
+      hex.substr(8, 4),
+      '4' + hex.substr(12, 3), // Version 4
+      '8' + hex.substr(16, 3), // Variant bits
+      hex.substr(20, 12)
+    ].join('-')
+  }
+
+  /**
    * PROCESSAR APENAS DADOS REAIS
    */
   private async processRealData(data: BlazeRealData): Promise<void> {
@@ -465,12 +505,14 @@ class BlazeRealDataService {
       // Verificar duplicata local (não bloquear por Supabase)
       console.log(`🔄 Processando round: ${roundId}`)
       
+      const uuidRoundId = this.generateUuidFromString(roundId)
+
       // Tentar verificar no Supabase (opcional)
       try {
         const { data: existing } = await supabase
           .from('blaze_real_data')
           .select('id')
-          .eq('round_id', roundId)
+          .eq('round_id', uuidRoundId)
           .single()
 
         if (existing) {
@@ -480,11 +522,16 @@ class BlazeRealDataService {
         console.log(`⚠️ Não foi possível verificar duplicata no Supabase (continuando)`)
       }
 
-      // Normalizar dados para salvar
+      // Normalizar dados para salvar (sem campo id para evitar conflitos UUID)
       const normalizedData = {
-        ...data,
-        round_id: roundId
+        number: data.number,
+        color: data.color,
+        timestamp_blaze: data.timestamp_blaze,
+        round_id: this.generateUuidFromString(roundId)
       }
+
+      // Debug: ver exatamente o que será enviado
+      console.log('🔍 DADOS PARA SUPABASE:', JSON.stringify(normalizedData, null, 2))
 
       // Emitir evento para a interface SEMPRE (independente do Supabase)
       this.emitRealData(data)
@@ -1124,13 +1171,19 @@ class BlazeRealDataService {
       
       // Verificar se é um jogo novo
       if (this.lastKnownRound && this.lastKnownRound === result.id) {
-        console.log(`🔄 Aguardando novo jogo... (atual: ${result.numero})`)
+        // Log throttling: apenas a cada 30 segundos para reduzir poluição
+        const now = Date.now()
+        if (now - this.lastWaitingLogTime > this.LOG_THROTTLE_INTERVAL) {
+          this.waitingLogCount++
+          console.log(`🔄 Aguardando novo jogo... (atual: ${result.numero}) [${this.waitingLogCount}x]`)
+          this.lastWaitingLogTime = now
+        }
         return
       }
 
       // NOVO JOGO REAL DETECTADO VIA CHROMIUM!
       console.log(`🆕 NOVO JOGO REAL VIA CHROMIUM!`)
-      console.log(`�� ID: ${result.id}`)
+      console.log(`📊 ID: ${result.id}`)
       console.log(`🎯 Número: ${result.numero}`)
       console.log(`🎨 Cor: ${result.corNome}`)
       console.log(`⏰ Horário: ${result.timestamp}`)
@@ -1145,8 +1198,8 @@ class BlazeRealDataService {
         source: 'chromium_polling'
       }
 
-             await this.processRealData(data)
-       this.lastKnownRound = result.id || null
+      await this.processRealData(data)
+      this.lastKnownRound = result.id || null
       
       // Emitir evento para interface
       if (typeof window !== 'undefined') {
@@ -1197,4 +1250,4 @@ class BlazeRealDataService {
 
 // Exportar instância singleton
 const blazeRealDataService = new BlazeRealDataService()
-export default blazeRealDataService 
+export default blazeRealDataService
