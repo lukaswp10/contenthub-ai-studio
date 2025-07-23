@@ -1858,6 +1858,27 @@ export default function TesteJogoPage() {
       expectedNumbers = [blackRange[minFreqIndex]]
     }
      
+    // ✅ VALIDAÇÃO CRÍTICA FINAL (também para Worker)
+    const isValidWorker = (color: 'red' | 'black' | 'white', number: number) => {
+      if (color === 'white') return number === 0
+      if (color === 'red') return number >= 1 && number <= 7
+      if (color === 'black') return number >= 8 && number <= 14
+      return false
+    }
+    
+    // Se número não bate com cor, forçar correção
+    if (!isValidWorker(predictedColor, expectedNumbers[0])) {
+      console.log(`❌ WORKER INCONSISTÊNCIA: cor=${predictedColor}, número=${expectedNumbers[0]}`)
+      if (predictedColor === 'white') {
+        expectedNumbers = [0]
+      } else if (predictedColor === 'red') {
+        expectedNumbers = [1] // Forçar vermelho
+      } else if (predictedColor === 'black') {
+        expectedNumbers = [8] // Forçar preto
+      }
+      console.log(`✅ WORKER CORRIGIDO PARA: [${expectedNumbers.join(', ')}]`)
+    }
+
     return {
       color: predictedColor,
       confidence,
@@ -2804,10 +2825,33 @@ export default function TesteJogoPage() {
       // Gerar cenários alternativos
       const alternativeScenarios = generateAlternativeScenarios(ensembleResult, dataToAnalyze)
       
-      // Gerar números esperados melhorados
+      // ✅ GERAR NÚMEROS ESPERADOS COM VALIDAÇÃO CRÍTICA
       console.log(`🔍 DEBUG: ensembleResult.prediction = ${ensembleResult.prediction}`)
-      const expectedNumbers = generateExpectedNumbersMassive(ensembleResult.prediction, dataToAnalyze)
-      console.log(`🔍 DEBUG: expectedNumbers = [${expectedNumbers.join(', ')}]`)
+      let expectedNumbers = generateExpectedNumbersMassive(ensembleResult.prediction, dataToAnalyze)
+      console.log(`🔍 DEBUG: expectedNumbers INICIAL = [${expectedNumbers.join(', ')}]`)
+      
+      // ✅ VALIDAÇÃO CRÍTICA FINAL: Garantir 100% de consistência cor vs número
+      const isValid = (color: string, number: number) => {
+        if (color === 'white') return number === 0
+        if (color === 'red') return number >= 1 && number <= 7
+        if (color === 'black') return number >= 8 && number <= 14
+        return false
+      }
+      
+      // Se primeiro número não bate com a cor, forçar correção
+      if (!isValid(ensembleResult.prediction, expectedNumbers[0])) {
+        console.log(`❌ INCONSISTÊNCIA DETECTADA: cor=${ensembleResult.prediction}, número=${expectedNumbers[0]}`)
+        if (ensembleResult.prediction === 'white') {
+          expectedNumbers = [0]
+        } else if (ensembleResult.prediction === 'red') {
+          expectedNumbers = [1] // Forçar vermelho
+        } else if (ensembleResult.prediction === 'black') {
+          expectedNumbers = [8] // Forçar preto
+        }
+        console.log(`✅ CORRIGIDO PARA: [${expectedNumbers.join(', ')}]`)
+      }
+      
+      console.log(`🔍 DEBUG: expectedNumbers FINAL = [${expectedNumbers.join(', ')}]`)
       
       const predictionResult: PredictionResult = {
         color: ensembleResult.prediction,
