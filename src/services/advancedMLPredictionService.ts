@@ -1571,29 +1571,21 @@ export class AdvancedMLPredictionService {
   }
 
   private getPredictedNumbers(color: 'red' | 'black' | 'white', features: AdvancedFeatures): number[] {
+    // ✅ CORRIGIDO: Números corretos para cada cor
     let numbers: number[] = []
     
     if (color === 'red') {
-      numbers = [1, 3, 5, 7, 9, 12, 14]
+      numbers = [1, 2, 3, 4, 5, 6, 7] // ✅ CORRETO: 1-7 são vermelhos
     } else if (color === 'black') {
-      numbers = [2, 4, 6, 8, 10, 11, 13]
+      numbers = [8, 9, 10, 11, 12, 13, 14] // ✅ CORRETO: 8-14 são pretos
     } else {
-      numbers = [0]
+      numbers = [0] // ✅ CORRETO: 0 é branco
     }
     
-    // Filtrar baseado em features técnicas
-    if (features.volatility_index > 0.7) {
-      // Alta volatilidade favorece números extremos
-      numbers = numbers.filter(n => n <= 3 || n >= 11)
-    }
+    console.log(`🔧 ML SERVICE: ${color} → números [${numbers.join(', ')}]`)
     
-    // Aplicar fibonacci se detectado
-    if (features.fibonacci_position > 0.5) {
-      const fib_numbers = [1, 2, 3, 5, 8, 13]
-      numbers = numbers.filter(n => fib_numbers.includes(n))
-    }
-    
-    return numbers.slice(0, 3) // Máximo 3 números
+    // ✅ RETORNAR APENAS 1 NÚMERO (como nas outras funções)
+    return [numbers[0]]
   }
 
   private calculateFeatureImportance(features: AdvancedFeatures, predictions: ModelPrediction[]): { [key: string]: number } {
