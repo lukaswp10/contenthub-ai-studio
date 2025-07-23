@@ -4119,6 +4119,40 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
   // RENDERIZAÇÃO DA INTERFACE
   // ===================================================================
 
+  // Função para limpar dados falsos/antigos
+  const clearFakeData = async () => {
+    try {
+      console.log('🧹 Iniciando limpeza de dados falsos...');
+      
+      // Resetar estado local
+      setResults([]);
+      setStats({ red: 0, black: 0, white: 0, total: 0 });
+      setLastRealData(null);
+      setRealDataHistory([]);
+      
+      // Limpar localStorage se houver
+      try {
+        localStorage.removeItem('double_results');
+        localStorage.removeItem('blaze_real_data');
+        console.log('✅ LocalStorage limpo');
+      } catch (e) {
+        console.log('⚠️ Erro limpando localStorage:', e);
+      }
+      
+      console.log('✅ Limpeza completa - Sistema resetado para dados reais apenas');
+      
+      // Exibir notificação
+      alert('✅ Sistema limpo! Agora capturará apenas dados reais da Blaze.');
+      
+      // Recarregar página para garantir reset completo
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('❌ Erro na limpeza:', error);
+      alert('❌ Erro ao limpar dados. Verifique o console.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white p-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -5053,12 +5087,21 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   {/* Conexão em tempo real */}
                   <div className="flex gap-2">
                     {!isCapturingReal ? (
-                      <Button 
-                        onClick={startRealDataCapture}
-                        className="bg-green-600 hover:bg-green-500 flex-1"
-                      >
-                        🔥 Conectar Blaze
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={startRealDataCapture}
+                          className="bg-green-600 hover:bg-green-500 flex-1"
+                        >
+                          🔥 Conectar Blaze
+                        </Button>
+                        <Button 
+                          onClick={clearFakeData}
+                          className="bg-red-600 hover:bg-red-500 px-3"
+                          title="Limpar dados falsos e resetar sistema"
+                        >
+                          🧹
+                        </Button>
+                      </div>
                     ) : (
                       // Quando conectado: Mostrar palpite IA + dados em tempo real
                       <div className="w-full space-y-3">

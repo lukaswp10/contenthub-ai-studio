@@ -258,14 +258,40 @@ class BlazeRealDataService {
         throw new Error(`Proxy HTTP ${response.status}`)
       }
 
-      const result = await response.json()
+      let data;
+      const contentType = response.headers.get('content-type');
       
-      if (!result.success || !result.data || !result.data.round_id) {
-        console.log('⚠️ Proxy retornou dados vazios ou inválidos')
-        return
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json()
+        
+        // Se é resposta estruturada do Vercel API
+        if (result.success && result.data) {
+          data = result.data;
+        }
+        // Se é resposta direta da API da Blaze (proxy Vite)
+        else if (Array.isArray(result) && result.length > 0) {
+          const game = result[0];
+          data = {
+            id: game.id,
+            number: game.roll,
+            color: this.mapColor(game.roll, game.color),
+            round_id: game.id,
+            timestamp_blaze: game.created_at,
+            source: 'blaze_proxy_api'
+          };
+        }
+        else {
+          console.log('⚠️ Proxy retornou dados vazios ou inválidos')
+          return
+        }
+      } else {
+        throw new Error('Resposta não é JSON válido')
       }
       
-      const data = result.data
+      if (!data || !data.round_id) {
+        console.log('⚠️ Dados processados são inválidos')
+        return
+      }
 
       // Verificar se é um jogo novo
       if (this.lastKnownRound && this.lastKnownRound === data.round_id) {
