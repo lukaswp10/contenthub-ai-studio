@@ -1578,18 +1578,17 @@ export class AdvancedMLPredictionService {
     
     // 🧠 ANÁLISE AVANÇADA PARA NÚMEROS ESPECÍFICOS
     const range = color === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
-    const data = this.historical_data.slice(-100) // Últimos 100 números
+    const data = this.historical_data.slice(-200) // Mais dados para análises avançadas
     
-    console.log(`🧠 ANÁLISE AVANÇADA: ${color} - analisando ${data.length} números históricos`)
+    console.log(`🧠 ANÁLISE AVANÇADA COMPLETA: ${color} - analisando ${data.length} números históricos`)
     
-    // 1️⃣ ANÁLISE DE FREQUÊNCIA (números menos frequentes têm maior chance)
+    // 1️⃣ ANÁLISE DE FREQUÊNCIA 
     const frequencies = range.map(num => ({
       number: num,
-      frequency: data.filter((d: BlazeDataPoint) => d.number === num).length,
-      score: 0
+      frequency: data.filter((d: BlazeDataPoint) => d.number === num).length
     }))
     
-    // 2️⃣ ANÁLISE DE GAPS (tempo desde última aparição)
+    // 2️⃣ ANÁLISE DE GAPS
     const gaps = range.map(num => {
       let gap = 0
       for (let i = data.length - 1; i >= 0; i--) {
@@ -1599,7 +1598,7 @@ export class AdvancedMLPredictionService {
       return { number: num, gap }
     })
     
-    // 3️⃣ ANÁLISE DE PADRÕES TEMPORAIS
+    // 3️⃣ ANÁLISE TEMPORAL
     const currentHour = new Date().getHours()
     const hourlyPatterns = range.map(num => ({
       number: num,
@@ -1609,42 +1608,217 @@ export class AdvancedMLPredictionService {
       }).length
     }))
     
-    // 4️⃣ CÁLCULO DO SCORE FINAL
+    // 4️⃣ 🔗 ANÁLISE DE CADEIAS DE MARKOV (NOVO!)
+    const markovScores = this.calculateMarkovProbabilities(data, range)
+    
+    // 5️⃣ 📊 ANÁLISE DE FOURIER PARA CICLOS (NOVO!)
+    const fourierScores = this.calculateFourierCycles(data, range)
+    
+    // 6️⃣ 📈 INDICADORES DE MOMENTUM (NOVO!)
+    const momentumScores = this.calculateMomentumIndicators(data, range)
+    
+    // 7️⃣ CÁLCULO DO SCORE FINAL AVANÇADO
     const analysis = range.map(num => {
       const freq = frequencies.find(f => f.number === num)?.frequency || 0
       const gap = gaps.find(g => g.number === num)?.gap || 0
       const hourScore = hourlyPatterns.find(h => h.number === num)?.hourScore || 0
+      const markovScore = markovScores[num] || 0
+      const fourierScore = fourierScores[num] || 0
+      const momentumScore = momentumScores[num] || 0
       
-      // Fórmula avançada: menor frequência + maior gap + padrão temporal
+      // 🧮 FÓRMULA SUPER AVANÇADA
       const expectedFreq = data.length / range.length
-      const frequencyScore = Math.max(0, expectedFreq - freq) * 10 // Quanto menos frequente, maior score
-      const gapScore = Math.min(gap * 2, 50) // Gaps longos têm score alto (máx 50)
-      const temporalScore = hourScore * 5 // Padrão temporal
-      const randomFactor = Math.random() * 10 // 10% de aleatoriedade
+      const frequencyScore = Math.max(0, expectedFreq - freq) * 12
+      const gapScore = Math.min(gap * 3, 60)
+      const temporalScore = hourScore * 8
+      const markovWeight = markovScore * 25 // 🔗 Peso Markov
+      const fourierWeight = fourierScore * 20 // 📊 Peso Fourier  
+      const momentumWeight = momentumScore * 15 // 📈 Peso Momentum
+      const volatilityBonus = Math.random() * 10
       
-      const finalScore = frequencyScore + gapScore + temporalScore + randomFactor
+      const finalScore = frequencyScore + gapScore + temporalScore + 
+                        markovWeight + fourierWeight + momentumWeight + volatilityBonus
       
       return {
         number: num,
         frequency: freq,
         gap: gap,
         temporalScore: hourScore,
+        markovScore: markovScore,
+        fourierScore: fourierScore,
+        momentumScore: momentumScore,
         finalScore: finalScore
       }
     })
     
-    // 5️⃣ ORDENAR POR SCORE E RETORNAR O MELHOR
+    // 8️⃣ ORDENAR E ESCOLHER O MELHOR
     analysis.sort((a, b) => b.finalScore - a.finalScore)
     const bestNumber = analysis[0]
     
-    console.log(`🎯 ANÁLISE COMPLETA ${color}:`)
+    console.log(`🎯 ANÁLISE SUPER AVANÇADA ${color}:`)
     analysis.slice(0, 3).forEach((item, i) => {
-      console.log(`  ${i + 1}º) Número ${item.number} - Score: ${item.finalScore.toFixed(1)} (freq:${item.frequency}, gap:${item.gap}, temporal:${item.temporalScore})`)
+      console.log(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} | 📊F:${item.frequency} ⏰G:${item.gap} 🕐T:${item.temporalScore} 🔗M:${item.markovScore.toFixed(2)} 📈F:${item.fourierScore.toFixed(2)} 💹Mom:${item.momentumScore.toFixed(2)}`)
     })
     
-    console.log(`🏆 NÚMERO ESCOLHIDO: ${bestNumber.number} (score: ${bestNumber.finalScore.toFixed(1)})`)
+    console.log(`🏆 NÚMERO SUPER INTELIGENTE: ${bestNumber.number} (score total: ${bestNumber.finalScore.toFixed(1)})`)
     
     return [bestNumber.number]
+  }
+  
+  // 🔗 ANÁLISE DE CADEIAS DE MARKOV
+  private calculateMarkovProbabilities(data: BlazeDataPoint[], range: number[]): { [key: number]: number } {
+    const scores: { [key: number]: number } = {}
+    
+    if (data.length < 10) {
+      range.forEach(num => scores[num] = 0.5)
+      return scores
+    }
+    
+    // Criar matriz de transição
+    const transitions: { [key: number]: { [key: number]: number } } = {}
+    range.forEach(from => {
+      transitions[from] = {}
+      range.forEach(to => transitions[from][to] = 0)
+    })
+    
+    // Contar transições
+    for (let i = 0; i < data.length - 1; i++) {
+      const current = data[i].number
+      const next = data[i + 1].number
+      if (range.includes(current) && range.includes(next)) {
+        transitions[current][next]++
+      }
+    }
+    
+    // Calcular probabilidades
+    const lastNumber = data[data.length - 1].number
+    if (range.includes(lastNumber)) {
+      const totalTransitions = Object.values(transitions[lastNumber]).reduce((a, b) => a + b, 0)
+      if (totalTransitions > 0) {
+        range.forEach(num => {
+          scores[num] = transitions[lastNumber][num] / totalTransitions
+        })
+      } else {
+        range.forEach(num => scores[num] = 1 / range.length)
+      }
+    } else {
+      range.forEach(num => scores[num] = 1 / range.length)
+    }
+    
+    console.log(`🔗 Markov: último ${lastNumber} → melhores próximos: ${Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1])).slice(0,3).map(([n,s]) => `${n}(${(Number(s)*100).toFixed(1)}%)`).join(', ')}`)
+    
+    return scores
+  }
+  
+  // 📊 ANÁLISE DE FOURIER PARA DETECTAR CICLOS
+  private calculateFourierCycles(data: BlazeDataPoint[], range: number[]): { [key: number]: number } {
+    const scores: { [key: number]: number } = {}
+    
+    if (data.length < 20) {
+      range.forEach(num => scores[num] = 0.5)
+      return scores
+    }
+    
+    // Analisar periodicidades para cada número
+    range.forEach(num => {
+      const occurrences: number[] = []
+      data.forEach((d, i) => {
+        if (d.number === num) occurrences.push(i)
+      })
+      
+      if (occurrences.length < 3) {
+        scores[num] = 0.3
+        return
+      }
+      
+      // Calcular intervalos entre ocorrências
+      const intervals: number[] = []
+      for (let i = 1; i < occurrences.length; i++) {
+        intervals.push(occurrences[i] - occurrences[i-1])
+      }
+      
+      // Detectar periodicidade
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length
+      const variance = intervals.reduce((a, b) => a + Math.pow(b - avgInterval, 2), 0) / intervals.length
+      const cyclePredictability = Math.max(0, 1 - (variance / (avgInterval * avgInterval)))
+      
+      // Prever próxima ocorrência
+      const lastOccurrence = occurrences[occurrences.length - 1]
+      const timeSinceLastOccurrence = data.length - 1 - lastOccurrence
+      const expectedNext = avgInterval - timeSinceLastOccurrence
+      
+      // Score baseado na proximidade da próxima ocorrência esperada
+      if (expectedNext <= 3 && expectedNext >= -1) {
+        scores[num] = cyclePredictability * (1 - Math.abs(expectedNext) / 4)
+      } else {
+        scores[num] = cyclePredictability * 0.2
+      }
+    })
+    
+    const bestCycle = Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1]))[0]
+    console.log(`📊 Fourier: ciclo mais forte ${bestCycle[0]} (${(Number(bestCycle[1])*100).toFixed(1)}%)`)
+    
+    return scores
+  }
+  
+  // 📈 INDICADORES DE MOMENTUM E VOLATILIDADE
+  private calculateMomentumIndicators(data: BlazeDataPoint[], range: number[]): { [key: number]: number } {
+    const scores: { [key: number]: number } = {}
+    
+    if (data.length < 15) {
+      range.forEach(num => scores[num] = 0.5)
+      return scores
+    }
+    
+    const recentWindow = 10
+    const recent = data.slice(-recentWindow)
+    const previous = data.slice(-recentWindow * 2, -recentWindow)
+    
+    range.forEach(num => {
+      // Momentum baseado na mudança de frequência
+      const recentFreq = recent.filter(d => d.number === num).length / recentWindow
+      const previousFreq = previous.filter(d => d.number === num).length / recentWindow
+      const momentum = recentFreq - previousFreq
+      
+      // Volatilidade baseada na distribuição recente
+      const positions = recent.map((d, i) => d.number === num ? i : -1).filter(i => i !== -1)
+      let volatility = 0
+      if (positions.length > 1) {
+        const avgPosition = positions.reduce((a, b) => a + b, 0) / positions.length
+        volatility = Math.sqrt(positions.reduce((a, b) => a + Math.pow(b - avgPosition, 2), 0) / positions.length) / recentWindow
+      }
+      
+      // Score combinado
+      const momentumScore = momentum * 2 // Peso do momentum
+      const volatilityScore = volatility * 0.5 // Volatilidade ajuda um pouco
+      const streakBonus = this.calculateStreakBonus(data, num)
+      
+      scores[num] = Math.max(0, momentumScore + volatilityScore + streakBonus)
+    })
+    
+    const bestMomentum = Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1]))[0]
+    console.log(`📈 Momentum: maior força ${bestMomentum[0]} (${Number(bestMomentum[1]).toFixed(2)})`)
+    
+    return scores
+  }
+  
+  // 🔥 BÔNUS POR STREAKS E REVERSÕES
+  private calculateStreakBonus(data: BlazeDataPoint[], targetNumber: number): number {
+    const recent = data.slice(-5)
+    const hasTargetNumber = recent.some(d => d.number === targetNumber)
+    
+    if (hasTargetNumber) {
+      return -0.2 // Penalizar se apareceu recentemente
+    }
+    
+    // Bônus se não apareceu há muito tempo
+    let gapCount = 0
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].number === targetNumber) break
+      gapCount++
+    }
+    
+    return Math.min(gapCount * 0.05, 0.5) // Máximo 0.5 de bônus
   }
 
   private calculateFeatureImportance(features: AdvancedFeatures, predictions: ModelPrediction[]): { [key: string]: number } {

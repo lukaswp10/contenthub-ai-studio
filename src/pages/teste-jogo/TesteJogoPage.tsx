@@ -1852,19 +1852,46 @@ export default function TesteJogoPage() {
       const range = predictedColor === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
       const workerData = recent // Usar dados recentes disponíveis
       
-      // Análise simplificada no worker
+      // 🧠 Análise avançada simplificada no worker
       const analysis = range.map(num => {
         const frequency = workerData.filter(d => d.number === num).length
+        
+        // Gap analysis
+        let gap = 0
+        for (let i = workerData.length - 1; i >= 0; i--) {
+          if (workerData[i].number === num) break
+          gap++
+        }
+        
+        // Simple Markov
+        let markovScore = 0.5
+        if (workerData.length > 3) {
+          const lastNum = workerData[workerData.length - 1].number
+          const transitions = workerData.filter((d, i) => 
+            i > 0 && workerData[i-1].number === lastNum && d.number === num
+          ).length
+          const totalFromLast = workerData.filter((d, i) => 
+            i > 0 && workerData[i-1].number === lastNum
+          ).length
+          markovScore = totalFromLast > 0 ? transitions / totalFromLast : 0.5
+        }
+        
+        // Scores
         const expectedFreq = workerData.length / range.length
-        const frequencyScore = Math.max(0, expectedFreq - frequency) * 10
-        const randomFactor = Math.random() * 20
-        return { number: num, score: frequencyScore + randomFactor }
+        const frequencyScore = Math.max(0, expectedFreq - frequency) * 12
+        const gapScore = Math.min(gap * 2, 40)
+        const markovWeight = markovScore * 25
+        const randomFactor = Math.random() * 15
+        
+        const finalScore = frequencyScore + gapScore + markovWeight + randomFactor
+        
+        return { number: num, score: finalScore, markov: markovScore, gap }
       })
       
       analysis.sort((a, b) => b.score - a.score)
       expectedNumbers = [analysis[0].number]
       
-      console.log(`🎯 WORKER escolheu: ${analysis[0].number} (score: ${analysis[0].score.toFixed(1)})`)
+      console.log(`🎯 WORKER INTELIGENTE: ${analysis[0].number} (score: ${analysis[0].score.toFixed(1)}, markov: ${analysis[0].markov.toFixed(2)}, gap: ${analysis[0].gap})`)
     }
 
     return {
@@ -2853,35 +2880,97 @@ export default function TesteJogoPage() {
           }).length
         }))
         
-        // 4️⃣ CÁLCULO DO SCORE AVANÇADO
+        // 4️⃣ 🔗 CADEIAS DE MARKOV SIMPLIFICADAS
+        const markovScores: { [key: number]: number } = {}
+        if (recentData.length > 5) {
+          const lastNum = recentData[recentData.length - 1].number
+          if (range.includes(lastNum)) {
+            // Contar transições do último número
+            const transitions: { [key: number]: number } = {}
+            range.forEach(n => transitions[n] = 0)
+            
+            for (let i = 0; i < recentData.length - 1; i++) {
+              if (recentData[i].number === lastNum && range.includes(recentData[i + 1].number)) {
+                transitions[recentData[i + 1].number]++
+              }
+            }
+            
+            const total = Object.values(transitions).reduce((a, b) => a + b, 0)
+            range.forEach(n => markovScores[n] = total > 0 ? transitions[n] / total : 1 / range.length)
+          } else {
+            range.forEach(n => markovScores[n] = 1 / range.length)
+          }
+        } else {
+          range.forEach(n => markovScores[n] = 1 / range.length)
+        }
+        
+        // 5️⃣ 📊 DETECÇÃO DE CICLOS SIMPLES
+        const cycleScores: { [key: number]: number } = {}
+        range.forEach(num => {
+          const positions = recentData.map((d, i) => d.number === num ? i : -1).filter(i => i !== -1)
+          if (positions.length >= 2) {
+            const avgInterval = (positions[positions.length - 1] - positions[0]) / (positions.length - 1)
+            const timeSinceLast = recentData.length - 1 - positions[positions.length - 1]
+            cycleScores[num] = Math.max(0, 1 - Math.abs(timeSinceLast - avgInterval) / 10)
+          } else {
+            cycleScores[num] = 0.3
+          }
+        })
+        
+        // 6️⃣ 📈 MOMENTUM SIMPLES
+        const momentumScores: { [key: number]: number } = {}
+        const halfSize = Math.floor(recentData.length / 2)
+        range.forEach(num => {
+          const firstHalf = recentData.slice(0, halfSize).filter(d => d.number === num).length
+          const secondHalf = recentData.slice(halfSize).filter(d => d.number === num).length
+          momentumScores[num] = (secondHalf - firstHalf) / halfSize
+        })
+        
+        // 7️⃣ CÁLCULO DO SCORE SUPER AVANÇADO
         const analysis = range.map(num => {
           const freq = frequencies.find(f => f.number === num)?.frequency || 0
           const gap = gaps.find(g => g.number === num)?.gap || 0
           const hourScore = hourlyPatterns.find(h => h.number === num)?.hourScore || 0
+          const markovScore = markovScores[num] || 0
+          const cycleScore = cycleScores[num] || 0
+          const momentumScore = momentumScores[num] || 0
           
-          // FÓRMULA AVANÇADA
+          // 🧮 FÓRMULA SUPER INTELIGENTE
           const expectedFreq = recentData.length / range.length
-          const frequencyScore = Math.max(0, expectedFreq - freq) * 15 // Menos frequente = maior score
-          const gapScore = Math.min(gap * 3, 60) // Gap longo = maior chance
-          const temporalScore = hourScore * 8 // Padrão temporal
-          const volatilityBonus = Math.random() * 15 // Elemento de volatilidade
+          const frequencyScore = Math.max(0, expectedFreq - freq) * 15
+          const gapScore = Math.min(gap * 3, 60)
+          const temporalScore = hourScore * 8
+          const markovWeight = markovScore * 30 // 🔗 Peso Markov
+          const cycleWeight = cycleScore * 25 // 📊 Peso Ciclos
+          const momentumWeight = momentumScore * 20 // 📈 Peso Momentum
+          const volatilityBonus = Math.random() * 10
           
-          const finalScore = frequencyScore + gapScore + temporalScore + volatilityBonus
+          const finalScore = frequencyScore + gapScore + temporalScore + 
+                            markovWeight + cycleWeight + momentumWeight + volatilityBonus
           
-          return { number: num, frequency: freq, gap, temporalScore: hourScore, finalScore }
+          return { 
+            number: num, 
+            frequency: freq, 
+            gap, 
+            temporalScore: hourScore,
+            markovScore,
+            cycleScore,
+            momentumScore,
+            finalScore 
+          }
         })
         
         // 5️⃣ ESCOLHER O MELHOR
         analysis.sort((a, b) => b.finalScore - a.finalScore)
         const bestNumber = analysis[0]
         
-        console.log(`🎯 ANÁLISE ${ensembleResult.prediction}:`)
+        console.log(`🎯 ANÁLISE SUPER AVANÇADA ${ensembleResult.prediction}:`)
         analysis.slice(0, 3).forEach((item, i) => {
-          console.log(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} (freq:${item.frequency}, gap:${item.gap}, temporal:${item.temporalScore})`)
+          console.log(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} | 📊F:${item.frequency} ⏰G:${item.gap} 🕐T:${item.temporalScore} 🔗M:${item.markovScore.toFixed(2)} 📊C:${item.cycleScore.toFixed(2)} 📈Mom:${item.momentumScore.toFixed(2)}`)
         })
         
         expectedNumbers = [bestNumber.number]
-        console.log(`🏆 NÚMERO INTELIGENTE ESCOLHIDO: ${bestNumber.number} (score: ${bestNumber.finalScore.toFixed(1)})`)
+        console.log(`🏆 NÚMERO SUPER INTELIGENTE: ${bestNumber.number} (score total: ${bestNumber.finalScore.toFixed(1)})`)
       }
       
       const predictionResult: PredictionResult = {
