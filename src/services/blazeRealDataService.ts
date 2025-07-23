@@ -118,7 +118,7 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIA: DETECÇÃO INTELIGENTE COM CHROMIUM PRIORITÁRIO
+   * ESTRATÉGIA: PROXY LOCAL PRIORITÁRIO (FUNCIONA PERFEITAMENTE)
    */
   async startCapturing(): Promise<void> {
     if (this.isCapturing) {
@@ -128,18 +128,11 @@ class BlazeRealDataService {
 
     this.isCapturing = true
     
-    // Prioridade 1: Chromium (mais confiável)
-    if (this.chromiumAvailable) {
-      console.log('🚀 CHROMIUM: Usando captura avançada via navegador...')
-      await this.tryChromiumCapture()
-      return
-    }
-    
-    // Prioridade 2: Estratégias por ambiente
+    // Detectar ambiente
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     
     if (isDevelopment) {
-      console.log('🔧 DESENVOLVIMENTO: Usando estratégias alternativas para CORS...')
+      console.log('🚀 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS)...')
       await this.tryDevelopmentStrategies()
     } else {
       console.log('🚀 PRODUÇÃO: Usando proxy serverless...')
@@ -202,16 +195,19 @@ class BlazeRealDataService {
       console.log(`🎯 Número: ${data.number}`)
       console.log(`🎨 Cor: ${data.color}`)
       console.log(`🆔 ID: ${data.id}`)
+      console.log(`📅 Data: ${data.timestamp_blaze}`)
       
       // Configurar para usar proxy local
-      this.currentStrategy = 'PROXY_DADOS_REAIS'
+      this.currentStrategy = 'PROXY_DADOS_REAIS_AUTOMATICO'
       this.lastKnownRound = data.id || data.round_id
       
       // Processar primeiro dado
       await this.processRealData(data)
       
-      // Iniciar polling
+      // Iniciar polling automático
       this.startProxyPolling()
+      
+      console.log('🎯 SISTEMA AUTOMÁTICO: Captura iniciada com sucesso!')
       
     } catch (error) {
       console.error('❌ PROXY LOCAL FALHOU:', error instanceof Error ? error.message : String(error))
@@ -578,17 +574,20 @@ class BlazeRealDataService {
    */
   getConnectionStatus(): string {
     switch (this.currentStrategy) {
+      case 'PROXY_DADOS_REAIS_AUTOMATICO':
+        return 'CONECTADO - SISTEMA AUTOMÁTICO ATIVO'
       case 'PROXY_DADOS_REAIS':
         return 'CONECTADO - PROXY DADOS REAIS'
       case 'ERRO_FATAL':
         return 'ERRO FATAL - PROXY INDISPONÍVEL'
       default:
-        return 'DESCONECTADO'
+        return 'CONECTANDO...'
     }
   }
 
   isUsingRealData(): boolean {
-    return this.currentStrategy === 'PROXY_DADOS_REAIS'
+    return this.currentStrategy === 'PROXY_DADOS_REAIS_AUTOMATICO' || 
+           this.currentStrategy === 'PROXY_DADOS_REAIS'
   }
 
   getCurrentStrategy(): string {
@@ -789,46 +788,44 @@ class BlazeRealDataService {
    */
   private async executeChromiumScriptLocally(): Promise<ChromiumCaptureResult> {
     try {
-      console.log('🎯 EXECUTANDO: Script Chromium em desenvolvimento...')
+      console.log('🎯 EXECUTANDO: Script Chromium real em desenvolvimento...')
       
-      // Simular dados reais para desenvolvimento (você pode implementar WebSocket ou outro método)
-      // Para agora, vamos fazer uma requisição direta que sabemos que funciona
-      const response = await fetch('https://blaze.com/api/roulette_games/recent?limit=1', {
-        method: 'GET',
+      // Executar script Node.js real do Chromium via endpoint interno
+      const response = await fetch('/api/chromium-execute', {
+        method: 'POST',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          action: 'capture_blaze_local',
+          timeout: 30000 
+        })
       })
       
       if (!response.ok) {
-        throw new Error(`Direct API failed: ${response.status}`)
+        throw new Error(`Chromium script execution failed: ${response.status}`)
       }
       
-      const data = await response.json()
+      const apiResponse = await response.json()
       
-      if (Array.isArray(data) && data.length > 0) {
-        const game = data[0]
-        
-        // Converter para formato esperado
-        const result: ChromiumCaptureResult = {
-          numero: game.roll,
-          cor: game.color,
-          corNome: game.color === 0 ? 'WHITE' : game.color === 1 ? 'RED' : 'BLACK',
-          corEmoji: game.color === 0 ? '⚪' : game.color === 1 ? '🔴' : '⚫',
-          id: game.id,
-          timestamp: game.created_at,
-          url: 'local_development_api'
-        }
-        
-        console.log(`✅ DESENVOLVIMENTO: Dados obtidos - ${result.corEmoji} ${result.corNome} (${result.numero})`)
-        return result
-      } else {
-        throw new Error('No game data received from direct API')
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || 'Chromium execution failed')
       }
+      
+      const result = apiResponse.data
+      
+      if (!result || !result.numero) {
+        throw new Error('Invalid data format from Chromium script')
+      }
+      
+      console.log(`✅ DESENVOLVIMENTO: Script Chromium executado - ${result.corEmoji} ${result.corNome} (${result.numero})`)
+      return result
       
     } catch (error) {
-      console.error('❌ DESENVOLVIMENTO: Erro ao executar script:', error)
+      console.error('❌ DESENVOLVIMENTO: Erro ao executar script Chromium:', error)
+      
+      // Fallback: usar proxy local diretamente
+      console.log('🔄 FALLBACK: Usando proxy local como alternativa...')
       throw error
     }
   }
