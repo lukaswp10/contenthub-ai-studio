@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
 
 // ===== TYPES =====
 
@@ -503,7 +504,7 @@ class BlazeRealDataService {
       }
 
       // Verificar duplicata local (não bloquear por Supabase)
-      console.log(`🔄 Processando round: ${roundId}`)
+      logThrottled('processing-round', `🔄 Processando round: ${roundId}`)
       
       const uuidRoundId = this.generateUuidFromString(roundId)
 
@@ -535,7 +536,7 @@ class BlazeRealDataService {
 
       // Emitir evento para a interface SEMPRE (independente do Supabase)
       this.emitRealData(data)
-      console.log(`📡 DADOS EMITIDOS PARA INTERFACE: ${normalizedData.number} (${normalizedData.color})`)
+      logThrottled('data-emitted', `📡 DADOS EMITIDOS PARA INTERFACE: ${normalizedData.number} (${normalizedData.color})`)
 
       // Tentar salvar no Supabase (opcional - não bloquear se falhar)
       try {

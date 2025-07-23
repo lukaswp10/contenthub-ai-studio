@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
 
 // ===== INTERFACES =====
 
@@ -121,7 +122,7 @@ export class PredictionAccuracyService {
     // Salvar no banco
     try {
       await this.savePredictionRecord(record)
-      console.log(`📝 Predição registrada: ${predictionId} - ${predicted_color} (${confidence}%)`)
+      logThrottled('prediction-registered', `📝 Predição registrada: ${predictionId} - ${predicted_color} (${confidence}%)`)
     } catch (error) {
       console.warn('⚠️ Erro salvando predição:', error)
     }
@@ -661,7 +662,7 @@ export class PredictionAccuracyService {
       if (error) {
         console.log('⚠️ Tabela de precisão não existe no Supabase (ignorando)')
       } else {
-        console.log('💾 Registro de precisão salvo')
+        logThrottled('accuracy-saved', '💾 Registro de precisão salvo')
       }
     } catch (error) {
       console.log('⚠️ Supabase indisponível para precisão (continuando normalmente)')

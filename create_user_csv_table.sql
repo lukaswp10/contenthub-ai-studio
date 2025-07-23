@@ -1,0 +1,1 @@
+-- Tabela user_csv_data criada via script SQL

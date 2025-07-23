@@ -18,6 +18,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
 
 // ===== INTERFACES =====
 
@@ -129,7 +130,7 @@ export class AdvancedMLPredictionService {
    */
   async makePrediction(historicalData: BlazeDataPoint[]): Promise<EnsemblePrediction> {
     try {
-      console.log('🚀 Iniciando predição avançada com ensemble learning...')
+      logThrottled('ml-prediction-start', '🚀 Iniciando predição avançada com ensemble learning...')
       
       if (historicalData.length < 20) {
         throw new Error('Dados insuficientes para predição avançada (mínimo 20 pontos)')
@@ -152,12 +153,7 @@ export class AdvancedMLPredictionService {
       this.predictionHistory.push(ensemblePrediction)
       await this.storePrediction(ensemblePrediction)
       
-      console.log('✅ Predição avançada concluída:', {
-        color: ensemblePrediction.predicted_color,
-        confidence: ensemblePrediction.confidence_percentage,
-        consensus: ensemblePrediction.model_consensus,
-        models: ensemblePrediction.individual_predictions.length
-      })
+      logThrottled('ml-prediction-complete', `✅ Predição avançada concluída: ${ensemblePrediction.predicted_color} (${ensemblePrediction.confidence_percentage.toFixed(1)}%) | Consensus: ${ensemblePrediction.model_consensus}% | Models: ${ensemblePrediction.individual_predictions.length}`)
       
       return ensemblePrediction
 
@@ -1206,7 +1202,7 @@ export class AdvancedMLPredictionService {
       if (error) {
         console.log('⚠️ Tabela ML não existe no Supabase (ignorando)')
       } else {
-        console.log('💾 Predição ML salva no Supabase')
+        logThrottled('ml-save-supabase', '💾 Predição ML salva no Supabase')
       }
     } catch (error) {
       console.log('⚠️ Supabase indisponível para ML (continuando normalmente)')

@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS user_csv_data (id SERIAL PRIMARY KEY, data_type VARCHAR(50), number INTEGER, color VARCHAR(10), timestamp_data BIGINT, source VARCHAR(20), batch_id VARCHAR(100), metadata JSONB);

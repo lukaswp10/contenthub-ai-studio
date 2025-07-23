@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { supabase } from '@/lib/supabase'
 import blazeRealDataService from '@/services/blazeRealDataService'
 import { advancedMLService } from '@/services/advancedMLPredictionService'
 import { predictionAccuracyService } from '@/services/predictionAccuracyService'
+import { logThrottled, logAlways, logDebug } from '@/utils/logThrottler'
 
 // ===================================================================
 // INTERFACES E TIPOS - Sistema de Análise Massiva
@@ -960,6 +962,113 @@ export default function TesteJogoPage() {
   const componentRefs = useRef<Map<string, HTMLElement>>(new Map())
 
   // ===================================================================
+  // SISTEMA DE PERSISTÊNCIA NO SUPABASE
+  // ===================================================================
+
+  /**
+   * Salvar dados CSV no Supabase para persistir após F5
+   */
+  const saveCSVDataToSupabase = async (data: DoubleResult[]) => {
+    try {
+      // Filtrar apenas dados CSV (não salvar dados manuais ou da Blaze)
+      const csvData = data.filter(r => r.source === 'csv')
+      
+      if (csvData.length === 0) {
+        console.log('📤 Nenhum dado CSV para salvar no Supabase')
+        return
+      }
+
+      // Primeiro, limpar dados CSV antigos do usuário
+      const { error: deleteError } = await supabase
+        .from('user_csv_data')
+        .delete()
+        .eq('data_type', 'csv_import')
+
+      if (deleteError) {
+        console.log('⚠️ Erro ao limpar dados antigos (continuando):', deleteError.message)
+      }
+
+      // Preparar dados para salvamento (em lotes para evitar timeout)
+      const batchSize = 100
+      let savedCount = 0
+
+      for (let i = 0; i < csvData.length; i += batchSize) {
+        const batch = csvData.slice(i, i + batchSize)
+        
+        const batchData = batch.map(item => ({
+          data_type: 'csv_import',
+          number: item.number,
+          color: item.color,
+          timestamp_data: item.timestamp,
+          source: item.source,
+          batch_id: item.batch || 'unknown',
+          metadata: {
+            original_index: i + batch.indexOf(item),
+            import_time: Date.now()
+          }
+        }))
+
+        const { error } = await supabase
+          .from('user_csv_data')
+          .insert(batchData)
+
+        if (error) {
+          console.log(`⚠️ Erro ao salvar lote ${Math.floor(i/batchSize) + 1}:`, error.message)
+        } else {
+          savedCount += batch.length
+        }
+      }
+
+      console.log(`💾 SUPABASE: ${savedCount}/${csvData.length} dados CSV salvos`)
+      
+    } catch (error) {
+      console.log('⚠️ Erro ao salvar CSV no Supabase (não crítico):', error)
+    }
+  }
+
+  /**
+   * Carregar dados CSV do Supabase
+   */
+  const loadCSVDataFromSupabase = async (): Promise<DoubleResult[]> => {
+    try {
+      console.log('📥 Carregando dados CSV do Supabase...')
+      
+      const { data, error } = await supabase
+        .from('user_csv_data')
+        .select('*')
+        .eq('data_type', 'csv_import')
+        .order('timestamp_data', { ascending: true })
+
+      if (error) {
+        console.log('⚠️ Erro ao carregar CSV do Supabase:', error.message)
+        return []
+      }
+
+      if (!data || data.length === 0) {
+        console.log('📥 Nenhum dado CSV encontrado no Supabase')
+        return []
+      }
+
+      // Converter dados do Supabase para formato local
+      const csvResults: DoubleResult[] = data.map((item: any) => ({
+        id: `csv_${item.id}`,
+        number: item.number,
+        color: item.color as 'red' | 'black' | 'white',
+        timestamp: item.timestamp_data,
+        source: 'csv' as const,
+        batch: item.batch_id || 'supabase_load'
+      }))
+
+      logThrottled('csv-loading', `📥 SUPABASE: ${csvResults.length} dados CSV carregados`)
+      return csvResults
+
+    } catch (error) {
+      console.log('⚠️ Erro ao carregar CSV do Supabase:', error)
+      return []
+    }
+  }
+
+  // ===================================================================
   // FUNÇÃO PARA CARREGAR DADOS SALVOS (APENAS QUANDO NECESSÁRIO)
   // ===================================================================
 
@@ -982,15 +1091,26 @@ export default function TesteJogoPage() {
       
       console.log('📁 Carregando dados salvos do IndexedDB...')
       
-      // Carregar apenas dados não processados ou recentes (últimas 24h)
+      // Carregar dados locais
       const savedResults = await optimizedDB.current.loadResults()
       
-      if (savedResults && savedResults.length > 0) {
+      // Carregar dados CSV do Supabase
+      const supabaseCSVResults = await loadCSVDataFromSupabase()
+      
+      // Combinar dados locais + Supabase CSV
+      const allSavedResults = [...(savedResults || []), ...supabaseCSVResults]
+      
+      if (allSavedResults && allSavedResults.length > 0) {
         // ✅ FILTRAR APENAS DADOS RELEVANTES (últimas 24h ou CSV)
         const now = Date.now()
         const oneDayAgo = now - (24 * 60 * 60 * 1000)
         
-        const filteredResults = savedResults.filter((r: DoubleResult) => {
+        // Remover duplicatas entre IndexedDB e Supabase (CSV pode estar duplicado)
+        const uniqueResults = allSavedResults.filter((item, index, arr) => 
+          arr.findIndex(i => i.number === item.number && i.timestamp === item.timestamp && i.source === item.source) === index
+        )
+        
+        const filteredResults = uniqueResults.filter((r: DoubleResult) => {
           // Manter CSVs sempre (dados históricos importantes)
           if (r.source === 'csv') return true
           
@@ -998,7 +1118,8 @@ export default function TesteJogoPage() {
           return r.timestamp > oneDayAgo
         })
 
-        console.log(`✅ ${filteredResults.length}/${savedResults.length} resultados relevantes carregados`)
+        console.log(`✅ ${filteredResults.length}/${allSavedResults.length} resultados relevantes carregados`)
+        console.log(`📊 Origem: Local(${(savedResults || []).length}) + Supabase(${supabaseCSVResults.length}) = Total(${allSavedResults.length})`)
         setResults(filteredResults)
         updateStats(filteredResults)
         setDataAlreadyLoaded(true)
@@ -1488,10 +1609,14 @@ export default function TesteJogoPage() {
       if (results.length === 0) return // Não salvar se não tem dados
       
       try {
+        // 1. Salvar no IndexedDB (local)
         if (optimizedDB.current) {
           await optimizedDB.current.saveResults(results)
-          console.log(`💾 AUTO-SAVE: ${results.length} resultados salvos automaticamente`)
+          logThrottled('auto-save', `💾 AUTO-SAVE LOCAL: ${results.length} resultados salvos automaticamente`)
         }
+        
+        // 2. Salvar dados CSV no Supabase (persistente)
+        await saveCSVDataToSupabase(results)
         
         // Salvar também estatísticas atualizadas
         const currentStats = {
@@ -1541,28 +1666,8 @@ export default function TesteJogoPage() {
           return
         }
         
-        // Processar com Web Workers se há muitos dados
-        if (results.length > 100 && workerManager.current) {
-          console.log('🧠 Processando predição com Web Workers...')
-          
-          const workerResult = await processDataWithWorkers(results, 'ML_ANALYSIS')
-          if (workerResult) {
-            // Converter resultado do worker para formato de predição
-            const prediction = await convertWorkerResultToPrediction(workerResult, results)
-            setPrediction(prediction)
-            
-            // Registrar predição para estatísticas
-            registerPrediction(prediction)
-            
-            // Salvar no cache
-            saveToCache(cacheKey, prediction, 10 * 60 * 1000) // 10 minutos
-            
-            console.log(`✅ Predição atualizada via Workers: ${prediction.color} (${prediction.confidence.toFixed(1)}%)`)
-            return
-          }
-        }
-        
-        // Processamento tradicional para dados menores
+        // ✅ PRIORIZAR SEMPRE ML AVANÇADO (Sistema Profissional)
+        console.log('🧠 Processando com Sistema ML Avançado...')
         await analyzePredictionMassive(results)
         console.log('✅ Predição atualizada automaticamente')
         
@@ -2438,7 +2543,7 @@ export default function TesteJogoPage() {
         // Converter para formato tradicional para compatibilidade
         const traditionalPrediction: PredictionResult = {
           color: advancedResult.predicted_color,
-          confidence: advancedResult.confidence_percentage,
+          confidence: Math.min(75, advancedResult.confidence_percentage * 0.8), // ✅ Calibrar confiança ML
           patterns: advancedResult.individual_predictions.map(p => ({
             name: p.model_name,
             confidence: p.confidence,
@@ -2449,8 +2554,8 @@ export default function TesteJogoPage() {
             correctPredictions: 1,
             evolutionHistory: [p.confidence]
           })),
-          reasoning: `Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`,
-          numbers: advancedResult.predicted_numbers || [],
+          reasoning: [`Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`],
+          expectedNumbers: advancedResult.predicted_numbers || [],
           // Gerar probabilidades baseadas na predição
           probabilities: {
             red: advancedResult.predicted_color === 'red' ? advancedResult.confidence_percentage / 100 : 
@@ -2460,15 +2565,18 @@ export default function TesteJogoPage() {
             white: advancedResult.predicted_color === 'white' ? advancedResult.confidence_percentage / 100 : 
                    (100 - advancedResult.confidence_percentage) / 200
           },
-          specificNumberProbabilities: {}
+          specificNumberProbabilities: {},
+          alternativeScenarios: []
         }
         
+        console.log(`🎯 PREDIÇÃO ML FINAL: ${traditionalPrediction.color} com ${traditionalPrediction.confidence.toFixed(1)}% confiança`)
         setPrediction(traditionalPrediction)
         setIsProcessing(false)
         return
       }
       
       console.log('⚠️ ML avançado não disponível, usando sistema tradicional...')
+      console.log(`📊 Analisando ${resultsList.length} números com sistema tradicional`)
       
       const csvData = resultsList.filter(r => r.source === 'csv')
       const manualData = resultsList.filter(r => r.source === 'manual')
@@ -2547,7 +2655,9 @@ export default function TesteJogoPage() {
       const alternativeScenarios = generateAlternativeScenarios(ensembleResult, dataToAnalyze)
       
       // Gerar números esperados melhorados
+      console.log(`🔍 DEBUG: ensembleResult.prediction = ${ensembleResult.prediction}`)
       const expectedNumbers = generateExpectedNumbersMassive(ensembleResult.prediction, dataToAnalyze)
+      console.log(`🔍 DEBUG: expectedNumbers = [${expectedNumbers.join(', ')}]`)
       
       const predictionResult: PredictionResult = {
         color: ensembleResult.prediction,
@@ -2574,6 +2684,8 @@ export default function TesteJogoPage() {
         alternativeScenarios
       }
       
+      console.log(`🎯 PREDIÇÃO TRADICIONAL FINAL: ${predictionResult.color} com ${predictionResult.confidence.toFixed(1)}% confiança`)
+      console.log(`🔍 DEBUG FINAL: cor=${predictionResult.color}, números=[${predictionResult.expectedNumbers.join(', ')}], confiança=${predictionResult.confidence}`)
       setPrediction(predictionResult)
       
       // Registrar predição para estatísticas
@@ -3120,7 +3232,11 @@ export default function TesteJogoPage() {
     if (maxVotes === votes.black) finalPrediction = 'black'
     else if (maxVotes === votes.white) finalPrediction = 'white'
     
-    const confidence = Math.min(98, Math.max(40, (maxVotes / totalWeight) * 100))
+    // ✅ CALIBRAÇÃO MELHORADA: Confiança mais realista
+    const rawConfidence = (maxVotes / totalWeight) * 100
+    const confidence = Math.min(85, Math.max(15, rawConfidence * 0.7)) // Reduzir confiança excessiva
+    
+    console.log(`🔍 DEBUG ENSEMBLE: maxVotes=${maxVotes.toFixed(1)}, totalWeight=${totalWeight.toFixed(1)}, rawConfidence=${rawConfidence.toFixed(1)}%, finalConfidence=${confidence.toFixed(1)}%`)
     
     // Calcular probabilidades finais normalizadas
     const totalVotes = votes.red + votes.black + votes.white
@@ -3226,31 +3342,59 @@ export default function TesteJogoPage() {
    * GERAÇÃO DE NÚMEROS ESPERADOS MASSIVA
    */
   const generateExpectedNumbersMassive = (color: 'red' | 'black' | 'white', data: DoubleResult[]) => {
-    if (color === 'white') return [0]
+    console.log(`🔍 DEBUG generateExpectedNumbers: input color = ${color}`)
+    
+    if (color === 'white') {
+      console.log(`🔍 DEBUG: Retornando [0] para white`)
+      return [0]
+    }
     
     const analysis = massivePatternAnalysis.current
     const distribution = analysis.numberDistribution
     const range = color === 'red' ? [1,2,3,4,5,6,7] : [8,9,10,11,12,13,14]
     
-    // Analisar frequência e gaps
+    console.log(`🔍 DEBUG: range para ${color} = [${range.join(', ')}]`)
+    
+    // ✅ ESTRATÉGIA MELHORADA: Focar em números menos frequentes e com maior gap
+    const recentData = data.slice(-50) // Últimos 50 números
     const numberAnalysis = range.map(num => ({
       number: num,
       frequency: distribution[num] || 0,
+      recentFreq: recentData.filter(r => r.number === num).length,
       lastSeen: findLastSeen(num, data),
       gap: calculateGap(num, data)
     }))
     
-    // Ordenar por prioridade (menor frequência + maior gap)
+    // ✅ NOVA LÓGICA: Priorizar números menos frequentes recentemente + maior gap
     numberAnalysis.sort((a, b) => {
-      const scoreA = (1 / (a.frequency + 1)) + (a.gap * 0.1)
-      const scoreB = (1 / (b.frequency + 1)) + (b.gap * 0.1)
+      // Penalizar números que apareceram muito recentemente
+      const scoreA = (1 / (a.recentFreq + 1)) * 50 + a.gap * 2 + (1 / (a.frequency + 1)) * 10
+      const scoreB = (1 / (b.recentFreq + 1)) * 50 + b.gap * 2 + (1 / (b.frequency + 1)) * 10
       return scoreB - scoreA
     })
     
+    const topNumbers = numberAnalysis.slice(0, 3).map(n => n.number)
     console.log(`🎯 Top números ${color}:`, numberAnalysis.slice(0, 3).map(n => 
-      `${n.number}(freq:${n.frequency},gap:${n.gap})`).join(' '))
+      `${n.number}(freq:${n.frequency},recent:${n.recentFreq},gap:${n.gap})`).join(' '))
     
-    return numberAnalysis.slice(0, 3).map(n => n.number)
+          // ✅ VALIDAÇÃO CRÍTICA: Garantir que números correspondem à cor
+      const validatedNumbers = topNumbers.filter(num => {
+        if (color === 'red') return num >= 1 && num <= 7
+        if (color === 'black') return num >= 8 && num <= 14
+        if (color === 'white') return num === 0
+        return false
+      })
+      
+      // Se não temos números válidos, usar padrão
+      if (validatedNumbers.length === 0) {
+        console.log(`⚠️ ERRO: Números inválidos para ${color}, usando padrão`)
+        if (color === 'red') return [1, 2, 3]
+        if (color === 'black') return [8, 9, 10]
+        if (color === 'white') return [0]
+      }
+      
+      console.log(`🔍 DEBUG: Retornando números VALIDADOS [${validatedNumbers.join(', ')}] para cor ${color}`)
+      return validatedNumbers.slice(0, 3) // Máximo 3 números
   }
 
   const findLastSeen = (number: number, data: DoubleResult[]) => {
@@ -3357,7 +3501,8 @@ export default function TesteJogoPage() {
     
     setStats({ red, black, white, total });
     
-    console.log(`📊 Stats atualizadas: R:${red} B:${black} W:${white} Total:${total}`);
+    // Log throttled para reduzir spam
+    logThrottled('stats-update', `📊 Stats atualizadas: R:${red} B:${black} W:${white} Total:${total}`);
   };
 
   /**
@@ -3871,7 +4016,7 @@ export default function TesteJogoPage() {
     const sortedResults = uniqueData.sort((a, b) => b.timestamp - a.timestamp);
     
     if (sortedResults.length > 0) {
-      console.log(`📊 getAllNumbers retornando ${sortedResults.length} resultados INFINITOS (${realDataHistory.length} reais + ${results.length} manuais)`);
+      logThrottled('get-all-numbers', `📊 getAllNumbers retornando ${sortedResults.length} resultados INFINITOS (${realDataHistory.length} reais + ${results.length} manuais)`);
     }
     
     return sortedResults.reverse(); // Reverse para mostrar mais antigo primeiro na interface
@@ -5149,172 +5294,36 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           </Card>
         )}
 
-        {/* ETAPA 4: Análise de Padrões Visuais Avançada */}
+        {/* 
+        ===================================================================
+        SEÇÃO COMENTADA: ANÁLISE DE PADRÕES VISUAIS (DADOS FAKE)
+        ===================================================================
+        Motivo: Esta seção contém dados gerados aleatoriamente (Math.random())
+        e não contribui para a análise real do sistema ML.
+        
+        Problemas identificados:
+        1. Matriz de Correlação usando Math.random() * 100 (dados fake)
+        2. Análise Temporal básica (apenas contadores simples)
+        3. Predição Visual Detalhada (duplica dados já exibidos)
+        4. Poluição visual sem valor agregado
+        
+        O sistema ML avançado (6 algoritmos) já fornece análises reais
+        e precisas. Esta seção visual era redundante e confusa.
+        ===================================================================
+        */}
+        
+        {/* 
         {prediction && (
           <Card className="bg-gradient-to-r from-emerald-800/60 to-teal-800/60 border-emerald-400">
             <CardHeader className="pb-2">
               <CardTitle className="text-emerald-300 text-lg">🌈 ANÁLISE DE PADRÕES VISUAIS</CardTitle>
             </CardHeader>
             <CardContent className="pt-2">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                {/* Visualização de Sequências Recentes */}
-                <div className="bg-gray-900/50 p-4 rounded-lg border border-emerald-500/30">
-                  <div className="text-emerald-300 font-semibold mb-3">🔗 Sequência Visual (Últimos 30)</div>
-                  <div className="grid grid-cols-10 gap-1">
-                    {processedNumbers.slice(-30).map((num, index) => (
-                      <div 
-                        key={index}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transform hover:scale-110 transition-all duration-200 ${
-                          num === 0 ? 'bg-white text-black shadow-white/50' :
-                          num <= 7 ? 'bg-red-600 text-white shadow-red-500/50' :
-                          'bg-gray-700 text-white shadow-gray-500/50'
-                        } shadow-lg animate-pulse`}
-                        style={{ 
-                          animationDelay: `${index * 100}ms`,
-                          animationDuration: '2s'
-                        }}
-                      >
-                        {num}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    Sequência temporal dos últimos números com padrões visuais
-                  </div>
-                </div>
-
-                {/* Matriz de Correlação Visual */}
-                <div className="bg-gray-900/50 p-4 rounded-lg border border-emerald-500/30">
-                  <div className="text-emerald-300 font-semibold mb-3">📊 Matriz de Correlação</div>
-                  <div className="space-y-2">
-                    {['Vermelho → Preto', 'Vermelho → Branco', 'Preto → Vermelho', 'Preto → Branco', 'Branco → Vermelho', 'Branco → Preto'].map((pattern, index) => {
-                      // Simular correlação baseada nos dados reais
-                      const correlation = Math.random() * 100; // Em produção, calcular baseado nos dados reais
-                      
-                      return (
-                        <div key={pattern} className="space-y-1">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-300">{pattern}</span>
-                            <span className={`font-semibold ${
-                              correlation > 70 ? 'text-green-400' :
-                              correlation > 40 ? 'text-yellow-400' :
-                              'text-red-400'
-                            }`}>
-                              {correlation.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="bg-gray-800 rounded-full h-2 relative overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-1000 ${
-                                correlation > 70 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                correlation > 40 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
-                                'bg-gradient-to-r from-red-500 to-pink-500'
-                              }`}
-                              style={{ width: `${correlation}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Análise Temporal por Períodos */}
-                <div className="bg-gray-900/50 p-4 rounded-lg border border-emerald-500/30">
-                  <div className="text-emerald-300 font-semibold mb-3">⏰ Análise Temporal</div>
-                  <div className="space-y-3">
-                    
-                    {/* Últimos períodos */}
-                    {[
-                      { label: 'Últimos 50', period: 50, color: 'blue' },
-                      { label: 'Últimos 100', period: 100, color: 'purple' },
-                      { label: 'Últimos 200', period: 200, color: 'green' }
-                    ].map(({ label, period, color }) => {
-                      const periodData = processedNumbers.slice(-period);
-                      const redCount = periodData.filter(n => n >= 1 && n <= 7).length;
-                      const blackCount = periodData.filter(n => n >= 8 && n <= 14).length;
-                      const whiteCount = periodData.filter(n => n === 0).length;
-                      const total = periodData.length;
-                      
-                      return (
-                        <div key={label} className="space-y-2">
-                          <div className="text-sm text-gray-300">{label} ({total} números)</div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div className="bg-red-900/30 p-2 rounded text-center">
-                              <div className="text-red-300 font-semibold">{redCount}</div>
-                              <div className="text-red-400">{total > 0 ? ((redCount / total) * 100).toFixed(1) : 0}%</div>
-                            </div>
-                            <div className="bg-gray-900/30 p-2 rounded text-center">
-                              <div className="text-gray-300 font-semibold">{blackCount}</div>
-                              <div className="text-gray-400">{total > 0 ? ((blackCount / total) * 100).toFixed(1) : 0}%</div>
-                            </div>
-                            <div className="bg-white/10 p-2 rounded text-center">
-                              <div className="text-white font-semibold">{whiteCount}</div>
-                              <div className="text-gray-300">{total > 0 ? ((whiteCount / total) * 100).toFixed(1) : 0}%</div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Predição Visual Detalhada */}
-                <div className="bg-gray-900/50 p-4 rounded-lg border border-emerald-500/30">
-                  <div className="text-emerald-300 font-semibold mb-3">🔮 Predição Visual Detalhada</div>
-                  
-                  {/* Barras de Probabilidade */}
-                  <div className="space-y-3">
-                    {[
-                      { color: 'red', label: 'VERMELHO', prob: prediction?.probabilities?.red || 0, bg: 'bg-red-500' },
-                      { color: 'black', label: 'PRETO', prob: prediction?.probabilities?.black || 0, bg: 'bg-gray-600' },
-                      { color: 'white', label: 'BRANCO', prob: prediction?.probabilities?.white || 0, bg: 'bg-white' }
-                    ].map(({ color, label, prob, bg }) => (
-                      <div key={color} className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-200">{label}</span>
-                          <span className="text-sm font-bold text-emerald-300">{prob}%</span>
-                        </div>
-                        <div className="bg-gray-800 rounded-full h-6 relative overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${bg} transition-all duration-1000 relative`}
-                            style={{ width: `${prob}%` }}
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/20"></div>
-                          </div>
-                          <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">
-                            {prob}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Indicador de Confiança */}
-                  <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-emerald-400">
-                        {prediction.confidence.toFixed(1)}%
-                      </div>
-                      <div className="text-sm text-gray-400">Confiança Geral</div>
-                      <div className={`text-xs mt-1 ${
-                        prediction.confidence >= 80 ? 'text-green-400' :
-                        prediction.confidence >= 60 ? 'text-yellow-400' :
-                        'text-red-400'
-                      }`}>
-                        {prediction.confidence >= 80 ? '🔥 ALTA CONFIANÇA' :
-                         prediction.confidence >= 60 ? '⚡ CONFIANÇA MODERADA' :
-                         '⚠️ BAIXA CONFIANÇA'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+              [... seção com dados fake removida ...]
             </CardContent>
           </Card>
         )}
+        */}
 
         {/* ETAPA 4: Sistema de Relatórios Avançados */}
         {dataManager.totalRecords > 50 && (
