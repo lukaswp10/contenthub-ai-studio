@@ -91,6 +91,25 @@ class BlazeRealDataService {
   constructor() {
     // Verificar se Chromium está disponível
     this.checkChromiumAvailability()
+    
+    // ✅ ETAPA 4: Inicializar feedback loop automático
+    this.initializeFeedbackLoop()
+  }
+
+  /**
+   * ✅ ETAPA 4: INICIALIZAR FEEDBACK LOOP AUTOMÁTICO
+   */
+  private async initializeFeedbackLoop(): Promise<void> {
+    try {
+      // Aguardar um pouco para sistema carregar
+      setTimeout(async () => {
+        const { feedbackLoopService } = await import('./feedbackLoopService')
+        await feedbackLoopService.startFeedbackLoop()
+        console.log('🔄 ETAPA 4: Feedback loop automático inicializado!')
+      }, 2000)
+    } catch (error) {
+      console.warn('⚠️ Erro inicializando feedback loop:', error)
+    }
   }
 
   /**
@@ -663,6 +682,9 @@ class BlazeRealDataService {
           round_target: 'next'
         }
 
+        // ✅ ETAPA 4: REGISTRAR PREDIÇÃO NO FEEDBACK LOOP
+        await this.registerPredictionForFeedback(prediction, advancedPrediction)
+
         // Salvar predição avançada
         const { error } = await supabase
           .from('system_predictions')
@@ -753,6 +775,56 @@ class BlazeRealDataService {
     } catch (error) {
       console.log('❌ Erro na predição fallback:', error)
     }
+  }
+
+  /**
+   * ✅ ETAPA 4: REGISTRAR PREDIÇÃO NO FEEDBACK LOOP
+   */
+  private async registerPredictionForFeedback(prediction: SystemPrediction, advancedPrediction: any): Promise<void> {
+    try {
+      const { feedbackLoopService } = await import('./feedbackLoopService')
+      
+      const predictionId = `ml_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // Extrair modelos utilizados
+      const modelsUsed = advancedPrediction.individual_predictions?.map((p: any) => p.model_id) || ['ensemble']
+      
+      // Criar contexto
+      const context = {
+        hour_of_day: new Date().getHours(),
+        day_of_week: new Date().getDay(),
+        volatility_level: advancedPrediction.risk_assessment?.volatility_level || 'medium',
+        recent_streak: 0, // Será calculado baseado nos dados recentes
+        market_phase: this.getMarketPhase(),
+        data_quality_score: advancedPrediction.meta_analysis?.ensemble_agreement || 0.8
+      }
+      
+      await feedbackLoopService.registerPrediction({
+        prediction_id: predictionId,
+        predicted_color: prediction.predicted_color,
+        predicted_numbers: prediction.predicted_numbers,
+        confidence: prediction.confidence_percentage,
+        models_used: modelsUsed,
+        context: context
+      })
+      
+      console.log(`🔄 Predição ${predictionId} registrada no feedback loop`)
+      
+    } catch (error) {
+      console.warn('⚠️ Erro registrando predição no feedback loop:', error)
+    }
+  }
+
+  /**
+   * DETERMINAR FASE DO MERCADO
+   */
+  private getMarketPhase(): 'opening' | 'active' | 'closing' | 'late_night' {
+    const hour = new Date().getHours()
+    
+    if (hour >= 6 && hour < 9) return 'opening'
+    if (hour >= 9 && hour < 18) return 'active'
+    if (hour >= 18 && hour < 22) return 'closing'
+    return 'late_night'
   }
 
   /**

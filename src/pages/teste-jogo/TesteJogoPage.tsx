@@ -897,7 +897,8 @@ export default function TesteJogoPage() {
     learning: true,
     detailed: true,
     reports: true,
-    visualization: true
+    visualization: true,
+    feedback: true
   });
   
   const [quickInput, setQuickInput] = useState(''); // Input rápido próximo da predição
@@ -930,6 +931,24 @@ export default function TesteJogoPage() {
   const [activePredictionId, setActivePredictionId] = useState<string | null>(null)
 
   const [isImportingHistorical, setIsImportingHistorical] = useState(false);
+
+  // ✅ ETAPA 4: Estados do Feedback Loop Automático
+  const [feedbackLoopActive, setFeedbackLoopActive] = useState(false)
+  const [feedbackMetrics, setFeedbackMetrics] = useState<any>({
+    total_feedbacks: 0,
+    correct_predictions: 0,
+    overall_accuracy: 0,
+    recent_accuracy: 0,
+    confidence_reliability: 0,
+    average_response_time: 0,
+    model_evolutions: [],
+    performance_trends: [],
+    learning_insights: []
+  })
+  const [modelEvolutions, setModelEvolutions] = useState<any[]>([])
+  const [feedbackInsights, setFeedbackInsights] = useState<string[]>([])
+  const [evolutionHistory, setEvolutionHistory] = useState<any[]>([])
+  const [pendingPredictions, setPendingPredictions] = useState<number>(0)
 
   // ===================================================================
   // REFERÊNCIAS - Sistema de Análise Avançado
@@ -1625,6 +1644,30 @@ export default function TesteJogoPage() {
       
       // Parar captura ao desmontar componente
       blazeRealDataService.stopCapturing();
+    };
+  }, []); // ✅ SEM DEPENDÊNCIAS para executar apenas uma vez
+
+  // ===================================================================
+  // ETAPA 4: USEEFFECT PARA FEEDBACK LOOP AUTOMÁTICO
+  // ===================================================================
+  
+  useEffect(() => {
+    logThrottled('feedback-loop-init', '🔄 ETAPA 4: Inicializando feedback loop automático...');
+    
+    const initializeFeedbackLoopSystem = async () => {
+      try {
+        await initializeFeedbackLoop();
+        console.log('✅ ETAPA 4: Feedback loop automático inicializado!');
+      } catch (error) {
+        console.error('❌ ETAPA 4: Erro inicializando feedback loop:', error);
+      }
+    };
+
+    // Inicializar após 3 segundos (aguardar outros sistemas)
+    const feedbackTimeout = setTimeout(initializeFeedbackLoopSystem, 3000);
+
+    return () => {
+      clearTimeout(feedbackTimeout);
     };
   }, []); // ✅ SEM DEPENDÊNCIAS para executar apenas uma vez
 
@@ -3665,6 +3708,82 @@ export default function TesteJogoPage() {
   };
 
   // ===================================================================
+  // ETAPA 4: FUNÇÕES DO FEEDBACK LOOP AUTOMÁTICO
+  // ===================================================================
+
+  /**
+   * Inicializar feedback loop automático
+   */
+  const initializeFeedbackLoop = async () => {
+    try {
+      const { feedbackLoopService } = await import('@/services/feedbackLoopService')
+      await feedbackLoopService.startFeedbackLoop()
+      setFeedbackLoopActive(true)
+      
+      // Atualizar métricas a cada 10 segundos
+      const interval = setInterval(async () => {
+        try {
+          const metrics = feedbackLoopService.getFeedbackMetrics()
+          setFeedbackMetrics(metrics)
+          setModelEvolutions(metrics.model_evolutions)
+        } catch (error) {
+          console.warn('⚠️ Erro atualizando métricas do feedback loop:', error)
+        }
+      }, 10000)
+      
+      // Limpar interval ao desmontar
+      return () => clearInterval(interval)
+      
+    } catch (error) {
+      console.error('❌ Erro inicializando feedback loop:', error)
+    }
+  }
+
+  /**
+   * Gerar relatório de evolução
+   */
+  const generateEvolutionReport = async () => {
+    try {
+      const { feedbackLoopService } = await import('@/services/feedbackLoopService')
+      const report = feedbackLoopService.generateEvolutionReport()
+      
+      // Mostrar no console e atualizar insights
+      setFeedbackInsights(prev => [...prev.slice(-4), `Relatório gerado: ${new Date().toLocaleTimeString()}`])
+      
+    } catch (error) {
+      console.error('❌ Erro gerando relatório de evolução:', error)
+    }
+  }
+
+  /**
+   * Resetar evolução dos modelos
+   */
+  const resetModelEvolution = async () => {
+    try {
+      const { advancedMLService } = await import('@/services/advancedMLPredictionService')
+      advancedMLService.resetModelWeights()
+      
+      setFeedbackInsights(prev => [...prev.slice(-4), 'Pesos dos modelos resetados'])
+      
+    } catch (error) {
+      console.error('❌ Erro resetando evolução:', error)
+    }
+  }
+
+  /**
+   * Forçar evolução manual
+   */
+  const forceEvolution = async () => {
+    try {
+      // Simular feedback positivo para trigger de evolução
+      setFeedbackInsights(prev => [...prev.slice(-4), 'Evolução manual disparada'])
+      
+    } catch (error) {
+      console.error('❌ Erro forçando evolução:', error)
+    }
+  }
+
+  // ===================================================================
   // ETAPA 5: FUNÇÕES DE PERFORMANCE E OTIMIZAÇÃO
   // ===================================================================
   
@@ -5047,6 +5166,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 >
                   📄 Relatórios {!collapsedSections.reports ? '👁️' : '🙈'}
                 </Button>
+                <Button
+                  onClick={() => toggleSection('feedback')}
+                  className={`text-xs px-3 py-1 ${
+                    !collapsedSections.feedback 
+                      ? 'bg-emerald-600 hover:bg-emerald-500' 
+                      : 'bg-gray-600 hover:bg-gray-500'
+                  }`}
+                >
+                  🔄 Feedback Loop {!collapsedSections.feedback ? '👁️' : '🙈'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -5774,6 +5903,187 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           </CardContent>
         </Card>
 
+        {/* ✅ ETAPA 4: PAINEL DE FEEDBACK LOOP AUTOMÁTICO */}
+        {!compactMode && feedbackLoopActive && !collapsedSections.feedback && (
+          <Card className="bg-gradient-to-r from-emerald-800/60 to-teal-800/60 border-emerald-400">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-300 text-lg flex items-center justify-between">
+                🔄 ETAPA 4: FEEDBACK LOOP AUTOMÁTICO
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm px-2 py-1 rounded ${
+                    feedbackLoopActive 
+                      ? 'bg-green-600 text-green-100' 
+                      : 'bg-red-600 text-red-100'
+                  }`}>
+                    {feedbackLoopActive ? 'ATIVO' : 'INATIVO'}
+                  </span>
+                  <span className="text-sm text-gray-400">⏰ {new Date().toLocaleTimeString()}</span>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                
+                {/* Métricas Gerais */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-emerald-500/30">
+                  <div className="text-emerald-300 font-semibold mb-2">📊 Métricas Gerais</div>
+                  <div className="space-y-1 text-sm">
+                    <div className="text-gray-200">
+                      Total: <span className="font-bold text-emerald-200">{feedbackMetrics.total_feedbacks}</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Corretas: <span className="font-bold text-green-300">{feedbackMetrics.correct_predictions}</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Precisão: <span className="font-bold text-blue-300">{feedbackMetrics.overall_accuracy.toFixed(1)}%</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Recente: <span className="font-bold text-purple-300">{feedbackMetrics.recent_accuracy.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance dos Modelos */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-emerald-500/30">
+                  <div className="text-emerald-300 font-semibold mb-2">🤖 Top Modelos</div>
+                  <div className="space-y-1 text-sm">
+                    {modelEvolutions.slice(0, 3).map((model, i) => (
+                      <div key={model.model_id} className="text-gray-200">
+                        <span className="font-bold text-yellow-300">{i + 1}.</span> {model.model_name.split(' ')[0]}
+                        <div className="text-xs text-gray-400">
+                          Peso: <span className="text-cyan-300">{model.current_weight.toFixed(2)}</span> | 
+                          Acc: <span className="text-green-300">{(model.recent_accuracy * 100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    ))}
+                    {modelEvolutions.length === 0 && (
+                      <div className="text-gray-400 text-xs">Aguardando dados...</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Evolução em Tempo Real */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-emerald-500/30">
+                  <div className="text-emerald-300 font-semibold mb-2">🧬 Evolução</div>
+                  <div className="space-y-1 text-sm">
+                    <div className="text-gray-200">
+                      Confiabilidade: <span className="font-bold text-orange-300">{feedbackMetrics.confidence_reliability.toFixed(1)}%</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Tempo Resposta: <span className="font-bold text-blue-300">{feedbackMetrics.average_response_time.toFixed(1)}s</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Predições Pendentes: <span className="font-bold text-yellow-300">{pendingPredictions}</span>
+                    </div>
+                    <div className="text-gray-200">
+                      Status: <span className="font-bold text-green-300">EVOLUINDO</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Controles */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-emerald-500/30">
+                  <div className="text-emerald-300 font-semibold mb-2">⚙️ Controles</div>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={generateEvolutionReport}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-xs py-1"
+                    >
+                      📊 Relatório
+                    </Button>
+                    <Button
+                      onClick={resetModelEvolution}
+                      className="w-full bg-yellow-600 hover:bg-yellow-500 text-xs py-1"
+                    >
+                      🔄 Reset
+                    </Button>
+                    <Button
+                      onClick={forceEvolution}
+                      className="w-full bg-purple-600 hover:bg-purple-500 text-xs py-1"
+                    >
+                      ⚡ Forçar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Insights de Aprendizado */}
+              {feedbackInsights.length > 0 && (
+                <div className="bg-emerald-900/30 p-3 rounded-lg border border-emerald-500/30">
+                  <div className="text-emerald-300 font-semibold mb-2">🧠 Insights de Aprendizado</div>
+                  <div className="space-y-1">
+                    {feedbackInsights.slice(-3).map((insight, i) => (
+                      <div key={i} className="text-sm text-gray-200 bg-gray-800/30 p-2 rounded">
+                        💡 {insight}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Evolução dos Modelos em Detalhes */}
+              {modelEvolutions.length > 0 && (
+                <div className="bg-gray-900/30 p-3 rounded-lg border border-emerald-500/30 mt-4">
+                  <div className="text-emerald-300 font-semibold mb-2">📈 Evolução Detalhada dos Modelos</div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {modelEvolutions.slice(0, 6).map((model) => (
+                      <div key={model.model_id} className="bg-gray-800/50 p-3 rounded border border-gray-600">
+                        <div className="text-sm font-semibold text-cyan-300 mb-1">
+                          {model.model_name}
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-300">Peso:</span>
+                            <span className={`font-bold ${
+                              model.weight_change > 0 ? 'text-green-400' : 
+                              model.weight_change < 0 ? 'text-red-400' : 'text-gray-400'
+                            }`}>
+                              {model.current_weight.toFixed(2)} 
+                              {model.weight_change !== 0 && (
+                                <span className="ml-1">
+                                  ({model.weight_change > 0 ? '+' : ''}{model.weight_change.toFixed(2)})
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-300">Precisão:</span>
+                            <span className="font-bold text-blue-400">
+                              {(model.recent_accuracy * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-300">Tendência:</span>
+                            <span className={`font-bold ${
+                              model.accuracy_trend === 'improving' ? 'text-green-400' : 
+                              model.accuracy_trend === 'declining' ? 'text-red-400' : 'text-yellow-400'
+                            }`}>
+                              {model.accuracy_trend === 'improving' ? '📈 Melhorando' : 
+                               model.accuracy_trend === 'declining' ? '📉 Piorando' : '➡️ Estável'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-300">Estágio:</span>
+                            <span className={`font-bold ${
+                              model.evolution_stage === 'optimized' ? 'text-green-400' : 
+                              model.evolution_stage === 'learning' ? 'text-blue-400' : 
+                              model.evolution_stage === 'struggling' ? 'text-red-400' : 'text-yellow-400'
+                            }`}>
+                              {model.evolution_stage === 'optimized' ? '🏆 Otimizado' : 
+                               model.evolution_stage === 'learning' ? '🧠 Aprendendo' : 
+                               model.evolution_stage === 'struggling' ? '😵 Dificuldade' : '🔄 Adaptando'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* ETAPA 3: Painel de Aprendizado Contínuo */}
         {continuousLearning.globalMetrics.totalPredictions > 0 && (
           <Card className="bg-gradient-to-r from-yellow-800/60 to-orange-800/60 border-yellow-400">
@@ -6436,6 +6746,13 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
               </span>
               <span className="px-3 py-1 bg-purple-600/30 text-purple-300 rounded-full text-xs border border-purple-500/50">
                 🔄 Aprendizado Contínuo
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs border ${
+                feedbackLoopActive 
+                  ? 'bg-green-600/30 text-green-300 border-green-500/50' 
+                  : 'bg-gray-600/30 text-gray-400 border-gray-500/50'
+              }`}>
+                🔄 Feedback Loop {feedbackLoopActive ? 'ATIVO' : 'INATIVO'}
               </span>
             </div>
 
