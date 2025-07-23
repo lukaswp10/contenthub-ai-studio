@@ -953,9 +953,18 @@ export default function TesteJogoPage() {
   // FUNÇÃO PARA CARREGAR DADOS SALVOS (APENAS QUANDO NECESSÁRIO)
   // ===================================================================
 
-  // Carregar dados salvos do IndexedDB (chamada apenas quando CSV ou Blaze)
-  const loadSavedDataWhenNeeded = async () => {
+  // Estado para controlar se dados já foram carregados
+  const [dataAlreadyLoaded, setDataAlreadyLoaded] = useState(false)
+
+  // Carregar dados salvos do IndexedDB (APENAS uma vez por sessão)
+  const loadSavedDataWhenNeeded = async (forceReload = false) => {
     try {
+      // ✅ EVITAR RECARREGAMENTO DESNECESSÁRIO
+      if (dataAlreadyLoaded && !forceReload) {
+        console.log('📋 Dados já carregados nesta sessão - pulando recarregamento')
+        return
+      }
+
       if (!optimizedDB.current) {
         console.log('⏳ IndexedDB não inicializado ainda...')
         return
@@ -963,35 +972,88 @@ export default function TesteJogoPage() {
       
       console.log('📁 Carregando dados salvos do IndexedDB...')
       
-      // Carregar todos os resultados salvos
+      // Carregar apenas dados não processados ou recentes (últimas 24h)
       const savedResults = await optimizedDB.current.loadResults()
       
       if (savedResults && savedResults.length > 0) {
-        console.log(`✅ ${savedResults.length} resultados carregados do IndexedDB`)
-        setResults(savedResults)
-        updateStats(savedResults)
+        // ✅ FILTRAR APENAS DADOS RELEVANTES (últimas 24h ou CSV)
+        const now = Date.now()
+        const oneDayAgo = now - (24 * 60 * 60 * 1000)
+        
+        const filteredResults = savedResults.filter((r: DoubleResult) => {
+          // Manter CSVs sempre (dados históricos importantes)
+          if (r.source === 'csv') return true
+          
+          // Para dados reais/manuais, apenas últimas 24h
+          return r.timestamp > oneDayAgo
+        })
+
+        console.log(`✅ ${filteredResults.length}/${savedResults.length} resultados relevantes carregados`)
+        setResults(filteredResults)
+        updateStats(filteredResults)
+        setDataAlreadyLoaded(true)
         
         // Atualizar data manager
-        const csvRecords = savedResults.filter((r: DoubleResult) => r.source === 'csv').length
-        const manualRecords = savedResults.filter((r: DoubleResult) => r.source === 'manual').length
+        const csvRecords = filteredResults.filter((r: DoubleResult) => r.source === 'csv').length
+        const manualRecords = filteredResults.filter((r: DoubleResult) => r.source === 'manual').length
         
         setDataManager(prev => ({
           ...prev,
-          totalRecords: savedResults.length,
+          totalRecords: filteredResults.length,
           csvRecords,
           manualRecords
         }))
         
-        // Auto-gerar predição se tiver dados suficientes
-        if (savedResults.length >= 5) {
+        // Auto-gerar predição apenas se tiver dados suficientes E não tiver predição atual
+        if (filteredResults.length >= 5 && !prediction) {
           console.log('🧠 Gerando predição automática com dados carregados...')
-          await analyzePredictionMassive(savedResults)
+          await analyzePredictionMassive(filteredResults)
         }
       } else {
         console.log('📂 Nenhum dado salvo encontrado - começando do zero')
+        setDataAlreadyLoaded(true)
       }
     } catch (error) {
       console.error('❌ Erro ao carregar dados salvos:', error)
+    }
+  }
+
+  // ===================================================================
+  // FUNÇÃO DE LIMPEZA AUTOMÁTICA DE DADOS ANTIGOS
+  // ===================================================================
+
+  const cleanupOldData = async () => {
+    try {
+      if (!optimizedDB.current) return
+
+      console.log('🧹 Iniciando limpeza automática de dados antigos...')
+      
+      const allResults = await optimizedDB.current.loadResults()
+      if (!allResults || allResults.length === 0) return
+
+      const now = Date.now()
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000) // 7 dias
+
+      // Manter CSVs (históricos importantes) e dados recentes (7 dias)
+      const relevantResults = allResults.filter((r: DoubleResult) => {
+        if (r.source === 'csv') return true // Sempre manter CSVs
+        return r.timestamp > sevenDaysAgo // Dados recentes
+      })
+
+      const removedCount = allResults.length - relevantResults.length
+
+      if (removedCount > 0) {
+        console.log(`🗑️ Removendo ${removedCount} registros antigos (mantendo ${relevantResults.length})`)
+        
+        // Usar método existente para limpar dados antigos
+        await optimizedDB.current.clearOldData(7) // 7 dias
+        
+        console.log('✅ Limpeza automática concluída!')
+      } else {
+        console.log('✅ Nenhum dado antigo para remover')
+      }
+    } catch (error) {
+      console.error('❌ Erro na limpeza automática:', error)
     }
   }
 
@@ -1059,7 +1121,7 @@ export default function TesteJogoPage() {
       setRealTimeMode(true);
       console.log('🎯 Iniciando captura de dados reais da Blaze...');
       
-      // ✅ CARREGAR DADOS SALVOS quando conectar Blaze
+      // ✅ CARREGAR DADOS SALVOS apenas se ainda não carregados
       await loadSavedDataWhenNeeded();
       
       await blazeRealDataService.startCapturing();
@@ -1255,8 +1317,13 @@ export default function TesteJogoPage() {
     const memoryCleanupInterval = setInterval(() => {
       performMemoryCleanup()
     }, 60000) // A cada minuto
+
+    // Cleanup automático de dados antigos (a cada 6 horas)
+    const dataCleanupInterval = setInterval(() => {
+      cleanupOldData()
+    }, 6 * 60 * 60 * 1000) // A cada 6 horas
     
-    cleanupIntervals.current.push(memoryCleanupInterval)
+    cleanupIntervals.current.push(memoryCleanupInterval, dataCleanupInterval)
     
     console.log('✅ ETAPA 5: Sistemas de performance inicializados com sucesso!')
     
@@ -1277,6 +1344,24 @@ export default function TesteJogoPage() {
     
     return () => clearInterval(metricsInterval)
   }, [])
+
+  // ===================================================================
+  // USEEFFECT PARA CARREGAMENTO INICIAL DE DADOS (APENAS UMA VEZ)
+  // ===================================================================
+  
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (optimizedDB.current && !dataAlreadyLoaded) {
+        console.log('📊 Carregando dados salvos uma única vez...')
+        await loadSavedDataWhenNeeded()
+      }
+    }
+
+    // Carregar dados após IndexedDB estar pronto
+    if (optimizedDB.current) {
+      loadInitialData()
+    }
+  }, [optimizedDB.current]) // Executar quando IndexedDB estiver pronto
 
   // ===================================================================
   // USEEFFECT PARA SISTEMA DE DADOS REAIS DA BLAZE - AUTO-START
@@ -1846,8 +1931,8 @@ export default function TesteJogoPage() {
     const reader = new FileReader()
     reader.onload = async (e) => {
       try {
-        // ✅ CARREGAR DADOS SALVOS quando importar CSV
-        await loadSavedDataWhenNeeded();
+        // ✅ CARREGAR DADOS SALVOS e forçar reload para merge com CSV
+        await loadSavedDataWhenNeeded(true);
         
         const csvText = e.target?.result as string
         const csvResults = await processMassiveCSV(csvText)
