@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1140,6 +1140,12 @@ export default function TesteJogoPage() {
   useEffect(() => {
     console.log('🚀 ETAPA 5: Inicializando sistemas de performance avançada...')
     
+    // Verificar se já foi inicializado para evitar re-inicialização
+    if (optimizedDB.current && workerManager.current) {
+      console.log('⚠️ Sistemas já inicializados, pulando...')
+      return
+    }
+    
     // Inicializar IndexedDB otimizado
     optimizedDB.current = new OptimizedIndexedDB()
     
@@ -1176,10 +1182,11 @@ export default function TesteJogoPage() {
     console.log('✅ ETAPA 5: Sistemas de performance inicializados com sucesso!')
     
     return () => {
-      // Cleanup na desmontagem
+      // Cleanup na desmontagem APENAS uma vez
+      console.log('🧹 Cleanup de performance systems...')
       cleanupPerformanceSystems()
     }
-  }, [])
+  }, []) // ✅ Array vazio - executa apenas uma vez
   
   useEffect(() => {
     // Monitoramento em tempo real das métricas
@@ -1219,8 +1226,11 @@ export default function TesteJogoPage() {
         source: 'manual' as const,
       };
       
-      setResults(prev => [...prev, blazeResult]);
-      updateStats([...results, blazeResult]);
+      setResults(prev => {
+        const newResults = [...prev, blazeResult];
+        updateStats(newResults);
+        return newResults;
+      });
     };
 
     // Listener para erros de conexão
@@ -1249,7 +1259,7 @@ export default function TesteJogoPage() {
       window.removeEventListener('blazeRealData', handleRealData);
       window.removeEventListener('blazeConnectionError', handleConnectionError);
     };
-  }, [results]);
+  }, []); // ✅ REMOVENDO DEPENDÊNCIA [results] que causava loop
 
   // ===================================================================
   // ETAPA 5: AUTO-ATUALIZAÇÃO DE PREDIÇÃO EM TEMPO REAL
@@ -1304,13 +1314,13 @@ export default function TesteJogoPage() {
   }, [results]) // Salva sempre que results muda
 
   useEffect(() => {
-    // Auto-atualizar predição quando dados mudam
+    // Auto-atualizar predição quando dados mudam (apenas se tiver dados suficientes)
+    if (results.length < 5) {
+      console.log('⏳ Dados insuficientes para predição automática (mínimo 5 números)')
+      return
+    }
+    
     const autoUpdatePrediction = async () => {
-      if (results.length < 5) {
-        console.log('⏳ Dados insuficientes para predição automática (mínimo 5 números)')
-        return
-      }
-      
       console.log(`🔄 Auto-atualizando predição com ${results.length} números...`)
       
       try {
@@ -1352,10 +1362,10 @@ export default function TesteJogoPage() {
     }
     
     // Debounce para evitar muitas atualizações simultâneas
-    const timeoutId = setTimeout(autoUpdatePrediction, 500)
+    const timeoutId = setTimeout(autoUpdatePrediction, 1000) // Aumentei para 1s
     
     return () => clearTimeout(timeoutId)
-  }, [results]) // Executa sempre que results mudar
+  }, [results.length]) // ✅ MUDANÇA CRÍTICA: Só executa quando LENGTH muda, não quando CONTENT muda
   
   // Converter resultado do Worker para formato de predição
   const convertWorkerResultToPrediction = async (workerResult: any, data: DoubleResult[]): Promise<PredictionResult> => {
@@ -3492,9 +3502,9 @@ export default function TesteJogoPage() {
   };
   
   /**
-   * Obter últimos 20 números para exibição visual (ordenados por timestamp)
+   * Obter últimos 20 números para exibição visual (memoizada para evitar re-renders)
    */
-  const getLast20Numbers = (): DoubleResult[] => {
+  const getLast20Numbers = useMemo((): DoubleResult[] => {
     // Combinar dados reais e manuais
     const allData = [...results];
     
@@ -3525,10 +3535,12 @@ export default function TesteJogoPage() {
     const sortedResults = uniqueData.sort((a, b) => b.timestamp - a.timestamp);
     const last20 = sortedResults.slice(0, 20);
     
-    console.log(`📊 getLast20Numbers retornando ${last20.length} resultados (${realDataHistory.length} reais + ${results.length} manuais)`);
+    if (last20.length > 0) {
+      console.log(`📊 getLast20Numbers retornando ${last20.length} resultados (${realDataHistory.length} reais + ${results.length} manuais)`);
+    }
     
     return last20.reverse(); // Reverse para mostrar mais antigo primeiro na interface
-  };
+  }, [results.length, realDataHistory.length]); // ✅ MEMOIZAÇÃO: Só recalcula se LENGTH mudar
   
   /**
    * Toggle de seção específica
@@ -4414,15 +4426,15 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 <div className="text-orange-300 font-semibold mb-3 text-center">
                   📊 ÚLTIMOS 20 RESULTADOS
                   <div className="text-xs text-orange-200 mt-1">
-                    {getLast20Numbers().length > 0 && (
+                    {getLast20Numbers.length > 0 && (
                       <>
-                        Mais recente: {new Date(Math.max(...getLast20Numbers().map(r => r.timestamp))).toLocaleTimeString('pt-BR')}
+                        Mais recente: {new Date(Math.max(...getLast20Numbers.map(r => r.timestamp))).toLocaleTimeString('pt-BR')}
                       </>
                     )}
                   </div>
                 </div>
                 <div className="grid grid-cols-10 gap-1 mb-3">
-                  {getLast20Numbers().map((result, index) => (
+                  {getLast20Numbers.map((result, index) => (
                     <div
                       key={`${result.id}-${index}`}
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transform hover:scale-110 transition-all duration-200 ${
@@ -5570,7 +5582,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 <div>
                   <div className="text-gray-300 font-semibold mb-2">🕒 Últimos 20 Resultados:</div>
                   <div className="flex gap-1 flex-wrap">
-                    {getLast20Numbers().map((result, index) => (
+                    {getLast20Numbers.map((result, index) => (
                       <div
                         key={result.id || index}
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -5584,7 +5596,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       </div>
                     ))}
                   </div>
-                  {getLast20Numbers().length === 0 && (
+                  {getLast20Numbers.length === 0 && (
                     <div className="text-gray-500 text-sm italic">
                       Nenhum número registrado ainda...
                     </div>
