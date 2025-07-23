@@ -685,6 +685,9 @@ class BlazeRealDataService {
         // ✅ ETAPA 4: REGISTRAR PREDIÇÃO NO FEEDBACK LOOP
         await this.registerPredictionForFeedback(prediction, advancedPrediction)
 
+        // ✅ ETAPA 5: ANÁLISE TEMPORAL AVANÇADA
+        await this.performTemporalAnalysisAndOptimization(blazeDataPoints, prediction)
+
         // Salvar predição avançada
         const { error } = await supabase
           .from('system_predictions')
@@ -825,6 +828,120 @@ class BlazeRealDataService {
     if (hour >= 9 && hour < 18) return 'active'
     if (hour >= 18 && hour < 22) return 'closing'
     return 'late_night'
+  }
+
+  /**
+   * ✅ ETAPA 5: ANÁLISE TEMPORAL AVANÇADA E OTIMIZAÇÃO
+   */
+  private async performTemporalAnalysisAndOptimization(blazeDataPoints: any[], prediction: SystemPrediction): Promise<void> {
+    try {
+      const { temporalAnalysisService } = await import('./temporalAnalysisService')
+      
+      // Executar análise temporal se temos dados suficientes
+      if (blazeDataPoints.length >= 100) {
+        console.log('⏰ ETAPA 5: Executando análise temporal avançada...')
+        
+        const temporalAnalysis = await temporalAnalysisService.performTemporalAnalysis(blazeDataPoints)
+        
+        // Obter contexto temporal atual
+        const currentPhase = temporalAnalysisService.getCurrentMarketPhase()
+        const currentRegime = temporalAnalysisService.getCurrentRegime()
+        const recommendations = temporalAnalysisService.getCurrentRecommendations()
+        
+        // Log das descobertas temporais
+        if (currentPhase) {
+          console.log(`📊 FASE ATUAL: ${currentPhase.phase_name} (${currentPhase.characteristics.activity_level} atividade)`)
+          console.log(`🎯 Previsibilidade: ${(currentPhase.characteristics.predictability * 100).toFixed(1)}%`)
+        }
+        
+        if (currentRegime) {
+          console.log(`🌊 REGIME: ${currentRegime.regime_type} (gap médio: ${currentRegime.characteristics.average_gap.toFixed(2)})`)
+        }
+        
+        if (recommendations.length > 0) {
+          console.log(`💡 ${recommendations.length} recomendações temporais disponíveis`)
+          recommendations.slice(0, 2).forEach(rec => {
+            console.log(`   • [${rec.priority}] ${rec.description}`)
+          })
+        }
+        
+        // Aplicar otimizações temporais na predição
+        await this.applyTemporalOptimizations(prediction, temporalAnalysis, currentPhase, currentRegime)
+        
+        console.log('✅ ETAPA 5: Análise temporal aplicada com sucesso!')
+      } else {
+        console.log('⚠️ ETAPA 5: Dados insuficientes para análise temporal (mínimo 100 pontos)')
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ ETAPA 5: Erro na análise temporal:', error)
+    }
+  }
+
+  /**
+   * 🎯 APLICAR OTIMIZAÇÕES TEMPORAIS
+   */
+  private async applyTemporalOptimizations(
+    prediction: SystemPrediction, 
+    analysis: any, 
+    currentPhase: any, 
+    currentRegime: any
+  ): Promise<void> {
+    try {
+      // Ajustar confiança baseado na fase do mercado
+      if (currentPhase) {
+        const phaseMultiplier = currentPhase.characteristics.predictability
+        prediction.confidence_percentage = Math.round(prediction.confidence_percentage * phaseMultiplier)
+        console.log(`🎯 Confiança ajustada pela fase: ${prediction.confidence_percentage}% (×${phaseMultiplier.toFixed(2)})`)
+      }
+      
+      // Ajustar estratégia baseado no regime de volatilidade
+      if (currentRegime) {
+        const regimeAdjustment = this.getRegimeConfidenceAdjustment(currentRegime.regime_type)
+        prediction.confidence_percentage = Math.round(prediction.confidence_percentage * regimeAdjustment)
+        console.log(`🌊 Confiança ajustada pelo regime: ${prediction.confidence_percentage}% (×${regimeAdjustment})`)
+        
+        // Adicionar informação do regime aos algoritmos usados
+        prediction.ml_algorithms_used.temporal_analysis = true
+        prediction.ml_algorithms_used.current_regime = currentRegime.regime_type
+        prediction.ml_algorithms_used.regime_characteristics = currentRegime.characteristics
+      }
+      
+      // Aplicar insights de padrões horários
+      const currentHour = new Date().getHours()
+      const hourlyPattern = analysis.hourly_patterns?.find((p: any) => p.hour === currentHour)
+      
+      if (hourlyPattern && hourlyPattern.confidence_score > 0.7) {
+        const hourlyMultiplier = 1 + (hourlyPattern.confidence_score - 0.5)
+        prediction.confidence_percentage = Math.round(prediction.confidence_percentage * hourlyMultiplier)
+        console.log(`🕐 Confiança ajustada pelo padrão horário: ${prediction.confidence_percentage}% (×${hourlyMultiplier.toFixed(2)})`)
+        
+        // Sugerir números baseado no padrão horário
+        if (hourlyPattern.dominant_color === prediction.predicted_color) {
+          console.log(`✅ Predição alinhada com padrão horário dominante: ${hourlyPattern.dominant_color}`)
+        }
+      }
+      
+      // Garantir que a confiança esteja dentro dos limites
+      prediction.confidence_percentage = Math.max(10, Math.min(95, prediction.confidence_percentage))
+      
+    } catch (error) {
+      console.warn('⚠️ Erro aplicando otimizações temporais:', error)
+    }
+  }
+
+  /**
+   * 📊 OBTER AJUSTE DE CONFIANÇA POR REGIME
+   */
+  private getRegimeConfidenceAdjustment(regimeType: string): number {
+    const adjustments: { [key: string]: number } = {
+      'low_volatility': 1.2,      // +20% confiança em baixa volatilidade
+      'medium_volatility': 1.0,    // Neutro
+      'high_volatility': 0.8,     // -20% confiança em alta volatilidade  
+      'extreme_volatility': 0.6   // -40% confiança em volatilidade extrema
+    }
+    
+    return adjustments[regimeType] || 1.0
   }
 
   /**

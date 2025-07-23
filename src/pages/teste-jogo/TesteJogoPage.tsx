@@ -898,7 +898,8 @@ export default function TesteJogoPage() {
     detailed: true,
     reports: true,
     visualization: true,
-    feedback: true
+    feedback: true,
+    temporal: true
   });
   
   const [quickInput, setQuickInput] = useState(''); // Input rápido próximo da predição
@@ -949,6 +950,17 @@ export default function TesteJogoPage() {
   const [feedbackInsights, setFeedbackInsights] = useState<string[]>([])
   const [evolutionHistory, setEvolutionHistory] = useState<any[]>([])
   const [pendingPredictions, setPendingPredictions] = useState<number>(0)
+
+  // ✅ ETAPA 5: Estados da Análise Temporal Avançada
+  const [temporalAnalysisActive, setTemporalAnalysisActive] = useState(false)
+  const [temporalAnalysis, setTemporalAnalysis] = useState<any>(null)
+  const [currentMarketPhase, setCurrentMarketPhase] = useState<any>(null)
+  const [currentVolatilityRegime, setCurrentVolatilityRegime] = useState<any>(null)
+  const [temporalRecommendations, setTemporalRecommendations] = useState<any[]>([])
+  const [hourlyPatterns, setHourlyPatterns] = useState<any[]>([])
+  const [weeklyPatterns, setWeeklyPatterns] = useState<any[]>([])
+  const [temporalInsights, setTemporalInsights] = useState<string[]>([])
+  const [isAnalyzingTemporal, setIsAnalyzingTemporal] = useState(false)
 
   // ===================================================================
   // REFERÊNCIAS - Sistema de Análise Avançado
@@ -3784,6 +3796,102 @@ export default function TesteJogoPage() {
   }
 
   // ===================================================================
+  // ETAPA 5: FUNÇÕES DA ANÁLISE TEMPORAL AVANÇADA
+  // ===================================================================
+
+  /**
+   * Inicializar análise temporal
+   */
+  const initializeTemporalAnalysis = async () => {
+    try {
+      const { temporalAnalysisService } = await import('@/services/temporalAnalysisService')
+      
+      if (results.length >= 100) {
+        setIsAnalyzingTemporal(true)
+        console.log('⏰ Iniciando análise temporal avançada...')
+        
+        const analysis = await temporalAnalysisService.performTemporalAnalysis(results)
+        setTemporalAnalysis(analysis)
+        setTemporalAnalysisActive(true)
+        
+        // Obter dados atuais
+        const currentPhase = temporalAnalysisService.getCurrentMarketPhase()
+        const currentRegime = temporalAnalysisService.getCurrentRegime()
+        const recommendations = temporalAnalysisService.getCurrentRecommendations()
+        
+        setCurrentMarketPhase(currentPhase)
+        setCurrentVolatilityRegime(currentRegime)
+        setTemporalRecommendations(recommendations)
+        setHourlyPatterns(analysis.hourly_patterns || [])
+        setWeeklyPatterns(analysis.weekly_patterns || [])
+        
+        setTemporalInsights(prev => [...prev.slice(-4), `Análise temporal executada: ${analysis.sample_size} pontos analisados`])
+        
+        console.log('✅ Análise temporal concluída!')
+      } else {
+        setTemporalInsights(prev => [...prev.slice(-4), 'Dados insuficientes para análise temporal (mínimo 100)'])
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro na análise temporal:', error)
+      setTemporalInsights(prev => [...prev.slice(-4), 'Erro na análise temporal'])
+    } finally {
+      setIsAnalyzingTemporal(false)
+    }
+  }
+
+  /**
+   * Gerar relatório temporal
+   */
+  const generateTemporalReport = async () => {
+    try {
+      const { temporalAnalysisService } = await import('@/services/temporalAnalysisService')
+      const report = temporalAnalysisService.generateTemporalReport()
+      
+      setTemporalInsights(prev => [...prev.slice(-4), `Relatório temporal gerado: ${new Date().toLocaleTimeString()}`])
+      
+    } catch (error) {
+      console.error('❌ Erro gerando relatório temporal:', error)
+    }
+  }
+
+  /**
+   * Atualizar contexto temporal
+   */
+  const updateTemporalContext = async () => {
+    try {
+      if (!temporalAnalysisActive) return
+      
+      const { temporalAnalysisService } = await import('@/services/temporalAnalysisService')
+      
+      const currentPhase = temporalAnalysisService.getCurrentMarketPhase()
+      const currentRegime = temporalAnalysisService.getCurrentRegime()
+      const recommendations = temporalAnalysisService.getCurrentRecommendations()
+      
+      setCurrentMarketPhase(currentPhase)
+      setCurrentVolatilityRegime(currentRegime)
+      setTemporalRecommendations(recommendations)
+      
+    } catch (error) {
+      console.warn('⚠️ Erro atualizando contexto temporal:', error)
+    }
+  }
+
+  /**
+   * Resetar análise temporal
+   */
+  const resetTemporalAnalysis = () => {
+    setTemporalAnalysisActive(false)
+    setTemporalAnalysis(null)
+    setCurrentMarketPhase(null)
+    setCurrentVolatilityRegime(null)
+    setTemporalRecommendations([])
+    setHourlyPatterns([])
+    setWeeklyPatterns([])
+    setTemporalInsights(prev => [...prev.slice(-4), 'Análise temporal resetada'])
+  }
+
+  // ===================================================================
   // ETAPA 5: FUNÇÕES DE PERFORMANCE E OTIMIZAÇÃO
   // ===================================================================
   
@@ -5176,6 +5284,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 >
                   🔄 Feedback Loop {!collapsedSections.feedback ? '👁️' : '🙈'}
                 </Button>
+                <Button
+                  onClick={() => toggleSection('temporal')}
+                  className={`text-xs px-3 py-1 ${
+                    !collapsedSections.temporal 
+                      ? 'bg-amber-600 hover:bg-amber-500' 
+                      : 'bg-gray-600 hover:bg-gray-500'
+                  }`}
+                >
+                  ⏰ Análise Temporal {!collapsedSections.temporal ? '👁️' : '🙈'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -6084,6 +6202,208 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           </Card>
         )}
 
+        {/* ✅ ETAPA 5: PAINEL DE ANÁLISE TEMPORAL AVANÇADA */}
+        {!compactMode && temporalAnalysisActive && !collapsedSections.temporal && (
+          <Card className="bg-gradient-to-r from-amber-800/60 to-orange-800/60 border-amber-400">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-amber-300 text-lg flex items-center justify-between">
+                ⏰ ETAPA 5: ANÁLISE TEMPORAL AVANÇADA
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm px-2 py-1 rounded ${
+                    temporalAnalysisActive 
+                      ? 'bg-green-600 text-green-100' 
+                      : 'bg-red-600 text-red-100'
+                  }`}>
+                    {temporalAnalysisActive ? 'ATIVO' : 'INATIVO'}
+                  </span>
+                  <span className="text-sm text-gray-400">⏰ {new Date().toLocaleTimeString()}</span>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              
+              {/* Controles Principais */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <Button
+                  onClick={initializeTemporalAnalysis}
+                  disabled={isAnalyzingTemporal || results.length < 100}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2"
+                >
+                  {isAnalyzingTemporal ? '⏳ Analisando...' : '🔍 Executar Análise'}
+                </Button>
+                
+                <Button
+                  onClick={generateTemporalReport}
+                  disabled={!temporalAnalysisActive}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2"
+                >
+                  📊 Relatório
+                </Button>
+                
+                <Button
+                  onClick={updateTemporalContext}
+                  disabled={!temporalAnalysisActive}
+                  className="bg-green-600 hover:bg-green-500 text-white font-semibold py-2"
+                >
+                  🔄 Atualizar
+                </Button>
+                
+                <Button
+                  onClick={resetTemporalAnalysis}
+                  className="bg-red-600 hover:bg-red-500 text-white font-semibold py-2"
+                >
+                  🗑️ Reset
+                </Button>
+              </div>
+
+              {/* Contexto Atual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                
+                {/* Fase do Mercado Atual */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-amber-500/30">
+                  <div className="text-amber-300 font-semibold mb-2">📊 Fase do Mercado</div>
+                  {currentMarketPhase ? (
+                    <div className="space-y-1 text-sm">
+                      <div className="text-white font-semibold">{currentMarketPhase.phase_name}</div>
+                      <div className="text-gray-200">
+                        Atividade: <span className="text-cyan-300">{currentMarketPhase.characteristics.activity_level}</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Previsibilidade: <span className="text-green-300">{(currentMarketPhase.characteristics.predictability * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Horário: <span className="text-yellow-300">{currentMarketPhase.start_hour}h-{currentMarketPhase.end_hour}h</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">Não determinada</div>
+                  )}
+                </div>
+
+                {/* Regime de Volatilidade */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-amber-500/30">
+                  <div className="text-amber-300 font-semibold mb-2">🌊 Regime de Volatilidade</div>
+                  {currentVolatilityRegime ? (
+                    <div className="space-y-1 text-sm">
+                      <div className={`font-semibold ${
+                        currentVolatilityRegime.regime_type === 'low_volatility' ? 'text-green-300' :
+                        currentVolatilityRegime.regime_type === 'medium_volatility' ? 'text-yellow-300' :
+                        currentVolatilityRegime.regime_type === 'high_volatility' ? 'text-orange-300' : 'text-red-300'
+                      }`}>
+                        {currentVolatilityRegime.regime_type.replace('_', ' ').toUpperCase()}
+                      </div>
+                      <div className="text-gray-200">
+                        Gap Médio: <span className="text-blue-300">{currentVolatilityRegime.characteristics.average_gap.toFixed(2)}</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Unpredictability: <span className="text-purple-300">{(currentVolatilityRegime.characteristics.unpredictability_score * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Duração: <span className="text-orange-300">{currentVolatilityRegime.duration_minutes.toFixed(0)}min</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">Não determinado</div>
+                  )}
+                </div>
+
+                {/* Estatísticas da Análise */}
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-amber-500/30">
+                  <div className="text-amber-300 font-semibold mb-2">📈 Estatísticas</div>
+                  {temporalAnalysis ? (
+                    <div className="space-y-1 text-sm">
+                      <div className="text-gray-200">
+                        Amostra: <span className="text-cyan-300">{temporalAnalysis.sample_size.toLocaleString()}</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Padrões Horários: <span className="text-green-300">{hourlyPatterns.length}/24</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Padrões Semanais: <span className="text-blue-300">{weeklyPatterns.length}/7</span>
+                      </div>
+                      <div className="text-gray-200">
+                        Recomendações: <span className="text-purple-300">{temporalRecommendations.length}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm">Aguardando análise</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Padrões Horários */}
+              {hourlyPatterns.length > 0 && (
+                <div className="bg-gray-900/30 p-3 rounded-lg border border-amber-500/30 mb-4">
+                  <div className="text-amber-300 font-semibold mb-2">🕐 Padrões Horários Detectados</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {hourlyPatterns.filter(p => p.confidence_score > 0.6).slice(0, 12).map((pattern) => (
+                      <div key={pattern.hour} className="bg-gray-800/50 p-2 rounded border border-gray-600">
+                        <div className="text-center">
+                          <div className="text-white font-semibold">{pattern.hour}h</div>
+                          <div className={`text-xs ${
+                            pattern.dominant_color === 'red' ? 'text-red-300' :
+                            pattern.dominant_color === 'black' ? 'text-gray-300' : 'text-white'
+                          }`}>
+                            {pattern.dominant_color.toUpperCase()}
+                          </div>
+                          <div className="text-xs text-cyan-300">
+                            {(pattern.confidence_score * 100).toFixed(0)}%
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {pattern.total_games} jogos
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recomendações Temporais */}
+              {temporalRecommendations.length > 0 && (
+                <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-500/30 mb-4">
+                  <div className="text-amber-300 font-semibold mb-2">💡 Recomendações Temporais</div>
+                  <div className="space-y-2">
+                    {temporalRecommendations.slice(0, 3).map((rec, i) => (
+                      <div key={i} className="bg-gray-800/50 p-3 rounded border border-gray-600">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-sm font-semibold px-2 py-1 rounded ${
+                            rec.priority === 'critical' ? 'bg-red-600 text-red-100' :
+                            rec.priority === 'high' ? 'bg-orange-600 text-orange-100' :
+                            rec.priority === 'medium' ? 'bg-yellow-600 text-yellow-100' : 'bg-gray-600 text-gray-100'
+                          }`}>
+                            {rec.priority.toUpperCase()}
+                          </span>
+                          <span className="text-green-300 text-sm">+{(rec.expected_impact * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="text-sm text-gray-200">{rec.description}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          Categoria: {rec.category} | Impacto: {(rec.expected_impact * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Insights Temporais */}
+              {temporalInsights.length > 0 && (
+                <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-500/30">
+                  <div className="text-amber-300 font-semibold mb-2">🧠 Insights Temporais</div>
+                  <div className="space-y-1">
+                    {temporalInsights.slice(-3).map((insight, i) => (
+                      <div key={i} className="text-sm text-gray-200 bg-gray-800/30 p-2 rounded">
+                        💡 {insight}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </CardContent>
+          </Card>
+        )}
+
         {/* ETAPA 3: Painel de Aprendizado Contínuo */}
         {continuousLearning.globalMetrics.totalPredictions > 0 && (
           <Card className="bg-gradient-to-r from-yellow-800/60 to-orange-800/60 border-yellow-400">
@@ -6753,6 +7073,13 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   : 'bg-gray-600/30 text-gray-400 border-gray-500/50'
               }`}>
                 🔄 Feedback Loop {feedbackLoopActive ? 'ATIVO' : 'INATIVO'}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs border ${
+                temporalAnalysisActive 
+                  ? 'bg-amber-600/30 text-amber-300 border-amber-500/50' 
+                  : 'bg-gray-600/30 text-gray-400 border-gray-500/50'
+              }`}>
+                ⏰ Análise Temporal {temporalAnalysisActive ? 'ATIVO' : 'INATIVO'}
               </span>
             </div>
 
