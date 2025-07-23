@@ -905,6 +905,18 @@ export default function TesteJogoPage() {
   const [realDataStats, setRealDataStats] = useState<any>(null);
   const [realDataHistory, setRealDataHistory] = useState<any[]>([]);
   const [lastRealData, setLastRealData] = useState<any>(null);
+
+  // Estados para estatísticas de predições
+  const [predictionStats, setPredictionStats] = useState({
+    totalPredictions: 0,
+    correctPredictions: 0,
+    incorrectPredictions: 0,
+    accuracy: 0,
+    lastPrediction: null as any,
+    waitingForResult: false,
+    streak: 0,
+    maxStreak: 0
+  });
   const [isImportingHistorical, setIsImportingHistorical] = useState(false);
 
   // ===================================================================
@@ -984,6 +996,59 @@ export default function TesteJogoPage() {
   }
 
   // ===================================================================
+  // FUNÇÕES DE ESTATÍSTICAS DE PREDIÇÕES
+  // ===================================================================
+
+  // Registrar nova predição
+  const registerPrediction = (prediction: PredictionResult) => {
+    setPredictionStats(prev => ({
+      ...prev,
+      lastPrediction: {
+        color: prediction.color,
+        numbers: prediction.expectedNumbers,
+        confidence: prediction.confidence,
+        timestamp: Date.now()
+      },
+      waitingForResult: true,
+      totalPredictions: prev.totalPredictions + 1
+    }));
+    console.log(`📝 Predição registrada: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%)`);
+  };
+
+  // Verificar acerto quando chegar novo resultado
+  const checkPredictionAccuracy = (realResult: any) => {
+    setPredictionStats(prev => {
+      if (!prev.waitingForResult || !prev.lastPrediction) {
+        return prev; // Não há predição aguardando
+      }
+
+      const isCorrect = prev.lastPrediction.color === realResult.color;
+      const newCorrect = prev.correctPredictions + (isCorrect ? 1 : 0);
+      const newIncorrect = prev.incorrectPredictions + (isCorrect ? 0 : 1);
+      const newTotal = newCorrect + newIncorrect;
+      const newAccuracy = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
+      const newStreak = isCorrect ? prev.streak + 1 : 0;
+      const newMaxStreak = Math.max(newStreak, prev.maxStreak);
+
+      console.log(isCorrect ? 
+        `✅ ACERTOU! Predição: ${prev.lastPrediction.color} = Resultado: ${realResult.color} | Streak: ${newStreak}` :
+        `❌ ERROU! Predição: ${prev.lastPrediction.color} ≠ Resultado: ${realResult.color} | Streak quebrada`
+      );
+
+      return {
+        ...prev,
+        correctPredictions: newCorrect,
+        incorrectPredictions: newIncorrect,
+        accuracy: newAccuracy,
+        waitingForResult: false,
+        streak: newStreak,
+        maxStreak: newMaxStreak,
+        lastPrediction: null
+      };
+    });
+  };
+
+  // ===================================================================
   // FUNÇÕES DO SISTEMA DE DADOS REAIS DA BLAZE
   // ===================================================================
 
@@ -1007,6 +1072,9 @@ export default function TesteJogoPage() {
         console.log('📡 Novo dado REAL capturado:', data);
         setLastRealData(data);
         setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
+        
+        // Verificar acerto da predição
+        checkPredictionAccuracy(data);
         
         // Adicionar ao sistema principal
         const blazeResult: DoubleResult = {
@@ -1252,6 +1320,9 @@ export default function TesteJogoPage() {
       setLastRealData(data);
       setRealDataHistory(prev => [data, ...prev.slice(0, 19)]);
       
+      // Verificar acerto da predição
+      checkPredictionAccuracy(data);
+      
       // Adicionar ao sistema principal
       const blazeResult: DoubleResult = {
         id: data.round_id || `real_${Date.now()}`,
@@ -1384,6 +1455,9 @@ export default function TesteJogoPage() {
             // Converter resultado do worker para formato de predição
             const prediction = await convertWorkerResultToPrediction(workerResult, results)
             setPrediction(prediction)
+            
+            // Registrar predição para estatísticas
+            registerPrediction(prediction)
             
             // Salvar no cache
             saveToCache(cacheKey, prediction, 10 * 60 * 1000) // 10 minutos
@@ -2283,6 +2357,9 @@ export default function TesteJogoPage() {
       }
       
       setPrediction(predictionResult)
+      
+      // Registrar predição para estatísticas
+      registerPrediction(predictionResult)
       
       console.log(`✅ PREDIÇÃO MASSIVA CONCLUÍDA:`)
       console.log(`🎯 Cor predita: ${ensembleResult.prediction.toUpperCase()}`)
@@ -5182,19 +5259,51 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   {/* Sistema Automático Permanente */}
                   <div className="w-full space-y-3">
                     
-                    {/* Status Sistema Automático */}
-                    <div className="bg-gradient-to-r from-cyan-600/80 to-blue-600/80 rounded-lg p-4 border-2 border-cyan-400">
+                    {/* Estatísticas de Predições */}
+                    <div className="bg-gradient-to-r from-green-600/80 to-emerald-600/80 rounded-lg p-4 border-2 border-green-400">
                       <div className="text-center">
                         <div className="flex items-center justify-center gap-2 mb-2">
-                          <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
-                          <span className="text-cyan-100 font-semibold">🤖 SISTEMA AUTOMÁTICO ATIVO</span>
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-green-100 font-semibold">📊 ESTATÍSTICAS DOS PALPITES</span>
                         </div>
-                        <div className="text-sm text-cyan-200 mb-1">
-                          Status: <span className="font-bold text-white">{connectionStatus}</span>
-                        </div>
-                        <div className="text-xs text-cyan-300">
-                          Capturando dados reais da Blaze automaticamente a cada 13 segundos
-                        </div>
+                        
+                        {predictionStats.totalPredictions > 0 ? (
+                          <>
+                            <div className="grid grid-cols-2 gap-4 text-sm mb-2">
+                              <div className="text-green-200">
+                                <div className="font-bold text-2xl text-green-100">{predictionStats.correctPredictions}</div>
+                                <div className="text-xs">✅ Acertos</div>
+                              </div>
+                              <div className="text-red-200">
+                                <div className="font-bold text-2xl text-red-300">{predictionStats.incorrectPredictions}</div>
+                                <div className="text-xs">❌ Erros</div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-lg font-bold text-white mb-1">
+                              🎯 {predictionStats.accuracy.toFixed(1)}% de Acerto
+                            </div>
+                            
+                            <div className="flex justify-center gap-4 text-xs text-green-200">
+                              <span>📈 Sequência: {predictionStats.streak}</span>
+                              <span>🏆 Máximo: {predictionStats.maxStreak}</span>
+                              <span>📊 Total: {predictionStats.totalPredictions}</span>
+                            </div>
+                            
+                            {predictionStats.waitingForResult && (
+                              <div className="text-xs text-yellow-300 mt-2 animate-pulse">
+                                ⏳ Aguardando próximo resultado para verificar palpite...
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-green-200">
+                            <div className="text-sm mb-1">🎯 Aguardando primeiro palpite...</div>
+                            <div className="text-xs text-gray-300">
+                              Sistema registrará acertos e erros automaticamente
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
