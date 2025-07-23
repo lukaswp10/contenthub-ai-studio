@@ -119,6 +119,7 @@ export class AdvancedMLPredictionService {
   private featureCache: Map<string, AdvancedFeatures> = new Map()
   private predictionHistory: EnsemblePrediction[] = []
   private isTraining = false
+  private historical_data: BlazeDataPoint[] = [] // 🧠 DADOS HISTÓRICOS PARA ANÁLISE
   
   constructor() {
     this.initializeModels()
@@ -1571,21 +1572,79 @@ export class AdvancedMLPredictionService {
   }
 
   private getPredictedNumbers(color: 'red' | 'black' | 'white', features: AdvancedFeatures): number[] {
-    // ✅ CORRIGIDO: Números corretos para cada cor
-    let numbers: number[] = []
-    
-    if (color === 'red') {
-      numbers = [1, 2, 3, 4, 5, 6, 7] // ✅ CORRETO: 1-7 são vermelhos
-    } else if (color === 'black') {
-      numbers = [8, 9, 10, 11, 12, 13, 14] // ✅ CORRETO: 8-14 são pretos
-    } else {
-      numbers = [0] // ✅ CORRETO: 0 é branco
+    if (color === 'white') {
+      return [0] // Branco só tem um número
     }
     
-    console.log(`🔧 ML SERVICE: ${color} → números [${numbers.join(', ')}]`)
+    // 🧠 ANÁLISE AVANÇADA PARA NÚMEROS ESPECÍFICOS
+    const range = color === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
+    const data = this.historical_data.slice(-100) // Últimos 100 números
     
-    // ✅ RETORNAR APENAS 1 NÚMERO (como nas outras funções)
-    return [numbers[0]]
+    console.log(`🧠 ANÁLISE AVANÇADA: ${color} - analisando ${data.length} números históricos`)
+    
+    // 1️⃣ ANÁLISE DE FREQUÊNCIA (números menos frequentes têm maior chance)
+    const frequencies = range.map(num => ({
+      number: num,
+      frequency: data.filter((d: BlazeDataPoint) => d.number === num).length,
+      score: 0
+    }))
+    
+    // 2️⃣ ANÁLISE DE GAPS (tempo desde última aparição)
+    const gaps = range.map(num => {
+      let gap = 0
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i].number === num) break
+        gap++
+      }
+      return { number: num, gap }
+    })
+    
+    // 3️⃣ ANÁLISE DE PADRÕES TEMPORAIS
+    const currentHour = new Date().getHours()
+    const hourlyPatterns = range.map(num => ({
+      number: num,
+      hourScore: data.filter((d: BlazeDataPoint) => {
+        const hour = new Date(d.timestamp).getHours()
+        return d.number === num && Math.abs(hour - currentHour) <= 1
+      }).length
+    }))
+    
+    // 4️⃣ CÁLCULO DO SCORE FINAL
+    const analysis = range.map(num => {
+      const freq = frequencies.find(f => f.number === num)?.frequency || 0
+      const gap = gaps.find(g => g.number === num)?.gap || 0
+      const hourScore = hourlyPatterns.find(h => h.number === num)?.hourScore || 0
+      
+      // Fórmula avançada: menor frequência + maior gap + padrão temporal
+      const expectedFreq = data.length / range.length
+      const frequencyScore = Math.max(0, expectedFreq - freq) * 10 // Quanto menos frequente, maior score
+      const gapScore = Math.min(gap * 2, 50) // Gaps longos têm score alto (máx 50)
+      const temporalScore = hourScore * 5 // Padrão temporal
+      const randomFactor = Math.random() * 10 // 10% de aleatoriedade
+      
+      const finalScore = frequencyScore + gapScore + temporalScore + randomFactor
+      
+      return {
+        number: num,
+        frequency: freq,
+        gap: gap,
+        temporalScore: hourScore,
+        finalScore: finalScore
+      }
+    })
+    
+    // 5️⃣ ORDENAR POR SCORE E RETORNAR O MELHOR
+    analysis.sort((a, b) => b.finalScore - a.finalScore)
+    const bestNumber = analysis[0]
+    
+    console.log(`🎯 ANÁLISE COMPLETA ${color}:`)
+    analysis.slice(0, 3).forEach((item, i) => {
+      console.log(`  ${i + 1}º) Número ${item.number} - Score: ${item.finalScore.toFixed(1)} (freq:${item.frequency}, gap:${item.gap}, temporal:${item.temporalScore})`)
+    })
+    
+    console.log(`🏆 NÚMERO ESCOLHIDO: ${bestNumber.number} (score: ${bestNumber.finalScore.toFixed(1)})`)
+    
+    return [bestNumber.number]
   }
 
   private calculateFeatureImportance(features: AdvancedFeatures, predictions: ModelPrediction[]): { [key: string]: number } {

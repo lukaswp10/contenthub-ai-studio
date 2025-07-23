@@ -1840,25 +1840,32 @@ export default function TesteJogoPage() {
       }
     }
     
-        // 🚨 FORÇAR NÚMEROS CORRETOS SEMPRE (WORKER TAMBÉM)
+        // 🧠 ANÁLISE AVANÇADA WORKER TAMBÉM
     let expectedNumbers: number[]
-    console.log(`🚨 WORKER: predictedColor = ${predictedColor}`)
+    console.log(`🧠 WORKER ANÁLISE INTELIGENTE: ${predictedColor}`)
     
     if (predictedColor === 'white') {
       expectedNumbers = [0]
-      console.log(`🤍 WORKER WHITE → Forçando número 0`)
-    } else if (predictedColor === 'red') {
-      expectedNumbers = [1] // Sempre primeiro vermelho
-      console.log(`❤️ WORKER RED → Forçando número 1`)
-    } else if (predictedColor === 'black') {
-      expectedNumbers = [8] // Sempre primeiro preto
-      console.log(`🖤 WORKER BLACK → Forçando número 8`)
+      console.log(`🤍 WORKER WHITE → único: 0`)
     } else {
-      expectedNumbers = [1] // Fallback
-      console.log(`⚠️ WORKER FALLBACK → Forçando número 1`)
+      // 🎯 ANÁLISE AVANÇADA NO WORKER
+      const range = predictedColor === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
+      const workerData = recent // Usar dados recentes disponíveis
+      
+      // Análise simplificada no worker
+      const analysis = range.map(num => {
+        const frequency = workerData.filter(d => d.number === num).length
+        const expectedFreq = workerData.length / range.length
+        const frequencyScore = Math.max(0, expectedFreq - frequency) * 10
+        const randomFactor = Math.random() * 20
+        return { number: num, score: frequencyScore + randomFactor }
+      })
+      
+      analysis.sort((a, b) => b.score - a.score)
+      expectedNumbers = [analysis[0].number]
+      
+      console.log(`🎯 WORKER escolheu: ${analysis[0].number} (score: ${analysis[0].score.toFixed(1)})`)
     }
-    
-    console.log(`🎯 WORKER NÚMEROS GARANTIDOS: [${expectedNumbers.join(', ')}] para cor ${predictedColor}`)
 
     return {
       color: predictedColor,
@@ -2806,27 +2813,76 @@ export default function TesteJogoPage() {
       // Gerar cenários alternativos
       const alternativeScenarios = generateAlternativeScenarios(ensembleResult, dataToAnalyze)
       
-      // 🚨 FORÇAR NÚMEROS CORRETOS SEMPRE (SEM USAR generateExpectedNumbersMassive)
-      console.log(`🚨 ANÁLISE MASSIVA: ensembleResult.prediction = ${ensembleResult.prediction}`)
+      // 🧠 ANÁLISE AVANÇADA DE NÚMEROS ESPECÍFICOS
+      console.log(`🧠 ANÁLISE MASSIVA INTELIGENTE: ${ensembleResult.prediction}`)
       
-      // ✅ LÓGICA SIMPLES E DIRETA - SEM COMPLEXIDADE
       let expectedNumbers: number[]
       if (ensembleResult.prediction === 'white') {
         expectedNumbers = [0]
-        console.log(`🤍 WHITE → Forçando número 0`)
-      } else if (ensembleResult.prediction === 'red') {
-        expectedNumbers = [1] // Sempre primeiro número vermelho
-        console.log(`❤️ RED → Forçando número 1`)
-      } else if (ensembleResult.prediction === 'black') {
-        expectedNumbers = [8] // Sempre primeiro número preto
-        console.log(`🖤 BLACK → Forçando número 8`)
+        console.log(`🤍 WHITE → único número: 0`)
       } else {
-        // Fallback
-        expectedNumbers = [1]
-        console.log(`⚠️ FALLBACK → Forçando número 1`)
+        // 🎯 ANÁLISE AVANÇADA PARA NÚMEROS ESPECÍFICOS
+        const range = ensembleResult.prediction === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
+        const recentData = dataToAnalyze.slice(-100) // Últimos 100
+        
+        console.log(`🧠 Analisando ${recentData.length} números para escolher o melhor ${ensembleResult.prediction}`)
+        
+        // 1️⃣ ANÁLISE DE FREQUÊNCIA
+        const frequencies = range.map(num => ({
+          number: num,
+          frequency: recentData.filter(d => d.number === num).length
+        }))
+        
+        // 2️⃣ ANÁLISE DE GAPS (tempo desde última aparição)
+        const gaps = range.map(num => {
+          let gap = 0
+          for (let i = recentData.length - 1; i >= 0; i--) {
+            if (recentData[i].number === num) break
+            gap++
+          }
+          return { number: num, gap }
+        })
+        
+        // 3️⃣ ANÁLISE TEMPORAL
+        const currentHour = new Date().getHours()
+        const hourlyPatterns = range.map(num => ({
+          number: num,
+          hourScore: recentData.filter(d => {
+            const hour = new Date(d.timestamp).getHours()
+            return d.number === num && Math.abs(hour - currentHour) <= 1
+          }).length
+        }))
+        
+        // 4️⃣ CÁLCULO DO SCORE AVANÇADO
+        const analysis = range.map(num => {
+          const freq = frequencies.find(f => f.number === num)?.frequency || 0
+          const gap = gaps.find(g => g.number === num)?.gap || 0
+          const hourScore = hourlyPatterns.find(h => h.number === num)?.hourScore || 0
+          
+          // FÓRMULA AVANÇADA
+          const expectedFreq = recentData.length / range.length
+          const frequencyScore = Math.max(0, expectedFreq - freq) * 15 // Menos frequente = maior score
+          const gapScore = Math.min(gap * 3, 60) // Gap longo = maior chance
+          const temporalScore = hourScore * 8 // Padrão temporal
+          const volatilityBonus = Math.random() * 15 // Elemento de volatilidade
+          
+          const finalScore = frequencyScore + gapScore + temporalScore + volatilityBonus
+          
+          return { number: num, frequency: freq, gap, temporalScore: hourScore, finalScore }
+        })
+        
+        // 5️⃣ ESCOLHER O MELHOR
+        analysis.sort((a, b) => b.finalScore - a.finalScore)
+        const bestNumber = analysis[0]
+        
+        console.log(`🎯 ANÁLISE ${ensembleResult.prediction}:`)
+        analysis.slice(0, 3).forEach((item, i) => {
+          console.log(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} (freq:${item.frequency}, gap:${item.gap}, temporal:${item.temporalScore})`)
+        })
+        
+        expectedNumbers = [bestNumber.number]
+        console.log(`🏆 NÚMERO INTELIGENTE ESCOLHIDO: ${bestNumber.number} (score: ${bestNumber.finalScore.toFixed(1)})`)
       }
-      
-      console.log(`🎯 NÚMEROS FINAIS GARANTIDOS: [${expectedNumbers.join(', ')}] para cor ${ensembleResult.prediction}`)
       
       const predictionResult: PredictionResult = {
         color: ensembleResult.prediction,
