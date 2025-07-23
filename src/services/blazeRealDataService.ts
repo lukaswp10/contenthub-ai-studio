@@ -374,9 +374,29 @@ class BlazeRealDataService {
         return
       }
 
-      // Verificar se é um jogo novo
-      if (this.lastKnownRound && this.lastKnownRound === gameId) {
+      // Verificar se é um jogo novo (considerar ID e timestamp)
+      const dataTimestamp = new Date(data.timestamp_blaze || data.created_at).getTime()
+      const isOldData = dataTimestamp < (Date.now() - (24 * 60 * 60 * 1000)) // Dados de mais de 24h são considerados antigos
+      
+      if (this.lastKnownRound && this.lastKnownRound === gameId && !isOldData) {
         console.log(`🔄 Aguardando novo jogo... (atual: ${data.number})`)
+        return
+      }
+      
+      // Se são dados antigos, forçar reset e tentar novamente
+      if (isOldData) {
+        console.log(`⚠️ DADOS ANTIGOS DETECTADOS: ${new Date(dataTimestamp).toLocaleDateString()}`)
+        console.log(`🔄 Forçando reset do sistema para buscar dados atuais...`)
+        
+        // Forçar reset completo
+        this.forceReset()
+        
+        // Tentar reiniciar captura após delay
+        setTimeout(() => {
+          console.log('🔄 Reiniciando captura após reset...')
+          this.startCapturing()
+        }, 2000)
+        
         return
       }
 
@@ -385,7 +405,9 @@ class BlazeRealDataService {
       console.log(`📊 ID: ${gameId}`)
       console.log(`🎯 Número: ${data.number}`)
       console.log(`🎨 Cor: ${data.color}`)
-      console.log(`⏰ Horário: ${data.timestamp_blaze || 'agora'}`)
+      console.log(`⏰ Horário: ${data.timestamp_blaze || data.created_at || 'agora'}`)
+      console.log(`📅 Data completa: ${new Date(dataTimestamp).toLocaleString()}`)
+      console.log(`🔄 Último conhecido: ${this.lastKnownRound}`)
 
       await this.processRealData(data)
       this.lastKnownRound = gameId
@@ -498,6 +520,22 @@ class BlazeRealDataService {
       clearInterval(this.pollingInterval)
       this.pollingInterval = null
     }
+  }
+
+  /**
+   * FORÇAR RESET PARA DADOS ATUAIS
+   */
+  forceReset(): void {
+    console.log('🔄 FORÇANDO RESET: Limpando cache de dados antigos...')
+    this.lastKnownRound = null
+    this.currentStrategy = 'DESCONECTADO'
+    
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval)
+      this.pollingInterval = null
+    }
+    
+    console.log('✅ Reset concluído - próximo polling buscará dados atuais')
   }
 
   /**

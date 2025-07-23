@@ -17,17 +17,17 @@ export default defineConfig({
     open: false,
     proxy: {
       '/api/blaze-proxy': {
-        target: 'https://blaze.com',
+        target: 'https://blaze.bet.br',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => '/api/roulette_games/recent?limit=1',
+        rewrite: (path) => '/api/singleplayer-originals/originals/roulette_games/recent/1',
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
             proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
             proxyReq.setHeader('Accept', 'application/json, text/plain, */*');
             proxyReq.setHeader('Accept-Language', 'pt-BR,pt;q=0.9,en;q=0.8');
-            proxyReq.setHeader('Referer', 'https://blaze.com/');
-            proxyReq.setHeader('Origin', 'https://blaze.com');
+            proxyReq.setHeader('Referer', 'https://blaze.bet.br/');
+            proxyReq.setHeader('Origin', 'https://blaze.bet.br');
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
             // Adicionar headers CORS
