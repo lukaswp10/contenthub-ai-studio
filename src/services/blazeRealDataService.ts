@@ -308,6 +308,15 @@ class BlazeRealDataService {
 
       await this.processRealData(data)
       this.lastKnownRound = data.round_id
+      
+      // Emitir evento para interface
+      if (typeof window !== 'undefined') {
+        const realDataEvent = new CustomEvent('blazeRealData', { 
+          detail: data
+        });
+        window.dispatchEvent(realDataEvent);
+        console.log('📡 Evento blazeRealData emitido:', data);
+      }
 
     } catch (error) {
       // ERRO CRÍTICO - PARAR TUDO
@@ -514,6 +523,26 @@ class BlazeRealDataService {
     } catch (error) {
       console.log('❌ Erro buscando performance:', error)
       return null
+    }
+  }
+
+  /**
+   * LIMPAR DADOS FALSOS DO SUPABASE
+   */
+  async clearFakeDataFromSupabase(): Promise<void> {
+    try {
+      console.log('🧹 Removendo dados falsos do Supabase...');
+      
+      // Deletar dados com IDs falsos ou timestamps antigos
+      await supabase
+        .from('blaze_real_data')
+        .delete()
+        .or('round_id.like.dev_round_%,source.eq.blaze_fallback');
+      
+      console.log('✅ Dados falsos removidos do Supabase');
+    } catch (error) {
+      console.error('❌ Erro limpando Supabase:', error);
+      throw error;
     }
   }
 

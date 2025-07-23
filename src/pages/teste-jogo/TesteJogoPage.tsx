@@ -1001,32 +1001,29 @@ export default function TesteJogoPage() {
       console.log('✅ Captura iniciada com sucesso!');
       
       // Verificar dados a cada 5 segundos
-      const checkInterval = setInterval(async () => {
-        try {
-          const recentData = await blazeRealDataService.getRecentBlazeData(1);
-          if (recentData.length > 0) {
-            const data = recentData[0];
-            console.log('📡 Novo dado encontrado:', data);
-            setLastRealData(data);
-            setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
-            
-            // Adicionar ao sistema principal
-            const blazeResult: DoubleResult = {
-              id: data.round_id || `real_${Date.now()}`,
-              number: data.number,
-              color: data.color,
-              timestamp: Date.now(),
-              source: 'manual' as const, // Integra com sistema existente
-              batch: 'real_time_blaze'
-            };
-            
-            setResults(prev => [blazeResult, ...prev]);
-            updateStats([blazeResult, ...results]);
-          }
-        } catch (error) {
-          console.log('❌ Erro verificando dados:', error);
-        }
-      }, 5000);
+      // Escutar novos dados via eventos (não polling do Supabase antigo)
+      const handleNewRealData = (event: CustomEvent) => {
+        const data = event.detail;
+        console.log('📡 Novo dado REAL capturado:', data);
+        setLastRealData(data);
+        setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
+        
+        // Adicionar ao sistema principal
+        const blazeResult: DoubleResult = {
+          id: data.round_id || `real_${Date.now()}`,
+          number: data.number,
+          color: data.color,
+          timestamp: Date.now(),
+          source: 'manual' as const, // Integra com sistema existente
+          batch: 'real_time_blaze'
+        };
+        
+        setResults(prev => [blazeResult, ...prev]);
+        updateStats([blazeResult, ...results]);
+      };
+
+      // Adicionar listener para novos dados reais
+      window.addEventListener('blazeRealData', handleNewRealData as any);
       
     } catch (error) {
       console.error('❌ Erro ao iniciar captura:', error);
@@ -4137,6 +4134,14 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         console.log('✅ LocalStorage limpo');
       } catch (e) {
         console.log('⚠️ Erro limpando localStorage:', e);
+      }
+      
+      // Limpar dados falsos do Supabase
+      try {
+        await blazeRealDataService.clearFakeDataFromSupabase();
+        console.log('✅ Dados falsos removidos do Supabase');
+      } catch (e) {
+        console.log('⚠️ Erro limpando Supabase:', e);
       }
       
       console.log('✅ Limpeza completa - Sistema resetado para dados reais apenas');
