@@ -1418,28 +1418,24 @@ export default function TesteJogoPage() {
         setResults(updatedResults);
         updateStats(updatedResults);
         
-        // GERAR PREDIÇÃO AUTOMÁTICA EM TEMPO REAL (prioritário para dados reais)
-        const realTimeData = updatedResults.filter(r => r.batch === 'real_time_blaze');
-        if (realTimeData.length >= 5 && !isProcessing) {
-          console.log(`🚀 PREDIÇÃO AUTOMÁTICA: ${realTimeData.length} dados REAIS da Blaze detectados!`);
+        // 🎯 SISTEMA AUTOMÁTICO DE PREDIÇÃO EM TEMPO REAL - SEMPRE ATIVO
+        console.log(`🎯 TRIGGER AUTOMÁTICO: ${updatedResults.length} total, processando=${isProcessing}`);
+        
+        // SEMPRE gerar nova predição após dados reais (independente da quantidade)
+        if (!isProcessing) {
+          console.log(`🚀 GERANDO NOVA PREDIÇÃO AUTOMÁTICA após dado real!`);
+          console.log(`📊 Dados disponíveis: ${updatedResults.length} total`);
+          
           setTimeout(async () => {
             try {
               await analyzePredictionMassive(updatedResults);
-              console.log('✅ Predição gerada com dados reais da Blaze em tempo real');
+              console.log('✅ NOVA PREDIÇÃO GERADA automaticamente');
             } catch (error) {
-              console.log('⚠️ Erro na predição automática:', error);
+              console.log('⚠️ Erro gerando predição automática:', error);
             }
-          }, 500); // Delay menor para dados reais
-        } else if (updatedResults.length >= 5 && realTimeData.length < 5) {
-          console.log(`🧠 Predição com dados mistos: ${updatedResults.length} total (${realTimeData.length} reais)`);
-          setTimeout(async () => {
-            try {
-              await analyzePredictionMassive(updatedResults);
-              console.log('✅ Predição atualizada com dados disponíveis');
-            } catch (error) {
-              console.log('⚠️ Erro na predição automática:', error);
-            }
-          }, 1000);
+          }, 2000); // 2 segundos para garantir que dados foram processados
+        } else {
+          console.log('⏳ Sistema ocupado, predição será gerada quando liberado');
         }
       };
 
@@ -1685,9 +1681,27 @@ export default function TesteJogoPage() {
         batch: 'real_time_blaze' // Identificar como dados reais em tempo real
       };
       
-      setResults(prev => {
+      setResults((prev: DoubleResult[]) => {
         const newResults = [...prev, blazeResult];
         updateStats(newResults);
+        
+        // 🎯 FORÇAR GERAÇÃO DE PREDIÇÃO APÓS CADA RESULTADO REAL
+        console.log(`🎯 RESULTADO REAL PROCESSADO: ${blazeResult.number} (${blazeResult.color})`);
+        console.log(`📊 Total de dados: ${newResults.length}`);
+        
+        // Sempre gerar nova predição após resultado real (independente da quantidade)
+        if (!isProcessing && newResults.length >= 3) { // Mínimo muito baixo para funcionar sempre
+          console.log(`🚀 DISPARANDO NOVA PREDIÇÃO AUTOMÁTICA!`);
+          setTimeout(async () => {
+            try {
+              await analyzePredictionMassive(newResults);
+              console.log('✅ PREDIÇÃO AUTOMÁTICA GERADA com sucesso');
+            } catch (error) {
+              console.log('⚠️ Erro na predição automática:', error);
+            }
+          }, 1500);
+        }
+        
         return newResults;
       });
     };
@@ -5570,10 +5584,10 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   </div>
                 )}
                 
-                {/* DEBUG: Status da verificação em tempo real */}
+                {/* DEBUG: Status da verificação em tempo real - EXPANDIDO */}
                 <div className="mt-4 bg-gray-800/50 p-3 rounded-lg border border-gray-600">
                   <div className="text-gray-300 font-semibold text-sm mb-2">🔍 DEBUG - Status do Sistema:</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                     <div className="text-gray-400">
                       Predição ativa: <span className={predictionStats.waitingForResult ? 'text-yellow-300' : 'text-gray-500'}>
                         {predictionStats.waitingForResult ? '✅ SIM' : '❌ NÃO'}
@@ -5593,6 +5607,51 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       Total verificações: <span className="text-purple-300">
                         {predictionStats.totalPredictions || 0}
                       </span>
+                    </div>
+                  </div>
+                  
+                  {/* Botão de FORCE para testes */}
+                  <div className="mt-3 pt-2 border-t border-gray-600">
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={async () => {
+                          console.log('🔄 FORÇANDO NOVA PREDIÇÃO...');
+                          if (results.length >= 3) {
+                            await analyzePredictionMassive(results);
+                            console.log('✅ Predição forçada gerada!');
+                          } else {
+                            console.log('⚠️ Dados insuficientes para predição');
+                          }
+                        }}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded font-semibold"
+                      >
+                        🔄 FORÇAR PREDIÇÃO
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('📊 STATUS ATUAL:');
+                          console.log('- waitingForResult:', predictionStats.waitingForResult);
+                          console.log('- lastPrediction:', predictionStats.lastPrediction);
+                          console.log('- results.length:', results.length);
+                          console.log('- isProcessing:', isProcessing);
+                          console.log('- prediction:', prediction);
+                        }}
+                        className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded font-semibold"
+                      >
+                        📊 LOG STATUS
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          const testResult = { color: 'red', number: 5, round_id: 'test_' + Date.now() };
+                          console.log('🧪 TESTE: Simulando resultado real:', testResult);
+                          checkPredictionAccuracy(testResult);
+                        }}
+                        className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-semibold"
+                      >
+                        🧪 TESTE VERIFICAÇÃO
+                      </button>
                     </div>
                   </div>
                 </div>
