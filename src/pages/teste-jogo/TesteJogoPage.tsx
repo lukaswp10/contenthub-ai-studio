@@ -2450,7 +2450,17 @@ export default function TesteJogoPage() {
             evolutionHistory: [p.confidence]
           })),
           reasoning: `Ensemble de ${advancedResult.individual_predictions.length} modelos ML avançados`,
-          numbers: advancedResult.predicted_numbers || []
+          numbers: advancedResult.predicted_numbers || [],
+          // Gerar probabilidades baseadas na predição
+          probabilities: {
+            red: advancedResult.predicted_color === 'red' ? advancedResult.confidence_percentage / 100 : 
+                 (100 - advancedResult.confidence_percentage) / 200,
+            black: advancedResult.predicted_color === 'black' ? advancedResult.confidence_percentage / 100 : 
+                   (100 - advancedResult.confidence_percentage) / 200,
+            white: advancedResult.predicted_color === 'white' ? advancedResult.confidence_percentage / 100 : 
+                   (100 - advancedResult.confidence_percentage) / 200
+          },
+          specificNumberProbabilities: {}
         }
         
         setPrediction(traditionalPrediction)
@@ -5257,9 +5267,9 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   {/* Barras de Probabilidade */}
                   <div className="space-y-3">
                     {[
-                      { color: 'red', label: 'VERMELHO', prob: prediction.probabilities.red, bg: 'bg-red-500' },
-                      { color: 'black', label: 'PRETO', prob: prediction.probabilities.black, bg: 'bg-gray-600' },
-                      { color: 'white', label: 'BRANCO', prob: prediction.probabilities.white, bg: 'bg-white' }
+                      { color: 'red', label: 'VERMELHO', prob: prediction?.probabilities?.red || 0, bg: 'bg-red-500' },
+                      { color: 'black', label: 'PRETO', prob: prediction?.probabilities?.black || 0, bg: 'bg-gray-600' },
+                      { color: 'white', label: 'BRANCO', prob: prediction?.probabilities?.white || 0, bg: 'bg-white' }
                     ].map(({ color, label, prob, bg }) => (
                       <div key={color} className="space-y-1">
                         <div className="flex justify-between items-center">
@@ -6014,17 +6024,17 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-red-900/30 p-3 rounded-lg border border-red-600/50">
                     <div className="text-red-300 font-semibold text-center">❤️ VERMELHO</div>
-                    <div className="text-2xl font-bold text-red-200 text-center">{(prediction.probabilities.red * 100).toFixed(1)}%</div>
+                    <div className="text-2xl font-bold text-red-200 text-center">{((prediction?.probabilities?.red || 0) * 100).toFixed(1)}%</div>
                     <div className="text-xs text-red-400 text-center">Números: 1-7</div>
                   </div>
                   <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-600/50">
                     <div className="text-gray-300 font-semibold text-center">🖤 PRETO</div>
-                    <div className="text-2xl font-bold text-gray-200 text-center">{(prediction.probabilities.black * 100).toFixed(1)}%</div>
+                    <div className="text-2xl font-bold text-gray-200 text-center">{((prediction?.probabilities?.black || 0) * 100).toFixed(1)}%</div>
                     <div className="text-xs text-gray-400 text-center">Números: 8-14</div>
                   </div>
                   <div className="bg-white/20 p-3 rounded-lg border border-white/50">
                     <div className="text-gray-100 font-semibold text-center">🤍 BRANCO</div>
-                    <div className="text-2xl font-bold text-white text-center">{(prediction.probabilities.white * 100).toFixed(1)}%</div>
+                    <div className="text-2xl font-bold text-white text-center">{((prediction?.probabilities?.white || 0) * 100).toFixed(1)}%</div>
                     <div className="text-xs text-gray-300 text-center">Número: 0</div>
                   </div>
                 </div>
