@@ -1317,6 +1317,71 @@ export class AdvancedMLPredictionService {
     
     return stats
   }
+
+  /**
+   * ⚖️ AJUSTAR PESO DE MODELO ESPECÍFICO
+   */
+  async adjustModelWeight(modelId: string, performanceFactor: number): Promise<void> {
+    try {
+      const model = this.models.get(modelId)
+      
+      if (model) {
+        // Ajustar peso do modelo baseado no fator de performance
+        const oldWeight = model.weight
+        const newWeight = Math.min(3.0, Math.max(0.2, oldWeight * performanceFactor))
+        
+        model.weight = newWeight
+        model.last_trained = Date.now()
+        
+        console.log(`⚖️ AJUSTE DE PESO: ${modelId} | ${oldWeight.toFixed(2)} → ${newWeight.toFixed(2)} (fator: ${performanceFactor.toFixed(2)})`)
+        
+        // Se performance muito ruim, reduzir accuracy temporariamente
+        if (performanceFactor < 0.8) {
+          model.accuracy = Math.max(0.3, model.accuracy * 0.95)
+          console.log(`📉 Accuracy do modelo ${modelId} reduzida para ${(model.accuracy * 100).toFixed(1)}%`)
+        }
+        // Se performance muito boa, aumentar accuracy gradualmente
+        else if (performanceFactor > 1.2) {
+          model.accuracy = Math.min(0.95, model.accuracy * 1.02)
+          console.log(`📈 Accuracy do modelo ${modelId} aumentada para ${(model.accuracy * 100).toFixed(1)}%`)
+        }
+        
+      } else {
+        console.warn(`⚠️ Modelo ${modelId} não encontrado para ajuste de peso`)
+      }
+      
+    } catch (error) {
+      console.error(`❌ Erro ajustando peso do modelo ${modelId}:`, error)
+    }
+  }
+
+  /**
+   * 📊 OBTER PESOS ATUAIS DOS MODELOS
+   */
+  getModelWeights(): Map<string, number> {
+    const weights = new Map<string, number>()
+    
+    this.models.forEach((model, modelId) => {
+      weights.set(modelId, model.weight)
+    })
+    
+    return weights
+  }
+
+  /**
+   * 🎯 RESETAR PESOS DOS MODELOS
+   */
+  resetModelWeights(): void {
+    console.log('🔄 Resetando pesos de todos os modelos...')
+    
+    this.models.forEach((model) => {
+      model.weight = 1.0 // Peso neutro
+      model.accuracy = 0.6 // Accuracy inicial
+      console.log(`↩️ Modelo ${model.name} resetado: peso=1.0, accuracy=60%`)
+    })
+    
+    console.log('✅ Todos os pesos foram resetados para valores padrão')
+  }
 }
 
 // Export da instância singleton

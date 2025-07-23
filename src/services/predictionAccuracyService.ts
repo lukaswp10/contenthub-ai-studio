@@ -161,11 +161,9 @@ export class PredictionAccuracyService {
       console.log(`🔢 Números preditos: [${prediction.predicted_numbers.join(', ')}] | Real: ${actual_number}`)
       console.log(`📊 Confiança: ${prediction.confidence}% | Acerto: ${isCorrect ? 'SIM' : 'NÃO'}`)
 
-      // Atualizar métricas dos modelos (temporariamente desabilitado)
-      // await this.updateModelMetrics(prediction)
-
-      // Aprender com o resultado (temporariamente desabilitado)
-      // await this.learnFromResult(prediction)
+      // ✅ SISTEMA DE APRENDIZADO REATIVADO E MELHORADO
+      await this.updateModelMetrics(prediction)
+      await this.learnFromResult(prediction)
 
       // Salvar atualização
       await this.updatePredictionRecord(prediction)
@@ -215,6 +213,94 @@ export class PredictionAccuracyService {
       recent_accuracy: Math.round(recent_accuracy * 100) / 100,
       confidence_avg: Math.round(confidence_avg * 100) / 100,
       top_models
+    }
+  }
+
+  /**
+   * 📊 ATUALIZAR MÉTRICAS DOS MODELOS
+   */
+  private async updateModelMetrics(prediction: PredictionRecord): Promise<void> {
+    try {
+      const isCorrect = prediction.was_correct
+      const confidence = prediction.confidence
+      
+      // Atualizar métricas para cada modelo usado na predição
+      prediction.models_used.forEach(modelId => {
+        let metrics = this.modelMetrics.get(modelId)
+        
+        if (!metrics) {
+          // Criar métricas iniciais para novo modelo
+          metrics = {
+            model_id: modelId,
+            model_name: modelId.replace('_', ' ').toUpperCase(),
+            total_predictions: 0,
+            correct_predictions: 0,
+            accuracy_rate: 0.5, // Começar neutro
+            confidence_calibration: 0.5,
+            best_contexts: [],
+            worst_contexts: [],
+            trend_direction: 'stable' as const,
+            last_updated: Date.now()
+          }
+          this.modelMetrics.set(modelId, metrics)
+        }
+        
+        // Atualizar contadores
+        metrics.total_predictions++
+        if (isCorrect) {
+          metrics.correct_predictions++
+        }
+        
+        // Calcular nova taxa de precisão com média móvel
+        const learningRate = 0.1
+        const newResult = isCorrect ? 1 : 0
+        metrics.accuracy_rate = (1 - learningRate) * metrics.accuracy_rate + learningRate * newResult
+        
+        // Atualizar calibração de confiança
+        metrics.confidence_calibration = (1 - learningRate) * metrics.confidence_calibration + learningRate * (confidence / 100)
+        
+        // Calcular tendência baseada nas últimas 10 predições
+        const recentPredictions = this.predictionHistory
+          .filter(p => p.models_used.includes(modelId) && p.was_correct !== undefined)
+          .slice(-10)
+          
+        if (recentPredictions.length >= 5) {
+          const recentAccuracy = recentPredictions.filter(p => p.was_correct).length / recentPredictions.length
+          const previousAccuracy = recentPredictions.slice(0, -3).filter(p => p.was_correct).length / Math.max(1, recentPredictions.length - 3)
+          
+          if (recentAccuracy > previousAccuracy + 0.1) {
+            metrics.trend_direction = 'improving'
+          } else if (recentAccuracy < previousAccuracy - 0.1) {
+            metrics.trend_direction = 'declining'
+          } else {
+            metrics.trend_direction = 'stable'
+          }
+        }
+        
+        // Atualizar contextos de melhor/pior performance
+        const contextKey = `${prediction.context.hour_of_day}h_${prediction.context.volatility_level}_vol`
+        
+        if (isCorrect) {
+          if (!metrics.best_contexts.includes(contextKey)) {
+            metrics.best_contexts.push(contextKey)
+            if (metrics.best_contexts.length > 5) metrics.best_contexts.shift()
+          }
+        } else {
+          if (!metrics.worst_contexts.includes(contextKey)) {
+            metrics.worst_contexts.push(contextKey)
+            if (metrics.worst_contexts.length > 5) metrics.worst_contexts.shift()
+          }
+        }
+        
+        metrics.last_updated = Date.now()
+        
+        console.log(`📊 Modelo ${metrics.model_name}: accuracy=${(metrics.accuracy_rate * 100).toFixed(1)}% (${metrics.trend_direction}) predições=${metrics.total_predictions}`)
+      })
+      
+      console.log(`✅ Métricas atualizadas para ${prediction.models_used.length} modelos`)
+      
+    } catch (error) {
+      console.error('❌ Erro atualizando métricas dos modelos:', error)
     }
   }
 
@@ -364,46 +450,119 @@ export class PredictionAccuracyService {
   }
 
   /**
-   * ⚖️ AJUSTAR PESOS DOS MODELOS
+   * ⚖️ AJUSTAR PESOS DOS MODELOS - SISTEMA MELHORADO
    */
   private async adjustModelWeights(prediction: PredictionRecord): Promise<void> {
     const isCorrect = prediction.was_correct
     const confidenceWeight = prediction.confidence / 100
 
+    // ✅ SISTEMA DE AJUSTE DINÂMICO DE PESOS
     prediction.models_used.forEach(modelId => {
       const metrics = this.modelMetrics.get(modelId)
       if (!metrics) return
 
-      // Ajustar taxa de precisão com média móvel
-      const oldAccuracy = metrics.accuracy_rate
-      const newResult = isCorrect ? 1 : 0
-      const newAccuracy = (1 - this.learningRate) * oldAccuracy + this.learningRate * newResult
-
-      metrics.accuracy_rate = newAccuracy
-      metrics.total_predictions++
-      if (isCorrect) metrics.correct_predictions++
-
-      // Calcular tendência
+      // Calcular fator de performance baseado em histórico recente
       const recentPredictions = this.predictionHistory
         .filter(p => p.models_used.includes(modelId) && p.was_correct !== undefined)
-        .slice(-10)
+        .slice(-20) // Últimas 20 predições
 
-      if (recentPredictions.length >= 5) {
+      let performanceFactor = 1.0
+      
+      if (recentPredictions.length >= 10) {
         const recentAccuracy = recentPredictions.filter(p => p.was_correct).length / recentPredictions.length
+        const overallAccuracy = metrics.accuracy_rate
         
-        if (recentAccuracy > oldAccuracy + 0.1) {
+        // Se modelo está performando melhor que sua média histórica
+        if (recentAccuracy > overallAccuracy + 0.1) {
+          performanceFactor = 1.2 // Aumentar peso em 20%
           metrics.trend_direction = 'improving'
-        } else if (recentAccuracy < oldAccuracy - 0.1) {
+          console.log(`🔥 MODELO ${modelId} PERFORMANDO ACIMA DA MÉDIA! Aumentando peso...`)
+        } 
+        // Se modelo está performando pior que sua média histórica
+        else if (recentAccuracy < overallAccuracy - 0.1) {
+          performanceFactor = 0.8 // Reduzir peso em 20%
           metrics.trend_direction = 'declining'
-        } else {
+          console.log(`⚠️ MODELO ${modelId} PERFORMANDO ABAIXO DA MÉDIA! Reduzindo peso...`)
+        }
+        else {
           metrics.trend_direction = 'stable'
         }
       }
 
-      metrics.last_updated = Date.now()
+      // Ajustar peso baseado na predição atual
+      if (isCorrect) {
+        performanceFactor *= 1.05 // Boost adicional por acerto
+        console.log(`✅ ${modelId}: ACERTOU! Fator performance: ${performanceFactor.toFixed(2)}`)
+      } else {
+        performanceFactor *= 0.95 // Penalização por erro  
+        console.log(`❌ ${modelId}: ERROU! Fator performance: ${performanceFactor.toFixed(2)}`)
+      }
 
-      console.log(`📊 Modelo ${metrics.model_name}: accuracy=${(newAccuracy * 100).toFixed(1)}% (${metrics.trend_direction})`)
+      // Aplicar ajuste de peso no sistema ML avançado (se disponível)
+      this.applyWeightAdjustment(modelId, performanceFactor)
+
+      console.log(`📊 Modelo ${metrics.model_name}: accuracy=${(metrics.accuracy_rate * 100).toFixed(1)}% (${metrics.trend_direction}) fator=${performanceFactor.toFixed(2)}`)
     })
+  }
+
+  /**
+   * ⚖️ APLICAR AJUSTE DE PESO NO SISTEMA ML
+   */
+  private async applyWeightAdjustment(modelId: string, performanceFactor: number): Promise<void> {
+    try {
+      // Tentar acessar o serviço ML avançado para ajustar pesos
+      const { advancedMLService } = await import('./advancedMLPredictionService')
+      
+      // Enviar sinal de ajuste de peso
+      if (advancedMLService && typeof advancedMLService.adjustModelWeight === 'function') {
+        await advancedMLService.adjustModelWeight(modelId, performanceFactor)
+        console.log(`⚖️ Peso do modelo ${modelId} ajustado por fator ${performanceFactor.toFixed(2)}`)
+      } else {
+        console.log(`📝 Ajuste de peso registrado para ${modelId}: ${performanceFactor.toFixed(2)}`)
+      }
+    } catch (error) {
+      console.log(`⚠️ Não foi possível aplicar ajuste de peso para ${modelId}:`, error)
+    }
+  }
+
+  /**
+   * 📊 OBTER FATORES DE PESO ATUAIS
+   */
+  getModelWeightFactors(): Map<string, number> {
+    const weightFactors = new Map<string, number>()
+    
+    this.modelMetrics.forEach((metrics, modelId) => {
+      // Calcular fator de peso baseado na performance
+      let factor = 1.0
+      
+      if (metrics.total_predictions >= 10) {
+        const accuracy = metrics.accuracy_rate
+        
+        // Modelos com alta accuracy recebem peso maior
+        if (accuracy > 0.7) {
+          factor = 1.3
+        } else if (accuracy > 0.6) {
+          factor = 1.1  
+        } else if (accuracy > 0.5) {
+          factor = 1.0
+        } else if (accuracy > 0.4) {
+          factor = 0.8
+        } else {
+          factor = 0.6
+        }
+        
+        // Ajustar baseado na tendência
+        if (metrics.trend_direction === 'improving') {
+          factor *= 1.1
+        } else if (metrics.trend_direction === 'declining') {
+          factor *= 0.9
+        }
+      }
+      
+      weightFactors.set(modelId, factor)
+    })
+    
+    return weightFactors
   }
 
   /**

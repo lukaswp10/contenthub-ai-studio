@@ -1208,37 +1208,76 @@ export default function TesteJogoPage() {
     console.log(`📝 Predição registrada: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%)`);
   };
 
-  // Verificar acerto quando chegar novo resultado
-  const checkPredictionAccuracy = (realResult: any) => {
-    setPredictionStats(prev => {
-      if (!prev.waitingForResult || !prev.lastPrediction) {
-        return prev; // Não há predição aguardando
+  // ✅ VERIFICAR ACERTO E ATIVAR APRENDIZADO AUTOMÁTICO
+  const checkPredictionAccuracy = async (realResult: any) => {
+    try {
+      // Verificar se há predição ativa para confirmação
+      if (activePredictionId) {
+        console.log(`🎯 CONFIRMANDO PREDIÇÃO: ${activePredictionId}`)
+        
+        // Confirmar resultado no sistema de aprendizado
+        await predictionAccuracyService.confirmResult(
+          activePredictionId,
+          realResult.color as 'red' | 'black' | 'white',
+          realResult.number
+        )
+        
+        console.log('✅ SISTEMA DE APRENDIZADO ATIVADO! Modelos sendo ajustados automaticamente...')
+        setActivePredictionId(null) // Limpar ID após confirmação
       }
 
-      const isCorrect = prev.lastPrediction.color === realResult.color;
-      const newCorrect = prev.correctPredictions + (isCorrect ? 1 : 0);
-      const newIncorrect = prev.incorrectPredictions + (isCorrect ? 0 : 1);
-      const newTotal = newCorrect + newIncorrect;
-      const newAccuracy = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
-      const newStreak = isCorrect ? prev.streak + 1 : 0;
-      const newMaxStreak = Math.max(newStreak, prev.maxStreak);
+      // Atualizar estatísticas locais da interface
+      setPredictionStats(prev => {
+        if (!prev.waitingForResult || !prev.lastPrediction) {
+          return prev; // Não há predição aguardando na interface
+        }
 
-      console.log(isCorrect ? 
-        `✅ ACERTOU! Predição: ${prev.lastPrediction.color} = Resultado: ${realResult.color} | Streak: ${newStreak}` :
-        `❌ ERROU! Predição: ${prev.lastPrediction.color} ≠ Resultado: ${realResult.color} | Streak quebrada`
-      );
+        const isCorrect = prev.lastPrediction.color === realResult.color;
+        const newCorrect = prev.correctPredictions + (isCorrect ? 1 : 0);
+        const newIncorrect = prev.incorrectPredictions + (isCorrect ? 0 : 1);
+        const newTotal = newCorrect + newIncorrect;
+        const newAccuracy = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
+        const newStreak = isCorrect ? prev.streak + 1 : 0;
+        const newMaxStreak = Math.max(newStreak, prev.maxStreak);
 
-      return {
-        ...prev,
-        correctPredictions: newCorrect,
-        incorrectPredictions: newIncorrect,
-        accuracy: newAccuracy,
-        waitingForResult: false,
-        streak: newStreak,
-        maxStreak: newMaxStreak,
-        lastPrediction: null
-      };
-    });
+        console.log(isCorrect ? 
+          `✅ INTERFACE: ACERTOU! Predição: ${prev.lastPrediction.color} = Resultado: ${realResult.color} | Streak: ${newStreak}` :
+          `❌ INTERFACE: ERROU! Predição: ${prev.lastPrediction.color} ≠ Resultado: ${realResult.color} | Streak quebrada`
+        );
+
+        return {
+          ...prev,
+          correctPredictions: newCorrect,
+          incorrectPredictions: newIncorrect,
+          accuracy: newAccuracy,
+          waitingForResult: false,
+          streak: newStreak,
+          maxStreak: newMaxStreak,
+          lastPrediction: null
+        };
+      });
+
+      // Se sistema ML avançado está ativo, notificar sobre resultado
+      if (advancedMLPrediction) {
+        try {
+          const blazeDataPoint = {
+            number: realResult.number,
+            color: realResult.color as 'red' | 'black' | 'white',
+            timestamp: Date.now(),
+            round_id: realResult.round_id || `real_${Date.now()}`
+          }
+          
+          await advancedMLService.updateModelPerformance(advancedMLPrediction, blazeDataPoint)
+          console.log('🤖 MODELOS ML ATUALIZADOS com resultado real!')
+          
+        } catch (mlError) {
+          console.warn('⚠️ Erro atualizando modelos ML:', mlError)
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Erro verificando acerto da predição:', error)
+    }
   };
 
   // ===================================================================
