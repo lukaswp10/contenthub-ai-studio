@@ -1211,10 +1211,34 @@ export default function TesteJogoPage() {
   }, [])
 
   // ===================================================================
-  // USEEFFECT PARA SISTEMA DE DADOS REAIS DA BLAZE
+  // USEEFFECT PARA SISTEMA DE DADOS REAIS DA BLAZE - AUTO-START
   // ===================================================================
   
   useEffect(() => {
+    console.log('🚀 AUTO-START: Iniciando captura automática de dados reais da Blaze...');
+    
+    // 🎯 INICIAR CAPTURA AUTOMATICAMENTE
+    const initializeAutoCapture = async () => {
+      try {
+        setIsCapturingReal(true);
+        setConnectionStatus('CONECTANDO...');
+        
+        // Iniciar serviço automaticamente
+        await blazeRealDataService.startCapturing();
+        
+        console.log('✅ AUTO-START: Serviço de captura iniciado automaticamente!');
+        setConnectionStatus('CONECTADO - DADOS REAIS AUTOMÁTICOS');
+        
+      } catch (error) {
+        console.error('❌ AUTO-START FALHOU:', error);
+        setIsCapturingReal(false);
+        setConnectionStatus('ERRO - AUTO-START FALHOU');
+      }
+    };
+
+    // Iniciar captura após 2 segundos (aguardar inicialização da página)
+    const autoStartTimeout = setTimeout(initializeAutoCapture, 2000);
+
     // Atualizar status da conexão a cada 3 segundos
     const statusInterval = setInterval(() => {
       updateConnectionStatus();
@@ -1235,6 +1259,7 @@ export default function TesteJogoPage() {
         color: data.color,
         timestamp: Date.now(),
         source: 'manual' as const,
+        batch: 'real_time_blaze' // Identificar como dados reais em tempo real
       };
       
       setResults(prev => {
@@ -1253,24 +1278,29 @@ export default function TesteJogoPage() {
       setIsCapturingReal(false);
       setConnectionStatus('ERRO FATAL - PROXY INDISPONÍVEL');
       
-      // Exibir alerta visual para o usuário
-      alert(`❌ ERRO FATAL: ${errorData.error}\n\n🛑 Sistema parado - Não é possível conectar com dados reais da Blaze.\n\nUse entrada manual ou upload de CSV para continuar.`);
+      // Tentar reconectar após 10 segundos
+      setTimeout(() => {
+        console.log('🔄 Tentando reconectar automaticamente...');
+        initializeAutoCapture();
+      }, 10000);
     };
 
     // Adicionar listeners
     window.addEventListener('blazeRealData', handleRealData);
     window.addEventListener('blazeConnectionError', handleConnectionError);
 
-    // ✅ DADOS HISTÓRICOS REMOVIDOS: Só carrega quando conectar Blaze ou CSV
-    // Carregar dados históricos APENAS quando conectar modo real ou subir CSV
-    console.log('⏳ Sistema iniciado - Aguardando entrada manual ou conexão Blaze...');
+    console.log('⚡ AUTO-START: Sistema configurado para captura automática!');
 
     return () => {
+      clearTimeout(autoStartTimeout);
       clearInterval(statusInterval);
       window.removeEventListener('blazeRealData', handleRealData);
       window.removeEventListener('blazeConnectionError', handleConnectionError);
+      
+      // Parar captura ao desmontar componente
+      blazeRealDataService.stopCapturing();
     };
-  }, []); // ✅ REMOVENDO DEPENDÊNCIA [results] que causava loop
+  }, []); // ✅ SEM DEPENDÊNCIAS para executar apenas uma vez
 
   // ===================================================================
   // ETAPA 5: AUTO-ATUALIZAÇÃO DE PREDIÇÃO EM TEMPO REAL
@@ -5149,73 +5179,73 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 <h3 className="font-semibold mb-3 text-orange-300">🎮 Controles</h3>
                 <div className="space-y-3">
                   
-                  {/* Conexão em tempo real */}
-                  <div className="flex gap-2">
-                    {!isCapturingReal ? (
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={startRealDataCapture}
-                          className="bg-green-600 hover:bg-green-500 flex-1"
-                        >
-                          🔥 Conectar Blaze
-                        </Button>
-                        <Button 
-                          onClick={clearFakeData}
-                          className="bg-red-600 hover:bg-red-500 px-3"
-                          title="Limpar dados falsos e resetar sistema"
-                        >
-                          🧹
-                        </Button>
-                      </div>
-                    ) : (
-                      // Quando conectado: Mostrar palpite IA + dados em tempo real
-                      <div className="w-full space-y-3">
-                        {/* Palpite Principal IA */}
-                        <div className="bg-gradient-to-r from-purple-600/80 to-pink-600/80 rounded-lg p-4 border-2 border-purple-400">
-                          <div className="text-center">
-                            <div className="text-sm text-purple-200 mb-1">🤖 PALPITE IA AVANÇADA</div>
-                            <div className="text-3xl font-bold text-white mb-2">
-                              {prediction?.color?.toUpperCase() || 'CALCULANDO...'}
-                            </div>
-                            <div className="text-lg text-purple-100">
-                              Confiança: {prediction?.confidence?.toFixed(1) || '0.0'}%
-                            </div>
-                            <div className="text-sm text-purple-200 mt-1">
-                              Números: {prediction?.expectedNumbers?.join(', ') || 'N/A'}
-                            </div>
-                          </div>
+                  {/* Sistema Automático Permanente */}
+                  <div className="w-full space-y-3">
+                    
+                    {/* Status Sistema Automático */}
+                    <div className="bg-gradient-to-r from-cyan-600/80 to-blue-600/80 rounded-lg p-4 border-2 border-cyan-400">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                          <span className="text-cyan-100 font-semibold">🤖 SISTEMA AUTOMÁTICO ATIVO</span>
                         </div>
-                        
-                                                 {/* Dados em Tempo Real */}
-                        <div className="bg-gradient-to-r from-green-600/80 to-emerald-600/80 rounded-lg p-3 border border-green-400">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                              <span className="text-green-100 font-semibold">BLAZE AO VIVO</span>
-                            </div>
-                            <Button 
-                              onClick={stopRealDataCapture}
-                              className="bg-red-600 hover:bg-red-500 text-xs px-2 py-1 h-auto"
-                            >
-                              ⏹️ Parar
-                            </Button>
-                          </div>
-                          {lastRealData && (
-                            <div className="mt-2 flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                lastRealData.color === 'red' ? 'bg-red-600 text-white' : 
-                                lastRealData.color === 'black' ? 'bg-gray-800 text-white' : 'bg-white text-black'
-                              }`}>
-                                {lastRealData.number}
-                              </div>
-                              <div className="text-green-100 text-sm">
-                                {new Date(lastRealData.timestamp_blaze).toLocaleTimeString()}
-                              </div>
-                            </div>
-                          )}
+                        <div className="text-sm text-cyan-200 mb-1">
+                          Status: <span className="font-bold text-white">{connectionStatus}</span>
+                        </div>
+                        <div className="text-xs text-cyan-300">
+                          Capturando dados reais da Blaze automaticamente a cada 13 segundos
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Palpite Principal IA */}
+                    <div className="bg-gradient-to-r from-purple-600/80 to-pink-600/80 rounded-lg p-4 border-2 border-purple-400">
+                      <div className="text-center">
+                        <div className="text-sm text-purple-200 mb-1">🤖 PALPITE IA AVANÇADA</div>
+                        <div className="text-3xl font-bold text-white mb-2">
+                          {prediction?.color?.toUpperCase() || 'AGUARDANDO DADOS...'}
+                        </div>
+                        <div className="text-lg text-purple-100">
+                          Confiança: {prediction?.confidence?.toFixed(1) || '0.0'}%
+                        </div>
+                        <div className="text-sm text-purple-200 mt-1">
+                          Números: {prediction?.expectedNumbers?.join(', ') || 'Calculando...'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Último Resultado Capturado */}
+                    <div className="bg-gradient-to-r from-green-600/80 to-emerald-600/80 rounded-lg p-3 border border-green-400">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-green-100 font-semibold">BLAZE AO VIVO</span>
+                        </div>
+                        <div className="text-xs text-green-200">
+                          {isCapturingReal ? '✅ CONECTADO' : '⏳ CONECTANDO...'}
+                        </div>
+                      </div>
+                      {lastRealData ? (
+                        <div className="mt-2 flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            lastRealData.color === 'red' ? 'bg-red-600 text-white' : 
+                            lastRealData.color === 'black' ? 'bg-gray-800 text-white' : 'bg-white text-black'
+                          }`}>
+                            {lastRealData.number}
+                          </div>
+                          <div className="text-green-100 text-sm">
+                            {new Date(lastRealData.timestamp_blaze || Date.now()).toLocaleTimeString()}
+                          </div>
+                          <div className="text-xs text-green-200 ml-auto">
+                            ID: {lastRealData.round_id?.slice(-8) || 'N/A'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-center text-green-200 text-sm">
+                          ⏳ Aguardando primeiro resultado...
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Importar histórico */}
