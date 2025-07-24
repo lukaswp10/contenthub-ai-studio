@@ -912,27 +912,49 @@ export default function TesteJogoPage() {
   const [realDataHistory, setRealDataHistory] = useState<any[]>([]);
   const [lastRealData, setLastRealData] = useState<any>(null);
 
-  // Estados para estatísticas de predições - PERSISTENTE
-  const [predictionStats, setPredictionStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem('blaze_prediction_stats')
-      if (saved) {
-        return JSON.parse(saved)
-      }
-    } catch (error) {
-      console.log('⚠️ Erro ao carregar estatísticas salvas:', error)
-    }
-    return {
-      totalPredictions: 0,
-      correctPredictions: 0,
-      incorrectPredictions: 0,
-      accuracy: 0,
-      lastPrediction: null as any,
-      waitingForResult: false,
-      streak: 0,
-      maxStreak: 0
-    }
+  // Estados para estatísticas de predições - SEM AUTO-LOAD 
+  // ❌ REMOVIDO AUTO-LOAD PARA EVITAR TRAVAMENTO 7/11
+  const [predictionStats, setPredictionStats] = useState({
+    totalPredictions: 0,
+    correctPredictions: 0,
+    incorrectPredictions: 0,
+    accuracy: 0,
+    lastPrediction: null as any,
+    waitingForResult: false,
+    streak: 0,
+    maxStreak: 0
   });
+
+  // 🔄 CARREGAR ESTATÍSTICAS MANUALMENTE APENAS UMA VEZ (evita loop)
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  
+  useEffect(() => {
+    if (!statsLoaded) {
+      try {
+        const saved = localStorage.getItem('blaze_prediction_stats')
+        if (saved) {
+          const savedStats = JSON.parse(saved)
+          console.log('📊 CARREGANDO ESTATÍSTICAS SALVAS:', savedStats);
+          console.log('🔍 ORIGEM: useEffect de carregamento inicial');
+          setPredictionStats(savedStats)
+        } else {
+          console.log('📊 NENHUMA ESTATÍSTICA SALVA ENCONTRADA - Mantendo 0/0/0');
+        }
+      } catch (error) {
+        console.log('⚠️ Erro ao carregar estatísticas salvas:', error)
+      }
+      setStatsLoaded(true);
+    }
+  }, []);
+  
+  // 🕵️ DEBUG: Monitorar mudanças em predictionStats para identificar quando volta para 7/11
+  useEffect(() => {
+    if (predictionStats.correctPredictions === 7 && predictionStats.incorrectPredictions === 11) {
+      console.log('🚨 ALERTA: NÚMEROS 7/11 DETECTADOS!');
+      console.log('📊 Estado atual completo:', predictionStats);
+      console.log('🔍 Call stack:', new Error().stack);
+    }
+  }, [predictionStats]);
 
   // Estados para sistema ML avançado
   const [advancedMLPrediction, setAdvancedMLPrediction] = useState<any>(null)
@@ -1256,6 +1278,11 @@ export default function TesteJogoPage() {
     try {
       localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
       console.log(`✅ PREDIÇÃO SALVA: ${prediction.color.toUpperCase()} | ID: ${predictionData.id}`);
+      console.log(`📊 STATS SALVAS registerPrediction:`, { 
+        correct: newStats.correctPredictions, 
+        incorrect: newStats.incorrectPredictions, 
+        total: newStats.totalPredictions 
+      });
     } catch (error) {
       console.warn('⚠️ Erro ao salvar estatísticas:', error);
     }
@@ -1345,6 +1372,16 @@ export default function TesteJogoPage() {
         try {
           localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
           console.log(`✅ ESTATÍSTICAS ATUALIZADAS E SALVAS!`);
+          console.log(`📊 STATS SALVAS checkPredictionAccuracy:`, { 
+            correct: newStats.correctPredictions, 
+            incorrect: newStats.incorrectPredictions, 
+            total: newStats.totalPredictions,
+            accuracy: newStats.accuracy.toFixed(1) + '%'
+          });
+          if (newStats.correctPredictions === 7 && newStats.incorrectPredictions === 11) {
+            console.log('🚨 DETECTADO 7/11 SENDO SALVO em checkPredictionAccuracy!');
+            console.log('🔍 Origem da chamada:', new Error().stack);
+          }
         } catch (error) {
           console.warn('⚠️ Erro ao salvar estatísticas:', error);
         }
@@ -5684,7 +5721,12 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                           };
                           
                           setPredictionStats(freshStats);
+                          
+                          // ✅ CRÍTICO: Resetar flag de carregamento para evitar recarregamento automático
+                          setStatsLoaded(true); // Marcar como carregado para evitar auto-load
+                          
                           console.log('✅ ESTATÍSTICAS RESETADAS! Números travados 7/11 limpos.');
+                          console.log('🔒 AUTO-LOAD DESABILITADO! Estatísticas não recarregarão automaticamente.');
                           console.log('📊 Nova configuração:', freshStats);
                         }}
                         className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-semibold"
