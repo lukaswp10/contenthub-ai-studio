@@ -5662,6 +5662,35 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       >
                         🧪 TESTE VERIFICAÇÃO
                       </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('🗑️ LIMPANDO ESTATÍSTICAS TRAVADAS DO LOCALSTORAGE...');
+                          console.log('📊 Estatísticas antigas:', predictionStats);
+                          
+                          // Limpar localStorage das estatísticas antigas
+                          localStorage.removeItem('blaze_prediction_stats');
+                          
+                          // Resetar estado para valores iniciais
+                          const freshStats = {
+                            totalPredictions: 0,
+                            correctPredictions: 0,
+                            incorrectPredictions: 0,
+                            accuracy: 0,
+                            lastPrediction: null,
+                            waitingForResult: false,
+                            streak: 0,
+                            maxStreak: 0
+                          };
+                          
+                          setPredictionStats(freshStats);
+                          console.log('✅ ESTATÍSTICAS RESETADAS! Números travados 7/11 limpos.');
+                          console.log('📊 Nova configuração:', freshStats);
+                        }}
+                        className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-semibold"
+                      >
+                        🗑️ RESET STATS
+                      </button>
                     </div>
                   </div>
                 </div>
