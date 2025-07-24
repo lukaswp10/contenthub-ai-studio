@@ -1837,6 +1837,11 @@ export default function TesteJogoPage() {
         if (cachedPrediction) {
           console.log('📋 Predição carregada do cache')
           setPrediction(cachedPrediction)
+          
+          // ✅ CRÍTICO: Registrar predição do cache para verificação
+          registerPrediction(cachedPrediction)
+          console.log(`🔥 PREDIÇÃO CACHE REGISTRADA PARA VERIFICAÇÃO!`)
+          
           return
         }
         
@@ -2792,6 +2797,11 @@ export default function TesteJogoPage() {
         
         console.log(`🎯 PREDIÇÃO ML FINAL: ${traditionalPrediction.color} com ${traditionalPrediction.confidence.toFixed(1)}% confiança`)
         setPrediction(traditionalPrediction)
+        
+        // ✅ CRÍTICO: Registrar predição ML para verificação de acurácia
+        registerPrediction(traditionalPrediction)
+        console.log(`🔥 PREDIÇÃO ML REGISTRADA PARA VERIFICAÇÃO!`)
+        
         setIsProcessing(false)
         return
       }
