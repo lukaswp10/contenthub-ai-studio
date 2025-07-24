@@ -49,6 +49,51 @@ interface PredictionResult {
   }
   specificNumberProbabilities: { [key: number]: number } // NOVO: Probabilidade específica por número
   alternativeScenarios: PredictionScenario[] // NOVO: Múltiplos cenários
+  // ✅ NOVO: Sistema de Consenso Inteligente
+  consensusData?: ConsensusResult
+}
+
+// ✅ INTERFACES DO SISTEMA DE CONSENSO INTELIGENTE V2.0
+interface AlgorithmVote {
+  algorithm: string
+  algorithmId: string
+  vote: 'red' | 'black' | 'white'
+  confidence: number
+  weight: number
+  reasoning: string
+  // ✅ NOVO: Número específico sugerido pelo algoritmo
+  suggestedNumber: number
+  numberConfidence: number
+}
+
+interface NumberConsensus {
+  finalNumber: number
+  consensusStrength: number
+  voteBreakdown: { [key: number]: { count: number; percentage: number; algorithms: string[]; totalConfidence: number } }
+  conflictLevel: 'low' | 'medium' | 'high'
+  algorithmVotes: { algorithm: string; number: number; confidence: number }[]
+}
+
+interface ConsensusResult {
+  // Consenso de Cor
+  finalPrediction: 'red' | 'black' | 'white'
+  consensusStrength: number // 0-100% (força do consenso)
+  totalVotes: number
+  voteBreakdown: {
+    red: { count: number; percentage: number; algorithms: string[]; totalConfidence: number }
+    black: { count: number; percentage: number; algorithms: string[]; totalConfidence: number }
+    white: { count: number; percentage: number; algorithms: string[]; totalConfidence: number }
+  }
+  conflictLevel: 'low' | 'medium' | 'high'
+  dominantGroup: 'red' | 'black' | 'white'
+  algorithmVotes: AlgorithmVote[]
+  weightedScore: {
+    red: number
+    black: number  
+    white: number
+  }
+  // ✅ NOVO: Consenso de Número
+  numberConsensus: NumberConsensus
 }
 
 interface PredictionScenario {
@@ -913,27 +958,242 @@ export default function TesteJogoPage() {
   // 🔄 CARREGAR ESTATÍSTICAS MANUALMENTE APENAS UMA VEZ (evita loop)
   const [statsLoaded, setStatsLoaded] = useState(false);
   
+  // ⚡ SISTEMA DE PROTEÇÃO CONTRA CONFLITOS
+  const isUpdatingStats = useRef(false);
+  const statsUpdateQueue = useRef<Array<() => void>>([]);
+  
+  // 🎯 SISTEMA ÚNICO DE VERIFICAÇÃO - EVITA DUPLICAÇÃO
+  const lastProcessedResult = useRef<string | null>(null);
+  const isCheckingAccuracy = useRef(false);
+  
+  // ✅ SISTEMA ANTI-RESET: Persistência contínua independente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Salvar estatísticas a cada 5 segundos se há dados
+      if (predictionStats.correctPredictions > 0 || predictionStats.incorrectPredictions > 0) {
+        try {
+          const timestampKey = `blaze_stats_autosave_${Date.now()}`;
+          localStorage.setItem(timestampKey, JSON.stringify(predictionStats));
+          localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(predictionStats));
+          
+          // Manter apenas os 3 autosaves mais recentes
+          const allKeys = Object.keys(localStorage);
+          const autosaveKeys = allKeys.filter(key => key.startsWith('blaze_stats_autosave_'))
+                                    .sort()
+                                    .reverse();
+          if (autosaveKeys.length > 3) {
+            autosaveKeys.slice(3).forEach(key => localStorage.removeItem(key));
+          }
+          
+          console.log('💾 AUTO-SAVE CONTÍNUO:', {
+            correct: predictionStats.correctPredictions,
+            incorrect: predictionStats.incorrectPredictions,
+            total: predictionStats.totalPredictions,
+            timestamp: new Date().toLocaleTimeString()
+          });
+        } catch (error) {
+          console.warn('⚠️ Erro no auto-save contínuo:', error);
+        }
+      }
+    }, 5000); // A cada 5 segundos
+    
+    return () => clearInterval(interval);
+  }, [predictionStats]);
+  
   useEffect(() => {
     if (!statsLoaded) {
-      try {
-        const saved = localStorage.getItem('blaze_prediction_stats')
-        if (saved) {
-          const savedStats = JSON.parse(saved)
-          console.log('📊 CARREGANDO ESTATÍSTICAS SALVAS:', savedStats);
-          console.log('🔍 ORIGEM: useEffect de carregamento inicial');
-          setPredictionStats(savedStats)
-        } else {
-          console.log('📊 NENHUMA ESTATÍSTICA SALVA ENCONTRADA - Mantendo 0/0/0');
+      const loadStatsWithRecovery = () => {
+        try {
+          console.log('🔍 CARREGANDO ESTATÍSTICAS - Sistema de recuperação ativo...');
+          let loadedStats = null;
+          let source = '';
+          
+          // 1. Tentar carregar from latest (mais confiável)
+          try {
+            const latest = localStorage.getItem('blaze_prediction_stats_latest');
+            if (latest) {
+              const parsedLatest = JSON.parse(latest);
+              if (parsedLatest.correctPredictions >= 0 && parsedLatest.incorrectPredictions >= 0) {
+                loadedStats = parsedLatest;
+                source = 'latest';
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ Erro carregando latest:', e);
+          }
+          
+          // 2. Tentar carregar estatísticas principais
+          if (!loadedStats) {
+            try {
+              const saved = localStorage.getItem('blaze_prediction_stats');
+              if (saved) {
+                const parsedStats = JSON.parse(saved);
+                if (parsedStats.correctPredictions >= 0 && parsedStats.incorrectPredictions >= 0) {
+                  loadedStats = parsedStats;
+                  source = 'principal';
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Erro carregando estatísticas principais:', e);
+            }
+          }
+          
+          // 3. Tentar autosaves mais recentes
+          if (!loadedStats) {
+            try {
+              const allKeys = Object.keys(localStorage);
+              const autosaveKeys = allKeys.filter(key => key.startsWith('blaze_stats_autosave_'))
+                                        .sort()
+                                        .reverse();
+              
+              for (const autosaveKey of autosaveKeys) {
+                try {
+                  const autosave = localStorage.getItem(autosaveKey);
+                  if (autosave) {
+                    const parsedAutosave = JSON.parse(autosave);
+                    if (parsedAutosave.correctPredictions >= 0 && parsedAutosave.incorrectPredictions >= 0) {
+                      loadedStats = parsedAutosave;
+                      source = `autosave (${autosaveKey})`;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  console.warn(`⚠️ Erro no autosave ${autosaveKey}:`, e);
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Erro carregando autosaves:', e);
+            }
+          }
+          
+          // 4. Se falhou, tentar backup de emergência
+          if (!loadedStats) {
+            try {
+              const emergency = localStorage.getItem('blaze_prediction_stats_emergency');
+              if (emergency) {
+                const parsedEmergency = JSON.parse(emergency);
+                if (parsedEmergency.correctPredictions >= 0 && parsedEmergency.incorrectPredictions >= 0) {
+                  loadedStats = parsedEmergency;
+                  source = 'emergência';
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Erro carregando backup de emergência:', e);
+            }
+          }
+          
+          // 5. Se ainda falhou, tentar backups com timestamp
+          if (!loadedStats) {
+            try {
+              const allKeys = Object.keys(localStorage);
+              const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'))
+                                       .sort()
+                                       .reverse(); // Mais recente primeiro
+              
+              for (const backupKey of backupKeys) {
+                try {
+                  const backup = localStorage.getItem(backupKey);
+                  if (backup) {
+                    const parsedBackup = JSON.parse(backup);
+                    if (parsedBackup.correctPredictions >= 0 && parsedBackup.incorrectPredictions >= 0) {
+                      loadedStats = parsedBackup;
+                      source = `backup (${backupKey})`;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  console.warn(`⚠️ Erro no backup ${backupKey}:`, e);
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Erro carregando backups:', e);
+            }
+          }
+          
+          // 6. Última tentativa: sessionStorage de emergência
+          if (!loadedStats) {
+            try {
+              const session = sessionStorage.getItem('blaze_stats_emergency');
+              if (session) {
+                const parsedSession = JSON.parse(session);
+                if (parsedSession.correctPredictions >= 0 && parsedSession.incorrectPredictions >= 0) {
+                  loadedStats = parsedSession;
+                  source = 'sessionStorage';
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Erro carregando sessionStorage:', e);
+            }
+          }
+          
+          // 7. Aplicar estatísticas carregadas ou usar padrão
+          if (loadedStats) {
+            console.log(`📊 ESTATÍSTICAS RECUPERADAS da fonte: ${source}`);
+            console.log('🔢 Valores carregados:', {
+              correctPredictions: loadedStats.correctPredictions,
+              incorrectPredictions: loadedStats.incorrectPredictions,
+              totalPredictions: loadedStats.totalPredictions,
+              accuracy: loadedStats.accuracy
+            });
+            
+            setPredictionStats(loadedStats);
+            
+            // Salvar novamente no local principal se veio de backup
+            if (source !== 'principal' && source !== 'latest') {
+              try {
+                localStorage.setItem('blaze_prediction_stats', JSON.stringify(loadedStats));
+                localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(loadedStats));
+                console.log('💾 Estatísticas restauradas nos locais principais');
+              } catch (e) {
+                console.warn('⚠️ Erro restaurando nos principais:', e);
+              }
+            }
+            
+            console.log('✅ ESTATÍSTICAS CARREGADAS COM SUCESSO!');
+          } else {
+            console.log('📊 NENHUMA ESTATÍSTICA ENCONTRADA - Iniciando do zero (0/0/0)');
+          }
+          
+        } catch (error) {
+          console.error('❌ ERRO CRÍTICO no carregamento:', error);
+          console.log('🆘 Iniciando com estatísticas zeradas...');
         }
-      } catch (error) {
-        console.log('⚠️ Erro ao carregar estatísticas salvas:', error)
-      }
+      };
+      
+      loadStatsWithRecovery();
       setStatsLoaded(true);
     }
   }, []);
   
-  // 🕵️ DEBUG: Monitorar mudanças em predictionStats para identificar quando volta para 7/11
+  // 🕵️ DEBUG MELHORADO: Monitorar mudanças em predictionStats
   useEffect(() => {
+    console.log('📊 STATS ATUALIZADAS:', {
+      correct: predictionStats.correctPredictions,
+      incorrect: predictionStats.incorrectPredictions,
+      total: predictionStats.totalPredictions,
+      accuracy: predictionStats.accuracy.toFixed(1) + '%',
+      waitingForResult: predictionStats.waitingForResult
+    });
+    
+    // Backup secundário a cada mudança
+    if (predictionStats.correctPredictions > 0 || predictionStats.incorrectPredictions > 0) {
+      try {
+        const backupKey = `blaze_stats_backup_${Date.now()}`;
+        localStorage.setItem(backupKey, JSON.stringify(predictionStats));
+        
+        // Manter apenas os 5 backups mais recentes
+        const allKeys = Object.keys(localStorage).filter(key => key.startsWith('blaze_stats_backup_'));
+        if (allKeys.length > 5) {
+          const sortedKeys = allKeys.sort();
+          sortedKeys.slice(0, -5).forEach(key => localStorage.removeItem(key));
+        }
+        
+        console.log('💾 BACKUP CRIADO:', backupKey);
+      } catch (error) {
+        console.warn('⚠️ Erro criando backup:', error);
+      }
+    }
+    
     if (predictionStats.correctPredictions === 7 && predictionStats.incorrectPredictions === 11) {
       console.log('🚨 ALERTA: NÚMEROS 7/11 DETECTADOS!');
       console.log('📊 Estado atual completo:', predictionStats);
@@ -960,7 +1220,6 @@ export default function TesteJogoPage() {
 
   // ✅ ETAPA 5: Estados da Análise Temporal Avançada
   const [temporalAnalysisActive, setTemporalAnalysisActive] = useState(false)
-  const [temporalAnalysis, setTemporalAnalysis] = useState<any>(null)
   const [currentMarketPhase, setCurrentMarketPhase] = useState<any>(null)
   const [currentVolatilityRegime, setCurrentVolatilityRegime] = useState<any>(null)
   const [temporalRecommendations, setTemporalRecommendations] = useState<any[]>([])
@@ -1227,11 +1486,68 @@ export default function TesteJogoPage() {
   }
 
   // ===================================================================
-  // FUNÇÕES DE ESTATÍSTICAS DE PREDIÇÕES
+  // FUNÇÕES DE ESTATÍSTICAS DE PREDIÇÕES - SISTEMA PROTEGIDO
   // ===================================================================
 
-  // Registrar nova predição - VERSÃO MELHORADA
-  const registerPrediction = (prediction: PredictionResult) => {
+  // ✅ FUNÇÃO PROTEGIDA PARA ATUALIZAR ESTATÍSTICAS
+  const updateStatsProtected = (updateFunction: (prev: any) => any) => {
+    return new Promise<void>((resolve) => {
+      const executeUpdate = () => {
+        if (isUpdatingStats.current) {
+          // Se já está atualizando, adicionar à fila
+          statsUpdateQueue.current.push(() => updateStatsProtected(updateFunction).then(resolve));
+          return;
+        }
+        
+        isUpdatingStats.current = true;
+        
+        try {
+          setPredictionStats(prev => {
+            const newStats = updateFunction(prev);
+            
+            // Salvar imediatamente em múltiplos locais
+            try {
+              localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
+              localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(newStats));
+              localStorage.setItem('blaze_prediction_stats_secure', JSON.stringify(newStats));
+              sessionStorage.setItem('blaze_stats_current', JSON.stringify(newStats));
+              
+              console.log('💾 ESTATÍSTICAS SALVAS PROTEGIDAS:', {
+                correct: newStats.correctPredictions,
+                incorrect: newStats.incorrectPredictions,
+                total: newStats.totalPredictions,
+                accuracy: newStats.accuracy?.toFixed(1) + '%'
+              });
+            } catch (error) {
+              console.error('❌ Erro salvando estatísticas protegidas:', error);
+            }
+            
+            return newStats;
+          });
+          
+          // Processar próximo da fila
+          setTimeout(() => {
+            isUpdatingStats.current = false;
+            if (statsUpdateQueue.current.length > 0) {
+              const nextUpdate = statsUpdateQueue.current.shift();
+              if (nextUpdate) nextUpdate();
+            }
+            resolve();
+          }, 100);
+          
+        } catch (error) {
+          console.error('❌ Erro na atualização protegida:', error);
+          isUpdatingStats.current = false;
+          resolve();
+        }
+      };
+      
+      executeUpdate();
+    });
+  };
+
+  // Registrar nova predição - VERSÃO PROTEGIDA
+  const registerPrediction = async (prediction: PredictionResult) => {
     const predictionData = {
       color: prediction.color,
       numbers: prediction.expectedNumbers,
@@ -1240,39 +1556,48 @@ export default function TesteJogoPage() {
       id: `pred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     };
 
-    const newStats = {
-      ...predictionStats,
+    await updateStatsProtected(prev => ({
+      ...prev,
       lastPrediction: predictionData,
       waitingForResult: true,
-      totalPredictions: predictionStats.totalPredictions + 1
-    };
+      totalPredictions: (prev.totalPredictions || 0) + 1
+    }));
     
-    setPredictionStats(newStats);
-    
-    // Salvar no localStorage
-    try {
-      localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
-      console.log(`✅ PREDIÇÃO SALVA: ${prediction.color.toUpperCase()} | ID: ${predictionData.id}`);
-      console.log(`📊 STATS SALVAS registerPrediction:`, { 
-        correct: newStats.correctPredictions, 
-        incorrect: newStats.incorrectPredictions, 
-        total: newStats.totalPredictions 
-      });
-    } catch (error) {
-      console.warn('⚠️ Erro ao salvar estatísticas:', error);
-    }
-    
-    console.log(`📝 NOVA PREDIÇÃO REGISTRADA: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%) | Aguardando resultado...`);
+    console.log(`📝 PREDIÇÃO REGISTRADA PROTEGIDA: ${prediction.color.toUpperCase()} (${prediction.confidence.toFixed(1)}%) | ID: ${predictionData.id}`);
   };
 
-  // ✅ SISTEMA MELHORADO DE VERIFICAÇÃO DE ACURÁCIA
+  // ✅ SISTEMA ÚNICO DE VERIFICAÇÃO DE ACURÁCIA - PROTEGIDO CONTRA DUPLICAÇÃO
   const checkPredictionAccuracy = async (realResult: any) => {
-    console.log(`🔍 VERIFICANDO ACURÁCIA: Resultado real recebido:`, realResult);
+    // 🛡️ PROTEÇÃO ANTI-DUPLICAÇÃO
+    const resultId = `${realResult?.round_id || realResult?.number}_${realResult?.color}_${realResult?.timestamp || Date.now()}`;
+    
+    if (isCheckingAccuracy.current) {
+      console.log('🚫 SKIP: Verificação já em andamento');
+      return;
+    }
+    
+    if (lastProcessedResult.current === resultId) {
+      console.log(`🚫 SKIP: Resultado ${resultId} já foi processado`);
+      return;
+    }
+    
+    console.log(`🔍 VERIFICANDO ACURÁCIA ÚNICA: ${resultId}`);
+    isCheckingAccuracy.current = true;
     
     try {
       // VALIDAÇÃO: Verificar se o resultado está no formato correto
       if (!realResult || typeof realResult.color !== 'string' || typeof realResult.number !== 'number') {
         console.warn('⚠️ DADOS INVÁLIDOS: Resultado não tem formato esperado:', realResult);
+        return;
+      }
+      
+      // ✅ VERIFICAR SE HÁ PREDIÇÃO AGUARDANDO
+      if (!predictionStats.waitingForResult) {
+        console.log('⚠️ SKIP: Não há predição aguardando resultado');
+        console.log('📊 Estado atual:', {
+          waitingForResult: predictionStats.waitingForResult,
+          lastPrediction: predictionStats.lastPrediction
+        });
         return;
       }
 
@@ -1296,86 +1621,110 @@ export default function TesteJogoPage() {
         }
       }
 
-      // VERIFICAÇÃO PRINCIPAL: Atualizar estatísticas da interface
-      setPredictionStats(prev => {
+      // ✅ VERIFICAÇÃO PRINCIPAL COM SISTEMA PROTEGIDO
+      await updateStatsProtected(prev => {
         console.log(`🔍 ESTADO ATUAL:`, {
           waitingForResult: prev.waitingForResult,
           hasLastPrediction: !!prev.lastPrediction,
           lastPredictionColor: prev.lastPrediction?.color,
-          realResultColor: normalizedResultColor
+          realResultColor: normalizedResultColor,
+          currentStats: {
+            correct: prev.correctPredictions,
+            incorrect: prev.incorrectPredictions,
+            total: prev.totalPredictions
+          }
         });
 
         // VALIDAÇÃO: Verificar se há predição aguardando
         if (!prev.waitingForResult) {
           console.log('⚠️ SKIP: Não há predição aguardando resultado');
-          return prev;
+          return prev; // Manter estado atual
         }
 
         if (!prev.lastPrediction) {
           console.log('⚠️ SKIP: Não há predição registrada');
-          return prev;
+          return prev; // Manter estado atual
         }
 
         // COMPARAÇÃO: Verificar se acertou
         const predictionColor = prev.lastPrediction.color.toLowerCase();
         const isCorrect = predictionColor === normalizedResultColor;
         
-        // CÁLCULOS: Atualizar estatísticas
-        const newCorrect = prev.correctPredictions + (isCorrect ? 1 : 0);
-        const newIncorrect = prev.incorrectPredictions + (isCorrect ? 0 : 1);
-        const newTotal = newCorrect + newIncorrect;
+        // ✅ PROTEÇÃO ANTI-RESET: Sempre preservar valores existentes
+        const currentCorrect = Math.max(0, prev.correctPredictions || 0);
+        const currentIncorrect = Math.max(0, prev.incorrectPredictions || 0);
+        const currentTotal = Math.max(0, prev.totalPredictions || 0);
+        
+        // CÁLCULOS: Atualizar estatísticas (SEMPRE INCREMENTAL)
+        const newCorrect = currentCorrect + (isCorrect ? 1 : 0);
+        const newIncorrect = currentIncorrect + (isCorrect ? 0 : 1);
+        const newTotal = Math.max(newCorrect + newIncorrect, currentTotal + 1);
         const newAccuracy = newTotal > 0 ? (newCorrect / newTotal) * 100 : 0;
-        const newStreak = isCorrect ? prev.streak + 1 : 0;
-        const newMaxStreak = Math.max(newStreak, prev.maxStreak);
+        const newStreak = isCorrect ? (prev.streak || 0) + 1 : 0;
+        const newMaxStreak = Math.max(newStreak, prev.maxStreak || 0);
 
-        // LOG DETALHADO
+        // LOG DETALHADO com valores antes e depois
         console.log(`${isCorrect ? '✅ ACERTOU!' : '❌ ERROU!'} Predição: ${predictionColor} | Resultado: ${normalizedResultColor}`);
-        console.log(`📊 ESTATÍSTICAS: ${newCorrect}/${newTotal} acertos (${newAccuracy.toFixed(1)}%) | Streak: ${newStreak} | Recorde: ${newMaxStreak}`);
+        console.log(`📊 ANTES: ${currentCorrect}/${currentTotal} | DEPOIS: ${newCorrect}/${newTotal} acertos (${newAccuracy.toFixed(1)}%)`);
+        console.log(`🔢 INCREMENTOS: +${isCorrect ? 1 : 0} acertos, +${isCorrect ? 0 : 1} erros, +1 total`);
 
-        // ✅ ATUALIZAR SISTEMA UNIFICADO COM TODOS OS CAMPOS
-        const newStats = {
-          ...prev,
+        // 🎯 ANALISAR CONSENSO DA PREDIÇÃO (se disponível)
+        let consensusAnalysis = '';
+        let consensusWeight = 1; // Peso padrão
+        
+        if (prev.lastPrediction && prev.lastPrediction.consensusData) {
+          const consensus = prev.lastPrediction.consensusData;
+          const predictionColor = prev.lastPrediction.color.toLowerCase();
+          const votesForPrediction = consensus.voteBreakdown[predictionColor].count;
+          const consensusStrength = consensus.consensusStrength;
+          
+          if (consensusStrength >= 75) {
+            // Consenso muito forte (6+ algoritmos)
+            consensusWeight = isCorrect ? 1.5 : 2.0; // Recompensa maior acerto, penalidade maior erro
+            consensusAnalysis = `Consenso FORTE (${votesForPrediction}/${consensus.totalVotes}) - ${isCorrect ? 'Acerto validado!' : 'Erro crítico!'}`;
+          } else if (consensusStrength >= 50) {
+            // Consenso médio (4-5 algoritmos)
+            consensusWeight = isCorrect ? 1.2 : 1.5;
+            consensusAnalysis = `Consenso MÉDIO (${votesForPrediction}/${consensus.totalVotes}) - ${isCorrect ? 'Acerto esperado' : 'Erro significativo'}`;
+          } else {
+            // Consenso fraco (3 ou menos)
+            consensusWeight = isCorrect ? 1.1 : 1.0;
+            consensusAnalysis = `Consenso FRACO (${votesForPrediction}/${consensus.totalVotes}) - ${isCorrect ? 'Acerto surpreendente' : 'Erro compreensível'}`;
+          }
+          
+          console.log(`🎯 ANÁLISE DO CONSENSO: ${consensusAnalysis}`);
+          console.log(`⚖️ Peso aplicado: ${consensusWeight}x`);
+        }
+
+        // ✅ RETORNAR ESTATÍSTICAS ATUALIZADAS (INCREMENTAL COM CONSENSO)
+        return {
+          ...prev, // Preservar TODOS os campos existentes
           correctPredictions: newCorrect,
           incorrectPredictions: newIncorrect,
+          totalPredictions: newTotal,
           accuracy: newAccuracy,
           waitingForResult: false,
           streak: newStreak,
           maxStreak: newMaxStreak,
           lastPrediction: null, // Limpar após verificação
-          // ✅ ATUALIZAR CAMPOS MIGRADOS
-          streakCorrect: isCorrect ? prev.streakCorrect + 1 : 0,
-          streakIncorrect: !isCorrect ? prev.streakIncorrect + 1 : 0,
+          // ✅ ATUALIZAR CAMPOS MIGRADOS (com proteção e peso do consenso)
+          streakCorrect: isCorrect ? (prev.streakCorrect || 0) + Math.round(consensusWeight) : 0,
+          streakIncorrect: !isCorrect ? (prev.streakIncorrect || 0) + Math.round(consensusWeight) : 0,
           lastUpdated: new Date(),
           confidenceScore: Math.min(0.95, Math.max(0.3, newAccuracy / 100 + 0.1)),
           adaptationRate: Math.max(0.05, Math.min(0.2, 1 - newAccuracy / 100)),
-          bestAccuracyEver: Math.max(prev.bestAccuracyEver, newAccuracy),
-          // ✅ ATUALIZAR CAMPOS DE FEEDBACK
+          bestAccuracyEver: Math.max(prev.bestAccuracyEver || 0, newAccuracy),
+          // ✅ ATUALIZAR CAMPOS DE FEEDBACK (com análise do consenso)
           total_feedbacks: newTotal,
           recent_accuracy: newTotal >= 20 ? 
-            (prev.correctPredictions + (isCorrect ? 1 : 0)) / Math.min(newTotal, 20) * 100 : newAccuracy,
+            newCorrect / Math.min(newTotal, 20) * 100 : newAccuracy,
           confidence_reliability: prev.lastPrediction ? 
-            Math.abs(prev.lastPrediction.confidence - newAccuracy) : 100
+            Math.abs(prev.lastPrediction.confidence - newAccuracy) : 100,
+          average_response_time: prev.average_response_time || 0,
+          // ✅ NOVOS CAMPOS DO CONSENSO
+          last_consensus_analysis: consensusAnalysis,
+          consensus_weight_applied: consensusWeight
         };
-        
-        // PERSISTÊNCIA: Salvar no localStorage
-        try {
-          localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
-          console.log(`✅ ESTATÍSTICAS ATUALIZADAS E SALVAS!`);
-          console.log(`📊 STATS SALVAS checkPredictionAccuracy:`, { 
-            correct: newStats.correctPredictions, 
-            incorrect: newStats.incorrectPredictions, 
-            total: newStats.totalPredictions,
-            accuracy: newStats.accuracy.toFixed(1) + '%'
-          });
-          if (newStats.correctPredictions === 7 && newStats.incorrectPredictions === 11) {
-            console.log('🚨 DETECTADO 7/11 SENDO SALVO em checkPredictionAccuracy!');
-            console.log('🔍 Origem da chamada:', new Error().stack);
-          }
-        } catch (error) {
-          console.warn('⚠️ Erro ao salvar estatísticas:', error);
-        }
-        
-        return newStats;
       });
 
       // SISTEMA ML: Atualizar modelos se ativo
@@ -1395,9 +1744,18 @@ export default function TesteJogoPage() {
           console.warn('⚠️ Erro atualizando modelos ML:', mlError)
         }
       }
+      
+      // ✅ MARCAR COMO PROCESSADO
+      lastProcessedResult.current = resultId;
+      console.log(`✅ RESULTADO ${resultId} PROCESSADO COM SUCESSO!`);
 
     } catch (error) {
       console.error('❌ ERRO CRÍTICO na verificação de acurácia:', error)
+      console.log('🔍 Mantendo estado atual das estatísticas para evitar perda de dados')
+      // NÃO fazer nada que possa resetar as estatísticas em caso de erro
+    } finally {
+      // 🔓 LIBERAR SISTEMA PARA PRÓXIMA VERIFICAÇÃO
+      isCheckingAccuracy.current = false;
     }
   };
 
@@ -1426,9 +1784,9 @@ export default function TesteJogoPage() {
         setLastRealData(data);
         setRealDataHistory(prev => [data, ...prev.slice(0, 19)]); // Últimos 20
         
-        // VERIFICAÇÃO ÚNICA: Verificar acerto da predição (evitar duplicação)
-        console.log('📡 NOVO DADO REAL - Verificando acurácia...');
-        checkPredictionAccuracy(data);
+        // ❌ VERIFICAÇÃO REMOVIDA AQUI - Evitar duplicação
+        console.log('📡 NOVO DADO REAL - Adicionando ao sistema (verificação será feita no evento principal)');
+        // checkPredictionAccuracy(data); // DESABILITADO - duplicava verificações
         
         // Adicionar ao sistema principal
         const blazeResult: DoubleResult = {
@@ -1444,25 +1802,29 @@ export default function TesteJogoPage() {
         setResults(updatedResults);
         updateStats(updatedResults);
         
-        // 🎯 SISTEMA AUTOMÁTICO DE PREDIÇÃO EM TEMPO REAL - SEMPRE ATIVO
-        console.log(`🎯 TRIGGER AUTOMÁTICO: ${updatedResults.length} total, processando=${isProcessing}`);
+        // ❌ PREDIÇÃO AUTOMÁTICA DESABILITADA
+        console.log(`📊 DADOS ADICIONADOS: ${updatedResults.length} total`);
+        console.log(`🚫 AUTO-PREDIÇÃO DESABILITADA - Para evitar conflitos com verificação manual`);
         
-        // SEMPRE gerar nova predição após dados reais (independente da quantidade)
-        if (!isProcessing) {
-          console.log(`🚀 GERANDO NOVA PREDIÇÃO AUTOMÁTICA após dado real!`);
-          console.log(`📊 Dados disponíveis: ${updatedResults.length} total`);
-          
-          setTimeout(async () => {
-            try {
-              await analyzePredictionMassive(updatedResults);
-              console.log('✅ NOVA PREDIÇÃO GERADA automaticamente');
-            } catch (error) {
-              console.log('⚠️ Erro gerando predição automática:', error);
-            }
-          }, 2000); // 2 segundos para garantir que dados foram processados
-        } else {
-          console.log('⏳ Sistema ocupado, predição será gerada quando liberado');
-        }
+        // // 🎯 SISTEMA AUTOMÁTICO DE PREDIÇÃO EM TEMPO REAL - DESABILITADO
+        // console.log(`🎯 TRIGGER AUTOMÁTICO: ${updatedResults.length} total, processando=${isProcessing}`);
+        // 
+        // // SEMPRE gerar nova predição após dados reais (independente da quantidade)
+        // if (!isProcessing && !predictionStats.waitingForResult) {
+        //   console.log(`🚀 GERANDO NOVA PREDIÇÃO AUTOMÁTICA após dado real!`);
+        //   console.log(`📊 Dados disponíveis: ${updatedResults.length} total`);
+        //   
+        //   setTimeout(async () => {
+        //     try {
+        //       await analyzePredictionMassive(updatedResults);
+        //       console.log('✅ NOVA PREDIÇÃO GERADA automaticamente');
+        //     } catch (error) {
+        //       console.log('⚠️ Erro gerando predição automática:', error);
+        //     }
+        //   }, 2000); // 2 segundos para garantir que dados foram processados
+        // } else {
+        //   console.log('⏳ Sistema ocupado ou aguardando resultado, predição não gerada');
+        // }
       };
 
       // Adicionar listener para novos dados reais
@@ -1711,22 +2073,27 @@ export default function TesteJogoPage() {
         const newResults = [...prev, blazeResult];
         updateStats(newResults);
         
-        // 🎯 FORÇAR GERAÇÃO DE PREDIÇÃO APÓS CADA RESULTADO REAL
-        console.log(`🎯 RESULTADO REAL PROCESSADO: ${blazeResult.number} (${blazeResult.color})`);
+        // ❌ PREDIÇÃO AUTOMÁTICA DESABILITADA
+        console.log(`📊 RESULTADO REAL PROCESSADO: ${blazeResult.number} (${blazeResult.color})`);
         console.log(`📊 Total de dados: ${newResults.length}`);
+        console.log(`🚫 AUTO-PREDIÇÃO DESABILITADA - Use botões manuais para testar`);
         
-        // Sempre gerar nova predição após resultado real (independente da quantidade)
-        if (!isProcessing && newResults.length >= 3) { // Mínimo muito baixo para funcionar sempre
-          console.log(`🚀 DISPARANDO NOVA PREDIÇÃO AUTOMÁTICA!`);
-          setTimeout(async () => {
-            try {
-              await analyzePredictionMassive(newResults);
-              console.log('✅ PREDIÇÃO AUTOMÁTICA GERADA com sucesso');
-            } catch (error) {
-              console.log('⚠️ Erro na predição automática:', error);
-            }
-          }, 1500);
-        }
+        // // 🎯 FORÇAR GERAÇÃO DE PREDIÇÃO APÓS CADA RESULTADO REAL - DESABILITADO
+        // console.log(`🎯 RESULTADO REAL PROCESSADO: ${blazeResult.number} (${blazeResult.color})`);
+        // console.log(`📊 Total de dados: ${newResults.length}`);
+        // 
+        // // Sempre gerar nova predição após resultado real (independente da quantidade)
+        // if (!isProcessing && newResults.length >= 3 && !predictionStats.waitingForResult) {
+        //   console.log(`🚀 DISPARANDO NOVA PREDIÇÃO AUTOMÁTICA!`);
+        //   setTimeout(async () => {
+        //     try {
+        //       await analyzePredictionMassive(newResults);
+        //       console.log('✅ PREDIÇÃO AUTOMÁTICA GERADA com sucesso');
+        //     } catch (error) {
+        //       console.log('⚠️ Erro na predição automática:', error);
+        //     }
+        //   }, 1500);
+        // }
         
         return newResults;
       });
@@ -1846,45 +2213,57 @@ export default function TesteJogoPage() {
   }, [results]) // Salva sempre que results muda
 
   useEffect(() => {
+    // ❌ AUTO-ATUALIZAÇÃO DESABILITADA TEMPORARIAMENTE
+    // MOTIVO: Pode estar interferindo com o sistema de verificação manual
+    
     // Auto-atualizar predição quando dados mudam (apenas se tiver dados suficientes)
     if (results.length < 5) {
       console.log('⏳ Dados insuficientes para predição automática (mínimo 5 números)')
       return
     }
     
-    const autoUpdatePrediction = async () => {
-      console.log(`🔄 Auto-atualizando predição com ${results.length} números...`)
-      
-      try {
-        // Usar cache se disponível
-        const cacheKey = `prediction-${results.length}-${results.slice(-5).map(r => r.number).join('')}`
-        const cachedPrediction = loadFromCache(cacheKey)
-        
-        if (cachedPrediction) {
-          console.log('📋 Predição carregada do cache')
-          setPrediction(cachedPrediction)
-          
-          // ✅ CRÍTICO: Registrar predição do cache para verificação
-          registerPrediction(cachedPrediction)
-          console.log(`🔥 PREDIÇÃO CACHE REGISTRADA PARA VERIFICAÇÃO!`)
-          
-          return
-        }
-        
-        // ✅ PRIORIZAR SEMPRE ML AVANÇADO (Sistema Profissional)
-        console.log('🧠 Processando com Sistema ML Avançado...')
-        await analyzePredictionMassive(results)
-        console.log('✅ Predição atualizada automaticamente')
-        
-      } catch (error) {
-        console.warn('⚠️ Erro na auto-atualização da predição:', error)
-      }
-    }
+    // ⚠️ DESABILITADO: Evitar conflitos com verificação manual
+    console.log('🚫 AUTO-PREDIÇÃO DESABILITADA - Use os botões manuais para testar')
     
-    // Debounce para evitar muitas atualizações simultâneas
-    const timeoutId = setTimeout(autoUpdatePrediction, 1000) // Aumentei para 1s
-    
-    return () => clearTimeout(timeoutId)
+    // const autoUpdatePrediction = async () => {
+    //   // ⚠️ VERIFICAR SE JÁ TEM PREDIÇÃO AGUARDANDO
+    //   if (predictionStats.waitingForResult) {
+    //     console.log('⚠️ SKIP AUTO-PREDIÇÃO: Já há predição aguardando resultado')
+    //     return
+    //   }
+    //   
+    //   console.log(`🔄 Auto-atualizando predição com ${results.length} números...`)
+    //   
+    //   try {
+    //     // Usar cache se disponível
+    //     const cacheKey = `prediction-${results.length}-${results.slice(-5).map(r => r.number).join('')}`
+    //     const cachedPrediction = loadFromCache(cacheKey)
+    //     
+    //     if (cachedPrediction) {
+    //       console.log('📋 Predição carregada do cache')
+    //       setPrediction(cachedPrediction)
+    //       
+    //       // ✅ CRÍTICO: Registrar predição do cache para verificação
+    //       await registerPrediction(cachedPrediction)
+    //       console.log(`🔥 PREDIÇÃO CACHE REGISTRADA PARA VERIFICAÇÃO!`)
+    //       
+    //       return
+    //     }
+    //     
+    //     // ✅ PRIORIZAR SEMPRE ML AVANÇADO (Sistema Profissional)
+    //     console.log('🧠 Processando com Sistema ML Avançado...')
+    //     await analyzePredictionMassive(results)
+    //     console.log('✅ Predição atualizada automaticamente')
+    //     
+    //   } catch (error) {
+    //     console.warn('⚠️ Erro na auto-atualização da predição:', error)
+    //   }
+    // }
+    // 
+    // // Debounce para evitar muitas atualizações simultâneas
+    // const timeoutId = setTimeout(autoUpdatePrediction, 1000) // Aumentei para 1s
+    // 
+    // return () => clearTimeout(timeoutId)
   }, [results.length]) // ✅ MUDANÇA CRÍTICA: Só executa quando LENGTH muda, não quando CONTENT muda
   
   // Converter resultado do Worker para formato de predição
@@ -2692,12 +3071,210 @@ export default function TesteJogoPage() {
   }
 
   // ===================================================================
-  // ANÁLISE DE PREDIÇÃO MASSIVA - ALGORITMOS AVANÇADOS
+  // SISTEMA DE CONSENSO INTELIGENTE - NOVA GERAÇÃO
+  // ===================================================================
+
+  /**
+   * Coleta votos de todos os algoritmos e calcula consenso inteligente V2.0
+   * Sistema revolucionário que analisa concordância de CORES + NÚMEROS
+   */
+  const calculateIntelligentConsensus = (algorithmResults: Array<{
+    name: string,
+    prediction: 'red' | 'black' | 'white',
+    confidence: number,
+    weight: number,
+    suggestedNumber?: number,
+    numberConfidence?: number
+  }>): ConsensusResult => {
+    console.log('🎯 INICIANDO SISTEMA DE CONSENSO INTELIGENTE V2.0 (COR + NÚMERO)...')
+    
+    // ✅ ETAPA 1: Coletar todos os votos de COR + NÚMERO
+    const algorithmVotes: AlgorithmVote[] = algorithmResults.map((result, index) => ({
+      algorithm: result.name.replace(/_/g, ' '),
+      algorithmId: result.name,
+      vote: result.prediction,
+      confidence: result.confidence,
+      weight: result.weight,
+      reasoning: `Algoritmo ${index + 1}: ${result.prediction.toUpperCase()} (${result.confidence.toFixed(1)}%)`,
+      // ✅ NOVO: Incluir número sugerido
+      suggestedNumber: result.suggestedNumber || (result.prediction === 'white' ? 0 : result.prediction === 'red' ? 1 : 8),
+      numberConfidence: result.numberConfidence || result.confidence * 0.8
+    }))
+    
+    // ✅ ETAPA 2: Contar votos por cor
+    const voteCounts = {
+      red: algorithmVotes.filter(v => v.vote === 'red').length,
+      black: algorithmVotes.filter(v => v.vote === 'black').length,
+      white: algorithmVotes.filter(v => v.vote === 'white').length
+    }
+    
+    const totalVotes = algorithmVotes.length
+    
+    // ✅ ETAPA 3: Calcular porcentagens reais
+    const votePercentages = {
+      red: (voteCounts.red / totalVotes) * 100,
+      black: (voteCounts.black / totalVotes) * 100,
+      white: (voteCounts.white / totalVotes) * 100
+    }
+    
+    // ✅ ETAPA 4: Calcular scores ponderados (considerando peso e confiança)
+    const weightedScore = { red: 0, black: 0, white: 0 }
+    let totalWeight = 0
+    
+    algorithmVotes.forEach(vote => {
+      const effectiveWeight = vote.weight * (vote.confidence / 100)
+      weightedScore[vote.vote] += effectiveWeight
+      totalWeight += effectiveWeight
+    })
+    
+    // Normalizar scores ponderados
+    Object.keys(weightedScore).forEach(color => {
+      weightedScore[color as keyof typeof weightedScore] = (weightedScore[color as keyof typeof weightedScore] / totalWeight) * 100
+    })
+    
+    // ✅ ETAPA 5: Determinar predição final e força do consenso
+    const maxVotes = Math.max(voteCounts.red, voteCounts.black, voteCounts.white)
+    const consensusStrength = (maxVotes / totalVotes) * 100
+    
+    let finalPrediction: 'red' | 'black' | 'white' = 'red'
+    let dominantGroup: 'red' | 'black' | 'white' = 'red'
+    
+    if (voteCounts.black === maxVotes) {
+      finalPrediction = 'black'
+      dominantGroup = 'black'
+    } else if (voteCounts.white === maxVotes) {
+      finalPrediction = 'white'
+      dominantGroup = 'white'
+    }
+    
+    // ✅ ETAPA 6: Determinar nível de conflito
+    let conflictLevel: 'low' | 'medium' | 'high' = 'low'
+    if (consensusStrength >= 75) conflictLevel = 'low'        // 6+ algoritmos concordam
+    else if (consensusStrength >= 50) conflictLevel = 'medium' // 4-5 algoritmos concordam
+    else conflictLevel = 'high'                               // 3 ou menos concordam
+    
+    // ✅ ETAPA 7: Criar breakdown detalhado
+    const voteBreakdown = {
+      red: {
+        count: voteCounts.red,
+        percentage: votePercentages.red,
+        algorithms: algorithmVotes.filter(v => v.vote === 'red').map(v => v.algorithm),
+        totalConfidence: algorithmVotes.filter(v => v.vote === 'red').reduce((sum, v) => sum + v.confidence, 0)
+      },
+      black: {
+        count: voteCounts.black,
+        percentage: votePercentages.black,
+        algorithms: algorithmVotes.filter(v => v.vote === 'black').map(v => v.algorithm),
+        totalConfidence: algorithmVotes.filter(v => v.vote === 'black').reduce((sum, v) => sum + v.confidence, 0)
+      },
+      white: {
+        count: voteCounts.white,
+        percentage: votePercentages.white,
+        algorithms: algorithmVotes.filter(v => v.vote === 'white').map(v => v.algorithm),
+        totalConfidence: algorithmVotes.filter(v => v.vote === 'white').reduce((sum, v) => sum + v.confidence, 0)
+      }
+    }
+    
+    // ✅ ETAPA 8: CALCULAR CONSENSO DE NÚMEROS
+    console.log('🔢 CALCULANDO CONSENSO DE NÚMEROS...')
+    
+    // Filtrar apenas algoritmos que votaram na cor vencedora
+    const winningColorVotes = algorithmVotes.filter(vote => vote.vote === finalPrediction)
+    
+    // Contar votos por número
+    const numberVoteCounts: { [key: number]: number } = {}
+    const numberVoteDetails: { [key: number]: { algorithms: string[]; totalConfidence: number } } = {}
+    
+    winningColorVotes.forEach(vote => {
+      const num = vote.suggestedNumber
+      numberVoteCounts[num] = (numberVoteCounts[num] || 0) + 1
+      
+      if (!numberVoteDetails[num]) {
+        numberVoteDetails[num] = { algorithms: [], totalConfidence: 0 }
+      }
+      numberVoteDetails[num].algorithms.push(vote.algorithm)
+      numberVoteDetails[num].totalConfidence += vote.numberConfidence
+    })
+    
+    // Encontrar número com mais votos
+    const maxNumberVotes = Math.max(...Object.values(numberVoteCounts))
+    const finalNumber = parseInt(Object.keys(numberVoteCounts).find(num => numberVoteCounts[parseInt(num)] === maxNumberVotes) || '0')
+    
+    // Calcular força do consenso de números
+    const numberConsensusStrength = winningColorVotes.length > 0 ? (maxNumberVotes / winningColorVotes.length) * 100 : 0
+    
+    // Determinar nível de conflito de números
+    let numberConflictLevel: 'low' | 'medium' | 'high' = 'low'
+    if (numberConsensusStrength >= 75) numberConflictLevel = 'low'
+    else if (numberConsensusStrength >= 50) numberConflictLevel = 'medium'
+    else numberConflictLevel = 'high'
+    
+    // Criar breakdown de números
+    const numberBreakdown: { [key: number]: { count: number; percentage: number; algorithms: string[]; totalConfidence: number } } = {}
+    Object.keys(numberVoteCounts).forEach(numStr => {
+      const num = parseInt(numStr)
+      const count = numberVoteCounts[num]
+      const percentage = winningColorVotes.length > 0 ? (count / winningColorVotes.length) * 100 : 0
+      numberBreakdown[num] = {
+        count,
+        percentage,
+        algorithms: numberVoteDetails[num].algorithms,
+        totalConfidence: numberVoteDetails[num].totalConfidence
+      }
+    })
+    
+    const numberConsensus: NumberConsensus = {
+      finalNumber,
+      consensusStrength: numberConsensusStrength,
+      voteBreakdown: numberBreakdown,
+      conflictLevel: numberConflictLevel,
+      algorithmVotes: winningColorVotes.map(vote => ({
+        algorithm: vote.algorithm,
+        number: vote.suggestedNumber,
+        confidence: vote.numberConfidence
+      }))
+    }
+
+    const consensusResult: ConsensusResult = {
+      finalPrediction,
+      consensusStrength,
+      totalVotes,
+      voteBreakdown,
+      conflictLevel,
+      dominantGroup,
+      algorithmVotes,
+      weightedScore,
+      // ✅ NOVO: Incluir consenso de números
+      numberConsensus
+    }
+    
+    // ✅ LOGS DETALHADOS DO CONSENSO (COR + NÚMERO)
+    console.log('🎯 CONSENSO INTELIGENTE V2.0 CALCULADO:')
+    console.log(`📊 Votos COR: RED=${voteCounts.red} (${votePercentages.red.toFixed(1)}%) | BLACK=${voteCounts.black} (${votePercentages.black.toFixed(1)}%) | WHITE=${voteCounts.white} (${votePercentages.white.toFixed(1)}%)`)
+    console.log(`🎯 Predição Final COR: ${finalPrediction.toUpperCase()}`)
+    console.log(`💪 Força do Consenso COR: ${consensusStrength.toFixed(1)}%`)
+    console.log(``)
+    console.log(`🔢 Votos NÚMERO (da cor ${finalPrediction.toUpperCase()}):`)
+    Object.keys(numberBreakdown).forEach(numStr => {
+      const num = parseInt(numStr)
+      const data = numberBreakdown[num]
+      console.log(`   ${num}: ${data.count} votos (${data.percentage.toFixed(1)}%) - ${data.algorithms.join(', ')}`)
+    })
+    console.log(`🎯 Predição Final NÚMERO: ${finalNumber}`)
+    console.log(`💪 Força do Consenso NÚMERO: ${numberConsensusStrength.toFixed(1)}%`)
+    console.log(`⚡ Conflito COR: ${conflictLevel.toUpperCase()} | Conflito NÚMERO: ${numberConflictLevel.toUpperCase()}`)
+    console.log(`🏆 PREDIÇÃO COMPLETA: ${finalPrediction.toUpperCase()} - ${finalNumber}`)
+    
+    return consensusResult
+  }
+
+  // ===================================================================
+  // ANÁLISE DE PREDIÇÃO MASSIVA - ALGORITMOS AVANÇADOS  
   // ===================================================================
 
   /**
    * Sistema de predição massiva com múltiplos algoritmos
-   * Utiliza todos os padrões encontrados para gerar predições precisas
+   * Agora integrado com Sistema de Consenso Inteligente
    */
 
   /**
@@ -2888,7 +3465,7 @@ export default function TesteJogoPage() {
         setPrediction(traditionalPrediction)
         
         // ✅ CRÍTICO: Registrar predição ML para verificação de acurácia
-        registerPrediction(traditionalPrediction)
+        await registerPrediction(traditionalPrediction)
         console.log(`🔥 PREDIÇÃO ML REGISTRADA PARA VERIFICAÇÃO!`)
         
         setIsProcessing(false)
@@ -2941,7 +3518,8 @@ export default function TesteJogoPage() {
       // Delay inteligente para análise mais precisa
       await new Promise(resolve => setTimeout(resolve, analysisDelay))
       
-      // Executar todos os algoritmos em paralelo para máxima precisão
+      // ✅ EXECUTAR TODOS OS 8 ALGORITMOS EM PARALELO
+      console.log('🎯 EXECUTANDO 8 ALGORITMOS EM PARALELO...')
       const [
         neuralResult,
         massiveFrequencyResult,
@@ -2962,7 +3540,7 @@ export default function TesteJogoPage() {
         trendReversalPredictor(dataToAnalyze)
       ])
       
-      // Atualizar confidências dos padrões
+      // ✅ ATUALIZAR CONFIDÊNCIAS DOS PADRÕES
       mlPatterns.current[0].confidence = neuralResult.confidence
       mlPatterns.current[1].confidence = massiveFrequencyResult.confidence
       mlPatterns.current[2].confidence = fibonacciResult.confidence
@@ -2972,7 +3550,78 @@ export default function TesteJogoPage() {
       mlPatterns.current[6].confidence = correlationResult.confidence
       mlPatterns.current[7].confidence = trendResult.confidence
       
-      // Ensemble learning com todos os algoritmos
+      // ✅ PREPARAR DADOS PARA SISTEMA DE CONSENSO INTELIGENTE V2.0 (COM NÚMEROS)
+      const algorithmResults = [
+        { 
+          name: 'NEURAL_SEQUENCE_EVOLVED', 
+          prediction: neuralResult.prediction, 
+          confidence: neuralResult.confidence, 
+          weight: mlPatterns.current[0].weight,
+          suggestedNumber: neuralResult.suggestedNumber || (neuralResult.prediction === 'white' ? 0 : neuralResult.prediction === 'red' ? 1 : 8),
+          numberConfidence: neuralResult.numberConfidence || neuralResult.confidence * 0.8
+        },
+        { 
+          name: 'MASSIVE_FREQUENCY_ANALYSIS', 
+          prediction: massiveFrequencyResult.prediction, 
+          confidence: massiveFrequencyResult.confidence, 
+          weight: mlPatterns.current[1].weight,
+          suggestedNumber: massiveFrequencyResult.suggestedNumber || (massiveFrequencyResult.prediction === 'white' ? 0 : massiveFrequencyResult.prediction === 'red' ? 2 : 9),
+          numberConfidence: massiveFrequencyResult.numberConfidence || massiveFrequencyResult.confidence * 0.8
+        },
+        { 
+          name: 'FIBONACCI_PATTERN_DETECTION', 
+          prediction: fibonacciResult.prediction, 
+          confidence: fibonacciResult.confidence, 
+          weight: mlPatterns.current[2].weight,
+          suggestedNumber: fibonacciResult.suggestedNumber || (fibonacciResult.prediction === 'white' ? 0 : fibonacciResult.prediction === 'red' ? 3 : 10),
+          numberConfidence: fibonacciResult.numberConfidence || fibonacciResult.confidence * 0.8
+        },
+        { 
+          name: 'MARKOV_CHAIN_4TH_ORDER', 
+          prediction: markovResult.prediction, 
+          confidence: markovResult.confidence, 
+          weight: mlPatterns.current[3].weight,
+          suggestedNumber: markovResult.suggestedNumber || (markovResult.prediction === 'white' ? 0 : markovResult.prediction === 'red' ? 4 : 11),
+          numberConfidence: markovResult.numberConfidence || markovResult.confidence * 0.8
+        },
+        { 
+          name: 'PERIODIC_CYCLE_DETECTOR', 
+          prediction: periodicResult.prediction, 
+          confidence: periodicResult.confidence, 
+          weight: mlPatterns.current[4].weight,
+          suggestedNumber: periodicResult.suggestedNumber || (periodicResult.prediction === 'white' ? 0 : periodicResult.prediction === 'red' ? 5 : 12),
+          numberConfidence: periodicResult.numberConfidence || periodicResult.confidence * 0.8
+        },
+        { 
+          name: 'MATHEMATICAL_PROGRESSION', 
+          prediction: progressionResult.prediction, 
+          confidence: progressionResult.confidence, 
+          weight: mlPatterns.current[5].weight,
+          suggestedNumber: progressionResult.suggestedNumber || (progressionResult.prediction === 'white' ? 0 : progressionResult.prediction === 'red' ? 6 : 13),
+          numberConfidence: progressionResult.numberConfidence || progressionResult.confidence * 0.8
+        },
+        { 
+          name: 'CORRELATION_MATRIX_ANALYSIS', 
+          prediction: correlationResult.prediction, 
+          confidence: correlationResult.confidence, 
+          weight: mlPatterns.current[6].weight,
+          suggestedNumber: correlationResult.suggestedNumber || (correlationResult.prediction === 'white' ? 0 : correlationResult.prediction === 'red' ? 7 : 14),
+          numberConfidence: correlationResult.numberConfidence || correlationResult.confidence * 0.8
+        },
+        { 
+          name: 'TREND_REVERSAL_PREDICTOR', 
+          prediction: trendResult.prediction, 
+          confidence: trendResult.confidence, 
+          weight: mlPatterns.current[7].weight,
+          suggestedNumber: trendResult.suggestedNumber || (trendResult.prediction === 'white' ? 0 : trendResult.prediction === 'red' ? 1 : 8),
+          numberConfidence: trendResult.numberConfidence || trendResult.confidence * 0.8
+        }
+      ]
+      
+      // 🎯 CALCULAR CONSENSO INTELIGENTE
+      const consensusResult = calculateIntelligentConsensus(algorithmResults)
+      
+      // ✅ ENSEMBLE LEARNING TRADICIONAL (para compatibilidade)
       const ensembleResult = ensemblePredictionMassive([
         { ...neuralResult, weight: mlPatterns.current[0].weight },
         { ...massiveFrequencyResult, weight: mlPatterns.current[1].weight },
@@ -2983,6 +3632,10 @@ export default function TesteJogoPage() {
         { ...correlationResult, weight: mlPatterns.current[6].weight },
         { ...trendResult, weight: mlPatterns.current[7].weight }
       ])
+      
+      // 🔥 USAR CONSENSO INTELIGENTE COMO PREDIÇÃO PRINCIPAL
+      ensembleResult.prediction = consensusResult.finalPrediction
+      ensembleResult.confidence = consensusResult.consensusStrength
       
       // Gerar probabilidades específicas por número
       const specificNumberProbabilities = generateSpecificNumberProbabilities(ensembleResult.prediction, dataToAnalyze)
@@ -3123,29 +3776,35 @@ export default function TesteJogoPage() {
         console.log(`🏆 NÚMERO SUPER INTELIGENTE: ${bestNumber.number} (score total: ${bestNumber.finalScore.toFixed(1)})`)
       }
       
+      // ✅ USAR NÚMERO DO CONSENSO INTELIGENTE
+      const finalNumber = consensusResult.numberConsensus.finalNumber
+      const numberConsensusStrength = consensusResult.numberConsensus.consensusStrength
+
       const predictionResult: PredictionResult = {
-        color: ensembleResult.prediction,
-        confidence: Math.round(ensembleResult.confidence),
+        color: consensusResult.finalPrediction,
+        confidence: Math.round(consensusResult.consensusStrength),
         reasoning: [
-          `🧠 Neural Evolutivo: ${neuralResult.prediction === 'white' ? 'BRANCO' : neuralResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(neuralResult.confidence)}%)`,
-          `📊 Frequência Massiva: ${massiveFrequencyResult.prediction === 'white' ? 'BRANCO' : massiveFrequencyResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(massiveFrequencyResult.confidence)}%)`,
-          `🔢 Fibonacci: ${fibonacciResult.prediction === 'white' ? 'BRANCO' : fibonacciResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(fibonacciResult.confidence)}%)`,
-          `🔗 Markov 4ª Ordem: ${markovResult.prediction === 'white' ? 'BRANCO' : markovResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(markovResult.confidence)}%)`,
-          `🔄 Ciclos Periódicos: ${periodicResult.prediction === 'white' ? 'BRANCO' : periodicResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(periodicResult.confidence)}%)`,
-          `📐 Progressões: ${progressionResult.prediction === 'white' ? 'BRANCO' : progressionResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(progressionResult.confidence)}%)`,
-          `📈 Correlação: ${correlationResult.prediction === 'white' ? 'BRANCO' : correlationResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(correlationResult.confidence)}%)`,
-          `🔄 Reversão: ${trendResult.prediction === 'white' ? 'BRANCO' : trendResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(trendResult.confidence)}%)`,
-          `⚡ ENSEMBLE FINAL: ${ensembleResult.prediction === 'white' ? 'BRANCO' : ensembleResult.prediction === 'red' ? 'VERMELHO' : 'PRETO'} (${Math.round(ensembleResult.confidence)}%)`
+          `🎯 CONSENSO INTELIGENTE V2.0: COR + NÚMERO`,
+          `🎨 COR: ${consensusResult.voteBreakdown[consensusResult.finalPrediction].count}/${consensusResult.totalVotes} algoritmos votaram ${consensusResult.finalPrediction.toUpperCase()}`,
+          `🔢 NÚMERO: ${Object.keys(consensusResult.numberConsensus.voteBreakdown).length > 0 ? Object.keys(consensusResult.numberConsensus.voteBreakdown).map(num => `${num} (${consensusResult.numberConsensus.voteBreakdown[parseInt(num)].count} votos)`).join(', ') : 'N/A'}`,
+          `💪 Força Consenso COR: ${consensusResult.consensusStrength.toFixed(1)}% | NÚMERO: ${numberConsensusStrength.toFixed(1)}%`,
+          `🏆 PREDIÇÃO FINAL COMPLETA: ${consensusResult.finalPrediction.toUpperCase()} - ${finalNumber}`,
+          `📊 ALGORITMOS CONCORDANTES COM ${consensusResult.finalPrediction.toUpperCase()}:`,
+          `   ${consensusResult.voteBreakdown[consensusResult.finalPrediction].algorithms.join(', ')}`,
+          `🔢 ALGORITMOS QUE SUGERIRAM NÚMERO ${finalNumber}:`,
+          `   ${consensusResult.numberConsensus.voteBreakdown[finalNumber]?.algorithms.join(', ') || 'Nenhum específico'}`
         ],
         patterns: [...mlPatterns.current],
-        expectedNumbers,
+        expectedNumbers: [finalNumber], // ✅ USAR NÚMERO DO CONSENSO
         probabilities: {
-          red: ensembleResult.probabilities.red / 100,
-          black: ensembleResult.probabilities.black / 100,
-          white: ensembleResult.probabilities.white / 100
+          red: consensusResult.weightedScore.red / 100,
+          black: consensusResult.weightedScore.black / 100,
+          white: consensusResult.weightedScore.white / 100
         },
         specificNumberProbabilities,
-        alternativeScenarios
+        alternativeScenarios,
+        // ✅ INCLUIR DADOS COMPLETOS DO CONSENSO INTELIGENTE V2.0
+        consensusData: consensusResult
       }
       
       console.log(`🎯 PREDIÇÃO TRADICIONAL FINAL: ${predictionResult.color} com ${predictionResult.confidence.toFixed(1)}% confiança`)
@@ -3153,23 +3812,39 @@ export default function TesteJogoPage() {
       setPrediction(predictionResult)
       
       // Registrar predição para estatísticas
-      registerPrediction(predictionResult)
+      await registerPrediction(predictionResult)
       
-      console.log(`✅ PREDIÇÃO MASSIVA CONCLUÍDA:`)
-      console.log(`🎯 Cor predita: ${ensembleResult.prediction.toUpperCase()}`)
-      console.log(`📊 Confiança: ${ensembleResult.confidence.toFixed(1)}%`)
+      console.log(`✅ CONSENSO INTELIGENTE CONCLUÍDO:`)
+      console.log(`🎯 Predição Final: ${consensusResult.finalPrediction.toUpperCase()}`)
+      console.log(`💪 Força do Consenso: ${consensusResult.consensusStrength.toFixed(1)}%`)
+      console.log(`⚡ Nível de Conflito: ${consensusResult.conflictLevel.toUpperCase()}`)
       console.log(`🔢 Números esperados: ${expectedNumbers.join(', ')}`)
       console.log(``)
-      console.log(`📋 DETALHES DOS 8 ALGORITMOS:`)
-      console.log(`🧠 Neural: ${neuralResult.prediction} (${neuralResult.confidence.toFixed(1)}%)`)
-      console.log(`📊 Frequência: ${massiveFrequencyResult.prediction} (${massiveFrequencyResult.confidence.toFixed(1)}%)`) 
-      console.log(`🔢 Fibonacci: ${fibonacciResult.prediction} (${fibonacciResult.confidence.toFixed(1)}%)`)
-      console.log(`🔗 Markov: ${markovResult.prediction} (${markovResult.confidence.toFixed(1)}%)`)
-      console.log(`🔄 Ciclos: ${periodicResult.prediction} (${periodicResult.confidence.toFixed(1)}%)`)
-      console.log(`📐 Progressões: ${progressionResult.prediction} (${progressionResult.confidence.toFixed(1)}%)`)
-      console.log(`📈 Correlação: ${correlationResult.prediction} (${correlationResult.confidence.toFixed(1)}%)`)
-      console.log(`🔄 Tendências: ${trendResult.prediction} (${trendResult.confidence.toFixed(1)}%)`)
+      console.log(`📊 BREAKDOWN COMPLETO DOS VOTOS:`)
+      console.log(`🔴 VERMELHO: ${consensusResult.voteBreakdown.red.count}/${consensusResult.totalVotes} votos (${consensusResult.voteBreakdown.red.percentage.toFixed(1)}%)`)
+      console.log(`⚫ PRETO: ${consensusResult.voteBreakdown.black.count}/${consensusResult.totalVotes} votos (${consensusResult.voteBreakdown.black.percentage.toFixed(1)}%)`)
+      console.log(`⚪ BRANCO: ${consensusResult.voteBreakdown.white.count}/${consensusResult.totalVotes} votos (${consensusResult.voteBreakdown.white.percentage.toFixed(1)}%)`)
       console.log(``)
+      console.log(`🧠 DETALHES DOS 8 ALGORITMOS:`)
+      console.log(`1. Neural: ${neuralResult.prediction.toUpperCase()} (${neuralResult.confidence.toFixed(1)}%)`)
+      console.log(`2. Frequência: ${massiveFrequencyResult.prediction.toUpperCase()} (${massiveFrequencyResult.confidence.toFixed(1)}%)`) 
+      console.log(`3. Fibonacci: ${fibonacciResult.prediction.toUpperCase()} (${fibonacciResult.confidence.toFixed(1)}%)`)
+      console.log(`4. Markov: ${markovResult.prediction.toUpperCase()} (${markovResult.confidence.toFixed(1)}%)`)
+      console.log(`5. Ciclos: ${periodicResult.prediction.toUpperCase()} (${periodicResult.confidence.toFixed(1)}%)`)
+      console.log(`6. Progressões: ${progressionResult.prediction.toUpperCase()} (${progressionResult.confidence.toFixed(1)}%)`)
+      console.log(`7. Correlação: ${correlationResult.prediction.toUpperCase()} (${correlationResult.confidence.toFixed(1)}%)`)
+      console.log(`8. Tendências: ${trendResult.prediction.toUpperCase()} (${trendResult.confidence.toFixed(1)}%)`)
+      console.log(``)
+      console.log(`🏆 ALGORITMOS QUE VOTARAM EM ${consensusResult.finalPrediction.toUpperCase()}:`)
+      console.log(`   ${consensusResult.voteBreakdown[consensusResult.finalPrediction].algorithms.join(', ')}`)
+      console.log(``)
+      console.log(`🔢 CONSENSO DE NÚMEROS DETALHADO:`)
+      console.log(`🎯 Número Final: ${finalNumber}`)
+      console.log(`💪 Força Consenso Número: ${numberConsensusStrength.toFixed(1)}%`)
+      console.log(`📊 Algoritmos que sugeriram número ${finalNumber}:`)
+      console.log(`   ${consensusResult.numberConsensus.voteBreakdown[finalNumber]?.algorithms.join(', ') || 'Nenhum específico'}`)
+      console.log(``)
+      console.log(`🏆 PREDIÇÃO FINAL COMPLETA: ${consensusResult.finalPrediction.toUpperCase()} - ${finalNumber}`)
       console.log(`⚡ ENSEMBLE FINAL: ${ensembleResult.probabilities.red.toFixed(1)}% RED | ${ensembleResult.probabilities.black.toFixed(1)}% BLACK | ${ensembleResult.probabilities.white.toFixed(1)}% WHITE`)
       
     } catch (error) {
@@ -3272,8 +3947,45 @@ export default function TesteJogoPage() {
     
     const confidence = Math.min(95, Math.max(35, maxScore * 80))
     
-    console.log(`🧠 Neural Result: ${prediction} (${confidence.toFixed(1)}%)`)
-    return { confidence, prediction }
+    // ✅ NOVO: Calcular número específico também
+    let suggestedNumber = 0
+    let numberConfidence = confidence * 0.8
+    
+    if (prediction === 'white') {
+      suggestedNumber = 0
+    } else {
+      const range = prediction === 'red' ? [1,2,3,4,5,6,7] : [8,9,10,11,12,13,14]
+      const recentData = recent.slice(-30) // Últimos 30 para análise neural
+      
+      // Análise neural de números: menos frequentes + maior gap + momentum
+      const numberAnalysis = range.map(num => {
+        const frequency = recentData.filter(r => r.number === num).length
+        const gap = calculateGap(num, recent)
+        const momentum = calculateNumberMomentum(num, recent.slice(-10))
+        
+        // Score neural para número: gap + baixa frequência + momentum negativo
+        const frequencyScore = (recentData.length / range.length - frequency) * 15
+        const gapScore = Math.min(gap * 3, 40)
+        const momentumScore = (1 - momentum) * 20 // Favorece baixo momentum
+        const neuralScore = frequencyScore + gapScore + momentumScore + (Math.random() * 10)
+        
+        return {
+          number: num,
+          frequency,
+          gap,
+          momentum,
+          neuralScore
+        }
+      })
+      
+      numberAnalysis.sort((a, b) => b.neuralScore - a.neuralScore)
+      suggestedNumber = numberAnalysis[0].number
+      
+      console.log(`🧠 Neural Número: ${suggestedNumber} (freq:${numberAnalysis[0].frequency}, gap:${numberAnalysis[0].gap})`)
+    }
+    
+    console.log(`🧠 Neural Result: ${prediction} - ${suggestedNumber} (${confidence.toFixed(1)}%)`)
+    return { confidence, prediction, suggestedNumber, numberConfidence }
   }
 
   /**
@@ -3335,8 +4047,32 @@ export default function TesteJogoPage() {
     
     const confidence = Math.min(95, Math.max(40, Math.abs(maxScore) + 45))
     
-    console.log(`📊 Frequency Result: ${prediction} (${confidence.toFixed(1)}%)`)
-    return { confidence, prediction }
+    // ✅ NOVO: Análise de frequência para número específico
+    let suggestedNumber = 0
+    let numberConfidence = confidence * 0.85
+    
+    if (prediction === 'white') {
+      suggestedNumber = 0
+    } else {
+      const range = prediction === 'red' ? [1,2,3,4,5,6,7] : [8,9,10,11,12,13,14]
+      const analysis = massivePatternAnalysis.current.numberDistribution
+      
+      // Encontrar números menos frequentes (frequência inversa)
+      const numberFrequencies = range.map(num => ({
+        number: num,
+        frequency: analysis[num] || 0,
+        ratio: (analysis[num] || 0) / data.length
+      }))
+      
+      // Ordenar por menor frequência (mais provável de aparecer)
+      numberFrequencies.sort((a, b) => a.frequency - b.frequency)
+      suggestedNumber = numberFrequencies[0].number
+      
+      console.log(`📊 Frequency Número: ${suggestedNumber} (menos frequente: ${numberFrequencies[0].frequency} vezes)`)
+    }
+    
+    console.log(`📊 Frequency Result: ${prediction} - ${suggestedNumber} (${confidence.toFixed(1)}%)`)
+    return { confidence, prediction, suggestedNumber, numberConfidence }
   }
 
   /**
@@ -3416,8 +4152,28 @@ export default function TesteJogoPage() {
     
     const confidence = Math.min(90, Math.max(30, maxScore + 35))
     
-    console.log(`🔢 Fibonacci Result: ${prediction} (${confidence.toFixed(1)}%)`)
-    return { confidence, prediction }
+    // ✅ NOVO: Análise Fibonacci para número específico
+    let suggestedNumber = 0
+    let numberConfidence = confidence * 0.75
+    
+    if (prediction === 'white') {
+      suggestedNumber = 0
+    } else {
+      const range = prediction === 'red' ? [1,2,3,4,5,6,7] : [8,9,10,11,12,13,14]
+      
+      // Usar sequência Fibonacci para escolher número: 1,1,2,3,5,8... mod range.length
+      const fibSequence = [1, 1, 2, 3, 5, 8, 13, 21, 34]
+      const lastNumbers = data.slice(-5).map(r => r.number)
+      const fibIndex = (lastNumbers.reduce((sum, n) => sum + n, 0) % fibSequence.length)
+      const targetIndex = fibSequence[fibIndex] % range.length
+      
+      suggestedNumber = range[targetIndex]
+      
+      console.log(`🔢 Fibonacci Número: ${suggestedNumber} (sequência index: ${fibIndex})`)
+    }
+    
+    console.log(`🔢 Fibonacci Result: ${prediction} - ${suggestedNumber} (${confidence.toFixed(1)}%)`)
+    return { confidence, prediction, suggestedNumber, numberConfidence }
   }
 
   /**
@@ -3883,6 +4639,14 @@ export default function TesteJogoPage() {
     return gap
   }
 
+  // ✅ NOVA FUNÇÃO: Calcular momentum de um número específico
+  const calculateNumberMomentum = (number: number, recentData: DoubleResult[]) => {
+    if (recentData.length === 0) return 0
+    
+    const appearances = recentData.filter(r => r.number === number).length
+    return appearances / recentData.length // 0 = nunca apareceu, 1 = sempre aparece
+  }
+
   // ===================================================================
   // FUNÇÕES AUXILIARES E HANDLERS - ETAPA 3 COMPLETA
   // ===================================================================
@@ -4094,38 +4858,40 @@ export default function TesteJogoPage() {
   // ===================================================================
 
   /**
-   * Inicializar feedback loop automático
+   * Inicializar feedback loop automático - DESABILITADO TEMPORARIAMENTE
+   * MOTIVO: Conflito com sistema principal de estatísticas
    */
   const initializeFeedbackLoop = async () => {
-    try {
-      const { feedbackLoopService } = await import('@/services/feedbackLoopService')
-      await feedbackLoopService.startFeedbackLoop()
-      setFeedbackLoopActive(true)
-      
-      // Atualizar métricas a cada 10 segundos
-      const interval = setInterval(async () => {
-        try {
-          const metrics = feedbackLoopService.getFeedbackMetrics()
-          // ✅ ATUALIZAR predictionStats com dados do feedback loop
-          setPredictionStats(prev => ({
-            ...prev,
-            total_feedbacks: metrics.total_feedbacks,
-            recent_accuracy: metrics.recent_accuracy,
-            confidence_reliability: metrics.confidence_reliability,
-            average_response_time: metrics.average_response_time
-          }))
-          setModelEvolutions(metrics.model_evolutions)
-        } catch (error) {
-          console.warn('⚠️ Erro atualizando métricas do feedback loop:', error)
-        }
-      }, 10000)
-      
-      // Limpar interval ao desmontar
-      return () => clearInterval(interval)
-      
-    } catch (error) {
-      console.error('❌ Erro inicializando feedback loop:', error)
-    }
+    console.log('🚫 FEEDBACK LOOP DESABILITADO - Evitando conflitos com estatísticas principais')
+    // try {
+    //   const { feedbackLoopService } = await import('@/services/feedbackLoopService')
+    //   await feedbackLoopService.startFeedbackLoop()
+    //   setFeedbackLoopActive(true)
+    //   
+    //   // Atualizar métricas a cada 10 segundos
+    //   const interval = setInterval(async () => {
+    //     try {
+    //       const metrics = feedbackLoopService.getFeedbackMetrics()
+    //       // ❌ REMOVIDO: Este sistema estava conflitando e resetando as estatísticas
+    //       // setPredictionStats(prev => ({
+    //       //   ...prev,
+    //       //   total_feedbacks: metrics.total_feedbacks,
+    //       //   recent_accuracy: metrics.recent_accuracy,
+    //       //   confidence_reliability: metrics.confidence_reliability,
+    //       //   average_response_time: metrics.average_response_time
+    //       // }))
+    //       setModelEvolutions(metrics.model_evolutions)
+    //     } catch (error) {
+    //       console.warn('⚠️ Erro atualizando métricas do feedback loop:', error)
+    //     }
+    //   }, 10000)
+    //   
+    //   // Limpar interval ao desmontar
+    //   return () => clearInterval(interval)
+    //   
+    // } catch (error) {
+    //   console.error('❌ Erro inicializando feedback loop:', error)
+    // }
   }
 
   /**
@@ -4188,7 +4954,7 @@ export default function TesteJogoPage() {
         console.log('⏰ Iniciando análise temporal avançada...')
         
         const analysis = await temporalAnalysisService.performTemporalAnalysis(results)
-        setTemporalAnalysis(analysis)
+        setTemporalAnalysis(analysis as unknown as AdvancedTemporalAnalysis)
         setTemporalAnalysisActive(true)
         
         // Obter dados atuais
@@ -4202,7 +4968,7 @@ export default function TesteJogoPage() {
         setHourlyPatterns(analysis.hourly_patterns || [])
         setWeeklyPatterns(analysis.weekly_patterns || [])
         
-        setTemporalInsights(prev => [...prev.slice(-4), `Análise temporal executada: ${analysis.sample_size} pontos analisados`])
+        setTemporalInsights(prev => [...prev.slice(-4), `Análise temporal executada: análise completa realizada`])
         
         console.log('✅ Análise temporal concluída!')
       } else {
@@ -5113,18 +5879,18 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
   // ETAPA 3: SISTEMA DE APRENDIZADO CONTÍNUO
   // ===================================================================
 
-  // ✅ SISTEMA DE FEEDBACK SIMPLIFICADO - INTEGRADO COM predictionStats
+  // ✅ SISTEMA DE FEEDBACK DESABILITADO TEMPORARIAMENTE
   const provideFeedback = (actualResult: number, prediction: GamePrediction) => {
-    const wasCorrect = prediction.predictedNumber === actualResult;
-    
-    // ✅ ATUALIZAR predictionStats DIRETAMENTE
-    setPredictionStats(prev => ({
-      ...prev,
-      evolutionGeneration: prev.evolutionGeneration + (wasCorrect ? 0 : 1), // Evolui na falha
-      bestAccuracyEver: Math.max(prev.bestAccuracyEver, prev.accuracy)
-    }));
-
-    console.log(`🎯 FEEDBACK SIMPLIFICADO: Resultado ${actualResult}, Previsto ${prediction.predictedNumber}, Correto: ${wasCorrect}`);
+    console.log(`🚫 FEEDBACK DESABILITADO - Evitando conflitos com estatísticas principais`);
+    console.log(`🎯 Seria: Resultado ${actualResult}, Previsto ${prediction.predictedNumber}`);
+    // const wasCorrect = prediction.predictedNumber === actualResult;
+    // 
+    // // ❌ REMOVIDO: Este sistema estava conflitando com o sistema principal
+    // setPredictionStats(prev => ({
+    //   ...prev,
+    //   evolutionGeneration: prev.evolutionGeneration + (wasCorrect ? 0 : 1), // Evolui na falha
+    //   bestAccuracyEver: Math.max(prev.bestAccuracyEver, prev.accuracy)
+    // }));
   };
 
   const updateGlobalMetrics = (current: LearningMetrics, wasCorrect: boolean): LearningMetrics => {
@@ -5374,6 +6140,29 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           <h1 className="text-2xl font-bold text-yellow-300 mb-1">
             🚀 BLAZE ANALYZER {compactMode && <span className="text-sm text-green-300">TEMPO REAL</span>}
           </h1>
+          
+          {/* 🎯 INDICADOR DE STATUS DO SISTEMA */}
+          <div className="flex justify-center items-center gap-3 mb-2">
+            {predictionStats.waitingForResult ? (
+              <div className="bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-400 animate-pulse">
+                <span className="text-yellow-200 font-semibold text-sm">
+                  ⏳ AGUARDANDO BLAZE
+                </span>
+              </div>
+            ) : (
+              <div className="bg-green-500/20 px-3 py-1 rounded-full border border-green-400">
+                <span className="text-green-200 font-semibold text-sm">
+                  ✅ PRONTO
+                </span>
+              </div>
+            )}
+            
+            <div className="bg-blue-500/20 px-2 py-1 rounded-full border border-blue-400">
+              <span className="text-blue-200 text-xs">
+                📊 {predictionStats.correctPredictions}✅ / {predictionStats.incorrectPredictions}❌
+              </span>
+            </div>
+          </div>
           {!compactMode && (
             <>
               <p className="text-sm text-gray-200">
@@ -5649,15 +6438,23 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 </div>
                 
                 {predictionStats.waitingForResult && (
-                  <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-400">
-                    <div className="text-yellow-200 font-semibold animate-pulse mb-2">
-                      ⏳ AGUARDANDO PRÓXIMO RESULTADO PARA VERIFICAR PALPITE...
+                  <div className="bg-yellow-500/20 p-4 rounded-lg border-2 border-yellow-400 mb-4">
+                    <div className="text-yellow-200 font-bold text-lg animate-pulse mb-3 text-center">
+                      ⏳ AGUARDANDO PRÓXIMO RESULTADO DA BLAZE...
+                    </div>
+                    <div className="text-center text-yellow-100 font-semibold mb-2">
+                      🎯 Quando a Blaze mostrar o próximo número, será verificado automaticamente!
                     </div>
                     {predictionStats.lastPrediction && (
-                      <div className="text-xs text-yellow-300">
-                        📝 Palpite: {predictionStats.lastPrediction.color.toUpperCase()} | 
-                        🆔 ID: {predictionStats.lastPrediction.id?.slice(-8)} | 
-                        ⏰ {new Date(predictionStats.lastPrediction.timestamp).toLocaleTimeString()}
+                      <div className="bg-yellow-600/30 p-3 rounded border border-yellow-500">
+                        <div className="text-yellow-100 font-semibold mb-1">📝 PALPITE ATIVO:</div>
+                        <div className="text-yellow-200 text-lg">
+                          🎯 Cor: <span className="font-bold text-white">{predictionStats.lastPrediction.color.toUpperCase()}</span>
+                        </div>
+                        <div className="text-xs text-yellow-300 mt-2">
+                          🆔 ID: {predictionStats.lastPrediction.id?.slice(-8)} | 
+                          ⏰ {new Date(predictionStats.lastPrediction.timestamp).toLocaleTimeString('pt-BR')}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -5709,73 +6506,426 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       
                       <button
                         onClick={() => {
-                          console.log('📊 STATUS ATUAL:');
+                          console.log('📊 STATUS DETALHADO:');
+                          console.log('=================================');
+                          console.log('🎯 Estado Atual:');
                           console.log('- waitingForResult:', predictionStats.waitingForResult);
+                          console.log('- correctPredictions:', predictionStats.correctPredictions);
+                          console.log('- incorrectPredictions:', predictionStats.incorrectPredictions);
+                          console.log('- totalPredictions:', predictionStats.totalPredictions);
+                          console.log('- accuracy:', predictionStats.accuracy?.toFixed(1) + '%');
                           console.log('- lastPrediction:', predictionStats.lastPrediction);
+                          console.log('');
+                          console.log('🛡️ Sistema de Proteção:');
+                          console.log('- isCheckingAccuracy:', isCheckingAccuracy.current);
+                          console.log('- lastProcessedResult:', lastProcessedResult.current);
+                          console.log('- isUpdatingStats:', isUpdatingStats.current);
+                          console.log('- updateQueue length:', statsUpdateQueue.current.length);
+                          console.log('');
+                          console.log('💾 LocalStorage Check:');
+                          try {
+                            const main = localStorage.getItem('blaze_prediction_stats');
+                            const latest = localStorage.getItem('blaze_prediction_stats_latest');
+                            const secure = localStorage.getItem('blaze_prediction_stats_secure');
+                            console.log('- Main:', main ? JSON.parse(main) : 'VAZIO');
+                            console.log('- Latest:', latest ? JSON.parse(latest) : 'VAZIO');
+                            console.log('- Secure:', secure ? JSON.parse(secure) : 'VAZIO');
+                          } catch (e) {
+                            console.log('❌ Erro lendo localStorage:', e);
+                          }
+                          console.log('');
+                          console.log('🔧 Sistema:');
                           console.log('- results.length:', results.length);
                           console.log('- isProcessing:', isProcessing);
-                          console.log('- prediction:', prediction);
+                          console.log('=================================');
                         }}
                         className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded font-semibold"
                       >
-                        📊 LOG STATUS
+                        📊 STATUS COMPLETO
                       </button>
                       
                       <button
                         onClick={() => {
-                          const testResult = { color: 'red', number: 5, round_id: 'test_' + Date.now() };
-                          console.log('🧪 TESTE: Simulando resultado real:', testResult);
-                          checkPredictionAccuracy(testResult);
+                          console.log('🧹 LIMPANDO SISTEMA DE PROTEÇÃO...');
+                          lastProcessedResult.current = null;
+                          isCheckingAccuracy.current = false;
+                          isUpdatingStats.current = false;
+                          statsUpdateQueue.current = [];
+                          console.log('✅ Sistema limpo! Pronto para novas verificações.');
+                        }}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded font-semibold"
+                      >
+                        🧹 LIMPAR SISTEMA
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          console.log('🧪 TESTE SISTEMA PROTEGIDO:');
+                          
+                          // 1. Criar predição de teste
+                          const testPrediction = {
+                            color: 'red',
+                            expectedNumbers: [1, 2, 3],
+                            confidence: 75,
+                            probabilities: { red: 0.75, black: 0.15, white: 0.1 },
+                            specificNumberProbabilities: {},
+                            alternativeScenarios: []
+                          };
+                          
+                          console.log('📝 1. Registrando predição de teste...');
+                          await registerPrediction(testPrediction);
+                          
+                          // 2. Simular resultado após delay
+                          setTimeout(async () => {
+                            const testResult = { color: 'red', number: 5, round_id: 'test_' + Date.now() };
+                            console.log('🎯 2. Verificando acurácia com resultado:', testResult);
+                            await checkPredictionAccuracy(testResult);
+                            console.log('✅ TESTE COMPLETO! Verifique os contadores.');
+                          }, 1000);
                         }}
                         className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-semibold"
                       >
-                        🧪 TESTE VERIFICAÇÃO
+                        🧪 TESTE PROTEGIDO
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          console.log('🔥 TESTE ACERTO FORÇADO:');
+                          
+                          // Criar predição que vai acertar
+                          const predictionAcerto = {
+                            color: 'black',
+                            expectedNumbers: [8, 9, 10],
+                            confidence: 80,
+                            probabilities: { red: 0.1, black: 0.8, white: 0.1 },
+                            specificNumberProbabilities: {},
+                            alternativeScenarios: []
+                          };
+                          
+                          await registerPrediction(predictionAcerto);
+                          
+                          setTimeout(async () => {
+                            const resultadoAcerto = { color: 'black', number: 8, round_id: 'acerto_' + Date.now() };
+                            console.log('✅ RESULTADO QUE VAI DAR ACERTO:', resultadoAcerto);
+                            await checkPredictionAccuracy(resultadoAcerto);
+                          }, 500);
+                        }}
+                        className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded font-semibold"
+                      >
+                        ✅ FORÇA ACERTO
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          console.log('❌ TESTE ERRO FORÇADO:');
+                          
+                          // Criar predição que vai errar
+                          const predictionErro = {
+                            color: 'white',
+                            expectedNumbers: [0],
+                            confidence: 70,
+                            probabilities: { red: 0.2, black: 0.1, white: 0.7 },
+                            specificNumberProbabilities: {},
+                            alternativeScenarios: []
+                          };
+                          
+                          await registerPrediction(predictionErro);
+                          
+                          setTimeout(async () => {
+                            const resultadoErro = { color: 'red', number: 3, round_id: 'erro_' + Date.now() };
+                            console.log('❌ RESULTADO QUE VAI DAR ERRO:', resultadoErro);
+                            await checkPredictionAccuracy(resultadoErro);
+                          }, 500);
+                        }}
+                        className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded font-semibold"
+                      >
+                        ❌ FORÇA ERRO
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          console.log('🎯 TESTE FLUXO COMPLETO:');
+                          console.log('1. Fazendo predição...');
+                          
+                          // 1. Fazer predição RED
+                          const predicaoCompleta = {
+                            color: 'red',
+                            expectedNumbers: [1, 2, 3, 4, 5, 6, 7],
+                            confidence: 85,
+                            probabilities: { red: 0.85, black: 0.10, white: 0.05 },
+                            specificNumberProbabilities: {},
+                            alternativeScenarios: []
+                          };
+                          
+                          await registerPrediction(predicaoCompleta);
+                          console.log('✅ 1. Predição registrada! Verifique que apareceu "AGUARDANDO BLAZE"');
+                          
+                          // 2. Simular resultado após 3 segundos
+                          setTimeout(async () => {
+                            console.log('2. Simulando resultado da Blaze...');
+                            const resultadoBlaze = { 
+                              color: 'red', 
+                              number: 5, 
+                              round_id: 'fluxo_' + Date.now(),
+                              timestamp: Date.now()
+                            };
+                            
+                            console.log('🎰 RESULTADO BLAZE:', resultadoBlaze);
+                            await checkPredictionAccuracy(resultadoBlaze);
+                            console.log('✅ 2. Resultado processado! Deveria mostrar +1 acerto');
+                            console.log('✅ FLUXO COMPLETO FINALIZADO! Verifique os contadores.');
+                          }, 3000);
+                        }}
+                        className="px-2 py-1 bg-indigo-500 hover:bg-indigo-600 text-white text-xs rounded font-semibold"
+                      >
+                        🎯 TESTE FLUXO
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          if (predictionStats.waitingForResult) {
+                            alert('⚠️ Já há uma predição aguardando resultado! Aguarde a Blaze mostrar o próximo número.');
+                            return;
+                          }
+                          
+                          if (results.length < 10) {
+                            alert('⚠️ Dados insuficientes! Adicione mais números ou importe CSV.');
+                            return;
+                          }
+                          
+                          console.log('🧠 GERANDO PREDIÇÃO MANUAL...');
+                          setIsProcessing(true);
+                          
+                          try {
+                            await analyzePredictionMassive(results);
+                            console.log('✅ PREDIÇÃO MANUAL GERADA! Aguarde a Blaze mostrar o próximo número.');
+                          } catch (error) {
+                            console.error('❌ Erro gerando predição manual:', error);
+                            alert('❌ Erro ao gerar predição. Verifique o console.');
+                          } finally {
+                            setIsProcessing(false);
+                          }
+                        }}
+                        className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded font-semibold"
+                      >
+                        🧠 GERAR PREDIÇÃO
                       </button>
                       
                       <button
                         onClick={() => {
-                          console.log('🗑️ LIMPANDO ESTATÍSTICAS TRAVADAS DO LOCALSTORAGE...');
-                          console.log('📊 Estatísticas antigas:', predictionStats);
+                          if (!prediction || !prediction.consensusData) {
+                            alert('❌ Não há dados de consenso disponíveis. Gere uma predição primeiro.');
+                            return;
+                          }
                           
-                          // Limpar localStorage das estatísticas antigas
-                          localStorage.removeItem('blaze_prediction_stats');
+                          const consensus = prediction.consensusData;
+                          const report = `
+🎯 RELATÓRIO DETALHADO DO CONSENSO INTELIGENTE
+
+🏆 DECISÃO FINAL: ${consensus.finalPrediction.toUpperCase()}
+💪 Força do Consenso: ${consensus.consensusStrength.toFixed(1)}%
+⚡ Nível de Conflito: ${consensus.conflictLevel.toUpperCase()}
+
+📊 BREAKDOWN DOS VOTOS:
+🔴 VERMELHO: ${consensus.voteBreakdown.red.count}/${consensus.totalVotes} votos (${consensus.voteBreakdown.red.percentage.toFixed(1)}%)
+⚫ PRETO: ${consensus.voteBreakdown.black.count}/${consensus.totalVotes} votos (${consensus.voteBreakdown.black.percentage.toFixed(1)}%)
+⚪ BRANCO: ${consensus.voteBreakdown.white.count}/${consensus.totalVotes} votos (${consensus.voteBreakdown.white.percentage.toFixed(1)}%)
+
+🧠 DETALHES POR ALGORITMO:
+${consensus.algorithmVotes.map((vote, i) => 
+  `${i+1}. ${vote.algorithm}: ${vote.vote.toUpperCase()} (${vote.confidence.toFixed(1)}% confiança, peso ${vote.weight.toFixed(2)})`
+).join('\n')}
+
+🏆 ALGORITMOS CONCORDANTES COM ${consensus.finalPrediction.toUpperCase()}:
+${consensus.voteBreakdown[consensus.finalPrediction].algorithms.join('\n')}
+
+📈 SCORES PONDERADOS:
+🔴 Vermelho: ${consensus.weightedScore.red.toFixed(1)}%
+⚫ Preto: ${consensus.weightedScore.black.toFixed(1)}%
+⚪ Branco: ${consensus.weightedScore.white.toFixed(1)}%
+
+🔢 CONSENSO DE NÚMEROS:
+Número Final: ${consensus.numberConsensus.finalNumber}
+Força Consenso Número: ${consensus.numberConsensus.consensusStrength.toFixed(1)}%
+Conflito Número: ${consensus.numberConsensus.conflictLevel.toUpperCase()}
+
+📊 VOTES DOS NÚMEROS:
+${Object.keys(consensus.numberConsensus.voteBreakdown).map(num => 
+  `${num}: ${consensus.numberConsensus.voteBreakdown[parseInt(num)].count} votos (${consensus.numberConsensus.voteBreakdown[parseInt(num)].percentage.toFixed(1)}%)`
+).join('\n')}
+
+${consensus.conflictLevel === 'low' ? 
+  '✅ CONSENSO FORTE: Alta confiança na predição!' :
+  consensus.conflictLevel === 'medium' ?
+  '⚠️ CONSENSO MÉDIO: Confiança moderada.' :
+  '🚨 ALTO CONFLITO: Algoritmos discordam significativamente!'}
+                          `;
                           
-                          // Resetar estado para valores iniciais
-                          const freshStats = {
-                            totalPredictions: 0,
-                            correctPredictions: 0,
-                            incorrectPredictions: 0,
-                            accuracy: 0,
-                            lastPrediction: null,
-                            waitingForResult: false,
-                            streak: 0,
-                            maxStreak: 0,
-                            // ✅ INCLUIR TODOS OS CAMPOS MIGRADOS
-                            evolutionGeneration: 1,
-                            bestAccuracyEver: 0,
-                            adaptationRate: 0.1,
-                            streakCorrect: 0,
-                            streakIncorrect: 0,
-                            confidenceScore: 0.7,
-                            lastUpdated: new Date(),
-                            total_feedbacks: 0,
-                            recent_accuracy: 0,
-                            confidence_reliability: 0,
-                            average_response_time: 0
-                          };
+                          console.log(report);
+                          alert(`📊 CONSENSO INTELIGENTE V2.0\n\n🎨 COR: ${consensus.voteBreakdown[consensus.finalPrediction].count}/${consensus.totalVotes} algoritmos votaram ${consensus.finalPrediction.toUpperCase()}\n🔢 NÚMERO: ${consensus.numberConsensus.finalNumber} (${consensus.numberConsensus.consensusStrength.toFixed(1)}% consenso)\n\n🏆 PREDIÇÃO COMPLETA: ${consensus.finalPrediction.toUpperCase()} - ${consensus.numberConsensus.finalNumber}\n\nDetalhes completos no console!`);
+                        }}
+                        className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded font-semibold"
+                      >
+                        🎯 ANÁLISE CONSENSO
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('🔍 DIAGNÓSTICO COMPLETO DAS ESTATÍSTICAS:');
+                          console.log('==============================================');
                           
-                          setPredictionStats(freshStats);
+                          // 1. Estado atual
+                          console.log('📊 ESTADO ATUAL:', predictionStats);
                           
-                          // ✅ CRÍTICO: Resetar flag de carregamento para evitar recarregamento automático
-                          setStatsLoaded(true); // Marcar como carregado para evitar auto-load
+                          // 2. Verificar localStorage principal
+                          try {
+                            const main = localStorage.getItem('blaze_prediction_stats');
+                            console.log('💾 localStorage principal:', main ? JSON.parse(main) : 'VAZIO');
+                          } catch (e) {
+                            console.log('❌ Erro no localStorage principal:', e);
+                          }
                           
-                          console.log('✅ ESTATÍSTICAS RESETADAS! Números travados 7/11 limpos.');
-                          console.log('🔒 AUTO-LOAD DESABILITADO! Estatísticas não recarregarão automaticamente.');
-                          console.log('📊 Nova configuração:', freshStats);
+                          // 3. Verificar backups
+                          const allKeys = Object.keys(localStorage);
+                          const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'))
+                                                   .sort()
+                                                   .reverse();
+                          console.log(`🔄 Backups encontrados: ${backupKeys.length}`);
+                          backupKeys.slice(0, 3).forEach((key, i) => {
+                            try {
+                              const backup = localStorage.getItem(key);
+                              const parsed = backup ? JSON.parse(backup) : null;
+                              console.log(`  Backup ${i+1} (${key}):`, parsed ? {
+                                correct: parsed.correctPredictions,
+                                incorrect: parsed.incorrectPredictions,
+                                total: parsed.totalPredictions,
+                                accuracy: parsed.accuracy
+                              } : 'INVÁLIDO');
+                            } catch (e) {
+                              console.log(`  Backup ${i+1} CORROMPIDO:`, e);
+                            }
+                          });
+                          
+                          // 4. Verificar emergência
+                          try {
+                            const emergency = localStorage.getItem('blaze_prediction_stats_emergency');
+                            console.log('🚑 Backup emergência:', emergency ? JSON.parse(emergency) : 'VAZIO');
+                          } catch (e) {
+                            console.log('❌ Erro no backup emergência:', e);
+                          }
+                          
+                          // 5. Verificar sessionStorage
+                          try {
+                            const session = sessionStorage.getItem('blaze_stats_emergency');
+                            console.log('🔄 sessionStorage:', session ? JSON.parse(session) : 'VAZIO');
+                          } catch (e) {
+                            console.log('❌ Erro no sessionStorage:', e);
+                          }
+                          
+                          console.log('==============================================');
+                          alert('🔍 Diagnóstico completo executado! Verifique o console para detalhes.');
+                        }}
+                        className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded font-semibold"
+                      >
+                        🔍 DIAGNÓSTICO
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('🔄 TENTANDO RECUPERAR BACKUP MAIS RECENTE...');
+                          
+                          try {
+                            // Buscar o backup mais recente
+                            const allKeys = Object.keys(localStorage);
+                            const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'))
+                                                   .sort()
+                                                   .reverse();
+                            
+                            if (backupKeys.length > 0) {
+                              const latestBackup = localStorage.getItem(backupKeys[0]);
+                              if (latestBackup) {
+                                const parsed = JSON.parse(latestBackup);
+                                console.log('📊 Backup encontrado:', parsed);
+                                
+                                if (parsed.correctPredictions >= 0 && parsed.incorrectPredictions >= 0) {
+                                  setPredictionStats(parsed);
+                                  localStorage.setItem('blaze_prediction_stats', JSON.stringify(parsed));
+                                  console.log('✅ ESTATÍSTICAS RECUPERADAS DO BACKUP!');
+                                  alert(`✅ Recuperação realizada!\n\nEstatísticas restauradas:\n• Acertos: ${parsed.correctPredictions}\n• Erros: ${parsed.incorrectPredictions}\n• Precisão: ${parsed.accuracy.toFixed(1)}%`);
+                                } else {
+                                  console.log('❌ Backup inválido');
+                                  alert('❌ Backup inválido encontrado');
+                                }
+                              }
+                            } else {
+                              console.log('❌ Nenhum backup encontrado');
+                              alert('❌ Nenhum backup disponível');
+                            }
+                          } catch (error) {
+                            console.error('❌ Erro na recuperação:', error);
+                            alert('❌ Erro na recuperação do backup');
+                          }
+                        }}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded font-semibold"
+                      >
+                        🔄 RECUPERAR BACKUP
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          if (confirm('⚠️ ATENÇÃO!\n\nIsso irá RESETAR TODAS as estatísticas para ZERO.\n\nEsta ação NÃO pode ser desfeita!\n\nDeseja continuar?')) {
+                            console.log('🗑️ RESET COMPLETO DAS ESTATÍSTICAS...');
+                            console.log('📊 Estatísticas antes do reset:', predictionStats);
+                            
+                            // Limpar TUDO do localStorage
+                            try {
+                              localStorage.removeItem('blaze_prediction_stats');
+                              localStorage.removeItem('blaze_prediction_stats_emergency');
+                              
+                              // Limpar backups
+                              const allKeys = Object.keys(localStorage);
+                              const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'));
+                              backupKeys.forEach(key => localStorage.removeItem(key));
+                              
+                              console.log(`🧹 Removidos ${backupKeys.length} backups`);
+                            } catch (e) {
+                              console.warn('⚠️ Erro limpando localStorage:', e);
+                            }
+                            
+                            // Resetar estado
+                            const freshStats = {
+                              totalPredictions: 0,
+                              correctPredictions: 0,
+                              incorrectPredictions: 0,
+                              accuracy: 0,
+                              lastPrediction: null,
+                              waitingForResult: false,
+                              streak: 0,
+                              maxStreak: 0,
+                              evolutionGeneration: 1,
+                              bestAccuracyEver: 0,
+                              adaptationRate: 0.1,
+                              streakCorrect: 0,
+                              streakIncorrect: 0,
+                              confidenceScore: 0.7,
+                              lastUpdated: new Date(),
+                              total_feedbacks: 0,
+                              recent_accuracy: 0,
+                              confidence_reliability: 0,
+                              average_response_time: 0
+                            };
+                            
+                            setPredictionStats(freshStats);
+                            setStatsLoaded(true);
+                            
+                            console.log('✅ RESET COMPLETO REALIZADO!');
+                            console.log('📊 Novas estatísticas:', freshStats);
+                            alert('✅ RESET COMPLETO!\n\nTodas as estatísticas foram zeradas.\nO sistema está pronto para novos palpites.');
+                          }
                         }}
                         className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-semibold"
                       >
-                        🗑️ RESET STATS
+                        🗑️ RESET COMPLETO
                       </button>
                     </div>
                   </div>
@@ -6703,37 +7853,6 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           </Card>
         )}
 
-        {/* 
-        ===================================================================
-        SEÇÃO COMENTADA: ANÁLISE DE PADRÕES VISUAIS (DADOS FAKE)
-        ===================================================================
-        Motivo: Esta seção contém dados gerados aleatoriamente (Math.random())
-        e não contribui para a análise real do sistema ML.
-        
-        Problemas identificados:
-        1. Matriz de Correlação usando Math.random() * 100 (dados fake)
-        2. Análise Temporal básica (apenas contadores simples)
-        3. Predição Visual Detalhada (duplica dados já exibidos)
-        4. Poluição visual sem valor agregado
-        
-        O sistema ML avançado (6 algoritmos) já fornece análises reais
-        e precisas. Esta seção visual era redundante e confusa.
-        ===================================================================
-        */}
-        
-        {/* 
-        {prediction && (
-          <Card className="bg-gradient-to-r from-emerald-800/60 to-teal-800/60 border-emerald-400">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-emerald-300 text-lg">🌈 ANÁLISE DE PADRÕES VISUAIS</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-2">
-              [... seção com dados fake removida ...]
-            </CardContent>
-          </Card>
-        )}
-        */}
-
         {/* ETAPA 4: Sistema de Relatórios Avançados */}
         {dataManager.totalRecords > 50 && (
           <Card className="bg-gradient-to-r from-rose-800/60 to-pink-800/60 border-rose-400">
@@ -7386,7 +8505,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   {temporalAnalysis ? (
                     <div className="space-y-1 text-sm">
                       <div className="text-gray-200">
-                        Amostra: <span className="text-cyan-300">{temporalAnalysis.sample_size.toLocaleString()}</span>
+                                                  Análise: <span className="text-cyan-300">{temporalAnalysis.significantTrends?.length || 0} padrões</span>
                       </div>
                       <div className="text-gray-200">
                         Padrões Horários: <span className="text-green-300">{hourlyPatterns.length}/24</span>
@@ -7756,24 +8875,119 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
             <CardContent className="pt-0">
               <div className="space-y-4">
                 
-                {/* Predição Principal */}
+                {/* Predição Principal com Consenso Inteligente */}
                 <div className="bg-gray-900/50 p-4 rounded-lg border border-yellow-500/50">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-yellow-200 mb-2">
-                      PRÓXIMA COR PREDITA:
+                      🎯 CONSENSO INTELIGENTE
                     </div>
                     <div className={`inline-block px-6 py-3 rounded-full text-3xl font-bold ${
                       prediction.color === 'red' ? 'bg-red-600 text-white' :
                       prediction.color === 'black' ? 'bg-gray-700 text-white' :
                       'bg-white text-black'
                     }`}>
-                      {prediction.color.toUpperCase()}
+                      {prediction.color.toUpperCase()} - {prediction.expectedNumbers[0]}
                     </div>
                     <div className="text-xl font-semibold text-yellow-300 mt-2">
-                      Confiança: {prediction.confidence.toFixed(1)}%
+                      Força do Consenso: {prediction.confidence.toFixed(1)}%
                     </div>
+                    
+                    {/* Mostrar dados do consenso se disponível */}
+                    {prediction.consensusData && (
+                      <div className="mt-4 space-y-2">
+                        <div className="text-sm text-yellow-200">
+                          🎨 COR: {prediction.consensusData.voteBreakdown[prediction.color].count}/{prediction.consensusData.totalVotes} algoritmos | 🔢 NÚMERO: {prediction.consensusData.numberConsensus.consensusStrength.toFixed(0)}% consenso
+                        </div>
+                        <div className="flex gap-2 justify-center">
+                          <div className={`text-xs px-2 py-1 rounded-full ${
+                            prediction.consensusData.conflictLevel === 'low' ? 'bg-green-600/30 text-green-200' :
+                            prediction.consensusData.conflictLevel === 'medium' ? 'bg-yellow-600/30 text-yellow-200' :
+                            'bg-red-600/30 text-red-200'
+                          }`}>
+                            COR: {prediction.consensusData.conflictLevel.toUpperCase()}
+                          </div>
+                          <div className={`text-xs px-2 py-1 rounded-full ${
+                            prediction.consensusData.numberConsensus.conflictLevel === 'low' ? 'bg-green-600/30 text-green-200' :
+                            prediction.consensusData.numberConsensus.conflictLevel === 'medium' ? 'bg-yellow-600/30 text-yellow-200' :
+                            'bg-red-600/30 text-red-200'
+                          }`}>
+                            NUM: {prediction.consensusData.numberConsensus.conflictLevel.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Breakdown dos Votos */}
+                {prediction.consensusData && (
+                  <div className="bg-gray-800/50 p-4 rounded-lg border border-blue-400/50">
+                    <div className="text-center mb-3">
+                      <div className="text-lg font-bold text-blue-200">
+                        📊 BREAKDOWN DOS VOTOS
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Vermelho */}
+                      <div className="bg-red-600/20 p-3 rounded-lg border border-red-400/50">
+                        <div className="text-center">
+                          <div className="text-red-200 font-bold text-lg">🔴 VERMELHO</div>
+                          <div className="text-2xl font-bold text-white">
+                            {prediction.consensusData.voteBreakdown.red.count}
+                          </div>
+                          <div className="text-sm text-red-300">
+                            {prediction.consensusData.voteBreakdown.red.percentage.toFixed(1)}%
+                          </div>
+                          {prediction.consensusData.voteBreakdown.red.algorithms.length > 0 && (
+                            <div className="text-xs text-red-200 mt-1">
+                              {prediction.consensusData.voteBreakdown.red.algorithms.slice(0, 2).join(', ')}
+                              {prediction.consensusData.voteBreakdown.red.algorithms.length > 2 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Preto */}
+                      <div className="bg-gray-600/20 p-3 rounded-lg border border-gray-400/50">
+                        <div className="text-center">
+                          <div className="text-gray-200 font-bold text-lg">⚫ PRETO</div>
+                          <div className="text-2xl font-bold text-white">
+                            {prediction.consensusData.voteBreakdown.black.count}
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            {prediction.consensusData.voteBreakdown.black.percentage.toFixed(1)}%
+                          </div>
+                          {prediction.consensusData.voteBreakdown.black.algorithms.length > 0 && (
+                            <div className="text-xs text-gray-200 mt-1">
+                              {prediction.consensusData.voteBreakdown.black.algorithms.slice(0, 2).join(', ')}
+                              {prediction.consensusData.voteBreakdown.black.algorithms.length > 2 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Branco */}
+                      <div className="bg-white/20 p-3 rounded-lg border border-white/50">
+                        <div className="text-center">
+                          <div className="text-gray-800 font-bold text-lg">⚪ BRANCO</div>
+                          <div className="text-2xl font-bold text-white">
+                            {prediction.consensusData.voteBreakdown.white.count}
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            {prediction.consensusData.voteBreakdown.white.percentage.toFixed(1)}%
+                          </div>
+                          {prediction.consensusData.voteBreakdown.white.algorithms.length > 0 && (
+                            <div className="text-xs text-gray-200 mt-1">
+                              {prediction.consensusData.voteBreakdown.white.algorithms.slice(0, 2).join(', ')}
+                              {prediction.consensusData.voteBreakdown.white.algorithms.length > 2 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Probabilidades Detalhadas */}
                 <div className="grid grid-cols-3 gap-3">
