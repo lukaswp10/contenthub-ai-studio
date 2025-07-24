@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import blazeRealDataService from '@/services/blazeRealDataService'
 import { advancedMLService } from '@/services/advancedMLPredictionService'
 import { predictionAccuracyService } from '@/services/predictionAccuracyService'
+import { realDataFrequencyAnalyzer, type AdvancedFrequencyAnalysis } from '@/services/realDataFrequencyAnalysis'
+import { confidenceEngine, type ConfidenceMetrics } from '@/services/confidenceEngine'
 import { logThrottled, logAlways, logDebug } from '@/utils/logThrottler'
 
 // ===================================================================
@@ -790,6 +792,8 @@ export default function TesteJogoPage() {
   const [results, setResults] = useState<DoubleResult[]>([])
   const [currentInput, setCurrentInput] = useState('')
   const [prediction, setPrediction] = useState<PredictionResult | null>(null)
+  const [frequencyAnalysis, setFrequencyAnalysis] = useState<AdvancedFrequencyAnalysis | null>(null)
+  const [confidenceMetrics, setConfidenceMetrics] = useState<ConfidenceMetrics | null>(null)
   const [stats, setStats] = useState({ red: 0, black: 0, white: 0, total: 0 })
   const [isProcessing, setIsProcessing] = useState(false)
   const [inputError, setInputError] = useState('')
@@ -2777,6 +2781,20 @@ export default function TesteJogoPage() {
     try {
       console.log(`🎯 ANÁLISE DE PREDIÇÃO MASSIVA INICIADA`)
       
+      // 🔥 NOVA ETAPA: ANÁLISE DE FREQUÊNCIA AVANÇADA COM DADOS REAIS
+      console.log(`📊 EXECUTANDO ANÁLISE DE FREQUÊNCIA AVANÇADA...`)
+      const realGameResults = realDataFrequencyAnalyzer.convertToRealGameResults(resultsList)
+      const frequencyAnalysisResult = realDataFrequencyAnalyzer.analyzeRealData(realGameResults)
+      setFrequencyAnalysis(frequencyAnalysisResult)
+      
+      console.log(`✅ ANÁLISE DE FREQUÊNCIA CONCLUÍDA:`)
+      console.log(`   🎯 Viés: ${frequencyAnalysisResult.biasDetection.overallBias.toUpperCase()} (${frequencyAnalysisResult.biasDetection.confidence.toFixed(1)}%)`)
+      console.log(`   ⏰ Pressão: ${frequencyAnalysisResult.statisticalPressure.overallTension.toFixed(1)}`)
+      console.log(`   📈 Predição Ajustada: R:${frequencyAnalysisResult.adjustedPrediction.red.toFixed(1)}% B:${frequencyAnalysisResult.adjustedPrediction.black.toFixed(1)}% W:${frequencyAnalysisResult.adjustedPrediction.white.toFixed(1)}%`)
+      
+      // 🧠 ETAPA: CALCULAR CONFIANÇA MULTI-DIMENSIONAL
+      let confidenceMetricsResult: ConfidenceMetrics | null = null;
+      
       // PRIORIDADE 1: Tentar ML avançado primeiro
       const advancedResult = await runAdvancedMLPrediction(resultsList)
       if (advancedResult) {
@@ -2814,6 +2832,21 @@ export default function TesteJogoPage() {
         }
         
         console.log(`🎯 PREDIÇÃO ML FINAL: ${traditionalPrediction.color} com ${traditionalPrediction.confidence.toFixed(1)}% confiança`)
+        
+        // 🧠 CALCULAR CONFIANÇA MULTI-DIMENSIONAL COM ML
+        confidenceMetricsResult = confidenceEngine.calculateConfidence({
+          mlPrediction: advancedResult,
+          frequencyAnalysis: frequencyAnalysisResult,
+          historicalResults: resultsList,
+          currentAccuracy: predictionStats.accuracy,
+          recentPerformance: [predictionStats.recent_accuracy || predictionStats.accuracy],
+          dataVolume: resultsList.length
+        });
+        setConfidenceMetrics(confidenceMetricsResult);
+        
+        console.log(`🧠 CONFIANÇA CALCULADA: ${confidenceMetricsResult.finalConfidence}% | ${confidenceMetricsResult.recommendation}`);
+        console.log(`🎯 Fatores principais: ${confidenceMetricsResult.reasoning.join(', ')}`);
+        
         setPrediction(traditionalPrediction)
         
         // ✅ CRÍTICO: Registrar predição ML para verificação de acurácia
@@ -5706,6 +5739,300 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       >
                         🗑️ RESET STATS
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 📊 ANÁLISE DE FREQUÊNCIA AVANÇADA - DADOS REAIS */}
+        {frequencyAnalysis && (
+          <Card className="bg-gradient-to-r from-blue-600/90 to-cyan-600/90 border-2 border-blue-400 shadow-xl">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
+                  <span className="text-blue-100 font-bold text-xl">📊 ANÁLISE DE FREQUÊNCIA AVANÇADA</span>
+                  <div className="w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
+                </div>
+                
+                {/* Viés Detectado */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-blue-700/50 p-4 rounded-xl border border-blue-400">
+                    <div className="font-bold text-2xl text-blue-100">
+                      {frequencyAnalysis.biasDetection.overallBias.toUpperCase()}
+                    </div>
+                    <div className="text-blue-200 font-semibold">🎯 VIÉS DETECTADO</div>
+                    <div className="text-xs text-blue-300 mt-1">
+                      {frequencyAnalysis.biasDetection.confidence.toFixed(1)}% confiança
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-700/50 p-4 rounded-xl border border-purple-400">
+                    <div className="font-bold text-2xl text-purple-100">
+                      {frequencyAnalysis.statisticalPressure.overallTension.toFixed(1)}
+                    </div>
+                    <div className="text-purple-200 font-semibold">⏰ PRESSÃO TOTAL</div>
+                    <div className="text-xs text-purple-300 mt-1">
+                      Tensão estatística
+                    </div>
+                  </div>
+                  
+                  <div className="bg-emerald-700/50 p-4 rounded-xl border border-emerald-400">
+                    <div className="font-bold text-2xl text-emerald-100">
+                      {frequencyAnalysis.adjustedPrediction.confidence.toFixed(1)}%
+                    </div>
+                    <div className="text-emerald-200 font-semibold">🧠 CONFIANÇA</div>
+                    <div className="text-xs text-emerald-300 mt-1">
+                      Predição ajustada
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Frequências por Janela */}
+                <div className="bg-blue-800/30 p-4 rounded-xl border border-blue-300 mb-4">
+                  <div className="text-blue-100 font-semibold mb-3">📈 FREQUÊNCIAS POR PERÍODO</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div className="bg-blue-700/50 p-2 rounded">
+                      <div className="text-blue-200 font-semibold">Últimas 10</div>
+                      <div className="text-red-300">❤️ {frequencyAnalysis.windows.last10.red.percentage.toFixed(1)}%</div>
+                      <div className="text-gray-300">🖤 {frequencyAnalysis.windows.last10.black.percentage.toFixed(1)}%</div>
+                      <div className="text-white">🤍 {frequencyAnalysis.windows.last10.white.percentage.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-blue-700/50 p-2 rounded">
+                      <div className="text-blue-200 font-semibold">Últimas 50</div>
+                      <div className="text-red-300">❤️ {frequencyAnalysis.windows.last50.red.percentage.toFixed(1)}%</div>
+                      <div className="text-gray-300">🖤 {frequencyAnalysis.windows.last50.black.percentage.toFixed(1)}%</div>
+                      <div className="text-white">🤍 {frequencyAnalysis.windows.last50.white.percentage.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-blue-700/50 p-2 rounded">
+                      <div className="text-blue-200 font-semibold">Últimas 100</div>
+                      <div className="text-red-300">❤️ {frequencyAnalysis.windows.last100.red.percentage.toFixed(1)}%</div>
+                      <div className="text-gray-300">🖤 {frequencyAnalysis.windows.last100.black.percentage.toFixed(1)}%</div>
+                      <div className="text-white">🤍 {frequencyAnalysis.windows.last100.white.percentage.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Predição Ajustada */}
+                <div className="bg-gradient-to-r from-amber-600/40 to-orange-600/40 p-4 rounded-xl border border-amber-400">
+                  <div className="text-amber-100 font-semibold mb-3">🎯 PREDIÇÃO AJUSTADA POR FREQUÊNCIA</div>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="bg-red-700/50 p-3 rounded text-center">
+                      <div className="text-red-200 font-bold text-xl">
+                        {frequencyAnalysis.adjustedPrediction.red.toFixed(1)}%
+                      </div>
+                      <div className="text-red-300">❤️ VERMELHO</div>
+                    </div>
+                    <div className="bg-gray-700/50 p-3 rounded text-center">
+                      <div className="text-gray-200 font-bold text-xl">
+                        {frequencyAnalysis.adjustedPrediction.black.toFixed(1)}%
+                      </div>
+                      <div className="text-gray-300">🖤 PRETO</div>
+                    </div>
+                    <div className="bg-white/20 p-3 rounded text-center">
+                      <div className="text-white font-bold text-xl">
+                        {frequencyAnalysis.adjustedPrediction.white.toFixed(1)}%
+                      </div>
+                      <div className="text-gray-200">🤍 BRANCO</div>
+                    </div>
+                  </div>
+                  
+                  {/* Reasoning */}
+                  {frequencyAnalysis.adjustedPrediction.reasoning.length > 0 && (
+                    <div className="bg-amber-700/30 p-2 rounded">
+                      <div className="text-amber-200 text-xs font-semibold mb-1">🧠 RACIOCÍNIO:</div>
+                      {frequencyAnalysis.adjustedPrediction.reasoning.map((reason, index) => (
+                        <div key={index} className="text-amber-100 text-xs">• {reason}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Pressão Estatística Detalhada */}
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div className="bg-red-800/30 p-3 rounded border border-red-500">
+                    <div className="text-red-200 font-semibold">❤️ PRESSÃO VERMELHO</div>
+                    <div className="text-red-100 text-lg font-bold">
+                      {frequencyAnalysis.statisticalPressure.redPressure.toFixed(1)}
+                    </div>
+                    <div className="text-red-300 text-xs">
+                      {frequencyAnalysis.statisticalPressure.lastOccurrence.red} rodadas atrás
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/30 p-3 rounded border border-gray-500">
+                    <div className="text-gray-200 font-semibold">🖤 PRESSÃO PRETO</div>
+                    <div className="text-gray-100 text-lg font-bold">
+                      {frequencyAnalysis.statisticalPressure.blackPressure.toFixed(1)}
+                    </div>
+                    <div className="text-gray-300 text-xs">
+                      {frequencyAnalysis.statisticalPressure.lastOccurrence.black} rodadas atrás
+                    </div>
+                  </div>
+                  <div className="bg-white/20 p-3 rounded border border-white/50">
+                    <div className="text-white font-semibold">🤍 PRESSÃO BRANCO</div>
+                    <div className="text-white text-lg font-bold">
+                      {frequencyAnalysis.statisticalPressure.whitePressure.toFixed(1)}
+                    </div>
+                    <div className="text-gray-300 text-xs">
+                      {frequencyAnalysis.statisticalPressure.lastOccurrence.white} rodadas atrás
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Streaks */}
+                <div className="bg-indigo-800/30 p-4 rounded-xl border border-indigo-400 mt-4">
+                  <div className="text-indigo-200 font-semibold mb-2">📈 ANÁLISE DE SEQUÊNCIAS</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div className="text-center">
+                      <div className="text-red-300 font-bold">{frequencyAnalysis.streakAnalysis.currentRedStreak}</div>
+                      <div className="text-red-400">Seq. Vermelha Atual</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-gray-300 font-bold">{frequencyAnalysis.streakAnalysis.currentBlackStreak}</div>
+                      <div className="text-gray-400">Seq. Preta Atual</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-yellow-300 font-bold">{frequencyAnalysis.streakAnalysis.maxRedStreak}</div>
+                      <div className="text-yellow-400">Máx. Vermelha</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-yellow-300 font-bold">{frequencyAnalysis.streakAnalysis.maxBlackStreak}</div>
+                      <div className="text-yellow-400">Máx. Preta</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 🧠 CONFIDENCE ENGINE MULTI-DIMENSIONAL - DADOS REAIS */}
+        {confidenceMetrics && (
+          <Card className="bg-gradient-to-r from-purple-600/90 to-indigo-600/90 border-2 border-purple-400 shadow-xl">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 bg-purple-400 rounded-full animate-pulse"></div>
+                  <span className="text-purple-100 font-bold text-xl">🧠 CONFIDENCE ENGINE MULTI-DIMENSIONAL</span>
+                  <div className="w-4 h-4 bg-purple-400 rounded-full animate-pulse"></div>
+                </div>
+                
+                {/* Score Principal */}
+                <div className="bg-gradient-to-r from-purple-700/60 to-indigo-700/60 p-6 rounded-xl border border-purple-300 mb-4">
+                  <div className="text-4xl font-bold text-white mb-2">
+                    {confidenceMetrics.finalConfidence}%
+                  </div>
+                  <div className={`text-2xl font-semibold mb-2 ${
+                    confidenceMetrics.recommendation === 'VERY_HIGH' ? 'text-green-300' :
+                    confidenceMetrics.recommendation === 'HIGH' ? 'text-green-400' :
+                    confidenceMetrics.recommendation === 'MEDIUM' ? 'text-yellow-300' :
+                    confidenceMetrics.recommendation === 'LOW' ? 'text-orange-400' :
+                    confidenceMetrics.recommendation === 'VERY_LOW' ? 'text-red-400' :
+                    'text-red-500'
+                  }`}>
+                    {confidenceMetrics.recommendation.replace('_', ' ')}
+                  </div>
+                  <div className={`text-sm ${
+                    confidenceMetrics.riskLevel === 'VERY_LOW' ? 'text-green-300' :
+                    confidenceMetrics.riskLevel === 'LOW' ? 'text-green-400' :
+                    confidenceMetrics.riskLevel === 'MEDIUM' ? 'text-yellow-300' :
+                    confidenceMetrics.riskLevel === 'HIGH' ? 'text-orange-400' :
+                    'text-red-400'
+                  }`}>
+                    🛡️ Risco: {confidenceMetrics.riskLevel.replace('_', ' ')}
+                  </div>
+                </div>
+                
+                {/* Fatores de Confiança */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-purple-700/50 p-3 rounded-xl border border-purple-400">
+                    <div className="text-purple-200 text-xs font-semibold mb-1">📊 Freq. Desvio</div>
+                    <div className="text-white font-bold text-lg">{confidenceMetrics.frequencyDeviation.value}%</div>
+                    <div className={`text-xs ${confidenceMetrics.frequencyDeviation.impact === 'positive' ? 'text-green-300' : confidenceMetrics.frequencyDeviation.impact === 'negative' ? 'text-red-300' : 'text-gray-300'}`}>
+                      {confidenceMetrics.frequencyDeviation.impact === 'positive' ? '✅' : confidenceMetrics.frequencyDeviation.impact === 'negative' ? '❌' : '⚪'}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-indigo-700/50 p-3 rounded-xl border border-indigo-400">
+                    <div className="text-indigo-200 text-xs font-semibold mb-1">🔗 Padrões</div>
+                    <div className="text-white font-bold text-lg">{confidenceMetrics.patternStrength.value}%</div>
+                    <div className={`text-xs ${confidenceMetrics.patternStrength.impact === 'positive' ? 'text-green-300' : confidenceMetrics.patternStrength.impact === 'negative' ? 'text-red-300' : 'text-gray-300'}`}>
+                      {confidenceMetrics.patternStrength.impact === 'positive' ? '✅' : confidenceMetrics.patternStrength.impact === 'negative' ? '❌' : '⚪'}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-cyan-700/50 p-3 rounded-xl border border-cyan-400">
+                    <div className="text-cyan-200 text-xs font-semibold mb-1">⏰ Pressão</div>
+                    <div className="text-white font-bold text-lg">{confidenceMetrics.overduePressure.value}%</div>
+                    <div className={`text-xs ${confidenceMetrics.overduePressure.impact === 'positive' ? 'text-green-300' : confidenceMetrics.overduePressure.impact === 'negative' ? 'text-red-300' : 'text-gray-300'}`}>
+                      {confidenceMetrics.overduePressure.impact === 'positive' ? '✅' : confidenceMetrics.overduePressure.impact === 'negative' ? '❌' : '⚪'}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-emerald-700/50 p-3 rounded-xl border border-emerald-400">
+                    <div className="text-emerald-200 text-xs font-semibold mb-1">🤝 Consenso</div>
+                    <div className="text-white font-bold text-lg">{confidenceMetrics.consensusStrength.value}%</div>
+                    <div className={`text-xs ${confidenceMetrics.consensusStrength.impact === 'positive' ? 'text-green-300' : confidenceMetrics.consensusStrength.impact === 'negative' ? 'text-red-300' : 'text-gray-300'}`}>
+                      {confidenceMetrics.consensusStrength.impact === 'positive' ? '✅' : confidenceMetrics.consensusStrength.impact === 'negative' ? '❌' : '⚪'}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Fatores Secundários */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-gray-700/50 p-2 rounded border border-gray-500">
+                    <div className="text-gray-300 text-xs mb-1">📈 Histórico</div>
+                    <div className="text-white font-bold">{confidenceMetrics.historicalAccuracy.value}%</div>
+                  </div>
+                  
+                  <div className="bg-gray-700/50 p-2 rounded border border-gray-500">
+                    <div className="text-gray-300 text-xs mb-1">📊 Volatilidade</div>
+                    <div className="text-white font-bold">{confidenceMetrics.volatilityLevel.value}%</div>
+                  </div>
+                  
+                  <div className="bg-gray-700/50 p-2 rounded border border-gray-500">
+                    <div className="text-gray-300 text-xs mb-1">📈 Streaks</div>
+                    <div className="text-white font-bold">{confidenceMetrics.streakConsistency.value}%</div>
+                  </div>
+                  
+                  <div className="bg-gray-700/50 p-2 rounded border border-gray-500">
+                    <div className="text-gray-300 text-xs mb-1">🔍 Qualidade</div>
+                    <div className="text-white font-bold">{confidenceMetrics.dataQuality.value}%</div>
+                  </div>
+                </div>
+                
+                {/* Raciocínio */}
+                {confidenceMetrics.reasoning.length > 0 && (
+                  <div className="bg-purple-800/30 p-4 rounded-xl border border-purple-300">
+                    <div className="text-purple-200 font-semibold mb-2">🧠 ANÁLISE INTELIGENTE:</div>
+                    <div className="space-y-1">
+                      {confidenceMetrics.reasoning.map((reason, index) => (
+                        <div key={index} className="text-purple-100 text-sm">• {reason}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Detalhes dos Fatores */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-xs">
+                  <div className="bg-purple-700/30 p-3 rounded">
+                    <div className="text-purple-200 font-semibold mb-2">📊 Fatores Principais:</div>
+                    <div className="space-y-1 text-purple-100">
+                      <div>• {confidenceMetrics.frequencyDeviation.description}</div>
+                      <div>• {confidenceMetrics.patternStrength.description}</div>
+                      <div>• {confidenceMetrics.overduePressure.description}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-indigo-700/30 p-3 rounded">
+                    <div className="text-indigo-200 font-semibold mb-2">🎯 Fatores Secundários:</div>
+                    <div className="space-y-1 text-indigo-100">
+                      <div>• {confidenceMetrics.consensusStrength.description}</div>
+                      <div>• {confidenceMetrics.historicalAccuracy.description}</div>
+                      <div>• {confidenceMetrics.dataQuality.description}</div>
                     </div>
                   </div>
                 </div>
