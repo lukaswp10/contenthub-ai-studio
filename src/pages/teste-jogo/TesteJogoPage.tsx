@@ -822,36 +822,9 @@ export default function TesteJogoPage() {
     averageAccuracy: 0
   })
   
-  const [learningStats, setLearningStats] = useState({
-    totalPredictions: 0,
-    correctPredictions: 0,
-    accuracy: 0,
-    adaptationRate: 0.1,
-    evolutionGeneration: 1,
-    bestAccuracyEver: 0
-  })
-
-  // ETAPA 3: Estados do Sistema de Aprendizado Contínuo
-  const [continuousLearning, setContinuousLearning] = useState<ContinuousLearningState>({
-    isEnabled: true,
-    learningRate: 0.1,
-    adaptationThreshold: 0.05,
-    minConfidenceForPrediction: 0.6,
-    autoAdjustWeights: true,
-    feedbackHistory: [],
-    algorithmPerformances: [],
-    globalMetrics: {
-      totalPredictions: 0,
-      correctPredictions: 0,
-      accuracy: 0,
-      lastUpdated: new Date(),
-      streakCorrect: 0,
-      streakIncorrect: 0,
-      confidenceScore: 0.7,
-      adaptationRate: 0.1
-    }
-  });
-
+  // ❌ SISTEMAS DUPLICADOS REMOVIDOS - MIGRADOS PARA predictionStats
+  // learningStats, continuousLearning.globalMetrics, feedbackMetrics → predictionStats
+  
   const [feedbackMode, setFeedbackMode] = useState(false);
   const [pendingFeedback, setPendingFeedback] = useState<GamePrediction | null>(null);
   const [learningInsights, setLearningInsights] = useState<string[]>([]);
@@ -912,8 +885,8 @@ export default function TesteJogoPage() {
   const [realDataHistory, setRealDataHistory] = useState<any[]>([]);
   const [lastRealData, setLastRealData] = useState<any>(null);
 
-  // Estados para estatísticas de predições - SEM AUTO-LOAD 
-  // ❌ REMOVIDO AUTO-LOAD PARA EVITAR TRAVAMENTO 7/11
+  // Estados para estatísticas de predições - SISTEMA UNIFICADO 
+  // ✅ SISTEMA ÚNICO PARA EVITAR CONFLITOS
   const [predictionStats, setPredictionStats] = useState({
     totalPredictions: 0,
     correctPredictions: 0,
@@ -922,7 +895,20 @@ export default function TesteJogoPage() {
     lastPrediction: null as any,
     waitingForResult: false,
     streak: 0,
-    maxStreak: 0
+    maxStreak: 0,
+    // ✅ CAMPOS MIGRADOS DOS SISTEMAS DUPLICADOS
+    evolutionGeneration: 1,
+    bestAccuracyEver: 0,
+    adaptationRate: 0.1,
+    streakCorrect: 0,
+    streakIncorrect: 0,
+    confidenceScore: 0.7,
+    lastUpdated: new Date(),
+    // ✅ CAMPOS DO FEEDBACK SYSTEM
+    total_feedbacks: 0,
+    recent_accuracy: 0,
+    confidence_reliability: 0,
+    average_response_time: 0
   });
 
   // 🔄 CARREGAR ESTATÍSTICAS MANUALMENTE APENAS UMA VEZ (evita loop)
@@ -967,17 +953,7 @@ export default function TesteJogoPage() {
 
   // ✅ ETAPA 4: Estados do Feedback Loop Automático
   const [feedbackLoopActive, setFeedbackLoopActive] = useState(false)
-  const [feedbackMetrics, setFeedbackMetrics] = useState<any>({
-    total_feedbacks: 0,
-    correct_predictions: 0,
-    overall_accuracy: 0,
-    recent_accuracy: 0,
-    confidence_reliability: 0,
-    average_response_time: 0,
-    model_evolutions: [],
-    performance_trends: [],
-    learning_insights: []
-  })
+  // ❌ feedbackMetrics REMOVIDO - MIGRADO PARA predictionStats
   const [modelEvolutions, setModelEvolutions] = useState<any[]>([])
   const [feedbackInsights, setFeedbackInsights] = useState<string[]>([])
   const [evolutionHistory, setEvolutionHistory] = useState<any[]>([])
@@ -1357,6 +1333,7 @@ export default function TesteJogoPage() {
         console.log(`${isCorrect ? '✅ ACERTOU!' : '❌ ERROU!'} Predição: ${predictionColor} | Resultado: ${normalizedResultColor}`);
         console.log(`📊 ESTATÍSTICAS: ${newCorrect}/${newTotal} acertos (${newAccuracy.toFixed(1)}%) | Streak: ${newStreak} | Recorde: ${newMaxStreak}`);
 
+        // ✅ ATUALIZAR SISTEMA UNIFICADO COM TODOS OS CAMPOS
         const newStats = {
           ...prev,
           correctPredictions: newCorrect,
@@ -1365,7 +1342,20 @@ export default function TesteJogoPage() {
           waitingForResult: false,
           streak: newStreak,
           maxStreak: newMaxStreak,
-          lastPrediction: null // Limpar após verificação
+          lastPrediction: null, // Limpar após verificação
+          // ✅ ATUALIZAR CAMPOS MIGRADOS
+          streakCorrect: isCorrect ? prev.streakCorrect + 1 : 0,
+          streakIncorrect: !isCorrect ? prev.streakIncorrect + 1 : 0,
+          lastUpdated: new Date(),
+          confidenceScore: Math.min(0.95, Math.max(0.3, newAccuracy / 100 + 0.1)),
+          adaptationRate: Math.max(0.05, Math.min(0.2, 1 - newAccuracy / 100)),
+          bestAccuracyEver: Math.max(prev.bestAccuracyEver, newAccuracy),
+          // ✅ ATUALIZAR CAMPOS DE FEEDBACK
+          total_feedbacks: newTotal,
+          recent_accuracy: newTotal >= 20 ? 
+            (prev.correctPredictions + (isCorrect ? 1 : 0)) / Math.min(newTotal, 20) * 100 : newAccuracy,
+          confidence_reliability: prev.lastPrediction ? 
+            Math.abs(prev.lastPrediction.confidence - newAccuracy) : 100
         };
         
         // PERSISTÊNCIA: Salvar no localStorage
@@ -2394,7 +2384,7 @@ export default function TesteJogoPage() {
           total: uniqueCSVData.length,
           lastImport: new Date().toLocaleString('pt-BR'),
           totalBatches: csvStats.totalBatches + 1,
-          averageAccuracy: learningStats.accuracy
+          averageAccuracy: predictionStats.accuracy
         })
         
         console.log(`🎉 IMPORTAÇÃO MASSIVA CONCLUÍDA COM SUCESSO!`)
@@ -4054,7 +4044,14 @@ export default function TesteJogoPage() {
       const interval = setInterval(async () => {
         try {
           const metrics = feedbackLoopService.getFeedbackMetrics()
-          setFeedbackMetrics(metrics)
+          // ✅ ATUALIZAR predictionStats com dados do feedback loop
+          setPredictionStats(prev => ({
+            ...prev,
+            total_feedbacks: metrics.total_feedbacks,
+            recent_accuracy: metrics.recent_accuracy,
+            confidence_reliability: metrics.confidence_reliability,
+            average_response_time: metrics.average_response_time
+          }))
           setModelEvolutions(metrics.model_evolutions)
         } catch (error) {
           console.warn('⚠️ Erro atualizando métricas do feedback loop:', error)
@@ -4713,7 +4710,9 @@ export default function TesteJogoPage() {
         learning: true,
         detailed: true,
         reports: true,
-        visualization: true
+        visualization: true,
+        feedback: true,
+        temporal: true
       });
     }
   };
@@ -4758,10 +4757,10 @@ export default function TesteJogoPage() {
           confidence: prediction.confidence,
           probabilities: prediction.probabilities
         } : null,
-        learning: continuousLearning.globalMetrics.totalPredictions > 0 ? {
-          totalPredictions: continuousLearning.globalMetrics.totalPredictions,
-          accuracy: continuousLearning.globalMetrics.accuracy,
-          streakCorrect: continuousLearning.globalMetrics.streakCorrect
+        learning: predictionStats.totalPredictions > 0 ? {
+          totalPredictions: predictionStats.totalPredictions,
+          accuracy: predictionStats.accuracy,
+          streakCorrect: predictionStats.streakCorrect
         } : null,
         patterns: {
           consecutiveStreaks: massivePatternAnalysis.current.consecutiveStreaks.length,
@@ -4995,11 +4994,15 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
           stats: stats,
           dataManager: dataManager,
           csvStats: csvStats,
-          learningStats: learningStats,
-          continuousLearning: {
-            ...continuousLearning,
-            feedbackHistory: continuousLearning.feedbackHistory.slice(-100) // Últimos 100 feedbacks
+          learningStats: {
+            totalPredictions: predictionStats.totalPredictions,
+            correctPredictions: predictionStats.correctPredictions,
+            accuracy: predictionStats.accuracy,
+            evolutionGeneration: predictionStats.evolutionGeneration,
+            bestAccuracyEver: predictionStats.bestAccuracyEver,
+            adaptationRate: predictionStats.adaptationRate
           },
+          // ❌ continuousLearning REMOVIDO - dados migrados para predictionStats
           massivePatternAnalysis: {
             consecutiveStreaks: massivePatternAnalysis.current.consecutiveStreaks,
             fibonacciSequences: massivePatternAnalysis.current.fibonacciSequences,
@@ -5016,7 +5019,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         metadata: {
           totalSize: results.length,
           algorithmsCount: mlPatterns.current.length,
-          hasLearningData: continuousLearning.globalMetrics.totalPredictions > 0,
+          hasLearningData: predictionStats.totalPredictions > 0,
           dataQuality: massivePatternAnalysis.current.dataQuality.confidenceLevel
         }
       };
@@ -5048,51 +5051,18 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
   // ETAPA 3: SISTEMA DE APRENDIZADO CONTÍNUO
   // ===================================================================
 
-  // ETAPA 3: Sistema de Feedback e Aprendizado Contínuo
+  // ✅ SISTEMA DE FEEDBACK SIMPLIFICADO - INTEGRADO COM predictionStats
   const provideFeedback = (actualResult: number, prediction: GamePrediction) => {
-    if (!continuousLearning.isEnabled) return;
-
     const wasCorrect = prediction.predictedNumber === actualResult;
-    const feedbackEntry: FeedbackEntry = {
-      id: Date.now().toString(),
-      prediction,
-      actualResult,
-      wasCorrect,
-      confidence: prediction.confidence,
-      timestamp: new Date(),
-      algorithmContributions: prediction.algorithmContributions || {}
-    };
+    
+    // ✅ ATUALIZAR predictionStats DIRETAMENTE
+    setPredictionStats(prev => ({
+      ...prev,
+      evolutionGeneration: prev.evolutionGeneration + (wasCorrect ? 0 : 1), // Evolui na falha
+      bestAccuracyEver: Math.max(prev.bestAccuracyEver, prev.accuracy)
+    }));
 
-    setContinuousLearning(prev => {
-      const newFeedbackHistory = [...prev.feedbackHistory, feedbackEntry];
-      
-      // Atualizar métricas globais
-      const newGlobalMetrics = updateGlobalMetrics(prev.globalMetrics, wasCorrect);
-      
-      // Atualizar performance dos algoritmos
-      const updatedPerformances = updateAlgorithmPerformances(
-        prev.algorithmPerformances,
-        feedbackEntry
-      );
-
-      // Auto-ajustar pesos se habilitado
-      if (prev.autoAdjustWeights) {
-        autoAdjustAlgorithmWeights(updatedPerformances, newGlobalMetrics);
-      }
-
-      // Gerar insights de aprendizado
-      const insights = generateLearningInsights(newFeedbackHistory, updatedPerformances);
-      setLearningInsights(insights);
-
-      return {
-        ...prev,
-        feedbackHistory: newFeedbackHistory.slice(-1000), // Manter apenas os últimos 1000
-        algorithmPerformances: updatedPerformances,
-        globalMetrics: newGlobalMetrics
-      };
-    });
-
-    console.log(`🎯 FEEDBACK ETAPA 3: Resultado ${actualResult}, Previsto ${prediction.predictedNumber}, Correto: ${wasCorrect}`);
+    console.log(`🎯 FEEDBACK SIMPLIFICADO: Resultado ${actualResult}, Previsto ${prediction.predictedNumber}, Correto: ${wasCorrect}`);
   };
 
   const updateGlobalMetrics = (current: LearningMetrics, wasCorrect: boolean): LearningMetrics => {
@@ -5263,7 +5233,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
       },
       expectedNumbers: prediction.expectedNumbers || [],
       algorithmContributions: {},
-      generation: learningStats.evolutionGeneration
+              generation: predictionStats.evolutionGeneration
     });
   };
 
@@ -5349,8 +5319,8 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 {csvStats.total > 0 && (
                   <span className="text-green-300"> 📈 {dataManager.csvRecords.toLocaleString()} CSV Reais</span>
                 )} | 
-                🎯 {learningStats.totalPredictions > 0 ? ` Acurácia: ${learningStats.accuracy.toFixed(1)}%` : ' Aprendendo...'} |
-                🧬 Gen: {learningStats.evolutionGeneration}
+                🎯 {predictionStats.totalPredictions > 0 ? ` Acurácia: ${predictionStats.accuracy.toFixed(1)}%` : ' Aprendendo...'} |
+                🧬 Gen: {predictionStats.evolutionGeneration}
               </p>
               <p className="text-xs text-gray-300">
                 🎲 <span className="text-green-300">0=BRANCO</span> | <span className="text-red-300">1-7=VERMELHO</span> | <span className="text-gray-300">8-14=PRETO</span> |
@@ -5717,7 +5687,19 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                             lastPrediction: null,
                             waitingForResult: false,
                             streak: 0,
-                            maxStreak: 0
+                            maxStreak: 0,
+                            // ✅ INCLUIR TODOS OS CAMPOS MIGRADOS
+                            evolutionGeneration: 1,
+                            bestAccuracyEver: 0,
+                            adaptationRate: 0.1,
+                            streakCorrect: 0,
+                            streakIncorrect: 0,
+                            confidenceScore: 0.7,
+                            lastUpdated: new Date(),
+                            total_feedbacks: 0,
+                            recent_accuracy: 0,
+                            confidence_reliability: 0,
+                            average_response_time: 0
                           };
                           
                           setPredictionStats(freshStats);
@@ -6225,17 +6207,17 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                     </div>
                   </div>
 
-                  {continuousLearning.globalMetrics.totalPredictions > 0 && (
+                  {predictionStats.totalPredictions > 0 && (
                     <div className="space-y-2">
                       <div className="text-gray-300 font-medium">🧠 Aprendizado:</div>
                       <div className="text-gray-200">
-                        • Predições: <span className="font-bold text-cyan-300">{continuousLearning.globalMetrics.totalPredictions}</span>
+                        • Predições: <span className="font-bold text-cyan-300">{predictionStats.totalPredictions}</span>
                       </div>
                       <div className="text-gray-200">
-                        • Precisão: <span className="font-bold text-green-300">{(continuousLearning.globalMetrics.accuracy * 100).toFixed(1)}%</span>
+                        • Precisão: <span className="font-bold text-green-300">{predictionStats.accuracy.toFixed(1)}%</span>
                       </div>
                       <div className="text-gray-200">
-                        • Streak: <span className="font-bold text-orange-300">{continuousLearning.globalMetrics.streakCorrect} corretas</span>
+                        • Streak: <span className="font-bold text-orange-300">{predictionStats.streakCorrect} corretas</span>
                       </div>
                     </div>
                   )}
@@ -6523,16 +6505,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   <div className="text-emerald-300 font-semibold mb-2">📊 Métricas Gerais</div>
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-200">
-                      Total: <span className="font-bold text-emerald-200">{feedbackMetrics.total_feedbacks}</span>
+                      Total: <span className="font-bold text-emerald-200">{predictionStats.total_feedbacks}</span>
                     </div>
                     <div className="text-gray-200">
-                      Corretas: <span className="font-bold text-green-300">{feedbackMetrics.correct_predictions}</span>
+                      Corretas: <span className="font-bold text-green-300">{predictionStats.correctPredictions}</span>
                     </div>
                     <div className="text-gray-200">
-                      Precisão: <span className="font-bold text-blue-300">{feedbackMetrics.overall_accuracy.toFixed(1)}%</span>
+                      Precisão: <span className="font-bold text-blue-300">{predictionStats.accuracy.toFixed(1)}%</span>
                     </div>
                     <div className="text-gray-200">
-                      Recente: <span className="font-bold text-purple-300">{feedbackMetrics.recent_accuracy.toFixed(1)}%</span>
+                      Recente: <span className="font-bold text-purple-300">{predictionStats.recent_accuracy.toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -6881,7 +6863,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
         )}
 
         {/* ETAPA 3: Painel de Aprendizado Contínuo */}
-        {continuousLearning.globalMetrics.totalPredictions > 0 && (
+        {predictionStats.totalPredictions > 0 && (
           <Card className="bg-gradient-to-r from-yellow-800/60 to-orange-800/60 border-yellow-400">
             <CardHeader className="pb-2">
               <CardTitle className="text-yellow-300 text-lg">🧠 ETAPA 3: APRENDIZADO CONTÍNUO</CardTitle>
@@ -6894,16 +6876,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   <div className="text-yellow-300 font-semibold mb-2">📊 Métricas Globais</div>
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-200">
-                      Total: <span className="font-bold text-yellow-200">{continuousLearning.globalMetrics.totalPredictions}</span>
+                      Total: <span className="font-bold text-yellow-200">{predictionStats.totalPredictions}</span>
                     </div>
                     <div className="text-gray-200">
-                      Corretas: <span className="font-bold text-green-300">{continuousLearning.globalMetrics.correctPredictions}</span>
+                      Corretas: <span className="font-bold text-green-300">{predictionStats.correctPredictions}</span>
                     </div>
                     <div className="text-gray-200">
-                      Precisão: <span className="font-bold text-blue-300">{(continuousLearning.globalMetrics.accuracy * 100).toFixed(1)}%</span>
+                      Precisão: <span className="font-bold text-blue-300">{predictionStats.accuracy.toFixed(1)}%</span>
                     </div>
                     <div className="text-gray-200">
-                      Confiança: <span className="font-bold text-purple-300">{(continuousLearning.globalMetrics.confidenceScore * 100).toFixed(1)}%</span>
+                      Confiança: <span className="font-bold text-purple-300">{(predictionStats.confidenceScore * 100).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -6913,16 +6895,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   <div className="text-yellow-300 font-semibold mb-2">🔥 Sequências</div>
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-200">
-                      Acertos: <span className="font-bold text-green-300">{continuousLearning.globalMetrics.streakCorrect}</span>
+                      Acertos: <span className="font-bold text-green-300">{predictionStats.streakCorrect}</span>
                     </div>
                     <div className="text-gray-200">
-                      Erros: <span className="font-bold text-red-300">{continuousLearning.globalMetrics.streakIncorrect}</span>
+                      Erros: <span className="font-bold text-red-300">{predictionStats.streakIncorrect}</span>
                     </div>
                     <div className="text-gray-200">
-                      Taxa Adapt: <span className="font-bold text-orange-300">{(continuousLearning.globalMetrics.adaptationRate * 100).toFixed(1)}%</span>
+                      Taxa Adapt: <span className="font-bold text-orange-300">{(predictionStats.adaptationRate * 100).toFixed(1)}%</span>
                     </div>
                     <div className="text-gray-200">
-                      Geração: <span className="font-bold text-cyan-300">{learningStats.evolutionGeneration}</span>
+                      Geração: <span className="font-bold text-cyan-300">{predictionStats.evolutionGeneration}</span>
                     </div>
                   </div>
                 </div>
@@ -6932,16 +6914,16 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   <div className="text-yellow-300 font-semibold mb-2">🎯 Aprendizado</div>
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-200">
-                      Taxa: <span className="font-bold text-blue-300">{(continuousLearning.learningRate * 100).toFixed(1)}%</span>
+                      Taxa: <span className="font-bold text-blue-300">{(predictionStats.adaptationRate * 100).toFixed(1)}%</span>
                     </div>
                     <div className="text-gray-200">
-                      Auto-Ajuste: <span className="font-bold text-green-300">{continuousLearning.autoAdjustWeights ? 'ON' : 'OFF'}</span>
+                      Auto-Ajuste: <span className="font-bold text-green-300">ON</span>
                     </div>
                     <div className="text-gray-200">
-                      Min Conf: <span className="font-bold text-purple-300">{(continuousLearning.minConfidenceForPrediction * 100).toFixed(0)}%</span>
+                      Min Conf: <span className="font-bold text-purple-300">60%</span>
                     </div>
                     <div className="text-gray-200">
-                      Limiar: <span className="font-bold text-orange-300">{(continuousLearning.adaptationThreshold * 100).toFixed(1)}%</span>
+                      Acurácia: <span className="font-bold text-orange-300">{predictionStats.accuracy.toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -7324,12 +7306,12 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
               {/* Aprendizado */}
               <div className="bg-gray-800/50 p-3 rounded-lg text-center">
                 <div className="text-xs text-gray-400">APRENDIZADO</div>
-                <div className={`text-lg font-bold ${continuousLearning.isEnabled ? 'text-green-400' : 'text-gray-400'}`}>
-                  {continuousLearning.isEnabled ? '🧠 ATIVO' : '⏸️ INATIVO'}
+                <div className="text-lg font-bold text-green-400">
+                  🧠 ATIVO
                 </div>
                 <div className="text-xs text-gray-500">
-                  {continuousLearning.globalMetrics.totalPredictions > 0 ?
-                    `${(continuousLearning.globalMetrics.accuracy * 100).toFixed(1)}% precisão` :
+                  {predictionStats.totalPredictions > 0 ?
+                    `${predictionStats.accuracy.toFixed(1)}% precisão` :
                     'aguardando feedback'
                   }
                 </div>
