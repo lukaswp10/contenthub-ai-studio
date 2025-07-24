@@ -556,6 +556,8 @@ export class FeedbackLoopService {
 
       if (!error && data) {
         console.log(`📊 Carregados ${data.length} feedbacks históricos`)
+      } else if (error) {
+        console.warn('⚠️ Erro carregando feedbacks históricos (tabela pode não existir ainda):', error)
       }
     } catch (error) {
       console.warn('⚠️ Erro carregando feedbacks históricos:', error)
@@ -741,7 +743,7 @@ export class FeedbackLoopService {
         })
 
       if (error) {
-        console.log('⚠️ Tabela de feedback não existe no Supabase (ignorando)')
+        console.log('⚠️ Erro salvando feedback no Supabase (tabela pode não existir ainda):', error)
       } else {
         logThrottled('feedback-saved', '💾 Feedback salvo no Supabase')
       }
