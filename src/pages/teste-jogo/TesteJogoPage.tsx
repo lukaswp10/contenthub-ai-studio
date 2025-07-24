@@ -216,16 +216,7 @@ interface FeedbackEntry {
   algorithmContributions: { [key: string]: number };
 }
 
-interface ContinuousLearningState {
-  isEnabled: boolean;
-  learningRate: number;
-  adaptationThreshold: number;
-  minConfidenceForPrediction: number;
-  autoAdjustWeights: boolean;
-  feedbackHistory: FeedbackEntry[];
-  algorithmPerformances: AlgorithmPerformance[];
-  globalMetrics: LearningMetrics;
-}
+
 
 // ===================================================================
 // ETAPA 5: SISTEMA DE WEB WORKERS E PROCESSAMENTO PARALELO
@@ -5037,9 +5028,9 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
       console.log('🔒 Backup completo criado com sucesso');
       console.log(`📊 Dados salvos: ${backupData.data.results.length} registros`);
       console.log(`🧠 ML Patterns: ${backupData.data.mlPatterns.length} algoritmos`);
-      console.log(`📈 Learning: ${backupData.data.continuousLearning.feedbackHistory.length} feedbacks`);
+      console.log(`📈 Learning: ${backupData.data.learningStats.totalPredictions} feedbacks`);
 
-      alert(`🔒 Backup completo criado com sucesso!\n\nConteúdo:\n• ${backupData.data.results.length} registros\n• ${backupData.data.mlPatterns.length} algoritmos ML\n• ${backupData.data.continuousLearning.feedbackHistory.length} feedbacks\n• Qualidade: ${backupData.metadata.dataQuality.toFixed(1)}%`);
+      alert(`🔒 Backup completo criado com sucesso!\n\nConteúdo:\n• ${backupData.data.results.length} registros\n• ${backupData.data.mlPatterns.length} algoritmos ML\n• ${backupData.data.learningStats.totalPredictions} feedbacks\n• Qualidade: ${backupData.metadata.dataQuality.toFixed(1)}%`);
 
     } catch (error) {
       console.error('❌ Erro ao criar backup:', error);
@@ -6543,10 +6534,10 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                   <div className="text-emerald-300 font-semibold mb-2">🧬 Evolução</div>
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-200">
-                      Confiabilidade: <span className="font-bold text-orange-300">{feedbackMetrics.confidence_reliability.toFixed(1)}%</span>
+                      Confiabilidade: <span className="font-bold text-orange-300">{predictionStats.confidence_reliability.toFixed(1)}%</span>
                     </div>
                     <div className="text-gray-200">
-                      Tempo Resposta: <span className="font-bold text-blue-300">{feedbackMetrics.average_response_time.toFixed(1)}s</span>
+                      Tempo Resposta: <span className="font-bold text-blue-300">{predictionStats.average_response_time.toFixed(1)}s</span>
                     </div>
                     <div className="text-gray-200">
                       Predições Pendentes: <span className="font-bold text-yellow-300">{pendingPredictions}</span>
@@ -6940,17 +6931,17 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       {feedbackMode ? '🔄 Modo Ativo' : '📝 Feedback'}
                     </Button>
                     <Button
-                      onClick={() => setContinuousLearning(prev => ({ 
+                      onClick={() => setPredictionStats(prev => ({ 
                         ...prev, 
-                        autoAdjustWeights: !prev.autoAdjustWeights 
+                        adaptationRate: prev.adaptationRate > 0.1 ? 0.05 : 0.15 
                       }))}
                       className={`w-full text-xs py-1 ${
-                        continuousLearning.autoAdjustWeights 
+                        predictionStats.adaptationRate > 0.1 
                           ? 'bg-blue-600 hover:bg-blue-500' 
                           : 'bg-gray-600 hover:bg-gray-500'
                       }`}
                     >
-                      {continuousLearning.autoAdjustWeights ? '🤖 Auto-ON' : '⚙️ Manual'}
+                      {predictionStats.adaptationRate > 0.1 ? '🤖 Auto-ON' : '⚙️ Manual'}
                     </Button>
                   </div>
                 </div>
@@ -7232,7 +7223,7 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                 )}
 
                 {/* Ação de Feedback */}
-                {!feedbackMode && continuousLearning.isEnabled && (
+                {!feedbackMode && predictionStats.totalPredictions > 0 && (
                   <div className="text-center">
                     <Button
                       onClick={startFeedbackMode}
