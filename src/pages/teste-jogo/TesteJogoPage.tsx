@@ -8,6 +8,8 @@ import { advancedMLService } from '@/services/advancedMLPredictionService'
 import { predictionAccuracyService } from '@/services/predictionAccuracyService'
 import { realDataFrequencyAnalyzer, type AdvancedFrequencyAnalysis } from '@/services/realDataFrequencyAnalysis'
 import { confidenceEngine, type ConfidenceMetrics } from '@/services/confidenceEngine'
+import { temporalPatternAnalyzer, type AdvancedTemporalAnalysis } from '@/services/temporalPatternAnalysis'
+import { realTimeAlertSystem, type Alert } from '@/services/realTimeAlerts'
 import { logThrottled, logAlways, logDebug } from '@/utils/logThrottler'
 
 // ===================================================================
@@ -794,6 +796,8 @@ export default function TesteJogoPage() {
   const [prediction, setPrediction] = useState<PredictionResult | null>(null)
   const [frequencyAnalysis, setFrequencyAnalysis] = useState<AdvancedFrequencyAnalysis | null>(null)
   const [confidenceMetrics, setConfidenceMetrics] = useState<ConfidenceMetrics | null>(null)
+  const [temporalAnalysis, setTemporalAnalysis] = useState<AdvancedTemporalAnalysis | null>(null)
+  const [activeAlerts, setActiveAlerts] = useState<Alert[]>([])
   const [stats, setStats] = useState({ red: 0, black: 0, white: 0, total: 0 })
   const [isProcessing, setIsProcessing] = useState(false)
   const [inputError, setInputError] = useState('')
@@ -2792,6 +2796,16 @@ export default function TesteJogoPage() {
       console.log(`   ⏰ Pressão: ${frequencyAnalysisResult.statisticalPressure.overallTension.toFixed(1)}`)
       console.log(`   📈 Predição Ajustada: R:${frequencyAnalysisResult.adjustedPrediction.red.toFixed(1)}% B:${frequencyAnalysisResult.adjustedPrediction.black.toFixed(1)}% W:${frequencyAnalysisResult.adjustedPrediction.white.toFixed(1)}%`)
       
+      // 🕐 NOVA ETAPA: ANÁLISE TEMPORAL AVANÇADA COM DADOS REAIS
+      console.log(`🕐 EXECUTANDO ANÁLISE TEMPORAL AVANÇADA...`)
+      const temporalAnalysisResult = temporalPatternAnalyzer.analyzeTemporalPatterns(resultsList)
+      setTemporalAnalysis(temporalAnalysisResult)
+      
+      console.log(`✅ ANÁLISE TEMPORAL CONCLUÍDA:`)
+      console.log(`   🕐 Melhor Hora: ${temporalAnalysisResult.timeBasedTrends.strongestHourlyBias.hour}h (${temporalAnalysisResult.timeBasedTrends.strongestHourlyBias.color}) - ${temporalAnalysisResult.timeBasedTrends.strongestHourlyBias.strength.toFixed(1)}%`)
+      console.log(`   📅 Melhor Dia: ${temporalAnalysisResult.timeBasedTrends.strongestDailyBias.dayName} (${temporalAnalysisResult.timeBasedTrends.strongestDailyBias.color}) - ${temporalAnalysisResult.timeBasedTrends.strongestDailyBias.strength.toFixed(1)}%`)
+      console.log(`   🚨 Recomendação Atual: ${temporalAnalysisResult.temporalAlerts.timeRecommendation} | Hora Ótima: ${temporalAnalysisResult.temporalAlerts.isOptimalTime ? 'SIM' : 'NÃO'}`)
+      
       // 🧠 ETAPA: CALCULAR CONFIANÇA MULTI-DIMENSIONAL
       let confidenceMetricsResult: ConfidenceMetrics | null = null;
       
@@ -2846,6 +2860,30 @@ export default function TesteJogoPage() {
         
         console.log(`🧠 CONFIANÇA CALCULADA: ${confidenceMetricsResult.finalConfidence}% | ${confidenceMetricsResult.recommendation}`);
         console.log(`🎯 Fatores principais: ${confidenceMetricsResult.reasoning.join(', ')}`);
+        
+        // 🚨 ETAPA: VERIFICAR ALERTAS EM TEMPO REAL
+        console.log(`🚨 VERIFICANDO ALERTAS EM TEMPO REAL...`);
+        const alertContext = {
+          frequencyAnalysis: frequencyAnalysisResult,
+          confidenceMetrics: confidenceMetricsResult,
+          temporalAnalysis: temporalAnalysisResult,
+          historicalResults: resultsList,
+          currentPrediction: traditionalPrediction,
+          lastResults: resultsList.slice(-10),
+          currentAccuracy: predictionStats.accuracy,
+          recentPerformance: [predictionStats.recent_accuracy || predictionStats.accuracy],
+          dataVolume: resultsList.length
+        };
+        
+        const newAlerts = realTimeAlertSystem.checkAlerts(alertContext);
+        setActiveAlerts(realTimeAlertSystem.getActiveAlerts());
+        
+        if (newAlerts.length > 0) {
+          console.log(`🚨 ${newAlerts.length} NOVOS ALERTAS GERADOS:`);
+          newAlerts.forEach(alert => {
+            console.log(`   ${alert.priority}: ${alert.title} - ${alert.message}`);
+          });
+        }
         
         setPrediction(traditionalPrediction)
         
@@ -6034,6 +6072,265 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
                       <div>• {confidenceMetrics.historicalAccuracy.description}</div>
                       <div>• {confidenceMetrics.dataQuality.description}</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 🕐 ANÁLISE TEMPORAL AVANÇADA - DADOS REAIS */}
+        {temporalAnalysis && (
+          <Card className="bg-gradient-to-r from-orange-600/90 to-amber-600/90 border-2 border-orange-400 shadow-xl">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 bg-orange-400 rounded-full animate-pulse"></div>
+                  <span className="text-orange-100 font-bold text-xl">🕐 ANÁLISE TEMPORAL AVANÇADA</span>
+                  <div className="w-4 h-4 bg-orange-400 rounded-full animate-pulse"></div>
+                </div>
+                
+                {/* Status Atual */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-orange-700/50 p-4 rounded-xl border border-orange-400">
+                    <div className="font-bold text-2xl text-orange-100">
+                      {temporalAnalysis.timeBasedTrends.currentHour}h
+                    </div>
+                    <div className="text-orange-200 font-semibold">🕐 HORA ATUAL</div>
+                    <div className={`text-xs mt-1 ${
+                      temporalAnalysis.temporalAlerts.timeRecommendation === 'EXCELLENT' ? 'text-green-300' :
+                      temporalAnalysis.temporalAlerts.timeRecommendation === 'GOOD' ? 'text-yellow-300' :
+                      temporalAnalysis.temporalAlerts.timeRecommendation === 'AVERAGE' ? 'text-orange-300' :
+                      'text-red-300'
+                    }`}>
+                      {temporalAnalysis.temporalAlerts.timeRecommendation}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-amber-700/50 p-4 rounded-xl border border-amber-400">
+                    <div className="font-bold text-2xl text-amber-100">
+                      {temporalAnalysis.timeBasedTrends.strongestHourlyBias.hour}h
+                    </div>
+                    <div className="text-amber-200 font-semibold">⭐ MELHOR HORA</div>
+                    <div className="text-xs text-amber-300 mt-1">
+                      {temporalAnalysis.timeBasedTrends.strongestHourlyBias.color.toUpperCase()} ({temporalAnalysis.timeBasedTrends.strongestHourlyBias.strength.toFixed(1)}%)
+                    </div>
+                  </div>
+                  
+                  <div className="bg-yellow-700/50 p-4 rounded-xl border border-yellow-400">
+                    <div className="font-bold text-2xl text-yellow-100">
+                      {temporalAnalysis.timeBasedTrends.strongestDailyBias.dayName}
+                    </div>
+                    <div className="text-yellow-200 font-semibold">📅 MELHOR DIA</div>
+                    <div className="text-xs text-yellow-300 mt-1">
+                      {temporalAnalysis.timeBasedTrends.strongestDailyBias.color.toUpperCase()} ({temporalAnalysis.timeBasedTrends.strongestDailyBias.strength.toFixed(1)}%)
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Predição Temporal */}
+                <div className="bg-gradient-to-r from-orange-600/40 to-amber-600/40 p-4 rounded-xl border border-orange-400 mb-4">
+                  <div className="text-orange-100 font-semibold mb-3">🎯 PREDIÇÃO TEMPORAL AJUSTADA</div>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="bg-red-700/50 p-3 rounded text-center">
+                      <div className="text-red-200 font-bold text-xl">
+                        {temporalAnalysis.timeBasedTrends.temporalPrediction.red.toFixed(1)}%
+                      </div>
+                      <div className="text-red-300">❤️ VERMELHO</div>
+                    </div>
+                    <div className="bg-gray-700/50 p-3 rounded text-center">
+                      <div className="text-gray-200 font-bold text-xl">
+                        {temporalAnalysis.timeBasedTrends.temporalPrediction.black.toFixed(1)}%
+                      </div>
+                      <div className="text-gray-300">🖤 PRETO</div>
+                    </div>
+                    <div className="bg-white/20 p-3 rounded text-center">
+                      <div className="text-white font-bold text-xl">
+                        {temporalAnalysis.timeBasedTrends.temporalPrediction.white.toFixed(1)}%
+                      </div>
+                      <div className="text-gray-200">🤍 BRANCO</div>
+                    </div>
+                  </div>
+                  <div className="text-orange-200 text-sm">
+                    Confiança: {temporalAnalysis.timeBasedTrends.temporalPrediction.confidence.toFixed(1)}%
+                  </div>
+                </div>
+                
+                {/* Momentum e Sessões */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="bg-orange-800/30 p-3 rounded-xl border border-orange-300">
+                    <div className="text-orange-200 font-semibold mb-2">📈 MOMENTUM TEMPORAL</div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Últimas 3h:</span>
+                        <span className="font-bold">
+                          {temporalAnalysis.temporalMomentum.last3Hours.direction.toUpperCase()} ({temporalAnalysis.temporalMomentum.last3Hours.strength.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Últimas 6h:</span>
+                        <span className="font-bold">
+                          {temporalAnalysis.temporalMomentum.last6Hours.direction.toUpperCase()} ({temporalAnalysis.temporalMomentum.last6Hours.strength.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tendência:</span>
+                        <span className={`font-bold ${
+                          temporalAnalysis.temporalMomentum.overallTrend !== 'stable' ? 'text-yellow-300' : 'text-gray-300'
+                        }`}>
+                          {temporalAnalysis.temporalMomentum.overallTrend.replace('increasing_', '').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-amber-800/30 p-3 rounded-xl border border-amber-300">
+                    <div className="text-amber-200 font-semibold mb-2">🏢 PADRÕES DE SESSÃO</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="text-center">
+                        <div className="text-amber-100">Manhã</div>
+                        <div className="text-xs">R:{temporalAnalysis.timeBasedTrends.sessionPatterns.morning.red.toFixed(0)}% P:{temporalAnalysis.timeBasedTrends.sessionPatterns.morning.black.toFixed(0)}%</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-amber-100">Tarde</div>
+                        <div className="text-xs">R:{temporalAnalysis.timeBasedTrends.sessionPatterns.afternoon.red.toFixed(0)}% P:{temporalAnalysis.timeBasedTrends.sessionPatterns.afternoon.black.toFixed(0)}%</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-amber-100">Noite</div>
+                        <div className="text-xs">R:{temporalAnalysis.timeBasedTrends.sessionPatterns.evening.red.toFixed(0)}% P:{temporalAnalysis.timeBasedTrends.sessionPatterns.evening.black.toFixed(0)}%</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-amber-100">Madrugada</div>
+                        <div className="text-xs">R:{temporalAnalysis.timeBasedTrends.sessionPatterns.night.red.toFixed(0)}% P:{temporalAnalysis.timeBasedTrends.sessionPatterns.night.black.toFixed(0)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Reasoning Temporal */}
+                {temporalAnalysis.timeBasedTrends.temporalPrediction.reasoning.length > 0 && (
+                  <div className="bg-orange-800/30 p-3 rounded-xl border border-orange-300">
+                    <div className="text-orange-200 font-semibold mb-2">🧠 ANÁLISE TEMPORAL:</div>
+                    <div className="space-y-1">
+                      {temporalAnalysis.timeBasedTrends.temporalPrediction.reasoning.map((reason, index) => (
+                        <div key={index} className="text-orange-100 text-sm">• {reason}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 🚨 SISTEMA DE ALERTAS EM TEMPO REAL */}
+        {activeAlerts.length > 0 && (
+          <Card className="bg-gradient-to-r from-red-600/90 to-pink-600/90 border-2 border-red-400 shadow-xl">
+            <CardContent className="pt-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-4 h-4 bg-red-400 rounded-full animate-pulse"></div>
+                  <span className="text-red-100 font-bold text-xl">🚨 ALERTAS EM TEMPO REAL</span>
+                  <div className="w-4 h-4 bg-red-400 rounded-full animate-pulse"></div>
+                  <div className="bg-red-800 px-2 py-1 rounded-full text-red-100 text-sm font-bold">
+                    {activeAlerts.length}
+                  </div>
+                </div>
+                
+                {/* Lista de Alertas */}
+                <div className="space-y-3">
+                  {activeAlerts.slice(0, 5).map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`p-3 rounded-xl border-2 ${
+                        alert.priority === 'CRITICAL' ? 'bg-red-800/60 border-red-300' :
+                        alert.priority === 'HIGH' ? 'bg-orange-800/60 border-orange-300' :
+                        alert.priority === 'MEDIUM' ? 'bg-yellow-800/60 border-yellow-300' :
+                        'bg-gray-800/60 border-gray-300'
+                      } ${alert.isRead ? 'opacity-70' : ''}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`font-bold text-sm ${
+                          alert.priority === 'CRITICAL' ? 'text-red-200' :
+                          alert.priority === 'HIGH' ? 'text-orange-200' :
+                          alert.priority === 'MEDIUM' ? 'text-yellow-200' :
+                          'text-gray-200'
+                        }`}>
+                          {alert.title}
+                        </div>
+                        <div className="flex gap-2">
+                          <div className={`px-2 py-1 rounded text-xs font-bold ${
+                            alert.priority === 'CRITICAL' ? 'bg-red-600 text-white' :
+                            alert.priority === 'HIGH' ? 'bg-orange-600 text-white' :
+                            alert.priority === 'MEDIUM' ? 'bg-yellow-600 text-black' :
+                            'bg-gray-600 text-white'
+                          }`}>
+                            {alert.priority}
+                          </div>
+                          <div className={`px-2 py-1 rounded text-xs ${
+                            alert.category === 'FREQUENCY' ? 'bg-blue-600 text-white' :
+                            alert.category === 'TEMPORAL' ? 'bg-purple-600 text-white' :
+                            alert.category === 'CONFIDENCE' ? 'bg-green-600 text-white' :
+                            alert.category === 'PATTERN' ? 'bg-indigo-600 text-white' :
+                            'bg-cyan-600 text-white'
+                          }`}>
+                            {alert.category}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-left text-sm text-white mb-2">
+                        {alert.message}
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="text-gray-300">
+                          {new Date(alert.timestamp).toLocaleTimeString('pt-BR')}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              realTimeAlertSystem.markAsRead(alert.id);
+                              setActiveAlerts(realTimeAlertSystem.getActiveAlerts());
+                            }}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                          >
+                            ✓ Ler
+                          </button>
+                          <button
+                            onClick={() => {
+                              realTimeAlertSystem.dismissAlert(alert.id);
+                              setActiveAlerts(realTimeAlertSystem.getActiveAlerts());
+                            }}
+                            className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
+                          >
+                            ✕ Dispensar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {activeAlerts.length > 5 && (
+                  <div className="mt-3 text-red-200 text-sm">
+                    ... e mais {activeAlerts.length - 5} alertas
+                  </div>
+                )}
+                
+                {/* Estatísticas dos Alertas */}
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div className="bg-red-800/30 p-2 rounded border border-red-500">
+                    <div className="text-red-200 text-xs">🚨 Ativos</div>
+                    <div className="text-red-100 font-bold">{realTimeAlertSystem.getAlertStats().active}</div>
+                  </div>
+                  <div className="bg-orange-800/30 p-2 rounded border border-orange-500">
+                    <div className="text-orange-200 text-xs">🔥 Críticos</div>
+                    <div className="text-orange-100 font-bold">{realTimeAlertSystem.getAlertStats().critical}</div>
+                  </div>
+                  <div className="bg-yellow-800/30 p-2 rounded border border-yellow-500">
+                    <div className="text-yellow-200 text-xs">📊 Hoje</div>
+                    <div className="text-yellow-100 font-bold">{realTimeAlertSystem.getAlertStats().todayTotal}</div>
                   </div>
                 </div>
               </div>
