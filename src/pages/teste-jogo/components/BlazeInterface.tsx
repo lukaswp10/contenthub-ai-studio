@@ -34,6 +34,9 @@ export function BlazeInterface() {
   // Estados para importação CSV
   const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // ✨ NOVO: Estado para controlar exibição de detalhes dos algoritmos
+  const [showAlgorithmDetails, setShowAlgorithmDetails] = useState(false)
 
   // Função para processar CSV
   const processCSVData = (csvText: string): BlazeNumberWithSource[] => {
@@ -284,6 +287,102 @@ export function BlazeInterface() {
                       </div>
                     </div>
                   </div>
+
+                  {/* ✨ NOVA SEÇÃO: Detalhes Individuais dos Algoritmos */}
+                  {currentPrediction?.extra?.algorithm_contributions && (
+                    <div className="border-t border-gray-600 pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-cyan-300">
+                          📊 DETALHES POR ALGORITMO
+                        </h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAlgorithmDetails(!showAlgorithmDetails)}
+                          className="text-cyan-300 border-cyan-300 hover:bg-cyan-300/10"
+                        >
+                          {showAlgorithmDetails ? '🙈 Ocultar' : '👁️ Mostrar'}
+                        </Button>
+                      </div>
+                      
+                      {showAlgorithmDetails && (
+                        <div className="space-y-2">
+                          {currentPrediction.extra.algorithm_contributions.map((contrib: any, index: number) => {
+                            const algorithmName = contrib.algorithm_id || 'ALGORITMO_DESCONHECIDO'
+                            const color = contrib.predicted_color || 'unknown'
+                            const number = contrib.predicted_number || 0
+                            const confidence = Math.round((contrib.confidence || 0) * 100)
+                            
+                            // Definir cores baseadas na predição do algoritmo
+                            const colorClasses = color === 'white' 
+                              ? 'bg-white text-black border-yellow-400' 
+                              : color === 'red' 
+                              ? 'bg-red-600 text-white border-red-400' 
+                              : 'bg-gray-700 text-white border-gray-400'
+                            
+                            return (
+                              <div 
+                                key={`${algorithmName}_${index}`}
+                                className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-600"
+                              >
+                                <div className="flex-1">
+                                  <div className="text-sm font-mono text-gray-300">
+                                    {algorithmName.replace(/_/g, ' ')}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-3">
+                                  <div className={`
+                                    px-3 py-1 rounded-lg border text-sm font-semibold
+                                    ${colorClasses}
+                                  `}>
+                                    {color.toUpperCase()} {number}
+                                  </div>
+                                  
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold text-blue-300">
+                                      {confidence}%
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          
+                          {/* Resumo estatístico */}
+                          <div className="mt-4 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+                            <div className="text-sm text-gray-400 mb-2">📈 Resumo Estatístico:</div>
+                            <div className="grid grid-cols-3 gap-4 text-xs">
+                              <div>
+                                <div className="text-gray-400">Total Algoritmos:</div>
+                                <div className="font-semibold text-cyan-300">
+                                  {currentPrediction.extra.algorithm_contributions.length}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400">Consenso:</div>
+                                <div className="font-semibold text-green-300">
+                                  {currentPrediction.extra.consensus_strength 
+                                    ? `${Math.round(currentPrediction.extra.consensus_strength * 100)}%`
+                                    : 'N/A'
+                                  }
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400">Estabilidade:</div>
+                                <div className="font-semibold text-purple-300">
+                                  {currentPrediction.extra.prediction_stability 
+                                    ? `${Math.round(currentPrediction.extra.prediction_stability * 100)}%`
+                                    : 'N/A'
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {waitingForResult && (
                     <div className="text-center p-3 bg-yellow-900/30 border border-yellow-400 rounded-lg">

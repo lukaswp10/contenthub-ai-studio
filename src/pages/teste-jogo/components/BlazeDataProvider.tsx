@@ -6,7 +6,7 @@
  */
 import React, { createContext, useContext, useEffect } from 'react'
 import { useBlazeData } from '../hooks/useBlazeData'
-import { useSmartEnsemblePrediction } from '../hooks/useSmartEnsemblePrediction'
+import { useSmartEnsemblePrediction, type ExtendedPrediction } from '../hooks/useSmartEnsemblePrediction'
 import { useAccuracyTracker } from '../hooks/useAccuracyTracker'
 import type { BlazeNumber } from '@/types/real-algorithms.types'
 
@@ -38,7 +38,7 @@ interface BlazeContextType {
   lastNumber: BlazeNumberWithSource | null
   
   // Predição
-  currentPrediction: Prediction | null
+  currentPrediction: ExtendedPrediction | null
   isGeneratingPrediction: boolean
   
   // Acurácia

@@ -16,7 +16,7 @@ import type { RealAlgorithmResult } from '@/types/real-algorithms.types'
 import { BLAZE_CONFIG } from '../config/BlazeConfig'
 
 // Estender interface Prediction para incluir informações extras
-interface ExtendedPrediction extends Prediction {
+export interface ExtendedPrediction extends Prediction {
   extra?: {
     consensus_strength?: number
     prediction_stability?: number
