@@ -311,7 +311,9 @@ export function BlazeInterface() {
                             const algorithmName = contrib.algorithm_id || 'ALGORITMO_DESCONHECIDO'
                             const color = contrib.predicted_color || 'unknown'
                             const number = contrib.predicted_number || 0
-                            const confidence = Math.round((contrib.confidence || 0) * 100)
+                            // ✅ CORREÇÃO: Normalizar porcentagens (alguns algoritmos já retornam em %, outros em decimal)
+                            const rawConfidence = contrib.confidence || 0
+                            const confidence = Math.round(rawConfidence > 1 ? rawConfidence : rawConfidence * 100)
                             
                             // Definir cores baseadas na predição do algoritmo
                             const colorClasses = color === 'white' 
@@ -359,24 +361,28 @@ export function BlazeInterface() {
                                   {currentPrediction.extra.algorithm_contributions.length}
                                 </div>
                               </div>
-                              <div>
-                                <div className="text-gray-400">Consenso:</div>
-                                <div className="font-semibold text-green-300">
-                                  {currentPrediction.extra.consensus_strength 
-                                    ? `${Math.round(currentPrediction.extra.consensus_strength * 100)}%`
-                                    : 'N/A'
-                                  }
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-gray-400">Estabilidade:</div>
-                                <div className="font-semibold text-purple-300">
-                                  {currentPrediction.extra.prediction_stability 
-                                    ? `${Math.round(currentPrediction.extra.prediction_stability * 100)}%`
-                                    : 'N/A'
-                                  }
-                                </div>
-                              </div>
+                                                             <div>
+                                 <div className="text-gray-400">Consenso:</div>
+                                 <div className="font-semibold text-green-300">
+                                   {currentPrediction.extra.consensus_strength 
+                                     ? `${Math.round(currentPrediction.extra.consensus_strength > 1 
+                                         ? currentPrediction.extra.consensus_strength 
+                                         : currentPrediction.extra.consensus_strength * 100)}%`
+                                     : 'N/A'
+                                   }
+                                 </div>
+                               </div>
+                               <div>
+                                 <div className="text-gray-400">Estabilidade:</div>
+                                 <div className="font-semibold text-purple-300">
+                                   {currentPrediction.extra.prediction_stability 
+                                     ? `${Math.round(currentPrediction.extra.prediction_stability > 1 
+                                         ? currentPrediction.extra.prediction_stability 
+                                         : currentPrediction.extra.prediction_stability * 100)}%`
+                                     : 'N/A'
+                                   }
+                                 </div>
+                               </div>
                             </div>
                           </div>
                         </div>
