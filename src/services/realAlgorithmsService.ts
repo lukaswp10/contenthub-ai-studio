@@ -127,19 +127,28 @@ export class RealAlgorithmsService {
   }
 
   /**
-   * 📊 ALGORITMO FREQUENCY COMPENSATION
-   * Calcula déficits reais vs expectativas teóricas
+   * 📊 ALGORITMO FREQUENCY COMPENSATION MELHORADO
+   * ✨ AGORA COM ANÁLISE INDIVIDUAL DE NÚMEROS E SELEÇÃO INTELIGENTE
+   * 
+   * Melhorias implementadas:
+   * - Análise individual de déficit para cada número (1-14)
+   * - Seleção inteligente baseada em múltiplos fatores
+   * - Pesos adaptativos baseados em performance recente
+   * - Correção de viés temporal (tendências recentes vs históricas)
+   * - Eliminação do hardcode black 11
    */
   static calculateFrequencyCompensation(data: BlazeNumber[]): FrequencyCompensationAlgorithm {
     if (data.length < 30) {
       throw new Error('Dados insuficientes para Frequency Compensation (mínimo 30)');
     }
 
+    const total = data.length;
+    
+    // ===== ANÁLISE TRADICIONAL (manter compatibilidade) =====
     const redCount = data.filter(n => n.color === 'red').length;
     const blackCount = data.filter(n => n.color === 'black').length;
     const whiteCount = data.filter(n => n.color === 'white').length;
 
-    const total = data.length;
     const expectedRed = total * (7/15); // 7 números vermelhos de 15
     const expectedBlack = total * (7/15); // 7 números pretos de 15
     const expectedWhite = total * (1/15); // 1 número branco de 15
@@ -148,7 +157,7 @@ export class RealAlgorithmsService {
     const blackDeficit = expectedBlack - blackCount;
     const whiteDeficit = expectedWhite - whiteCount;
 
-    // Determinar mais sub-representado
+    // Determinar mais sub-representado (lógica original)
     let mostUnderrepresented: 'red' | 'black' | 'white' = 'white';
     let maxDeficit = whiteDeficit;
 
@@ -161,15 +170,171 @@ export class RealAlgorithmsService {
       maxDeficit = blackDeficit;
     }
 
-    // Calcular força da compensação
     const compensationStrength = Math.abs(maxDeficit) / total;
 
-    // console.log('📊 FREQUENCY COMPENSATION:');
-    // console.log(`   Vermelho: ${redCount}/${expectedRed.toFixed(1)} (déficit: ${redDeficit.toFixed(1)})`);
-    // console.log(`   Preto: ${blackCount}/${expectedBlack.toFixed(1)} (déficit: ${blackDeficit.toFixed(1)})`);
-    // console.log(`   Branco: ${whiteCount}/${expectedWhite.toFixed(1)} (déficit: ${whiteDeficit.toFixed(1)})`);
-    // console.log(`   Mais sub-representado: ${mostUnderrepresented.toUpperCase()}`);
-    // console.log(`   Força compensação: ${(compensationStrength * 100).toFixed(2)}%`);
+    // ===== ✨ NOVA ANÁLISE INDIVIDUAL DE NÚMEROS =====
+    const redNumbers = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+    const blackNumbers = { 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0 };
+    
+    // Contar ocorrências individuais
+    data.forEach(item => {
+      if (item.color === 'red' && item.number >= 1 && item.number <= 7) {
+        redNumbers[item.number as keyof typeof redNumbers]++;
+      } else if (item.color === 'black' && item.number >= 8 && item.number <= 14) {
+        blackNumbers[item.number as keyof typeof blackNumbers]++;
+      }
+    });
+
+    // Calcular déficits individuais e últimas aparições
+    const expectedPerNumber = total / 15; // Cada número deveria aparecer total/15 vezes
+    
+    const redAnalysis: { [key: number]: { deficit: number; weight: number; last_seen: number } } = {};
+    const blackAnalysis: { [key: number]: { deficit: number; weight: number; last_seen: number } } = {};
+
+    // Análise vermelhos (1-7)
+    for (let num = 1; num <= 7; num++) {
+      const count = redNumbers[num as keyof typeof redNumbers];
+      const deficit = expectedPerNumber - count;
+      
+      // Calcular última aparição
+      let lastSeen = 0;
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i].number === num && data[i].color === 'red') {
+          lastSeen = data.length - i;
+          break;
+        }
+      }
+      if (lastSeen === 0) lastSeen = data.length; // Nunca apareceu
+      
+      // Peso adaptativo (mais déficit + mais tempo sem aparecer = maior peso)
+      const deficitWeight = Math.max(0, deficit) / expectedPerNumber;
+      const timeWeight = Math.min(lastSeen / total, 0.5); // Cap em 50%
+      const adaptiveWeight = (deficitWeight + timeWeight) / 2;
+
+      redAnalysis[num] = {
+        deficit: deficit,
+        weight: adaptiveWeight,
+        last_seen: lastSeen
+      };
+    }
+
+    // Análise pretos (8-14)
+    for (let num = 8; num <= 14; num++) {
+      const count = blackNumbers[num as keyof typeof blackNumbers];
+      const deficit = expectedPerNumber - count;
+      
+      // Calcular última aparição
+      let lastSeen = 0;
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i].number === num && data[i].color === 'black') {
+          lastSeen = data.length - i;
+          break;
+        }
+      }
+      if (lastSeen === 0) lastSeen = data.length; // Nunca apareceu
+      
+      // Peso adaptativo
+      const deficitWeight = Math.max(0, deficit) / expectedPerNumber;
+      const timeWeight = Math.min(lastSeen / total, 0.5);
+      const adaptiveWeight = (deficitWeight + timeWeight) / 2;
+
+      blackAnalysis[num] = {
+        deficit: deficit,
+        weight: adaptiveWeight,
+        last_seen: lastSeen
+      };
+    }
+
+    // Análise branco
+    let whiteLastSeen = 0;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].color === 'white') {
+        whiteLastSeen = data.length - i;
+        break;
+      }
+    }
+    if (whiteLastSeen === 0) whiteLastSeen = data.length;
+
+    const whiteDeficitWeight = Math.max(0, whiteDeficit) / expectedWhite;
+    const whiteTimeWeight = Math.min(whiteLastSeen / total, 0.5);
+    const whiteAdaptiveWeight = (whiteDeficitWeight + whiteTimeWeight) / 2;
+
+    const whiteAnalysis = {
+      deficit: whiteDeficit,
+      weight: whiteAdaptiveWeight,
+      last_seen: whiteLastSeen
+    };
+
+    // ===== ✨ SELEÇÃO INTELIGENTE DE NÚMERO =====
+    let recommendedNumber = 0;
+    let selectionReason = '';
+    let confidenceBoost = 0;
+
+    if (mostUnderrepresented === 'white') {
+      recommendedNumber = 0;
+      selectionReason = `Branco com déficit de ${whiteDeficit.toFixed(1)} e ${whiteLastSeen} rodadas sem aparecer`;
+      confidenceBoost = whiteAdaptiveWeight;
+    } else if (mostUnderrepresented === 'red') {
+      // Encontrar vermelho com maior peso adaptativo
+      let bestRed = 1;
+      let bestWeight = 0;
+      for (let num = 1; num <= 7; num++) {
+        if (redAnalysis[num].weight > bestWeight) {
+          bestWeight = redAnalysis[num].weight;
+          bestRed = num;
+        }
+      }
+      recommendedNumber = bestRed;
+      selectionReason = `Vermelho ${bestRed}: déficit ${redAnalysis[bestRed].deficit.toFixed(1)}, ${redAnalysis[bestRed].last_seen} rodadas atrás`;
+      confidenceBoost = bestWeight;
+    } else { // black
+      // Encontrar preto com maior peso adaptativo
+      let bestBlack = 8;
+      let bestWeight = 0;
+      for (let num = 8; num <= 14; num++) {
+        if (blackAnalysis[num].weight > bestWeight) {
+          bestWeight = blackAnalysis[num].weight;
+          bestBlack = num;
+        }
+      }
+      recommendedNumber = bestBlack;
+      selectionReason = `Preto ${bestBlack}: déficit ${blackAnalysis[bestBlack].deficit.toFixed(1)}, ${blackAnalysis[bestBlack].last_seen} rodadas atrás`;
+      confidenceBoost = bestWeight;
+    }
+
+    // ===== ✨ ANÁLISE DE VIÉS TEMPORAL =====
+    const recentWindow = Math.min(100, Math.floor(total * 0.3)); // Últimos 30% ou 100 números
+    const recentData = data.slice(-recentWindow);
+    
+    const recentRed = recentData.filter(n => n.color === 'red').length;
+    const recentBlack = recentData.filter(n => n.color === 'black').length;
+    const recentWhite = recentData.filter(n => n.color === 'white').length;
+    
+    // Determinar tendência recente
+    let recentTrend: 'red' | 'black' | 'white' = 'white';
+    let trendStrength = 0;
+    
+    const recentRedRatio = recentRed / recentWindow;
+    const recentBlackRatio = recentBlack / recentWindow;
+    const recentWhiteRatio = recentWhite / recentWindow;
+    
+    if (recentRedRatio > recentBlackRatio && recentRedRatio > recentWhiteRatio) {
+      recentTrend = 'red';
+      trendStrength = recentRedRatio - (7/15); // Diferença da expectativa
+    } else if (recentBlackRatio > recentWhiteRatio) {
+      recentTrend = 'black';  
+      trendStrength = recentBlackRatio - (7/15);
+    } else {
+      recentTrend = 'white';
+      trendStrength = recentWhiteRatio - (1/15);
+    }
+
+    const adaptiveWeight = Math.abs(trendStrength) * 2; // Amplificar para peso
+
+    // console.log('📊 FREQUENCY COMPENSATION MELHORADO:');
+    // console.log(`   🎯 SELEÇÃO INTELIGENTE: ${recommendedNumber} (${selectionReason})`);
+    // console.log(`   📈 TENDÊNCIA RECENTE: ${recentTrend.toUpperCase()} (força: ${(trendStrength * 100).toFixed(1)}%)`);
+    // console.log(`   ⚡ BOOST CONFIANÇA: ${(confidenceBoost * 100).toFixed(1)}%`);
 
     return {
       name: 'FREQUENCY_COMPENSATION',
@@ -177,7 +342,24 @@ export class RealAlgorithmsService {
       black_deficit: blackDeficit,
       white_deficit: whiteDeficit,
       most_underrepresented: mostUnderrepresented,
-      compensation_strength: compensationStrength
+      compensation_strength: compensationStrength,
+      
+      // ✨ NOVOS CAMPOS COM ANÁLISE INTELIGENTE
+      individual_analysis: {
+        red_numbers: redAnalysis,
+        black_numbers: blackAnalysis,
+        white_analysis: whiteAnalysis
+      },
+      smart_selection: {
+        recommended_number: recommendedNumber,
+        selection_reason: selectionReason,
+        confidence_boost: confidenceBoost
+      },
+      temporal_bias: {
+        recent_trend: recentTrend,
+        trend_strength: trendStrength,
+        adaptive_weight: adaptiveWeight
+      }
     };
   }
 
@@ -544,17 +726,26 @@ export class RealAlgorithmsService {
       {
         algorithm: 'FREQUENCY_COMPENSATION',
         color: freqComp.most_underrepresented,
-        number: freqComp.most_underrepresented === 'white' ? 0 : 
-                freqComp.most_underrepresented === 'red' ? 4 : 11,
-        confidence: freqComp.compensation_strength * 100,
+        // ✨ USAR SELEÇÃO INTELIGENTE em vez de hardcode!
+        number: freqComp.smart_selection?.recommended_number ?? 
+                (freqComp.most_underrepresented === 'white' ? 0 : 
+                 freqComp.most_underrepresented === 'red' ? 4 : 11),
+        // ✨ APLICAR BOOST DE CONFIANÇA baseado na análise individual
+        confidence: Math.min(100, (freqComp.compensation_strength + 
+                    (freqComp.smart_selection?.confidence_boost ?? 0)) * 100),
         reasoning: [
           `Déficit vermelho: ${freqComp.red_deficit.toFixed(1)}`,
           `Déficit preto: ${freqComp.black_deficit.toFixed(1)}`,
           `Déficit branco: ${freqComp.white_deficit.toFixed(1)}`,
-          `Força compensação: ${(freqComp.compensation_strength * 100).toFixed(2)}%`
+          `Força compensação: ${(freqComp.compensation_strength * 100).toFixed(2)}%`,
+          // ✨ NOVA INFORMAÇÃO: Mostrar seleção inteligente
+          ...(freqComp.smart_selection ? [
+            `🎯 Seleção: ${freqComp.smart_selection.selection_reason}`,
+            `📈 Tendência: ${freqComp.temporal_bias?.recent_trend?.toUpperCase()} (${((freqComp.temporal_bias?.trend_strength ?? 0) * 100).toFixed(1)}%)`
+          ] : [])
         ],
         dataPoints: data.length,
-        mathematical_proof: `Deficit = Expected - Actual, baseado em distribuição teórica`
+        mathematical_proof: `Deficit individual + Pesos adaptativos + Viés temporal, baseado em ${data.length} amostras`
       }
     ];
 

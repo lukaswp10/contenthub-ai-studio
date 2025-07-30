@@ -47,6 +47,23 @@ export interface FrequencyCompensationAlgorithm {
   white_deficit: number; // Déficit real vs expectativa teórica
   most_underrepresented: 'red' | 'black' | 'white';
   compensation_strength: number; // Força da compensação baseada em dados
+  
+  // ✨ NOVOS CAMPOS PARA ANÁLISE INTELIGENTE (opcionais para não quebrar)
+  individual_analysis?: {
+    red_numbers: { [key: number]: { deficit: number; weight: number; last_seen: number } };
+    black_numbers: { [key: number]: { deficit: number; weight: number; last_seen: number } };
+    white_analysis: { deficit: number; weight: number; last_seen: number };
+  };
+  smart_selection?: {
+    recommended_number: number;
+    selection_reason: string;
+    confidence_boost: number;
+  };
+  temporal_bias?: {
+    recent_trend: 'red' | 'black' | 'white';
+    trend_strength: number;
+    adaptive_weight: number;
+  };
 }
 
 export interface GapAnalysisAlgorithm {
