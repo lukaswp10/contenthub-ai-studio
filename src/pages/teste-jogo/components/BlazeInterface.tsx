@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useBlazeContext } from './BlazeDataProvider'
 import type { BlazeNumberWithSource } from './BlazeDataProvider'
+import { WhiteTimingPanel } from '@/components/WhiteTimingPanel'
+import { useWhiteTimingAnalysis } from '../hooks/useWhiteTimingAnalysis'
 
 export function BlazeInterface() {
   const {
@@ -37,6 +39,9 @@ export function BlazeInterface() {
   
   // ✨ NOVO: Estado para controlar exibição de detalhes dos algoritmos
   const [showAlgorithmDetails, setShowAlgorithmDetails] = useState(false)
+  
+  // 🤍 NOVO: Hook para análise de timing do branco
+  const whiteTimingAnalysis = useWhiteTimingAnalysis(numbers)
 
   // Função para processar CSV
   const processCSVData = (csvText: string): BlazeNumberWithSource[] => {
@@ -465,6 +470,12 @@ export function BlazeInterface() {
             )}
           </CardContent>
         </Card>
+
+        {/* 🤍 NOVA SEÇÃO: Analisador de Timing do Branco */}
+        <WhiteTimingPanel 
+          timingResult={whiteTimingAnalysis.timingResult}
+          isLoading={whiteTimingAnalysis.isAnalyzing}
+        />
 
         {/* Controls */}
         <div className="text-center space-y-2">
