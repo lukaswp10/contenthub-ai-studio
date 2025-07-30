@@ -85,6 +85,12 @@ class BlazeRealDataService {
   private waitingLogCount: number = 0
   private readonly LOG_THROTTLE_INTERVAL = 30000 // Log "waiting" apenas a cada 30 segundos
   
+  // ✅ SISTEMA ANTI-LOOP: Controle de predições ML
+  private lastMLPredictionTime: number = 0
+  private lastMLPredictionData: string = ''
+  private readonly ML_PREDICTION_COOLDOWN = 30000 // Predição ML apenas a cada 30 segundos
+  private processedDataHashes = new Set<string>()
+  
   // URL do nosso proxy local
   private readonly PROXY_URL = '/api/blaze-proxy'
 
@@ -204,11 +210,13 @@ class BlazeRealDataService {
       } else if (Array.isArray(result) && result.length > 0) {
         // Formato Vite proxy: Array direto da Blaze
         const game = result[0];
+        // ✅ CORREÇÃO: Gerar ID apenas uma vez
+        const optimizedId = this.generateOptimizedId(game.id);
         data = {
           id: game.id,
           number: game.roll,
           color: this.mapColor(game.roll, game.color),
-          round_id: game.id,
+          round_id: optimizedId, // ✅ USAR O MESMO ID
           timestamp_blaze: game.created_at,
           source: 'blaze_proxy_vite'
         };
@@ -221,7 +229,8 @@ class BlazeRealDataService {
       
       // Configurar para usar proxy local
       this.currentStrategy = 'PROXY_DADOS_REAIS_AUTOMATICO'
-      this.lastKnownRound = data.id || data.round_id
+      // ✅ CORREÇÃO: Usar o round_id que já foi gerado ou o ID original
+      this.lastKnownRound = data.round_id || this.generateOptimizedId(data.id)
       
       // Processar primeiro dado
       await this.processRealData(data)
@@ -302,7 +311,7 @@ class BlazeRealDataService {
       console.log(`📊 Primeiro jogo detectado: ${data.number} (ID: ${data.round_id})`)
       
       this.currentStrategy = 'PROXY_DADOS_REAIS'
-      this.lastKnownRound = data.round_id
+      this.lastKnownRound = this.generateOptimizedId(data.round_id)
       this.startProxyPolling()
       
     } catch (error) {
@@ -331,12 +340,12 @@ class BlazeRealDataService {
    * POLLING VIA PROXY
    */
   private startProxyPolling(): void {
-    console.log('🚀 Iniciando polling via proxy a cada 2 segundos (TEMPO REAL)...')
+    console.log('🚀 Iniciando polling via proxy a cada 5 segundos (OTIMIZADO ANTI-LOOP)...')
     
-    // Polling a cada 2 segundos para captura mais rápida
+    // ✅ POLLING OTIMIZADO: 5 segundos para reduzir sobrecarga
     this.pollingInterval = setInterval(() => {
       this.checkViaProxy()
-    }, 2000) // Reduzido para captura mais frequente
+    }, 5000) // Otimizado para reduzir loops
   }
 
   /**
@@ -376,7 +385,7 @@ class BlazeRealDataService {
             id: game.id,
             number: game.roll,
             color: this.mapColor(game.roll, game.color),
-            round_id: game.id,
+            round_id: game.id, // ✅ USAR ID ORIGINAL DA BLAZE
             timestamp_blaze: game.created_at,
             source: 'blaze_proxy_api'
           };
@@ -389,8 +398,8 @@ class BlazeRealDataService {
         throw new Error('Resposta não é JSON válido')
       }
       
-      // Verificar se dados são válidos (aceita id ou round_id)
-      const gameId = data.round_id || data.id
+      // ✅ CORREÇÃO CRÍTICA: Usar ID original da Blaze para verificação
+      const gameId = data.id || data.round_id
       if (!data || !gameId) {
         console.log('⚠️ Dados processados são inválidos')
         return
@@ -401,14 +410,25 @@ class BlazeRealDataService {
       const isOldData = dataTimestamp < (Date.now() - (24 * 60 * 60 * 1000)) // Dados de mais de 24h são considerados antigos
       const timeDiff = Math.abs(Date.now() - dataTimestamp) / 1000 // Diferença em segundos
       
-      // Se é o mesmo ID E é muito recente (menos de 5 minutos), aguardar
+      // ✅ CORREÇÃO CRÍTICA: Usar ID original da Blaze para comparação
       if (this.lastKnownRound && this.lastKnownRound === gameId && timeDiff < 300 && !isOldData) {
         // Log throttling: apenas a cada 30 segundos para reduzir poluição
         const now = Date.now()
         if (now - this.lastWaitingLogTime > this.LOG_THROTTLE_INTERVAL) {
           this.waitingLogCount++
           console.log(`🔄 Aguardando novo jogo... (atual: ${data.number}, ${Math.round(timeDiff)}s atrás) [${this.waitingLogCount}x]`)
+          console.log(`🔍 DEBUG: lastKnownRound=${this.lastKnownRound}, gameId=${gameId}, timeDiff=${timeDiff}s`)
+          console.log(`🔍 DEBUG: dataTimestamp=${new Date(dataTimestamp).toLocaleString()}, isOldData=${isOldData}`)
           this.lastWaitingLogTime = now
+          
+          // ✅ CORREÇÃO: Forçar reset se aguardando por mais de 5 ciclos (5 * 30s = 2.5 minutos)
+          if (this.waitingLogCount > 5) { 
+            console.log(`🚨 SISTEMA TRAVADO: Aguardando há mais de 2.5 minutos. Forçando reset...`)
+            this.lastKnownRound = null
+            this.waitingLogCount = 0
+            console.log(`🔄 RESET FORÇADO: Sistema liberado para processar próximo jogo`)
+            return // Sair para reprocessar imediatamente
+          }
         }
         return
       }
@@ -416,6 +436,13 @@ class BlazeRealDataService {
       // Se é o mesmo ID mas é antigo (mais de 5 minutos), processar mesmo assim
       if (this.lastKnownRound && this.lastKnownRound === gameId && timeDiff >= 300) {
         console.log(`🔄 Mesmo ID mas dados antigos, forçando processamento (${Math.round(timeDiff)}s atrás)`)
+      }
+      
+      // ✅ CORREÇÃO ADICIONAL: Se aguardando há muito tempo, forçar processamento mesmo com ID igual
+      if (this.lastKnownRound && this.lastKnownRound === gameId && this.waitingLogCount > 10) {
+        console.log(`🚨 FORÇANDO PROCESSAMENTO: Sistema aguardando há muito tempo (${this.waitingLogCount} ciclos)`)
+        console.log(`🔄 Processando número ${data.number} mesmo com ID igual para destravar sistema`)
+        this.lastKnownRound = null // Reset para permitir processamento
       }
       
       // Se são dados antigos, forçar reset e tentar novamente
@@ -443,8 +470,18 @@ class BlazeRealDataService {
       console.log(`⏰ Horário: ${data.timestamp_blaze || data.created_at || 'agora'}`)
       console.log(`📅 Data completa: ${new Date(dataTimestamp).toLocaleString()}`)
       console.log(`🔄 Último conhecido: ${this.lastKnownRound}`)
+      console.log(`⏱️ Diferença temporal: ${timeDiff}s`)
+      
+      // Reset contador de waiting para novos jogos
+      this.waitingLogCount = 0
+
+      // ✅ CORREÇÃO CRÍTICA: Gerar ID determinístico apenas uma vez
+      if (!data.round_id || data.round_id === data.id) {
+        data.round_id = this.generateOptimizedId(gameId)
+      }
 
       await this.processRealData(data)
+      // ✅ CORREÇÃO CRÍTICA: Usar ID original da Blaze para controle
       this.lastKnownRound = gameId
       
       // Emitir evento para interface
@@ -479,32 +516,35 @@ class BlazeRealDataService {
   }
 
   /**
-   * Gerar UUID válido a partir de string
+   * Gerar ID cronológico otimizado para algoritmos - RESOLVE ERRO 406
    */
-  private generateUuidFromString(str: string): string {
-    // Se já parece um UUID, usar como está
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
-      return str
-    }
+  private static idCounter = 0
+
+  private generateOptimizedId(str: string): string {
+    // ✅ CORREÇÃO CRÍTICA: FUNÇÃO DETERMINÍSTICA - MESMO INPUT = MESMO OUTPUT
+    // Usar hash simples do input + data do dia para garantir consistência
     
-    // Criar hash mais robusto
+    // Extrair apenas a data (sem hora) para consistência durante o dia
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    
+    // Criar hash simples e determinístico do input
     let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i)
+    const inputString = str || 'default'
+    for (let i = 0; i < inputString.length; i++) {
+      const char = inputString.charCodeAt(i)
       hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32bit integer
+      hash = hash & hash // Converter para 32bit
     }
     
-    // Gerar UUID v4 válido baseado no hash
-    const hex = Math.abs(hash).toString(16).padStart(8, '0').repeat(4).substr(0, 32)
+    // Garantir que hash seja sempre positivo e limitado
+    const positiveHash = Math.abs(hash) % 999999
+    const hashString = positiveHash.toString().padStart(6, '0')
     
-    return [
-      hex.substr(0, 8),
-      hex.substr(8, 4),
-      '4' + hex.substr(12, 3), // Version 4
-      '8' + hex.substr(16, 3), // Variant bits
-      hex.substr(20, 12)
-    ].join('-')
+    // ID final: determinístico para o mesmo input no mesmo dia
+    const optimizedId = `${today}_${hashString}_${inputString.slice(-4).padStart(4, '0')}`
+    
+    // console.log(`🔢 ID determinístico gerado: ${optimizedId} (de: ${str})`)
+    return optimizedId
   }
 
   /**
@@ -519,59 +559,93 @@ class BlazeRealDataService {
         return
       }
 
-      // Verificar duplicata local (não bloquear por Supabase)
-      logThrottled('processing-round', `🔄 Processando round: ${roundId}`)
+      // ✅ SISTEMA ANTI-LOOP: Verificar hash dos dados para evitar processamento duplicado
+      const dataHash = `${data.number}_${data.color}_${data.timestamp_blaze}`
+      if (this.processedDataHashes.has(dataHash)) {
+        // console.log(`🚫 ANTI-LOOP: Dados já processados - ${dataHash}`)
+        return
+      }
       
-      const uuidRoundId = this.generateUuidFromString(roundId)
-
-      // Tentar verificar no Supabase (opcional)
-      try {
-        const { data: existing } = await supabase
-          .from('blaze_real_data')
-          .select('id')
-          .eq('round_id', uuidRoundId)
-          .single()
-
-        if (existing) {
-          console.log(`⚠️ Round ${roundId} já existe no Supabase (mas processando mesmo assim)`)
-        }
-      } catch (error) {
-        console.log(`⚠️ Não foi possível verificar duplicata no Supabase (continuando)`)
+      // Adicionar hash à lista de processados
+      this.processedDataHashes.add(dataHash)
+      
+      // Limpar hashes antigos (manter apenas últimos 100)
+      if (this.processedDataHashes.size > 100) {
+        const hashArray = Array.from(this.processedDataHashes)
+        this.processedDataHashes.clear()
+        hashArray.slice(-50).forEach(hash => this.processedDataHashes.add(hash))
       }
 
+      // ✅ ETAPA 1: VERIFICAÇÃO RIGOROSA DE DUPLICATAS
+      logThrottled('processing-round', `🔄 Processando round: ${roundId}`)
+      
+      // ✅ CORREÇÃO CRÍTICA: Usar ID existente ou gerar apenas se necessário
+      let uuidRoundId = data.round_id
+      
+      // Só gerar novo ID se não existir ou se for igual ao ID original (não foi processado)
+      if (!uuidRoundId || uuidRoundId === data.id) {
+        uuidRoundId = this.generateOptimizedId(roundId)
+        data.round_id = uuidRoundId // Atualizar dados com ID gerado
+      }
+
+      // ✅ PROBLEMA 2: Validar ID antes da query para evitar erro 406
+      if (!uuidRoundId || uuidRoundId.length < 10) {
+        console.error(`❌ ID INVÁLIDO GERADO: "${uuidRoundId}" de roundId: "${roundId}"`)
+        return // Pular se ID inválido
+      }
+
+      // console.log(`🔢 ID determinístico usado: ${uuidRoundId} de roundId: ${roundId}`)
+
+      // ✅ CORREÇÃO CRÍTICA: Usar UPSERT para eliminar race conditions completamente
       // Normalizar dados para salvar (sem campo id para evitar conflitos UUID)
       const normalizedData = {
         number: data.number,
         color: data.color,
         timestamp_blaze: data.timestamp_blaze,
-        round_id: this.generateUuidFromString(roundId)
+        round_id: uuidRoundId // ✅ USAR O MESMO ID VALIDADO!
       }
 
       // Debug: ver exatamente o que será enviado
       console.log('🔍 DADOS PARA SUPABASE:', JSON.stringify(normalizedData, null, 2))
 
-      // Emitir evento para a interface SEMPRE (independente do Supabase)
+      // ✅ ETAPA 1: SALVAMENTO OBRIGATÓRIO NO SUPABASE (UPSERT - ATOMIC OPERATION)
+      console.log(`🔒 SALVAMENTO OBRIGATÓRIO: Iniciando salvamento crítico para ${normalizedData.number} (${normalizedData.color})`)
+      
+      const { error } = await supabase
+        .from('blaze_real_data')
+        .upsert(normalizedData, { 
+          onConflict: 'round_id',
+          ignoreDuplicates: true 
+        })
+
+      if (error) {
+        console.error(`❌ FALHA CRÍTICA NO SUPABASE: ${error.message || error}`)
+        console.error(`🚨 DADOS NÃO SALVOS: ${JSON.stringify(normalizedData)}`)
+        throw new Error(`Falha crítica ao salvar dados: ${error.message}`)
+      }
+
+      console.log(`✅ DADOS SALVOS COM SUCESSO NO SUPABASE: ${normalizedData.number} (${normalizedData.color})`)
+      
+      // Emitir evento para a interface APENAS APÓS SUCESSO NO BANCO
       this.emitRealData(data)
       logThrottled('data-emitted', `📡 DADOS EMITIDOS PARA INTERFACE: ${normalizedData.number} (${normalizedData.color})`)
 
-      // Tentar salvar no Supabase (opcional - não bloquear se falhar)
-      try {
-        const { error } = await supabase
-          .from('blaze_real_data')
-          .insert(normalizedData)
-
-        if (error) {
-          console.log('⚠️ Supabase falhou (não crítico):', error.message || error)
-          console.log('✅ Dados ainda assim enviados para interface')
-        } else {
-          console.log(`💾 DADOS SALVOS NO SUPABASE: ${normalizedData.number} (${normalizedData.color})`)
-        }
-      } catch (supabaseError) {
-        console.log('⚠️ Supabase indisponível (continuando sem ele):', supabaseError)
+      // ✅ SISTEMA ANTI-LOOP: Predição ML apenas com cooldown de 30 segundos
+      const now = Date.now()
+      const dataSignature = `${normalizedData.number}_${normalizedData.color}`
+      
+      if (now - this.lastMLPredictionTime >= this.ML_PREDICTION_COOLDOWN && 
+          this.lastMLPredictionData !== dataSignature) {
+        
+        this.lastMLPredictionTime = now
+        this.lastMLPredictionData = dataSignature
+        
+        console.log(`🎯 PREDIÇÃO ML AUTORIZADA: Cooldown de 30s respeitado`)
+        await this.makePredictionBasedOnRealData()
+      } else {
+        const remaining = Math.ceil((this.ML_PREDICTION_COOLDOWN - (now - this.lastMLPredictionTime)) / 1000)
+        console.log(`🚫 PREDIÇÃO ML BLOQUEADA: Aguardar ${remaining}s (anti-loop)`)
       }
-
-      // Gerar predição automática
-      await this.makePredictionBasedOnRealData()
 
     } catch (error) {
       console.log('❌ Erro processando dados reais:', error)
@@ -605,10 +679,10 @@ class BlazeRealDataService {
   }
 
   /**
-   * FORÇAR RESET PARA DADOS ATUAIS
+   * FORÇAR RESET COMPLETO DO SISTEMA - CORREÇÃO CRÍTICA
    */
   forceReset(): void {
-    console.log('🔄 FORÇANDO RESET: Limpando cache de dados antigos...')
+    console.log('🔄 FORÇANDO RESET COMPLETO: Limpando todo o estado...')
     this.lastKnownRound = null
     this.currentStrategy = 'DESCONECTADO'
     
@@ -617,7 +691,21 @@ class BlazeRealDataService {
       this.pollingInterval = null
     }
     
-    console.log('✅ Reset concluído - próximo polling buscará dados atuais')
+    // ✅ CORREÇÃO 4: Reset completo de estado
+    BlazeRealDataService.idCounter = 0
+    
+    // Limpar localStorage e cache
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('blaze_analyzer_backup')
+        ;(window as any).realDataHistory = []
+        console.log('🧹 Cache local limpo')
+      } catch (error) {
+        console.log('⚠️ Erro limpando cache local:', error)
+      }
+    }
+    
+    console.log('✅ Reset COMPLETO concluído - sistema limpo')
   }
 
   /**
@@ -625,33 +713,32 @@ class BlazeRealDataService {
    */
   private async makePredictionBasedOnRealData(): Promise<void> {
     try {
-      // ✅ ETAPA 2: BUSCAR TODOS OS DADOS HISTÓRICOS DISPONÍVEIS
-      const { data: historicalData } = await supabase
-        .from('blaze_real_data')
-        .select('*')
-        .order('timestamp_blaze', { ascending: false })
-        .limit(10000) // EXPANSÃO MASSIVA: 100x mais dados!
+      // ✅ ETAPA 3: USAR FUNÇÃO UNIFICADORA PARA BUSCAR **TODOS** OS DADOS
+      // ✅ PROBLEMA 4: Buscar dados sem logs excessivos
+      const historicalData = await this.getAllUnifiedData()
 
       if (!historicalData || historicalData.length < 50) {
-        console.log('⚠️ Dados insuficientes para predição ML avançada (mínimo 50 números)')
-        await this.fallbackToSimplePrediction(historicalData || [])
+        await this.lastResortSimplePrediction(historicalData || [])
         return
       }
 
-      console.log(`🚀 ETAPA 2: ANÁLISE MASSIVA com ${historicalData.length} dados históricos!`)
-
-      console.log('🚀 Iniciando predição com ML avançado...')
+      // ✅ PROBLEMA 4: Logs removidos - sistema funcionando silenciosamente
 
       // Tentar usar sistema ML avançado
       try {
         const { advancedMLService } = await import('./advancedMLPredictionService')
         
+        // ✅ PROBLEMA 4: Apenas log essencial de dados
+        // Análise detalhada por fonte (apenas contadores para debug se necessário)
+        const realSourceCount = historicalData.filter(d => d.source === 'blaze_real_api').length
+        const csvSourceCount = historicalData.filter(d => d.source === 'csv_import').length
+        
         // Converter dados para formato ML
         const blazeDataPoints = historicalData.map(item => ({
           number: item.number,
           color: item.color as 'red' | 'black' | 'white',
-          timestamp: new Date(item.timestamp_blaze || item.created_at).getTime(),
-          round_id: item.round_id
+          timestamp: new Date(item.timestamp_blaze || Date.now()).getTime(),
+          round_id: item.round_id || item.id || `round_${Date.now()}_${Math.random()}`
         })).reverse() // Ordem cronológica
 
         // Executar predição avançada
@@ -693,20 +780,15 @@ class BlazeRealDataService {
           .from('system_predictions')
           .insert(prediction)
 
-        if (!error) {
-          console.log(`🤖 PREDIÇÃO ML AVANÇADA: ${prediction.predicted_color} (${prediction.confidence_percentage}%)`)
-          console.log(`📊 Consensus: ${advancedPrediction.model_consensus}% | Modelos: ${advancedPrediction.individual_predictions.length}`)
-          console.log(`🎯 Números: [${prediction.predicted_numbers.join(', ')}]`)
-          console.log(`⚠️ Risco: ${advancedPrediction.risk_assessment.volatility_level} | Estabilidade: ${(advancedPrediction.risk_assessment.prediction_stability * 100).toFixed(1)}%`)
-        }
+        // ✅ PROBLEMA 4: Logs removidos - apenas erros importantes
 
         // Salvar predição detalhada para análise
         await this.saveAdvancedPredictionDetails(advancedPrediction)
 
-              } catch (mlError) {
-          console.warn('⚠️ Sistema ML avançado falhou, usando fallback:', mlError)
-          await this.fallbackToSimplePrediction(historicalData || [])
-        }
+                    } catch (mlError) {
+        console.warn('⚠️ Sistema ML avançado falhou, usando ALGORITMOS REAIS:', mlError)
+        await this.useRealAlgorithmsInstead(historicalData || [])
+      }
 
     } catch (error) {
       console.log('❌ Erro gerando predição:', error)
@@ -714,19 +796,78 @@ class BlazeRealDataService {
   }
 
   /**
-   * FALLBACK: PREDIÇÃO SIMPLES QUANDO ML AVANÇADO FALHA
+   * ✅ ETAPA 4: USAR ALGORITMOS REAIS EM VEZ DE FALLBACK SIMPLES
    */
-  private async fallbackToSimplePrediction(data: any[]): Promise<void> {
+  private async useRealAlgorithmsInstead(data: BlazeRealData[]): Promise<void> {
     try {
-      // ✅ ETAPA 2: FALLBACK MELHORADO - USAR MAIS DADOS
-      const recentData = data?.slice(0, 200) || [] // 10x mais dados no fallback
+      if (data.length < 100) {
+        console.log('⚠️ Dados insuficientes para algoritmos reais (mínimo 100)')
+        return
+      }
+
+      // ✅ PROBLEMA 4: Logs mínimos para algoritmos reais
+      // Análise básica apenas para debug crítico
+      const realSourceCount = data.filter(d => d.source === 'blaze_real_api').length
+      const csvSourceCount = data.filter(d => d.source === 'csv_import').length
+      
+      // Converter para formato dos algoritmos reais
+      const blazeNumbers = data.map(item => ({
+        number: item.number,
+        color: item.color as 'red' | 'black' | 'white',
+        timestamp: new Date(item.timestamp_blaze || Date.now()).getTime(),
+        id: item.round_id || item.id || `real_${Date.now()}`
+      }))
+
+      // Importar e usar algoritmos reais
+      const { RealAlgorithmsService } = await import('./realAlgorithmsService')
+      const realPrediction = await RealAlgorithmsService.makeFinalPrediction(blazeNumbers)
+
+      // Converter para formato do sistema
+      const prediction: SystemPrediction = {
+        predicted_color: realPrediction.consensus_color,
+        predicted_numbers: [realPrediction.consensus_number],
+        confidence_percentage: Math.round(realPrediction.mathematical_confidence),
+        ml_algorithms_used: {
+          real_algorithms: true,
+          white_gold_detector: true,
+          frequency_compensation: true,
+          gap_analysis: true,
+          markov_chain: true,
+          mathematical_proof: realPrediction.algorithms_used.length > 0,
+          data_source: 'unified_all_sources',
+          total_algorithms: realPrediction.algorithms_used.length
+        },
+        data_size_used: blazeNumbers.length,
+        round_target: 'next'
+      }
+
+      // Salvar predição real
+      const { error } = await supabase
+        .from('system_predictions')
+        .insert(prediction)
+
+      // ✅ PROBLEMA 4: Logs removidos - apenas erros importantes
+
+    } catch (error) {
+      console.log('❌ Erro nos algoritmos reais, usando último recurso simples:', error)
+      await this.lastResortSimplePrediction(data)
+    }
+  }
+
+  /**
+   * ÚLTIMO RECURSO: PREDIÇÃO SIMPLES (APENAS SE ALGORITMOS REAIS FALHAREM)
+   */
+  private async lastResortSimplePrediction(data: any[]): Promise<void> {
+    try {
+      // ✅ ETAPA 2: FALLBACK USANDO **TODOS** OS DADOS (SEM LIMITAÇÃO)
+      const recentData = data || [] // ✅ PROBLEMA 2: USAR TODOS OS DADOS, NÃO APENAS 200
 
       if (recentData.length < 10) {
         console.log('⚠️ Dados insuficientes para qualquer predição')
         return
       }
 
-      console.log(`🔧 FALLBACK MELHORADO: Analisando ${recentData.length} números`)
+      console.log(`🔧 FALLBACK COM TODOS OS DADOS: Analisando ${recentData.length} números SEM LIMITAÇÃO`)
 
       // Análise simples de frequência (sistema original)
       const colorCounts = { red: 0, black: 0, white: 0 }
@@ -771,9 +912,7 @@ class BlazeRealDataService {
         .from('system_predictions')
         .insert(prediction)
 
-      if (!error) {
-        console.log(`🤖 Predição simples (fallback): ${prediction.predicted_color} (${prediction.confidence_percentage}%)`)
-      }
+      // ✅ PROBLEMA 4: Logs removidos - apenas erros importantes
 
     } catch (error) {
       console.log('❌ Erro na predição fallback:', error)
@@ -1145,12 +1284,15 @@ class BlazeRealDataService {
         return // Mesmo jogo, não processar
       }
 
+      // ✅ CORREÇÃO: Gerar ID apenas uma vez
+      const optimizedId = this.generateOptimizedId(gameData.id)
+
       // Mapear dados
       const blazeData: BlazeRealData = {
         id: gameData.id,
         number: gameData.roll,
         color: this.mapColor(gameData.roll, gameData.color),
-        round_id: gameData.id,
+        round_id: optimizedId, // ✅ USAR O MESMO ID
         timestamp_blaze: gameData.created_at,
         source: 'blaze_real_api'
       }
@@ -1163,8 +1305,8 @@ class BlazeRealDataService {
              // Salvar no Supabase
        await this.saveBlazeDataToSupabase(blazeData)
       
-      // Atualizar controle
-      this.lastKnownRound = blazeData.round_id || null
+      // ✅ CORREÇÃO: Usar o mesmo ID gerado
+      this.lastKnownRound = optimizedId
       
     } catch (error) {
       console.error('❌ Erro processando dados:', error instanceof Error ? error.message : String(error))
@@ -1176,12 +1318,15 @@ class BlazeRealDataService {
    */
   private async saveBlazeDataToSupabase(data: BlazeRealData): Promise<void> {
     try {
+      // ✅ CORREÇÃO CRÍTICA: NÃO gerar novo ID! Usar o que já foi passado
+      const finalRoundId = data.round_id || this.generateOptimizedId(data.id || `fallback_${Date.now()}`)
+      
       const { error } = await supabase
         .from('blaze_real_data')
         .insert({
           number: data.number,
           color: data.color,
-          round_id: data.round_id,
+          round_id: finalRoundId, // ✅ USAR ID EXISTENTE OU GERAR APENAS SE NECESSÁRIO
           timestamp_blaze: data.timestamp_blaze,
           source: data.source
         })
@@ -1277,10 +1422,13 @@ class BlazeRealDataService {
         result = await response.json()
       }
       
+      // ✅ CORREÇÃO: Gerar ID apenas uma vez
+      const optimizedId = this.generateOptimizedId(result.id)
+
       // Converter para formato padrão
       const data: BlazeRealData = {
         id: result.id,
-        round_id: result.id,
+        round_id: optimizedId, // ✅ USAR O MESMO ID
         number: result.numero,
         color: result.corNome.toLowerCase() as 'red' | 'black' | 'white',
         timestamp_blaze: result.timestamp,
@@ -1295,7 +1443,8 @@ class BlazeRealDataService {
       
              // Configurar estratégia e processar dados
        this.currentStrategy = 'CHROMIUM_REAL_TIME'
-       this.lastKnownRound = data.id || null
+       // ✅ CORREÇÃO: Usar o mesmo ID gerado
+       this.lastKnownRound = optimizedId
       
       // Processar primeiro dado
       await this.processRealData(data)
@@ -1380,10 +1529,13 @@ class BlazeRealDataService {
       console.log(`🎨 Cor: ${result.corNome}`)
       console.log(`⏰ Horário: ${result.timestamp}`)
 
+      // ✅ CORREÇÃO: Gerar ID apenas uma vez
+      const optimizedId = this.generateOptimizedId(result.id)
+
       // Converter para formato padrão
       const data: BlazeRealData = {
         id: result.id,
-        round_id: result.id,
+        round_id: optimizedId, // ✅ USAR O MESMO ID
         number: result.numero,
         color: result.corNome.toLowerCase() as 'red' | 'black' | 'white',
         timestamp_blaze: result.timestamp,
@@ -1391,7 +1543,8 @@ class BlazeRealDataService {
       }
 
       await this.processRealData(data)
-      this.lastKnownRound = result.id || null
+      // ✅ CORREÇÃO: Usar o mesmo ID gerado
+      this.lastKnownRound = optimizedId
       
       // Emitir evento para interface
       if (typeof window !== 'undefined') {
@@ -1438,8 +1591,211 @@ class BlazeRealDataService {
       timestamp: new Date().toISOString()
     }))
   }
+
+  /**
+   * ✅ ETAPA 3: FUNÇÃO CENTRAL PARA UNIFICAR TODAS AS FONTES DE DADOS
+   * 
+   * Combina dados de:
+   * - Supabase blaze_real_data (dados reais capturados)
+   * - Supabase user_csv_data (dados históricos CSV)
+   * - IndexedDB local (backup local)
+   * - localStorage (backup emergência)
+   * - realDataHistory (dados em memória)
+   */
+  async getAllUnifiedData(): Promise<BlazeRealData[]> {
+    // ✅ PROBLEMA 4: Função unificadora silenciosa
+    const allData: BlazeRealData[] = []
+    const seenRoundIds = new Set<string>()
+    
+    try {
+      // 1️⃣ BUSCAR DADOS REAIS DO SUPABASE (PRIORIDADE MÁXIMA)
+      const { data: realData, error: realError } = await supabase
+        .from('blaze_real_data')
+        .select('*')
+        .order('timestamp_blaze', { ascending: false })
+        // ✅ SEM LIMITE - TODOS OS DADOS REAIS!
+
+      if (realError) {
+        console.error(`❌ Erro buscando dados reais: ${realError.message}`)
+      } else if (realData && realData.length > 0) {
+        realData.forEach(item => {
+          const roundId = item.round_id || item.id
+          if (roundId && !seenRoundIds.has(roundId)) {
+            seenRoundIds.add(roundId)
+            allData.push({
+              id: item.id,
+              round_id: roundId,
+              number: item.number,
+              color: item.color as 'red' | 'black' | 'white',
+              timestamp_blaze: item.timestamp_blaze || item.created_at,
+              source: 'blaze_real_api'
+            })
+          }
+        })
+      }
+
+      // 2️⃣ BUSCAR DADOS CSV DO SUPABASE (HISTÓRICOS)
+      const { data: csvData, error: csvError } = await supabase
+        .from('user_csv_data')
+        .select('*')
+        .eq('data_type', 'csv_import')
+        .order('timestamp_data', { ascending: false })
+        // ✅ SEM LIMITE - TODOS OS DADOS CSV!
+
+      if (csvError) {
+        console.error(`❌ Erro buscando dados CSV: ${csvError.message}`)
+      } else if (csvData && csvData.length > 0) {
+        csvData.forEach(item => {
+          const roundId = `csv_${item.id}_${item.timestamp_data}`
+          if (!seenRoundIds.has(roundId)) {
+            seenRoundIds.add(roundId)
+            allData.push({
+              id: `csv_${item.id}`,
+              round_id: roundId,
+              number: item.number,
+              color: item.color as 'red' | 'black' | 'white',
+              timestamp_blaze: item.timestamp_data,
+              source: 'csv_import'
+            })
+          }
+        })
+      }
+
+      // 3️⃣ VERIFICAR DADOS EM MEMÓRIA (REAL DATA HISTORY)
+      if (typeof window !== 'undefined') {
+        try {
+          // Tentar acessar dados da interface (se disponível)
+          const memoryData = (window as any).realDataHistory || []
+          if (memoryData.length > 0) {
+            memoryData.forEach((item: any, index: number) => {
+              const roundId = item.round_id || item.id || `memory_${index}_${item.timestamp}`
+              if (!seenRoundIds.has(roundId)) {
+                seenRoundIds.add(roundId)
+                allData.push({
+                  id: item.id || `memory_${index}`,
+                  round_id: roundId,
+                  number: item.number,
+                  color: item.color as 'red' | 'black' | 'white',
+                  timestamp_blaze: item.timestamp_blaze || item.timestamp || Date.now(),
+                  source: 'memory_cache'
+                })
+              }
+            })
+          }
+        } catch (memoryError) {
+          console.error('❌ Erro acessando dados em memória:', memoryError)
+        }
+      }
+
+      // 4️⃣ VERIFICAR LOCALSTORAGE BACKUP
+      if (typeof window !== 'undefined') {
+        try {
+          const backupData = localStorage.getItem('blaze_analyzer_backup')
+          if (backupData) {
+            const parsed = JSON.parse(backupData)
+            if (parsed.results && Array.isArray(parsed.results)) {
+              parsed.results.forEach((item: any, index: number) => {
+                const roundId = item.id || `backup_${index}_${item.timestamp}`
+                if (!seenRoundIds.has(roundId)) {
+                  seenRoundIds.add(roundId)
+                  allData.push({
+                    id: item.id || `backup_${index}`,
+                    round_id: roundId,
+                    number: item.number,
+                    color: item.color as 'red' | 'black' | 'white',
+                    timestamp_blaze: item.timestamp || Date.now(),
+                    source: 'localStorage_backup'
+                  })
+                }
+              })
+            }
+          }
+        } catch (backupError) {
+          console.error('❌ Erro acessando localStorage backup:', backupError)
+        }
+      }
+
+      // 5️⃣ ORDENAR DADOS POR TIMESTAMP (MAIS ANTIGOS PRIMEIRO)
+      allData.sort((a, b) => {
+        const timestampA = new Date(a.timestamp_blaze || 0).getTime()
+        const timestampB = new Date(b.timestamp_blaze || 0).getTime()
+        return timestampA - timestampB
+      })
+
+      // ✅ PROBLEMA 4: Função retorna dados silenciosamente
+      return allData
+
+    } catch (error) {
+      console.error('❌ ERRO NA UNIFICAÇÃO DE DADOS:', error)
+      return []
+    }
+  }
+
+  /**
+   * 🚨 MÉTODO PÚBLICO: FORÇAR RESET DO SISTEMA DE CAPTURA
+   * Use quando o sistema estiver travado
+   */
+  public forceSystemReset(): void {
+    console.log('🚨 FORÇANDO RESET COMPLETO DO SISTEMA DE CAPTURA...')
+    
+    // Reset de estado
+    this.lastKnownRound = null
+    this.waitingLogCount = 0
+    this.lastWaitingLogTime = 0
+    
+    // Reset do anti-loop
+    this.processedDataHashes.clear()
+    
+    // Limpar polling existente
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval)
+      this.pollingInterval = null
+    }
+    
+    console.log('✅ RESET COMPLETO REALIZADO!')
+    console.log('🔄 Reiniciando captura em 2 segundos...')
+    
+    // Reiniciar captura
+    setTimeout(() => {
+      this.startCapturing()
+    }, 2000)
+  }
+
+  /**
+   * 🔍 MÉTODO PÚBLICO: OBTER STATUS DO SISTEMA
+   */
+  public getSystemStatus() {
+    return {
+      isCapturing: this.isCapturing,
+      currentStrategy: this.currentStrategy,
+      lastKnownRound: this.lastKnownRound,
+      waitingLogCount: this.waitingLogCount
+    }
+  }
 }
 
 // Exportar instância singleton
 const blazeRealDataService = new BlazeRealDataService()
+
+// 🚨 FUNÇÃO GLOBAL PARA RESET MANUAL VIA CONSOLE
+if (typeof window !== 'undefined') {
+  (window as any).forceResetBlazeCapture = () => {
+    console.log('🚨 EXECUTANDO RESET MANUAL VIA CONSOLE...')
+    blazeRealDataService.forceSystemReset()
+  }
+  
+  (window as any).debugBlazeStatus = () => {
+    const status = blazeRealDataService.getSystemStatus()
+    console.log('🔍 STATUS ATUAL DO SISTEMA BLAZE:')
+    console.log(`  - isCapturing: ${status.isCapturing}`)
+    console.log(`  - currentStrategy: ${status.currentStrategy}`)
+    console.log(`  - lastKnownRound: ${status.lastKnownRound}`)
+    console.log(`  - waitingLogCount: ${status.waitingLogCount}`)
+  }
+  
+  console.log('💡 DICAS:')
+  console.log('  - Para forçar reset: forceResetBlazeCapture()')
+  console.log('  - Para ver status: debugBlazeStatus()')
+}
+
 export default blazeRealDataService

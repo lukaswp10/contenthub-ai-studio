@@ -80,7 +80,7 @@ class RealTimeAlertSystem {
     };
 
     this.initializeAlertRules();
-    console.log('🚨 Sistema de Alertas em Tempo Real inicializado');
+    // console.log('🚨 Sistema de Alertas em Tempo Real inicializado');
   }
 
   /**
@@ -327,7 +327,7 @@ class RealTimeAlertSystem {
       }
     ];
 
-    console.log(`📋 ${this.alertRules.length} regras de alerta inicializadas`);
+    // console.log(`📋 ${this.alertRules.length} regras de alerta inicializadas`);
   }
 
   /**

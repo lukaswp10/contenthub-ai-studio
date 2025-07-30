@@ -15,6 +15,7 @@
 
 import { supabase } from '../lib/supabase'
 import { logThrottled, logAlways } from '../utils/logThrottler'
+import { logFeedbackEvolution, logWeightAdjustment } from '../pages/teste-jogo/config/BlazeConfig'
 
 // ===== INTERFACES =====
 
@@ -216,10 +217,10 @@ export class FeedbackLoopService {
       const isCorrect = feedback.was_correct
       const confidence = feedback.confidence
 
-      console.log(`${isCorrect ? '✅' : '❌'} FEEDBACK: ${feedback.prediction_id}`)
-      console.log(`🎯 Predito: ${feedback.predicted_color} | Real: ${feedback.actual_color}`)
-      console.log(`🎲 Números: [${feedback.predicted_numbers.join(', ')}] | Real: ${feedback.actual_number}`)
-      console.log(`📊 Confiança: ${confidence}% | Resposta: ${feedback.response_time_seconds}s`)
+      // console.log(`${isCorrect ? '✅' : '❌'} FEEDBACK: ${feedback.prediction_id}`)
+      // console.log(`🎯 Predito: ${feedback.predicted_color} | Real: ${feedback.actual_color}`)
+      // console.log(`🎲 Números: [${feedback.predicted_numbers.join(', ')}] | Real: ${feedback.actual_number}`)
+      // console.log(`📊 Confiança: ${confidence}% | Resposta: ${feedback.response_time_seconds}s`)
 
       // Evoluir modelos automaticamente
       await this.evolveModels(feedback)
@@ -302,10 +303,10 @@ export class FeedbackLoopService {
       // Calcular performance score
       evolution.performance_score = this.calculatePerformanceScore(evolution, feedback)
 
-      console.log(`🧬 EVOLUÇÃO ${modelId}:`)
-      console.log(`   📊 Peso: ${previousWeight.toFixed(2)} → ${evolution.current_weight.toFixed(2)} (${weightAdjustment >= 1 ? '+' : ''}${((weightAdjustment - 1) * 100).toFixed(1)}%)`)
-      console.log(`   🎯 Accuracy: ${(evolution.recent_accuracy * 100).toFixed(1)}% (${evolution.accuracy_trend})`)
-      console.log(`   🏆 Stage: ${evolution.evolution_stage} | Score: ${evolution.performance_score.toFixed(2)}`)
+      // console.log(`🧬 EVOLUÇÃO ${modelId}:`)
+      // console.log(`   📊 Peso: ${previousWeight.toFixed(2)} → ${evolution.current_weight.toFixed(2)} (${weightAdjustment >= 1 ? '+' : ''}${((weightAdjustment - 1) * 100).toFixed(1)}%)`)
+      // console.log(`   🎯 Accuracy: ${(evolution.recent_accuracy * 100).toFixed(1)}% (${evolution.accuracy_trend})`)
+      // console.log(`   🏆 Stage: ${evolution.evolution_stage} | Score: ${evolution.performance_score.toFixed(2)}`)
 
       // Aplicar evolução no sistema ML
       await this.applyModelEvolution(modelId, evolution)
@@ -396,20 +397,12 @@ export class FeedbackLoopService {
         const weightFactor = evolution.current_weight / evolution.previous_weight
         await advancedMLService.adjustModelWeight(modelId, weightFactor)
         
-        console.log(`⚖️ Peso aplicado no ML: ${modelId} = ${evolution.current_weight.toFixed(2)}`)
+        // ✅ CORREÇÃO: Log controlado para evitar poluição (11x por resultado)
+        logWeightAdjustment(`⚖️ Peso aplicado no ML: ${modelId} = ${evolution.current_weight.toFixed(2)}`)
       }
 
-      // Aplicar no serviço de accuracy
-      const { predictionAccuracyService } = await import('./predictionAccuracyService')
-      
-      if (predictionAccuracyService) {
-        // Simular confirmação de resultado para trigger de aprendizado
-        await predictionAccuracyService.confirmResult(
-          `feedback_${Date.now()}`,
-          evolution.recent_accuracy > 0.5 ? 'red' : 'black',
-          Math.floor(Math.random() * 15)
-        )
-      }
+      // ✅ CORREÇÃO: Log controlado para evitar poluição (11x por resultado)
+      logFeedbackEvolution(`🧬 Evolução aplicada para modelo ${modelId}: accuracy=${evolution.recent_accuracy.toFixed(3)}`)
 
     } catch (error) {
       console.warn(`⚠️ Erro aplicando evolução para ${modelId}:`, error)

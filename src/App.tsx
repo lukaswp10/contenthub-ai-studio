@@ -12,6 +12,7 @@ import { VideoEditorDemo } from '@/pages/editor/VideoEditorDemo'
 import { ClipsPage } from '@/pages/clips/ClipsPage'
 import { AnalyticsPage } from '@/pages/analytics/AnalyticsPage'
 import TesteJogoPage from '@/pages/teste-jogo/TesteJogoPage'
+import TesteJogoPageV2 from '@/pages/teste-jogo/TesteJogoPageV2'
 import './styles/globals.css'
 
 function App() {
@@ -30,8 +31,9 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             
-            {/* Blaze Double ML System - Public Route */}
+            {/* Blaze Double ML System - Public Routes */}
             <Route path="/teste-jogo" element={<TesteJogoPage />} />
+            <Route path="/teste-jogo-v2" element={<TesteJogoPageV2 />} />
             
             {/* Protected routes */}
             <Route

@@ -19,6 +19,7 @@
 
 import { supabase } from '../lib/supabase'
 import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
+import { logMLDetails, logPredictionDetails, logWeightAdjustment } from '../pages/teste-jogo/config/BlazeConfig'
 
 // ===== INTERFACES =====
 
@@ -123,7 +124,7 @@ export class AdvancedMLPredictionService {
   
   constructor() {
     this.initializeModels()
-    console.log('🤖 Serviço de ML Avançado inicializado')
+    // console.log('🤖 Serviço de ML Avançado inicializado')
   }
 
   /**
@@ -139,12 +140,12 @@ export class AdvancedMLPredictionService {
       
       // 🧠 ATUALIZAR DADOS HISTÓRICOS COM TODOS OS DADOS DISPONÍVEIS
       this.historical_data = historicalData // USAR TODOS OS DADOS PASSADOS!
-      console.log(`🔥 ML AVANÇADO: Analisando ${this.historical_data.length.toLocaleString()} números históricos COMPLETOS`)
+      // console.log(`🔥 ML AVANÇADO: Analisando ${this.historical_data.length.toLocaleString()} números históricos COMPLETOS`)
       
       // 📊 ESTATÍSTICAS DOS DADOS
       const csvCount = historicalData.filter(d => d.round_id.includes('csv')).length
       const realCount = historicalData.length - csvCount
-      console.log(`📊 DADOS COMPLETOS: ${csvCount.toLocaleString()} CSV + ${realCount.toLocaleString()} Reais = ${historicalData.length.toLocaleString()} TOTAL`)
+      // console.log(`📊 DADOS COMPLETOS: ${csvCount.toLocaleString()} CSV + ${realCount.toLocaleString()} Reais = ${historicalData.length.toLocaleString()} TOTAL`)
 
       // Etapa 1: Feature Engineering Avançado
       const features = await this.extractAdvancedFeatures(historicalData)
@@ -1261,7 +1262,7 @@ export class AdvancedMLPredictionService {
     ]
     
     models.forEach(model => this.models.set(model.id, model))
-    console.log(`🤖 ETAPA 3: Inicializados ${models.length} modelos ML sofisticados (6 tradicionais + 5 avançados)`)
+    // console.log(`🤖 ETAPA 3: Inicializados ${models.length} modelos ML sofisticados (6 tradicionais + 5 avançados)`)
   }
 
   private calculateColorStreak(data: BlazeDataPoint[]): { length: number; momentum: number } {
@@ -1591,12 +1592,12 @@ export class AdvancedMLPredictionService {
     const range = color === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
     const data = this.historical_data // ✅ USAR TODOS OS DADOS HISTÓRICOS SEM LIMITAÇÃO!
     
-    console.log(`🧠 ANÁLISE SUPER COMPLETA: ${color} - analisando ${data.length.toLocaleString()} números históricos COMPLETOS`)
+    // console.log(`🧠 ANÁLISE SUPER COMPLETA: ${color} - analisando ${data.length.toLocaleString()} números históricos COMPLETOS`)
     
     // 📊 Análise da qualidade dos dados
     const csvData = data.filter(d => d.round_id.includes('csv') || !d.round_id.includes('-'))
     const realData = data.filter(d => !d.round_id.includes('csv') && d.round_id.includes('-'))
-    console.log(`📊 QUALIDADE: ${csvData.length.toLocaleString()} CSV + ${realData.length.toLocaleString()} Reais para análise ${color}`)
+    // console.log(`📊 QUALIDADE: ${csvData.length.toLocaleString()} CSV + ${realData.length.toLocaleString()} Reais para análise ${color}`)
     
     // 1️⃣ ANÁLISE DE FREQUÊNCIA 
     const frequencies = range.map(num => ({
@@ -1671,12 +1672,13 @@ export class AdvancedMLPredictionService {
     analysis.sort((a, b) => b.finalScore - a.finalScore)
     const bestNumber = analysis[0]
     
-    console.log(`🎯 ANÁLISE SUPER AVANÇADA ${color}:`)
+    // ✅ CORREÇÃO: Logs controlados para evitar poluição excessiva
+    logPredictionDetails(`🎯 ANÁLISE SUPER AVANÇADA ${color}:`)
     analysis.slice(0, 3).forEach((item, i) => {
-      console.log(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} | 📊F:${item.frequency} ⏰G:${item.gap} 🕐T:${item.temporalScore} 🔗M:${item.markovScore.toFixed(2)} 📈F:${item.fourierScore.toFixed(2)} 💹Mom:${item.momentumScore.toFixed(2)}`)
+      logPredictionDetails(`  ${i + 1}º) ${item.number} - Score: ${item.finalScore.toFixed(1)} | 📊F:${item.frequency} ⏰G:${item.gap} 🕐T:${item.temporalScore} 🔗M:${item.markovScore.toFixed(2)} 📈F:${item.fourierScore.toFixed(2)} 💹Mom:${item.momentumScore.toFixed(2)}`)
     })
     
-    console.log(`🏆 NÚMERO SUPER INTELIGENTE: ${bestNumber.number} (score total: ${bestNumber.finalScore.toFixed(1)})`)
+    logPredictionDetails(`🏆 NÚMERO SUPER INTELIGENTE: ${bestNumber.number} (score total: ${bestNumber.finalScore.toFixed(1)})`)
     
     return [bestNumber.number]
   }
@@ -1690,7 +1692,7 @@ export class AdvancedMLPredictionService {
       return scores
     }
     
-    console.log(`🔗 MARKOV: Analisando ${data.length.toLocaleString()} transições para cadeias de Markov`)
+    // console.log(`🔗 MARKOV: Analisando ${data.length.toLocaleString()} transições para cadeias de Markov`)
     
     // Criar matriz de transição
     const transitions: { [key: number]: { [key: number]: number } } = {}
@@ -1723,7 +1725,8 @@ export class AdvancedMLPredictionService {
       range.forEach(num => scores[num] = 1 / range.length)
     }
     
-    console.log(`🔗 Markov: último ${lastNumber} → melhores próximos: ${Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1])).slice(0,3).map(([n,s]) => `${n}(${(Number(s)*100).toFixed(1)}%)`).join(', ')}`)
+    // ✅ CORREÇÃO: Log controlado para evitar poluição
+    logMLDetails(`🔗 Markov: último ${lastNumber} → melhores próximos: ${Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1])).slice(0,3).map(([n,s]) => `${n}(${(Number(s)*100).toFixed(1)}%)`).join(', ')}`)
     
     return scores
   }
@@ -1737,7 +1740,7 @@ export class AdvancedMLPredictionService {
       return scores
     }
     
-    console.log(`📊 FOURIER: Detectando ciclos em ${data.length.toLocaleString()} pontos para análise avançada`)
+    // console.log(`📊 FOURIER: Detectando ciclos em ${data.length.toLocaleString()} pontos para análise avançada`)
     
     // Analisar periodicidades para cada número
     range.forEach(num => {
@@ -1776,7 +1779,8 @@ export class AdvancedMLPredictionService {
     })
     
     const bestCycle = Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1]))[0]
-    console.log(`📊 Fourier: ciclo mais forte ${bestCycle[0]} (${(Number(bestCycle[1])*100).toFixed(1)}%)`)
+    // ✅ CORREÇÃO: Log controlado para evitar poluição
+    logMLDetails(`📊 Fourier: ciclo mais forte ${bestCycle[0]} (${(Number(bestCycle[1])*100).toFixed(1)}%)`)
     
     return scores
   }
@@ -1790,13 +1794,14 @@ export class AdvancedMLPredictionService {
       return scores
     }
     
-    console.log(`📈 MOMENTUM: Calculando indicadores com ${data.length.toLocaleString()} pontos de momentum`)
+    // ✅ CORREÇÃO: Log controlado para evitar poluição
+    logMLDetails(`📈 MOMENTUM: Calculando indicadores com ${data.length.toLocaleString()} pontos de momentum`)
     
     // 🔥 USAR TODOS OS DADOS SEM LIMITAÇÃO DE JANELA!
     const recent = data // TODOS OS DADOS RECENTES = TODOS OS DADOS!
     const previous = data // COMPARAR COM TODOS OS DADOS TAMBÉM!
     
-    console.log(`🔥 MOMENTUM TOTAL: Usando TODOS os ${data.length.toLocaleString()} dados para análise de momentum - SEM LIMITAÇÃO!`)
+    // console.log(`🔥 MOMENTUM TOTAL: Usando TODOS os ${data.length.toLocaleString()} dados para análise de momentum - SEM LIMITAÇÃO!`)
     
     range.forEach(num => {
       // Momentum baseado na mudança de frequência COM TODOS OS DADOS
@@ -1821,7 +1826,8 @@ export class AdvancedMLPredictionService {
     })
     
     const bestMomentum = Object.entries(scores).sort((a,b) => Number(b[1]) - Number(a[1]))[0]
-    console.log(`📈 Momentum: maior força ${bestMomentum[0]} (${Number(bestMomentum[1]).toFixed(2)})`)
+    // ✅ CORREÇÃO: Log controlado para evitar poluição
+    logMLDetails(`📈 Momentum: maior força ${bestMomentum[0]} (${Number(bestMomentum[1]).toFixed(2)})`)
     
     return scores
   }
@@ -1832,7 +1838,7 @@ export class AdvancedMLPredictionService {
     const recent = data // TODOS OS DADOS!
     const hasTargetNumber = recent.some(d => d.number === targetNumber)
     
-    console.log(`🔥 STREAK TOTAL: Analisando TODOS os ${data.length.toLocaleString()} números para ${targetNumber} - SEM LIMITAÇÃO!`)
+    // console.log(`🔥 STREAK TOTAL: Analisando TODOS os ${data.length.toLocaleString()} números para ${targetNumber} - SEM LIMITAÇÃO!`)
     
     if (hasTargetNumber) {
       return -0.2 // Penalizar se apareceu recentemente
@@ -2075,7 +2081,8 @@ export class AdvancedMLPredictionService {
         model.weight = newWeight
         model.last_trained = Date.now()
         
-        console.log(`⚖️ AJUSTE DE PESO: ${modelId} | ${oldWeight.toFixed(2)} → ${newWeight.toFixed(2)} (fator: ${performanceFactor.toFixed(2)})`)
+        // ✅ CORREÇÃO: Log controlado para evitar poluição (11x por resultado)
+        logWeightAdjustment(`⚖️ AJUSTE DE PESO: ${modelId} | ${oldWeight.toFixed(2)} → ${newWeight.toFixed(2)} (fator: ${performanceFactor.toFixed(2)})`)
         
         // Se performance muito ruim, reduzir accuracy temporariamente
         if (performanceFactor < 0.8) {

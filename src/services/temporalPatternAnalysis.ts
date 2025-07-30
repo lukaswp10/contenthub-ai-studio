@@ -124,7 +124,7 @@ class TemporalPatternAnalyzer {
    * 🕐 ANÁLISE TEMPORAL PRINCIPAL
    */
   public analyzeTemporalPatterns(realResults: any[]): AdvancedTemporalAnalysis {
-    console.log(`🕐 ANÁLISE TEMPORAL: Processando ${realResults.length} resultados com timestamp`);
+    // console.log(`🕐 ANÁLISE TEMPORAL: Processando ${realResults.length} resultados com timestamp`);
     
     if (realResults.length < 24) {
       console.warn('⚠️ Dados insuficientes para análise temporal avançada');

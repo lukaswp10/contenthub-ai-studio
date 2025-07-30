@@ -84,7 +84,7 @@ export class PredictionAccuracyService {
 
   constructor() {
     this.initializeService()
-    console.log('📊 Serviço de Monitoramento de Precisão inicializado')
+    // console.log('📊 Serviço de Monitoramento de Precisão inicializado')
   }
 
   /**

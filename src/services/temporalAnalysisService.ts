@@ -15,6 +15,7 @@
 
 import { supabase } from '../lib/supabase'
 import { logThrottled, logAlways } from '../utils/logThrottler'
+import { logTemporalAnalysis } from '../pages/teste-jogo/config/BlazeConfig'
 
 // ===== INTERFACES =====
 
@@ -187,7 +188,8 @@ export class TemporalAnalysisService {
       // Converter dados para formato temporal
       this.temporalData = this.convertToTemporalData(historicalData)
 
-      console.log(`🔍 Analisando ${this.temporalData.length} pontos temporais`)
+      // ✅ CORREÇÃO: Log controlado para evitar poluição
+      logTemporalAnalysis(`🔍 Analisando ${this.temporalData.length} pontos temporais`)
 
       // Executar análises em paralelo
       const [
@@ -237,10 +239,11 @@ export class TemporalAnalysisService {
       this.currentAnalysis = analysis
       await this.saveAnalysis(analysis)
 
-      console.log('✅ Análise temporal completa!')
-      console.log(`📊 Padrões encontrados: ${hourlyPatterns.length} horários, ${weeklyPatterns.length} semanais`)
-      console.log(`🌊 Regimes detectados: ${volatilityRegimes.length} volatilidade, ${marketPhases.length} fases`)
-      console.log(`🔄 Ciclos: ${cyclicalPatterns.length} | Correlações: ${temporalCorrelations.length}`)
+      // ✅ CORREÇÃO: Logs controlados para evitar poluição repetitiva
+      logTemporalAnalysis('✅ Análise temporal completa!')
+      logTemporalAnalysis(`📊 Padrões encontrados: ${hourlyPatterns.length} horários, ${weeklyPatterns.length} semanais`)
+      logTemporalAnalysis(`🌊 Regimes detectados: ${volatilityRegimes.length} volatilidade, ${marketPhases.length} fases`)
+      logTemporalAnalysis(`🔄 Ciclos: ${cyclicalPatterns.length} | Correlações: ${temporalCorrelations.length}`)
 
       return analysis
 

@@ -108,7 +108,7 @@ class RealDataFrequencyAnalyzer {
    * 🔥 ANÁLISE PRINCIPAL - APENAS DADOS REAIS
    */
   public analyzeRealData(realResults: RealGameResult[]): AdvancedFrequencyAnalysis {
-    console.log(`🔥 ANÁLISE DE FREQUÊNCIA: Processando ${realResults.length} resultados REAIS`);
+    // console.log(`🔥 ANÁLISE DE FREQUÊNCIA: Processando ${realResults.length} resultados REAIS`);
     
     // Garantir que temos dados suficientes
     if (realResults.length < 10) {
@@ -162,7 +162,7 @@ class RealDataFrequencyAnalyzer {
       overall: this.analyzeWindow(results)
     };
 
-    console.log(`📊 JANELAS ANALISADAS: ${Object.keys(windows).length} períodos diferentes`);
+    // console.log(`📊 JANELAS ANALISADAS: ${Object.keys(windows).length} períodos diferentes`);
     return windows;
   }
 
