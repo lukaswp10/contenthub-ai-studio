@@ -9,9 +9,7 @@
  * @version 2.1.0 - Vercel FREE Compatible
  */
 
-// ✅ IMPORTS VERCEL COMPATIBLE (conforme docs)
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
+ // ✅ CORREÇÃO ES6: Import dinâmico para Vercel serverless
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -50,14 +48,28 @@ export default async function handler(req, res) {
       });
     }
     
-    log('🚀 VERCEL FREE: Iniciando Chromium moderno...');
+    log('🚀 VERCEL FREE: Iniciando Chromium com ES6 imports...');
     
-    // ✅ VERIFICAR DEPENDÊNCIAS ANTES DE USAR
-    if (!chromium || !puppeteer) {
-      throw new Error('Dependências Chromium/Puppeteer não encontradas');
+    // ✅ CARREGAR DEPENDÊNCIAS COM ES6 IMPORTS DINÂMICOS
+    let chromium, puppeteer;
+    
+    try {
+      chromium = await import('@sparticuz/chromium');
+      chromium = chromium.default || chromium; // Handle default export
+      log('✅ @sparticuz/chromium: Carregado via ES6');
+    } catch (error) {
+      throw new Error(`Erro carregando @sparticuz/chromium: ${error.message}`);
     }
     
-    log('📦 DEPENDÊNCIAS: chromium e puppeteer carregados');
+    try {
+      puppeteer = await import('puppeteer-core');
+      puppeteer = puppeteer.default || puppeteer; // Handle default export
+      log('✅ puppeteer-core: Carregado via ES6');
+    } catch (error) {
+      throw new Error(`Erro carregando puppeteer-core: ${error.message}`);
+    }
+    
+    log('📦 DEPENDÊNCIAS: ES6 imports carregados com sucesso');
     
     // ✅ OBTER EXECUTABLE PATH COM VERIFICAÇÃO
     const executablePath = await chromium.executablePath();

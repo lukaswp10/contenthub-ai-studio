@@ -45,9 +45,11 @@ export default async function handler(req, res) {
     let chromium, puppeteer;
     
     try {
-      chromium = require('@sparticuz/chromium');
-      log('✅ @sparticuz/chromium: CARREGADO');
-      diagnostico.etapas.push('@sparticuz/chromium: OK');
+      // ✅ CORREÇÃO: ES6 import dinâmico
+      chromium = await import('@sparticuz/chromium');
+      chromium = chromium.default || chromium; // Handle default export
+      log('✅ @sparticuz/chromium: CARREGADO (ES6)');
+      diagnostico.etapas.push('@sparticuz/chromium: OK (ES6)');
     } catch (error) {
       log(`❌ @sparticuz/chromium: ERRO - ${error.message}`);
       diagnostico.etapas.push(`@sparticuz/chromium: ERRO - ${error.message}`);
@@ -55,9 +57,11 @@ export default async function handler(req, res) {
     }
     
     try {
-      puppeteer = require('puppeteer-core');
-      log('✅ puppeteer-core: CARREGADO');
-      diagnostico.etapas.push('puppeteer-core: OK');
+      // ✅ CORREÇÃO: ES6 import dinâmico  
+      puppeteer = await import('puppeteer-core');
+      puppeteer = puppeteer.default || puppeteer; // Handle default export
+      log('✅ puppeteer-core: CARREGADO (ES6)');
+      diagnostico.etapas.push('puppeteer-core: OK (ES6)');
     } catch (error) {
       log(`❌ puppeteer-core: ERRO - ${error.message}`);
       diagnostico.etapas.push(`puppeteer-core: ERRO - ${error.message}`);
