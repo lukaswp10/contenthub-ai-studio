@@ -1,13 +1,15 @@
 /**
- * 🎯 API CHROMIUM CAPTURE - ClipsForge Pro
+ * 🎯 API CHROMIUM CAPTURE MODERNO - ClipsForge Pro 2025
  * 
- * Endpoint para executar captura de dados da Blaze via Chromium
+ * Endpoint modernizado para captura de dados da Blaze via Chromium
+ * Usa @sparticuz/chromium + puppeteer-core para produção serverless
  * 
  * @author ClipsForge Team
+ * @version 2.0.0 - Modernizado 2025
  */
 
-const { spawn } = require('child_process');
-const path = require('path');
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -25,6 +27,8 @@ export default async function handler(req, res) {
       error: 'Método não permitido' 
     });
   }
+
+  let browser = null;
   
   try {
     const { action } = req.body;
@@ -36,97 +40,136 @@ export default async function handler(req, res) {
       });
     }
     
-    console.log('🚀 Executando captura Chromium...');
+    console.log('🚀 CHROMIUM MODERNO: Iniciando captura com @sparticuz/chromium...');
     
-    // Caminho para o script
-    const scriptPath = path.join(process.cwd(), 'scripts', 'blaze-chrome-capture.cjs');
+    // ✅ CONFIGURAÇÃO MODERNA SERVERLESS
+    browser = await puppeteer.launch({
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
+      ],
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+
+    const page = await browser.newPage();
     
-    // Executar script Chromium
-    const result = await new Promise((resolve, reject) => {
-      const child = spawn('node', [scriptPath], {
-        cwd: process.cwd(),
-        timeout: 45000, // 45 segundos timeout
-        env: { ...process.env, NODE_ENV: 'production' }
-      });
+    // ✅ CONFIGURAÇÕES OTIMIZADAS
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1920, height: 1080 });
+
+    let latestGameData = null;
+
+    // ✅ INTERCEPTAR REQUISIÇÕES DA BLAZE
+    page.on('response', async (response) => {
+      const url = response.url();
       
-      let stdout = '';
-      let stderr = '';
-      let capturedData = null;
-      
-      child.stdout.on('data', (data) => {
-        const output = data.toString();
-        stdout += output;
+      if (url.includes('blaze.com/api/roulette_games') || 
+          (url.includes('roulette') && 
+           (url.includes('recent') || url.includes('current') || url.includes('history')))) {
         
-        // Procurar por dados capturados nos logs
-        if (output.includes('🎯 CAPTURADO:') && output.includes('📅 Timestamp:')) {
-          try {
-            // Extrair dados do log
-            const lines = output.split('\n');
-            let numero, cor, id, timestamp;
+        try {
+          const data = await response.json();
+          
+          if (Array.isArray(data) && data.length > 0) {
+            const game = data[0];
+            latestGameData = {
+              numero: game.roll,
+              cor: game.color,
+              corNome: game.color === 0 ? 'WHITE' : game.color === 1 ? 'RED' : 'BLACK',
+              corEmoji: game.color === 0 ? '⚪' : game.color === 1 ? '🔴' : '⚫',
+              id: game.id,
+              timestamp: game.created_at,
+              url: 'chromium_modern_capture'
+            };
             
-            for (const line of lines) {
-              if (line.includes('🎯 CAPTURADO:')) {
-                const match = line.match(/🎯 CAPTURADO: (⚪|🔴|⚫) (WHITE|RED|BLACK) \((\d+)\)/);
-                if (match) {
-                  numero = parseInt(match[3]);
-                  cor = match[2] === 'WHITE' ? 0 : match[2] === 'RED' ? 1 : 2;
-                }
-              }
-              if (line.includes('📅 Timestamp:')) {
-                timestamp = line.split('📅 Timestamp: ')[1]?.trim();
-              }
-              if (line.includes('🆔 ID:')) {
-                id = line.split('🆔 ID: ')[1]?.split(' ')[0]?.trim();
-              }
-            }
+            console.log(`🎯 CAPTURADO MODERNO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
+            console.log(`📅 Timestamp: ${latestGameData.timestamp}`);
             
-            if (numero !== undefined && cor !== undefined && id && timestamp) {
-              capturedData = {
-                numero,
-                cor,
-                corNome: cor === 0 ? 'WHITE' : cor === 1 ? 'RED' : 'BLACK',
-                corEmoji: cor === 0 ? '⚪' : cor === 1 ? '🔴' : '⚫',
-                id,
-                timestamp,
-                url: 'chromium_capture'
-              };
-            }
-          } catch (parseError) {
-            console.log('⚠️ Erro ao extrair dados do log:', parseError);
+          } else if (data && data.roll !== undefined) {
+            latestGameData = {
+              numero: data.roll,
+              cor: data.color,
+              corNome: data.color === 0 ? 'WHITE' : data.color === 1 ? 'RED' : 'BLACK',
+              corEmoji: data.color === 0 ? '⚪' : data.color === 1 ? '🔴' : '⚫',
+              id: data.id,
+              timestamp: data.created_at,
+              url: 'chromium_modern_capture'
+            };
+            
+            console.log(`🎯 CAPTURADO MODERNO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
+            console.log(`📅 Timestamp: ${latestGameData.timestamp}`);
           }
+          
+        } catch (error) {
+          console.log(`⚠️ Erro ao processar resposta de ${url}:`, error.message);
         }
-      });
-      
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-      
-      child.on('close', (code) => {
-        if (code === 0 && capturedData) {
-          resolve(capturedData);
-        } else {
-          reject(new Error(`Script falhou: code ${code}, stderr: ${stderr}`));
-        }
-      });
-      
-      child.on('error', (error) => {
-        reject(error);
-      });
+      }
     });
+
+    console.log('🌐 NAVEGANDO: https://blaze.com/pt/games/double');
     
-    console.log('✅ Captura Chromium concluída:', result);
-    
-    return res.status(200).json({
-      success: true,
-      data: result
+    // ✅ NAVEGAÇÃO OTIMIZADA
+    await page.goto('https://blaze.com/pt/games/double', { 
+      waitUntil: 'networkidle0',
+      timeout: 30000 
     });
+
+    console.log('📡 AGUARDANDO: Dados de jogos...');
+    
+    // ✅ AGUARDAR DADOS COM TIMEOUT OTIMIZADO
+    let attempts = 0;
+    const maxAttempts = 25; // 25 segundos máximo
+    
+    while (!latestGameData && attempts < maxAttempts) {
+      await page.waitForTimeout(1000);
+      attempts++;
+      
+      if (attempts % 5 === 0) {
+        console.log(`⏳ Aguardando dados... (${attempts}/${maxAttempts}s)`);
+      }
+    }
+
+    if (latestGameData) {
+      console.log('✅ DADOS CAPTURADOS COM SUCESSO (MODERNO)!');
+      console.log('════════════════════════════════════');
+      console.log(`🎲 ÚLTIMO JOGO: ${latestGameData.corEmoji} ${latestGameData.corNome}`);
+      console.log(`🔢 Número: ${latestGameData.numero}`);
+      console.log(`🆔 ID: ${latestGameData.id}`);
+      console.log(`⏰ Horário: ${latestGameData.timestamp}`);
+      console.log('════════════════════════════════════');
+      
+      return res.status(200).json({
+        success: true,
+        data: latestGameData
+      });
+    } else {
+      throw new Error('TIMEOUT: Nenhum dado capturado em 25 segundos');
+    }
     
   } catch (error) {
-    console.error('❌ Erro na captura Chromium:', error);
+    console.error('❌ ERRO CHROMIUM MODERNO:', error);
     
     return res.status(500).json({
       success: false,
-      error: error.message || 'Erro interno do servidor'
+      error: error.message || 'Erro interno do servidor moderno'
     });
+  } finally {
+    // ✅ CLEANUP OBRIGATÓRIO
+    if (browser) {
+      try {
+        await browser.close();
+        console.log('🔒 Browser fechado com sucesso');
+      } catch (cleanupError) {
+        console.error('⚠️ Erro no cleanup:', cleanupError);
+      }
+    }
   }
 } 
