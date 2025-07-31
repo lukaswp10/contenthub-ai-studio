@@ -40,23 +40,35 @@ export function useBlazeData() {
           )
           
           setNumbers(uniqueNumbers)
-          console.log(`📊 HISTÓRICO: ${uniqueNumbers.length} números únicos carregados (${blazeNumbers.length - uniqueNumbers.length} duplicatas removidas)`)
+          
+          // ✅ LOG INTELIGENTE: Só logar quando há mudança
+          if (lastLoggedCountRef.current !== uniqueNumbers.length) {
+            console.log(`📊 HISTÓRICO: ${uniqueNumbers.length} números únicos carregados (${blazeNumbers.length - uniqueNumbers.length} duplicatas removidas)`)
+            lastLoggedCountRef.current = uniqueNumbers.length
+          }
         }
       } catch (error) {
         console.error('❌ Erro carregando histórico:', error)
       }
       
-      // ✅ MELHORIA 1: Auto-conectar após carregar histórico
-      try {
-        setConnectionStatus('Conectando automaticamente...')
-        await blazeRealDataService.startCapturing()
-        setIsConnected(true)
+      // ✅ OTIMIZAÇÃO: Auto-conectar apenas se não estiver conectado
+      if (!isConnected) {
+        try {
+          setConnectionStatus('Conectando automaticamente...')
+          await blazeRealDataService.startCapturing()
+                  setIsConnected(true)
         setConnectionStatus('Conectado automaticamente')
-        console.log('🚀 AUTO-CONECTADO: Sistema conectou automaticamente à Blaze')
-      } catch (error) {
-        setIsConnected(false)
-        setConnectionStatus('Erro na conexão automática')
-        console.error('❌ Erro na conexão automática:', error)
+        
+        // ✅ LOG INTELIGENTE: Só logar primeira conexão
+        if (!hasLoggedConnectionRef.current) {
+          console.log('🚀 AUTO-CONECTADO: Sistema conectou automaticamente à Blaze')
+          hasLoggedConnectionRef.current = true
+        }
+        } catch (error) {
+          setIsConnected(false)
+          setConnectionStatus('Erro na conexão automática')
+          console.error('❌ Erro na conexão automática:', error)
+        }
       }
     }
     
@@ -112,10 +124,103 @@ export function useBlazeData() {
       window.removeEventListener('blazeRealData', handleBlazeData)
       window.removeEventListener('blazeConnectionError', handleConnectionError)
     }
+      }, [])
+  
+      // ✅ SINGLETON: Controle de polling para evitar múltiplas instâncias
+  const isPollingActiveRef = useRef<boolean>(false)
+  const lastPollingInitRef = useRef<number>(0)
+  const lastLoggedCountRef = useRef<number>(0)
+  const hasLoggedConnectionRef = useRef<boolean>(false)
+  
+  // ✅ OTIMIZAÇÃO: Polling do banco a cada 30s para sincronizar histórico
+  useEffect(() => {
+    const now = Date.now()
+    
+    // ✅ PROTEÇÃO DUPLA: Flag + Tempo (evitar execuções < 5s)
+    if (isPollingActiveRef.current && (now - lastPollingInitRef.current) < 5000) {
+      console.log('🔄 POLLING JÁ ATIVO: Ignorando configuração duplicada')
+      return
+    }
+    
+    isPollingActiveRef.current = true
+    lastPollingInitRef.current = now
+    console.log('🔄 INICIANDO POLLING: Configurando interval de 30s para sincronizar banco')
+    
+    // Função de polling otimizada
+    const executePolling = async () => {
+      // ✅ OTIMIZAÇÃO: Só polling se conectado
+      if (!isConnected) {
+        console.log('🔄 POLLING PAUSADO: Sistema desconectado')
+        return
+      }
+      
+      console.log('🔄 POLLING EXECUTANDO: Buscando dados do banco...')
+      try {
+        const latestData = await blazeRealDataService.getAllUnifiedData()
+        console.log(`🔄 POLLING RESULTADO: ${latestData.length} registros encontrados no banco`)
+        
+        if (latestData.length > 0) {
+          const blazeNumbers = latestData.map(item => ({
+            id: item.round_id || item.id || `fallback_${Date.now()}`,
+            number: item.number,
+            color: item.color,
+            timestamp: new Date(item.timestamp_blaze || Date.now()).getTime(),
+            source: (item.source === 'blaze_real_api' ? 'blaze' : 'csv') as 'blaze' | 'csv'
+          }))
+          
+          setNumbers(prev => {
+            console.log(`🔄 POLLING COMPARAÇÃO: ${blazeNumbers.length} do banco vs ${prev.length} em memória`)
+            
+            // Filtrar apenas números realmente novos para evitar re-render desnecessário
+            const existingIds = new Set(prev.map(n => n.id))
+            const newNumbers = blazeNumbers.filter(n => !existingIds.has(n.id))
+            
+            console.log(`🔄 POLLING FILTRO: ${newNumbers.length} números realmente novos detectados`)
+            
+            if (newNumbers.length > 0) {
+              console.log(`📊 POLLING: ${newNumbers.length} números novos sincronizados do banco`)
+              console.log('📊 NÚMEROS NOVOS:', newNumbers.map(n => `${n.number}(${n.color})`).join(', '))
+              
+              const uniqueNumbers = [...prev, ...newNumbers].filter((num, index, self) => 
+                index === self.findIndex(n => n.id === num.id)
+              )
+              return uniqueNumbers.sort((a, b) => a.timestamp - b.timestamp)
+            } else {
+              console.log('📊 POLLING: Nenhum número novo - banco está sincronizado')
+            }
+            
+            return prev
+          })
+        } else {
+          console.log('⚠️ POLLING: Nenhum dado encontrado no banco')
+        }
+      } catch (error) {
+        console.error('❌ Erro no polling do banco:', error)
+      }
+    }
+    
+    // Executar imediatamente para teste
+    console.log('🔥 TESTE: Executando polling imediatamente...')
+    executePolling()
+    
+    // Configurar interval
+    const pollingInterval = setInterval(executePolling, 30000)
+    console.log('✅ POLLING CONFIGURADO: Interval ativo, primeira execução em 30s')
+    
+    return () => {
+      console.log('🛑 POLLING PARADO: Limpando interval')
+      clearInterval(pollingInterval)
+      isPollingActiveRef.current = false // ✅ RESETAR FLAG
+    }
   }, [])
 
-  // Função para conectar
+  // Função para conectar (com proteção contra múltiplas chamadas)
   const connect = async () => {
+    if (isConnected) {
+      console.log('⚠️ Já conectado - ignorando chamada duplicada')
+      return
+    }
+    
     try {
       setConnectionStatus('Conectando...')
       await blazeRealDataService.startCapturing()

@@ -9,9 +9,18 @@
  */
 import { useState, useCallback, useEffect } from 'react'
 import { RealAlgorithmsService } from '@/services/realAlgorithmsService'
-import { advancedMLService } from '@/services/advancedMLPredictionService'
-import { AdaptiveFusionEngine } from '@/services/fusion/AdaptiveFusionEngine'
-import type { BlazeNumberWithSource, Prediction } from '../components/BlazeDataProvider'
+// import { advancedMLService } from '@/services/advancedMLPredictionService' // REMOVIDO: Foundation Model 2025
+// import { AdaptiveFusionEngine } from '@/services/fusion/AdaptiveFusionEngine' // REMOVIDO: Foundation Model 2025
+import type { BlazeNumberWithSource } from '../components/BlazeDataProvider'
+// import type { Prediction } from '../components/BlazeDataProvider' // REMOVIDO: Foundation Model 2025
+
+// Definir Prediction localmente
+interface Prediction {
+  color: 'red' | 'black' | 'white'
+  number: number
+  confidence: number
+  [key: string]: any
+}
 import type { EnhancedPrediction, PredictionContext } from '@/types/enhanced-prediction.types'
 import { BLAZE_CONFIG, logAlgorithm, logDebug } from '../config/BlazeConfig'
 
@@ -86,7 +95,8 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
                 timestamp: n.timestamp,
                 round_id: n.id
               }))
-              return await advancedMLService.makePrediction(blazeDataPoints)
+              // return await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
+    throw new Error('Sistema antigo removido - Use Foundation Model via usePredictionSystem')
             })()
           : Promise.reject(new Error('Dados insuficientes para ML avançado'))
       ])
@@ -211,7 +221,8 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
             round_id: n.id
           }))
 
-          const mlResult = await advancedMLService.makePrediction(blazeDataPoints)
+          // const mlResult = await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
+    throw new Error('Sistema antigo removido - Use Foundation Model')
           
           const prediction: Prediction = {
             color: mlResult.predicted_color,
@@ -247,9 +258,9 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
         predictedColor = 'white'
       }
 
+      // ✅ SELEÇÃO INTELIGENTE: Usar análise de gaps em vez de aleatório
       const predictedNumber = predictedColor === 'white' ? 0 : 
-                            predictedColor === 'red' ? Math.floor(Math.random() * 7) + 1 :
-                            Math.floor(Math.random() * 7) + 8
+                            selectIntelligentNumber(predictedColor, lastNumbers)
 
       const prediction: Prediction = {
         color: predictedColor,
@@ -377,4 +388,42 @@ function calculateDataQuality(numbers: any[]): number {
   const distributionScore = 1 - Math.abs(distribution.red - 7/15) - Math.abs(distribution.black - 7/15) - Math.abs(distribution.white - 1/15)
   
   return (sampleSizeScore + Math.max(0, distributionScore)) / 2
+}
+
+/**
+ * 🎯 SELEÇÃO INTELIGENTE DE NÚMEROS BASEADA EM GAPS E FREQUÊNCIA
+ */
+function selectIntelligentNumber(color: 'red' | 'black' | 'white', data: any[]): number {
+  if (color === 'white') return 0
+  
+  const range = color === 'red' ? [1, 2, 3, 4, 5, 6, 7] : [8, 9, 10, 11, 12, 13, 14]
+  const scores = new Map<number, number>()
+  
+  range.forEach(num => {
+    let score = 0
+    
+    // 1. GAP WEIGHT (40%) - números que não saem há tempo
+    const lastIndex = data.map((d, i) => d.number === num ? i : -1).filter(i => i !== -1).pop() ?? -1
+    const gap = lastIndex === -1 ? data.length : data.length - lastIndex - 1
+    score += (gap / data.length) * 0.4
+    
+    // 2. FREQUENCY WEIGHT (30%) - números menos frequentes
+    const frequency = data.filter(d => d.number === num).length
+    const expectedFreq = data.length / range.length
+    if (frequency < expectedFreq) {
+      score += (expectedFreq - frequency) / expectedFreq * 0.3
+    }
+    
+    // 3. PATTERN WEIGHT (30%) - baseado em últimos 10 números
+    const recent = data.slice(-10)
+    const recentFreq = recent.filter(d => d.number === num).length
+    if (recentFreq === 0) score += 0.3 // Não saiu recentemente
+    
+    scores.set(num, score)
+  })
+  
+  // Retornar número com maior score combinado
+  return Array.from(scores.entries()).reduce((max, current) => 
+    current[1] > max[1] ? current : max
+  )[0]
 } 

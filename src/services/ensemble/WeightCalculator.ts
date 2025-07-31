@@ -125,21 +125,26 @@ export class WeightCalculator {
     // Performance recente
     const recentAccuracy = recentResults.filter(correct => correct).length / recentResults.length
     
-    // Peso adaptativo: pesos proporcionais ao erro (inspirado em AdaBoost 2024)
+    // ✅ CORRIGIDO: Peso adaptativo conservador baseado em pesquisas 2025
     const errorRate = 1 - recentAccuracy
     let adaptiveWeight = recentAccuracy
     
-    // Se tem erro alto, reduzir peso mais drasticamente
-    if (errorRate > 0.3) {
-      adaptiveWeight *= Math.exp(-errorRate * 2) // Decaimento exponencial
+    // 🧮 Penalidade conservadora usando função sigmóide ao invés de exponencial
+    if (errorRate > 0.4) { // Threshold mais conservador (era 0.3)
+      const sigmoidPenalty = 1 / (1 + Math.exp(-(errorRate - 0.5) * 3)) // Suave
+      adaptiveWeight *= (1 - sigmoidPenalty * 0.3) // Máximo 30% redução (era exp(-errorRate * 2))
     }
     
-    // Se tem performance excelente, boost moderado
+    // ⚖️ Boost científico para performance excelente com limite
     if (recentAccuracy > 0.8) {
-      adaptiveWeight += 0.1 * (recentAccuracy - 0.8) // Boost conservador
+      const conservativeBoost = 0.05 * Math.log(1 + (recentAccuracy - 0.8)) // Logarítmico
+      adaptiveWeight += conservativeBoost
     }
     
-    return Math.max(0.05, Math.min(1.0, adaptiveWeight))
+    // 🎯 Estabilização para variações pequenas
+    const stabilizationFactor = 0.9 + 0.1 * Math.exp(-Math.abs(errorRate - 0.3))
+    
+    return Math.max(0.1, Math.min(0.8, adaptiveWeight * stabilizationFactor)) // Range conservador
   }
 
   /**

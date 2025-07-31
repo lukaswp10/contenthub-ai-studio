@@ -33,6 +33,7 @@ import { AudioProcessor } from './render/AudioProcessor';
 import { WorkerManager } from './render/WorkerManager';
 import { RenderValidator } from './render/RenderValidator';
 import { RenderPipeline } from './render/RenderPipeline';
+import { getBrazilTimestamp } from './timezone';
 import { CacheManager } from './render/CacheManager';
 import { ProgressTracker } from './render/ProgressTracker';
 import { ErrorHandler } from './render/ErrorHandler';
@@ -311,7 +312,7 @@ class ClipsForgeRenderEngine implements RenderEngine {
         capabilities: this._capabilities
       },
       system: this._getSystemInfo(),
-      timestamp: new Date().toISOString()
+      timestamp: getBrazilTimestamp()
     };
   }
 

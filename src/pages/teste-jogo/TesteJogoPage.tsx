@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import blazeRealDataService from '@/services/blazeRealDataService'
-import { advancedMLService } from '@/services/advancedMLPredictionService'
+// import { advancedMLService } from '@/services/advancedMLPredictionService' // REMOVIDO: Foundation Model 2025
 import { predictionAccuracyService } from '@/services/predictionAccuracyService'
 import { realDataFrequencyAnalyzer, type AdvancedFrequencyAnalysis } from '@/services/realDataFrequencyAnalysis'
 import { confidenceEngine, type ConfidenceMetrics } from '@/services/confidenceEngine'
@@ -16,6 +16,9 @@ import type { BlazeNumber, RealPredictionResult } from '@/types/real-algorithms.
 import { ROIAnalysisPanel } from '@/components/ROIAnalysisPanel'
 import { ContinuousLearningService } from '@/services/continuousLearningService'
 import { BettingSimulator } from '@/components/BettingSimulator'
+
+// 🎯 SISTEMA UNIFICADO DA FASE 1
+import { UnifiedPredictionInterface } from './components/UnifiedPredictionInterface'
 
 // ===================================================================
 // INTERFACES E TIPOS - Sistema de Análise Massiva
@@ -1783,7 +1786,7 @@ export default function TesteJogoPage() {
             round_id: realResult.round_id || `real_${Date.now()}`
           }
           
-          await advancedMLService.updateModelPerformance(advancedMLPrediction, blazeDataPoint)
+          // await advancedMLService.updateModelPerformance(advancedMLPrediction, blazeDataPoint) // REMOVIDO: Foundation Model 2025
           console.log('🤖 MODELOS ML ATUALIZADOS!')
           
         } catch (mlError) {
@@ -3384,7 +3387,7 @@ export default function TesteJogoPage() {
       })).sort((a, b) => a.timestamp - b.timestamp) // Ordem cronológica
 
       // Executar predição avançada
-      const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints)
+              // const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
       setAdvancedMLPrediction(advancedPrediction)
 
       // Registrar predição para monitoramento
@@ -5014,8 +5017,8 @@ export default function TesteJogoPage() {
    */
   const resetModelEvolution = async () => {
     try {
-      const { advancedMLService } = await import('@/services/advancedMLPredictionService')
-      advancedMLService.resetModelWeights()
+      // const { advancedMLService } = await import('@/services/advancedMLPredictionService') // REMOVIDO: Foundation Model 2025
+      // advancedMLService.resetModelWeights() // REMOVIDO: Foundation Model 2025
       
       setFeedbackInsights(prev => [...prev.slice(-4), 'Pesos dos modelos resetados'])
       
@@ -6287,6 +6290,14 @@ Relatório gerado pelo sistema ETAPA 4 - Análise Comparativa
             </Button>
           </div>
         </div>
+
+        {/* 🎯 SISTEMA UNIFICADO DA FASE 1 - NOVA IMPLEMENTAÇÃO */}
+        <UnifiedPredictionInterface 
+          latestNumber={lastRealData ? {
+            number: lastRealData.number,
+            color: lastRealData.color
+          } : undefined}
+        />
 
         {/* SEÇÃO TEMPO REAL - PRINCIPAL */}
         <Card className="bg-gradient-to-r from-orange-800/80 to-red-800/80 border-2 border-orange-400 shadow-lg">

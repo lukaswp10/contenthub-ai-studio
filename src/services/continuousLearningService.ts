@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { getBrazilTimestamp } from '../utils/timezone';
 import { RealMLService } from './realMLService';
 import type { BlazeNumber, RealPredictionResult } from '../types/real-algorithms.types';
 
@@ -477,7 +478,7 @@ export class ContinuousLearningService {
           total_predictions: this.learningMetrics.total_predictions,
           global_accuracy: this.learningMetrics.global_accuracy,
           total_profit: this.learningMetrics.total_profit,
-          timestamp: new Date().toISOString()
+          timestamp: getBrazilTimestamp()
         });
 
       if (error) {

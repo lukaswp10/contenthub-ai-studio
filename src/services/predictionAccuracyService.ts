@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { getBrazilTimestamp } from '../utils/timezone'
 import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
 
 // ===== INTERFACES =====
@@ -511,15 +512,15 @@ export class PredictionAccuracyService {
   private async applyWeightAdjustment(modelId: string, performanceFactor: number): Promise<void> {
     try {
       // Tentar acessar o serviço ML avançado para ajustar pesos
-      const { advancedMLService } = await import('./advancedMLPredictionService')
+      // const { advancedMLService } = await import('./advancedMLPredictionService') // REMOVIDO: Foundation Model 2025
       
       // Enviar sinal de ajuste de peso
-      if (advancedMLService && typeof advancedMLService.adjustModelWeight === 'function') {
-        await advancedMLService.adjustModelWeight(modelId, performanceFactor)
-        console.log(`⚖️ Peso do modelo ${modelId} ajustado por fator ${performanceFactor.toFixed(2)}`)
-      } else {
+      // if (advancedMLService && typeof advancedMLService.adjustModelWeight === 'function') { // REMOVIDO: Foundation Model 2025
+      //   await advancedMLService.adjustModelWeight(modelId, performanceFactor) // REMOVIDO: Foundation Model 2025
+      //   console.log(`⚖️ Peso do modelo ${modelId} ajustado por fator ${performanceFactor.toFixed(2)}`) // REMOVIDO: Foundation Model 2025
+      // } else {
         console.log(`📝 Ajuste de peso registrado para ${modelId}: ${performanceFactor.toFixed(2)}`)
-      }
+      // } // REMOVIDO: Foundation Model 2025
     } catch (error) {
       console.log(`⚠️ Não foi possível aplicar ajuste de peso para ${modelId}:`, error)
     }
@@ -852,7 +853,7 @@ export class PredictionAccuracyService {
         .insert({
           prediction_id: predictionId,
           error_factors: factors,
-          timestamp: new Date().toISOString()
+          timestamp: getBrazilTimestamp()
         })
 
       if (error) throw error
@@ -868,7 +869,7 @@ export class PredictionAccuracyService {
         .insert({
           prediction_id: predictionId,
           success_factors: factors,
-          timestamp: new Date().toISOString()
+          timestamp: getBrazilTimestamp()
         })
 
       if (error) throw error

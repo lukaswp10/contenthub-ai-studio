@@ -391,15 +391,15 @@ export class FeedbackLoopService {
   private async applyModelEvolution(modelId: string, evolution: ModelEvolution): Promise<void> {
     try {
       // Aplicar no serviço ML avançado
-      const { advancedMLService } = await import('./advancedMLPredictionService')
+      // const { advancedMLService } = await import('./advancedMLPredictionService') // REMOVIDO: Foundation Model 2025
       
-      if (advancedMLService && typeof advancedMLService.adjustModelWeight === 'function') {
+      // if (advancedMLService && typeof advancedMLService.adjustModelWeight === 'function') { // REMOVIDO: Foundation Model 2025
         const weightFactor = evolution.current_weight / evolution.previous_weight
-        await advancedMLService.adjustModelWeight(modelId, weightFactor)
+        // await advancedMLService.adjustModelWeight(modelId, weightFactor) // REMOVIDO: Foundation Model 2025
         
         // ✅ CORREÇÃO: Log controlado para evitar poluição (11x por resultado)
         logWeightAdjustment(`⚖️ Peso aplicado no ML: ${modelId} = ${evolution.current_weight.toFixed(2)}`)
-      }
+      // } // REMOVIDO: Foundation Model 2025
 
       // ✅ CORREÇÃO: Log controlado para evitar poluição (11x por resultado)
       logFeedbackEvolution(`🧬 Evolução aplicada para modelo ${modelId}: accuracy=${evolution.recent_accuracy.toFixed(3)}`)

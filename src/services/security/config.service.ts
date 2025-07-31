@@ -14,6 +14,7 @@
 
 import { cryptoService, type ApiKeyData, type EncryptedData } from './crypto.service'
 import { supabase } from '../../lib/supabase'
+import { getBrazilTimestamp } from '../../utils/timezone'
 
 // ✅ INTERFACES
 export interface ApiKeyConfig {
@@ -281,7 +282,7 @@ export class ConfigService {
             .from('api_keys_config')
             .update({
               is_valid: result.isValid,
-              updated_at: new Date().toISOString()
+              updated_at: getBrazilTimestamp()
             })
             .eq('id', result.id)
             .eq('user_id', user.id)
@@ -466,7 +467,7 @@ export class ConfigService {
           is_valid: config.isValid,
           last_used: config.lastUsed ? new Date(config.lastUsed).toISOString() : null,
           expires_at: config.expiresAt ? new Date(config.expiresAt).toISOString() : null,
-          updated_at: new Date().toISOString()
+          updated_at: getBrazilTimestamp()
         })
         .eq('id', id)
         .eq('user_id', user.id)

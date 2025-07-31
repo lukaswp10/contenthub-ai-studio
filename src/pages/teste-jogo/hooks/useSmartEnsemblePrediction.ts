@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { SmartEnsembleEngine } from '@/services/ensemble/SmartEnsembleEngine'
 import { RealAlgorithmsService } from '@/services/realAlgorithmsService'
-import { advancedMLService } from '@/services/advancedMLPredictionService'
+// import { advancedMLService } from '@/services/advancedMLPredictionService' // REMOVIDO: Foundation Model 2025
 import type { BlazeNumberWithSource, Prediction } from '../components/BlazeDataProvider'
 import type { PredictionContext } from '@/types/ensemble.types'
 import type { RealAlgorithmResult } from '@/types/real-algorithms.types'
@@ -99,7 +99,8 @@ export function useSmartEnsemblePrediction(numbers: BlazeNumberWithSource[]) {
               timestamp: n.timestamp,
               round_id: n.id
             }))
-            return await advancedMLService.makePrediction(blazeDataPoints)
+            // return await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
+    throw new Error('Sistema antigo removido - Use Foundation Model via usePredictionSystem')
           }
           return null
         })().catch(() => null)
@@ -172,7 +173,7 @@ export function useSmartEnsemblePrediction(numbers: BlazeNumberWithSource[]) {
       // Atualizar métricas
       setPerformanceMetrics(smartEngine.getPerformanceReport())
 
-      console.log(`✅ SMART ENSEMBLE: ${ensemblePrediction.final_color} ${ensemblePrediction.final_number} (${(ensemblePrediction.final_confidence * 100).toFixed(1)}%)`)
+      console.log(`✅ SMART ENSEMBLE: ${ensemblePrediction.final_color} ${ensemblePrediction.final_number} (${ensemblePrediction.final_confidence.toFixed(1)}%)`)
       
       return compatiblePrediction
 
@@ -228,7 +229,7 @@ export function useSmartEnsemblePrediction(numbers: BlazeNumberWithSource[]) {
 
       setCurrentPrediction(compatiblePrediction)
       
-      console.log(`✅ MODO SIMPLES: ${simplePrediction.color} ${simplePrediction.number} (${(simplePrediction.confidence * 100).toFixed(1)}%)`)
+      console.log(`✅ MODO SIMPLES: ${simplePrediction.color} ${simplePrediction.number} (${simplePrediction.confidence.toFixed(1)}%)`)
       
       return compatiblePrediction
 

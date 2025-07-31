@@ -10,6 +10,7 @@
 
 import { supabase } from '../lib/supabase'
 import { logThrottled, logAlways, logDebug } from '../utils/logThrottler'
+import { getBrazilTimestamp, getBrazilDateOnly } from '../utils/timezone'
 
 // ===== TYPES =====
 
@@ -69,6 +70,8 @@ interface SystemPerformance {
   last_updated: string
 }
 
+// ✅ CORREÇÃO 2: Timezone do Brasil agora centralizado em src/utils/timezone.ts
+
 // ===== SERVICE CLASS =====
 
 class BlazeRealDataService {
@@ -90,6 +93,7 @@ class BlazeRealDataService {
   private lastMLPredictionData: string = ''
   private readonly ML_PREDICTION_COOLDOWN = 30000 // Predição ML apenas a cada 30 segundos
   private processedDataHashes = new Set<string>()
+  private lastEmittedData: string = '' // ✅ OTIMIZAÇÃO: Prevenir eventos duplicados
   
   // URL do nosso proxy local
   private readonly PROXY_URL = '/api/blaze-proxy'
@@ -328,7 +332,7 @@ class BlazeRealDataService {
         const errorEvent = new CustomEvent('blazeConnectionError', { 
           detail: { 
             error: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString()
+            timestamp: getBrazilTimestamp()
           }
         })
         window.dispatchEvent(errorEvent)
@@ -490,7 +494,7 @@ class BlazeRealDataService {
           detail: data
         });
         window.dispatchEvent(realDataEvent);
-        console.log('📡 Evento blazeRealData emitido:', data);
+        console.log(`📡 Evento blazeRealData emitido: ${data.number} (${data.color}) - ${data.round_id}`);
       }
 
     } catch (error) {
@@ -507,7 +511,7 @@ class BlazeRealDataService {
         const errorEvent = new CustomEvent('blazeConnectionError', { 
           detail: { 
             error: 'Perdeu conexão com proxy local',
-            timestamp: new Date().toISOString()
+            timestamp: getBrazilTimestamp()
           }
         })
         window.dispatchEvent(errorEvent)
@@ -525,7 +529,7 @@ class BlazeRealDataService {
     // Usar hash simples do input + data do dia para garantir consistência
     
     // Extrair apenas a data (sem hora) para consistência durante o dia
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+    const today = getBrazilDateOnly() // YYYYMMDD Brasil
     
     // Criar hash simples e determinístico do input
     let hash = 0
@@ -630,22 +634,20 @@ class BlazeRealDataService {
       this.emitRealData(data)
       logThrottled('data-emitted', `📡 DADOS EMITIDOS PARA INTERFACE: ${normalizedData.number} (${normalizedData.color})`)
 
-      // ✅ SISTEMA ANTI-LOOP: Predição ML apenas com cooldown de 30 segundos
-      const now = Date.now()
-      const dataSignature = `${normalizedData.number}_${normalizedData.color}`
+      // ✅ FOUNDATION MODEL 2025: Sistema antigo desabilitado
+      console.log('🎯 FOUNDATION MODEL: Dados processados - UnifiedPredictionInterface ativo automaticamente')
       
-      if (now - this.lastMLPredictionTime >= this.ML_PREDICTION_COOLDOWN && 
-          this.lastMLPredictionData !== dataSignature) {
-        
-        this.lastMLPredictionTime = now
-        this.lastMLPredictionData = dataSignature
-        
-        console.log(`🎯 PREDIÇÃO ML AUTORIZADA: Cooldown de 30s respeitado`)
-        await this.makePredictionBasedOnRealData()
-      } else {
-        const remaining = Math.ceil((this.ML_PREDICTION_COOLDOWN - (now - this.lastMLPredictionTime)) / 1000)
-        console.log(`🚫 PREDIÇÃO ML BLOQUEADA: Aguardar ${remaining}s (anti-loop)`)
-      }
+      // Sistema ML antigo desabilitado - Foundation Model 2025 via UnifiedPredictionInterface
+      // const now = Date.now()
+      // const dataSignature = `${normalizedData.number}_${normalizedData.color}`
+      // 
+      // if (now - this.lastMLPredictionTime >= this.ML_PREDICTION_COOLDOWN && 
+      //     this.lastMLPredictionData !== dataSignature) {
+      //   this.lastMLPredictionTime = now
+      //   this.lastMLPredictionData = dataSignature
+      //   console.log(`🎯 PREDIÇÃO ML AUTORIZADA: Cooldown de 30s respeitado`)
+      //   await this.makePredictionBasedOnRealData()
+      // }
 
     } catch (error) {
       console.log('❌ Erro processando dados reais:', error)
@@ -653,13 +655,23 @@ class BlazeRealDataService {
   }
 
   /**
-   * EMITIR APENAS DADOS REAIS PARA INTERFACE
+   * EMITIR APENAS DADOS REAIS PARA INTERFACE (com proteção anti-duplicação)
    */
   private emitRealData(data: BlazeRealData): void {
     if (typeof window !== 'undefined') {
+      // ✅ OTIMIZAÇÃO: Verificar se já foi emitido recentemente
+      const dataKey = `${data.number}_${data.color}_${data.round_id}`
+      if (this.lastEmittedData === dataKey) {
+        console.log('🚫 DUPLICAÇÃO: Evento já emitido, ignorando...')
+        return
+      }
+      
+      this.lastEmittedData = dataKey
       const event = new CustomEvent('blazeRealData', { detail: data })
       window.dispatchEvent(event)
-      logThrottled('data-emitted-to-interface', '📡 Dados reais emitidos para interface')
+      
+      // ✅ OTIMIZAÇÃO: Log reduzido para performance
+      console.log(`📡 Evento blazeRealData emitido: ${data.number} (${data.color}) - ${data.round_id}`)
     }
   }
 
@@ -726,7 +738,7 @@ class BlazeRealDataService {
 
       // Tentar usar sistema ML avançado
       try {
-        const { advancedMLService } = await import('./advancedMLPredictionService')
+        // const { advancedMLService } = await import('./advancedMLPredictionService') // REMOVIDO: Foundation Model 2025
         
         // ✅ PROBLEMA 4: Apenas log essencial de dados
         // Análise detalhada por fonte (apenas contadores para debug se necessário)
@@ -742,8 +754,10 @@ class BlazeRealDataService {
         })).reverse() // Ordem cronológica
 
         // Executar predição avançada
-        const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints)
+        // const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
 
+        // REMOVIDO: Sistema antigo ML substituído pelo Foundation Model 2025
+        /*
         // Converter para formato sistema
         const prediction: SystemPrediction = {
           predicted_color: advancedPrediction.predicted_color,
@@ -784,10 +798,11 @@ class BlazeRealDataService {
 
         // Salvar predição detalhada para análise
         await this.saveAdvancedPredictionDetails(advancedPrediction)
+        */
 
                     } catch (mlError) {
-        console.warn('⚠️ Sistema ML avançado falhou, usando ALGORITMOS REAIS:', mlError)
-        await this.useRealAlgorithmsInstead(historicalData || [])
+        console.warn('⚠️ Sistema ML antigo desabilitado - Foundation Model 2025 ativo:', mlError)
+        // await this.useRealAlgorithmsInstead(historicalData || []) // REMOVIDO: Foundation Model 2025
       }
 
     } catch (error) {
@@ -1090,7 +1105,7 @@ class BlazeRealDataService {
     try {
       // Salvar métricas detalhadas para análise
       const detailedRecord = {
-        timestamp: new Date().toISOString(),
+        timestamp: getBrazilTimestamp(),
         prediction_id: `adv_${Date.now()}`,
         predicted_color: prediction.predicted_color,
         confidence: prediction.confidence_percentage,
@@ -1552,7 +1567,7 @@ class BlazeRealDataService {
           detail: data
         });
         window.dispatchEvent(realDataEvent);
-        console.log('📡 Evento blazeRealData emitido (Chromium):', data);
+        console.log(`📡 Evento blazeRealData emitido (Chromium): ${data.number} (${data.color}) - ${data.round_id}`);
       }
 
     } catch (error) {
@@ -1588,7 +1603,7 @@ class BlazeRealDataService {
     this.listeners.forEach(callback => callback({
       status: 'ERRO_FATAL',
       error: message,
-      timestamp: new Date().toISOString()
+      timestamp: getBrazilTimestamp()
     }))
   }
 
@@ -1608,15 +1623,46 @@ class BlazeRealDataService {
     const seenRoundIds = new Set<string>()
     
     try {
-      // 1️⃣ BUSCAR DADOS REAIS DO SUPABASE (PRIORIDADE MÁXIMA)
-      const { data: realData, error: realError } = await supabase
-        .from('blaze_real_data')
-        .select('*')
-        .order('timestamp_blaze', { ascending: false })
-        // ✅ SEM LIMITE - TODOS OS DADOS REAIS!
+      // 1️⃣ BUSCAR DADOS REAIS DO SUPABASE COM PAGINAÇÃO (ULTRAPASSAR LIMITE 1000)
+      let allRealData: any[] = []
+      let page = 0
+      const pageSize = 1000
+      let hasMore = true
+      
+      while (hasMore) {
+        const startRange = page * pageSize
+        const endRange = startRange + pageSize - 1
+        
+        const { data: pageData, error: pageError } = await supabase
+          .from('blaze_real_data')
+          .select('*')
+          .order('timestamp_blaze', { ascending: false })
+          .range(startRange, endRange)
+        
+        if (pageError) {
+          console.error(`❌ Erro na página ${page + 1}: ${pageError.message}`)
+          break
+        }
+        
+        if (pageData && pageData.length > 0) {
+          allRealData = [...allRealData, ...pageData]
+          
+          // Se retornou menos que o pageSize, chegamos ao fim
+          if (pageData.length < pageSize) {
+            hasMore = false
+          } else {
+            page++
+          }
+        } else {
+          hasMore = false
+        }
+      }
+      
+      const realData = allRealData
+      const realError = null
 
       if (realError) {
-        console.error(`❌ Erro buscando dados reais: ${realError.message}`)
+        console.error(`❌ Erro buscando dados reais: ${realError}`)
       } else if (realData && realData.length > 0) {
         realData.forEach(item => {
           const roundId = item.round_id || item.id
@@ -1640,7 +1686,7 @@ class BlazeRealDataService {
         .select('*')
         .eq('data_type', 'csv_import')
         .order('timestamp_data', { ascending: false })
-        // ✅ SEM LIMITE - TODOS OS DADOS CSV!
+        .limit(10000) // ✅ BUSCAR ATÉ 10K REGISTROS CSV
 
       if (csvError) {
         console.error(`❌ Erro buscando dados CSV: ${csvError.message}`)
@@ -1722,7 +1768,7 @@ class BlazeRealDataService {
         return timestampA - timestampB
       })
 
-      // ✅ PROBLEMA 4: Função retorna dados silenciosamente
+      // ✅ DADOS UNIFICADOS - RETORNO LIMPO
       return allData
 
     } catch (error) {

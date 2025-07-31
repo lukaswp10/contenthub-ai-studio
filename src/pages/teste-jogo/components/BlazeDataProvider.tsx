@@ -1,13 +1,12 @@
 /**
  * 🏗️ BLAZE DATA PROVIDER - Estado Central
  * 
- * Gerencia todos os dados da Blaze e algoritmos
+ * Gerencia todos os dados da Blaze 
  * Fonte única de verdade para o sistema
+ * ✅ FASE 1: Sistema antigo removido para evitar conflitos
  */
-import React, { createContext, useContext, useEffect } from 'react'
+import React, { createContext, useContext } from 'react'
 import { useBlazeData } from '../hooks/useBlazeData'
-import { useSmartEnsemblePrediction, type ExtendedPrediction } from '../hooks/useSmartEnsemblePrediction'
-import { useAccuracyTracker } from '../hooks/useAccuracyTracker'
 import type { BlazeNumber } from '@/types/real-algorithms.types'
 
 // ===== TIPOS =====
@@ -15,38 +14,13 @@ export interface BlazeNumberWithSource extends BlazeNumber {
   source: 'blaze' | 'csv'
 }
 
-export interface Prediction {
-  color: 'red' | 'black' | 'white'
-  number: number
-  confidence: number
-  algorithms: string[]
-  timestamp: number
-}
-
-export interface AccuracyStats {
-  total: number
-  correct: number
-  incorrect: number
-  accuracy: number
-  lastResult: boolean | null
-}
-
-// ===== CONTEXTO =====
+// ===== CONTEXTO SIMPLIFICADO =====
 interface BlazeContextType {
   // Dados
   numbers: BlazeNumberWithSource[]
   lastNumber: BlazeNumberWithSource | null
   
-  // Predição
-  currentPrediction: ExtendedPrediction | null
-  isGeneratingPrediction: boolean
-  
-  // Acurácia
-  accuracyStats: AccuracyStats
-  waitingForResult: boolean
-  
   // Ações
-  generatePrediction: () => Promise<any>
   addCSVData: (csvNumbers: BlazeNumberWithSource[]) => void
   
   // Estado Blaze
@@ -58,42 +32,17 @@ interface BlazeContextType {
 
 const BlazeContext = createContext<BlazeContextType | null>(null)
 
-// ===== PROVIDER =====
+// ===== PROVIDER SIMPLIFICADO =====
 export function BlazeDataProvider({ children }: { children: React.ReactNode }) {
-  // Hooks customizados para cada responsabilidade
+  // Hook apenas para dados da Blaze (sem sistema de predição antigo)
   const blazeData = useBlazeData()
-  const predictionEngine = useSmartEnsemblePrediction(blazeData.numbers)
-  const accuracyTracker = useAccuracyTracker()
-
-  // Integração automática: quando novo número da Blaze chegar, verificar acurácia
-  useEffect(() => {
-    if (blazeData.lastNumber && accuracyTracker.waitingForResult) {
-      accuracyTracker.checkAccuracy(blazeData.lastNumber)
-    }
-  }, [blazeData.lastNumber, accuracyTracker.waitingForResult])
-
-  // Integração automática: quando nova predição for gerada, registrar para verificação
-  useEffect(() => {
-    if (predictionEngine.currentPrediction) {
-      accuracyTracker.registerPrediction(predictionEngine.currentPrediction)
-    }
-  }, [predictionEngine.currentPrediction])
 
   const value: BlazeContextType = {
     // Dados
     numbers: blazeData.numbers,
     lastNumber: blazeData.lastNumber,
     
-    // Predição
-    currentPrediction: predictionEngine.currentPrediction,
-    isGeneratingPrediction: predictionEngine.isGenerating,
-    
-    // Acurácia
-    accuracyStats: accuracyTracker.stats,
-    waitingForResult: accuracyTracker.waitingForResult,
-    
     // Ações
-    generatePrediction: predictionEngine.generatePrediction,
     addCSVData: blazeData.addCSVData,
     
     // Estado Blaze
