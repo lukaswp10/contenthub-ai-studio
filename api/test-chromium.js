@@ -107,6 +107,7 @@ export default async function handler(req, res) {
     diagnostico.etapas.push('ETAPA 4: Launch iniciado');
     
     let browser = null;
+    let page = null;
     try {
       const startTime = Date.now();
       
@@ -125,37 +126,17 @@ export default async function handler(req, res) {
       log(`✅ Browser LANÇADO com sucesso em ${launchTime}ms`);
       diagnostico.etapas.push(`Launch: OK (${launchTime}ms)`);
       
-      // ===== ETAPA 5: TESTAR PÁGINA =====
-      log('📄 ETAPA 5: Testando criação de página...');
-      diagnostico.etapas.push('ETAPA 5: Página iniciado');
-      
-      const page = await browser.newPage();
-      log('✅ Página criada com sucesso');
-      diagnostico.etapas.push('Página: OK');
-      
-      await page.close();
-      log('✅ Página fechada com sucesso');
-      
-    } catch (error) {
-      log(`❌ Launch ERRO: ${error.message}`);
-      diagnostico.etapas.push(`Launch: ERRO - ${error.message}`);
-      throw new Error(`Erro no launch: ${error.message}`);
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-          log('🔒 Browser fechado com sucesso');
-        } catch (closeError) {
-          log(`⚠️ Erro fechando browser: ${closeError.message}`);
-        }
-      }
-    }
-
-    // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
-    log('🌐 ETAPA 6: Testando navegação para Blaze...');
-    diagnostico.etapas.push('ETAPA 6: Navegação Blaze iniciado');
-    
-    try {
+             // ===== ETAPA 5: TESTAR PÁGINA =====
+       log('📄 ETAPA 5: Testando criação de página...');
+       diagnostico.etapas.push('ETAPA 5: Página iniciado');
+       
+       page = await browser.newPage();
+       log('✅ Página criada com sucesso');
+       diagnostico.etapas.push('Página: OK');
+       
+       // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
+       log('🌐 ETAPA 6: Testando navegação para Blaze...');
+       diagnostico.etapas.push('ETAPA 6: Navegação Blaze iniciado');
       await page.goto('https://blaze.bet.br/pt/games/double', { 
         waitUntil: 'domcontentloaded',
         timeout: 20000 
@@ -194,17 +175,35 @@ export default async function handler(req, res) {
       diagnostico.sucesso = true;
       diagnostico.etapas.push('DIAGNÓSTICO: NAVEGAÇÃO COMPLETA');
       
-      return res.status(200).json({
-        success: true,
-        message: 'Chromium + Blaze testado com sucesso',
-        diagnostico,
-        pageInfo
-      });
+             return res.status(200).json({
+         success: true,
+         message: 'Chromium + Blaze testado com sucesso',
+         diagnostico,
+         pageInfo
+       });
+       
+    } catch (error) {
+      log(`❌ Launch/Navegação ERRO: ${error.message}`);
+      diagnostico.etapas.push(`ERRO: ${error.message}`);
+      throw new Error(`Erro no teste: ${error.message}`);
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+          log('📄 Página fechada');
+        } catch (closeError) {
+          log(`⚠️ Erro fechando página: ${closeError.message}`);
+        }
+      }
       
-    } catch (navError) {
-      log(`❌ Erro navegação Blaze: ${navError.message}`);
-      diagnostico.etapas.push(`Navegação Blaze: ERRO - ${navError.message}`);
-      throw new Error(`Erro navegando para Blaze: ${navError.message}`);
+      if (browser) {
+        try {
+          await browser.close();
+          log('🔒 Browser fechado com sucesso');
+        } catch (closeError) {
+          log(`⚠️ Erro fechando browser: ${closeError.message}`);
+        }
+      }
     }
 
   } catch (error) {
