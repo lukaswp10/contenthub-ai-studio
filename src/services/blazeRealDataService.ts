@@ -1402,45 +1402,36 @@ class BlazeRealDataService {
    */
   private async tryChromiumCapture(): Promise<void> {
     try {
-      console.log('🎯 CHROMIUM: Iniciando captura via navegador...')
+      console.log('🚀 TESTANDO CHROMIUM CAPTURE REAL (após diagnóstico ES6)...')
       
-      // Detectar ambiente
-      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      
-      let result: ChromiumCaptureResult;
-      
-      if (isDevelopment) {
-        // EM DESENVOLVIMENTO: Executar script diretamente
-        console.log('🔧 DESENVOLVIMENTO: Executando script Chromium local...')
-        result = await this.executeChromiumScriptLocally()
-      } else {
-        // EM PRODUÇÃO: Usar endpoint API
-        console.log('🚀 PRODUÇÃO: Usando endpoint /api/chromium-capture...')
-        const response = await fetch('/api/chromium-capture', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ action: 'capture_blaze' })
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Chromium capture failed: ${response.status}`)
-        }
-        
-        result = await response.json()
+      const response = await fetch('/api/chromium-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'capture_blaze' })
+      })
+
+      console.log(`📡 CHROMIUM RESPONSE: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        console.error(`❌ CHROMIUM ERRO: ${response.status} - ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`📄 CHROMIUM ERROR BODY: ${errorText}`)
+        throw new Error(`Chromium capture falhou: ${response.status}`)
       }
+
+      const responseData = await response.json()
+      console.log('✅ CHROMIUM SUCCESS:', responseData)
       
       // ✅ CORREÇÃO: Gerar ID apenas uma vez
-      const optimizedId = this.generateOptimizedId(result.id)
+      const optimizedId = this.generateOptimizedId(responseData.data.id)
 
       // Converter para formato padrão
       const data: BlazeRealData = {
-        id: result.id,
+        id: responseData.data.id,
         round_id: optimizedId, // ✅ USAR O MESMO ID
-        number: result.numero,
-        color: result.corNome.toLowerCase() as 'red' | 'black' | 'white',
-        timestamp_blaze: result.timestamp,
+        number: responseData.data.numero,
+        color: responseData.data.corNome.toLowerCase() as 'red' | 'black' | 'white',
+        timestamp_blaze: responseData.data.timestamp,
         source: 'chromium_capture'
       }
       
