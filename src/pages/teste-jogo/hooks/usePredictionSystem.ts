@@ -14,13 +14,13 @@
  * @version 4.0.0 - FOUNDATION MODEL
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { foundationModel } from '../../../services/foundationModels/TimeSeriesFoundationModel'
 import type { ProbabilisticPrediction } from '../../../services/foundationModels/TimeSeriesFoundationModel'
 import { BLAZE_CONFIG } from '../config/BlazeConfig'
+import { supabase } from '../../../lib/supabase'
 import type { BlazeNumber } from '../../../types/real-algorithms.types'
 import { unifiedFeedbackService } from '../../../services/unifiedFeedbackService'
-import { supabase } from '../../../lib/supabase'
 
 // ===== INTERFACES COMPATÍVEIS =====
 
@@ -74,6 +74,54 @@ export function usePredictionSystem() {
   // ✅ CACHE INTELIGENTE: Evitar recarregar dados desnecessariamente
   const dataCache = useRef<{data: BlazeNumber[], timestamp: number, count: number} | null>(null)
   const CACHE_TTL = 30000 // 30 segundos
+
+  // ✅ CARREGAR MÉTRICAS DO BANCO NO INÍCIO
+  useEffect(() => {
+    const loadMetricsFromDB = async () => {
+      try {
+        const { data } = await supabase
+          .from('user_prediction_stats')
+          .select('total_predictions, correct_predictions, accuracy_percentage')
+          .eq('user_id', 'default_user')
+          .single()
+        
+        if (data) {
+          setMetrics({
+            total_predictions: data.total_predictions,
+            correct_predictions: data.correct_predictions,
+            accuracy_percentage: data.accuracy_percentage,
+            last_update: Date.now()
+          })
+          console.log('✅ METRICS: Métricas locais carregadas do banco')
+        }
+      } catch (error) {
+        console.warn('⚠️ METRICS: Erro carregando métricas do banco:', error)
+      }
+    }
+    loadMetricsFromDB()
+  }, [])
+
+  // ✅ SALVAR MÉTRICAS NO BANCO SEMPRE QUE MUDAREM
+  useEffect(() => {
+    if (metrics.total_predictions > 0) {
+      const saveMetricsToDB = async () => {
+        try {
+          await supabase.from('user_prediction_stats').upsert({
+            user_id: 'default_user',
+            total_predictions: metrics.total_predictions,
+            correct_predictions: metrics.correct_predictions,
+            accuracy_percentage: metrics.accuracy_percentage,
+            last_updated: new Date().toISOString()
+          }, { onConflict: 'user_id' })
+          
+          console.log('✅ METRICS: Métricas locais salvas no banco')
+        } catch (error) {
+          console.warn('⚠️ METRICS: Erro salvando métricas no banco:', error)
+        }
+      }
+      saveMetricsToDB()
+    }
+  }, [metrics])
 
   /**
    * 🎯 FUNÇÃO OTIMIZADA COM PAGINAÇÃO CORRETA - MANTIDA

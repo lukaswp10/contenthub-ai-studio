@@ -356,10 +356,44 @@ export class UnifiedFeedbackService {
   }
 
   /**
-   * 📊 OBTER MÉTRICAS ATUAIS
+   * 📊 OBTER MÉTRICAS ATUAIS - ✅ CONECTADO AO BANCO
    */
   getCurrentMetrics(): LearningMetrics {
+    // ✅ Retornar métricas do banco de dados quando disponível
+    this.loadMetricsFromDatabase()
     return { ...this.currentMetrics }
+  }
+
+  /**
+   * 📊 CARREGAR MÉTRICAS DO BANCO DE DADOS
+   */
+  private async loadMetricsFromDatabase(): Promise<void> {
+    try {
+      const { data } = await supabase
+        .from('user_prediction_stats')
+        .select('*')
+        .eq('user_id', 'default_user')
+        .single()
+      
+      if (data) {
+        // ✅ Atualizar métricas locais com dados do banco
+        this.currentMetrics = {
+          total_predictions: data.total_predictions,
+          correct_predictions: data.correct_predictions,
+          color_accuracy: data.accuracy_percentage,
+          number_accuracy: data.accuracy_percentage, // Assumir mesma accuracy para numbers
+          avg_confidence: data.confidence_reliability || 70,
+          avg_response_time: data.average_response_time || 1000,
+          algorithm_performance: {},
+          recent_trend: data.accuracy_percentage > 60 ? 'improving' : 
+                       data.accuracy_percentage < 40 ? 'declining' : 'stable',
+          last_updated: new Date(data.last_updated).getTime()
+        }
+        console.log('✅ UNIFIED: Métricas carregadas do banco')
+      }
+    } catch (error) {
+      console.warn('⚠️ UNIFIED: Erro carregando métricas do banco:', error)
+    }
   }
 
   /**
