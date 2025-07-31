@@ -167,7 +167,7 @@ export default async function handler(req, res) {
     const maxAttempts = 15; // ✅ 15s máximo (FREE tier)
     
     while (!latestGameData && attempts < maxAttempts) {
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // ✅ CORREÇÃO: waitForTimeout depreciado
       attempts++;
       
       if (attempts % 5 === 0) {
