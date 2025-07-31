@@ -488,14 +488,8 @@ class BlazeRealDataService {
       // ✅ CORREÇÃO CRÍTICA: Usar ID original da Blaze para controle
       this.lastKnownRound = gameId
       
-      // Emitir evento para interface
-      if (typeof window !== 'undefined') {
-        const realDataEvent = new CustomEvent('blazeRealData', { 
-          detail: data
-        });
-        window.dispatchEvent(realDataEvent);
-        console.log(`📡 Evento blazeRealData emitido: ${data.number} (${data.color}) - ${data.round_id}`);
-      }
+      // Emitir evento para interface (sem duplicação)
+      this.emitRealData(data)
 
     } catch (error) {
       // ERRO CRÍTICO - PARAR TUDO

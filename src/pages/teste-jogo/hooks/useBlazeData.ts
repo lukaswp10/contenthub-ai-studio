@@ -131,19 +131,17 @@ export function useBlazeData() {
   const lastPollingInitRef = useRef<number>(0)
   const lastLoggedCountRef = useRef<number>(0)
   const hasLoggedConnectionRef = useRef<boolean>(false)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // ✅ OTIMIZAÇÃO: Polling do banco a cada 30s para sincronizar histórico
   useEffect(() => {
-    const now = Date.now()
-    
-    // ✅ PROTEÇÃO DUPLA: Flag + Tempo (evitar execuções < 5s)
-    if (isPollingActiveRef.current && (now - lastPollingInitRef.current) < 5000) {
-      console.log('🔄 POLLING JÁ ATIVO: Ignorando configuração duplicada')
+    // ✅ PROTEÇÃO CRÍTICA: Se já existe interval, ignorar
+    if (pollingIntervalRef.current) {
+      console.log('🔄 POLLING JÁ ATIVO: Interval existente, ignorando')
       return
     }
     
     isPollingActiveRef.current = true
-    lastPollingInitRef.current = now
     console.log('🔄 INICIANDO POLLING: Configurando interval de 30s para sincronizar banco')
     
     // Função de polling otimizada
@@ -204,13 +202,16 @@ export function useBlazeData() {
     executePolling()
     
     // Configurar interval
-    const pollingInterval = setInterval(executePolling, 30000)
+    pollingIntervalRef.current = setInterval(executePolling, 30000)
     console.log('✅ POLLING CONFIGURADO: Interval ativo, primeira execução em 30s')
     
     return () => {
       console.log('🛑 POLLING PARADO: Limpando interval')
-      clearInterval(pollingInterval)
-      isPollingActiveRef.current = false // ✅ RESETAR FLAG
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+      isPollingActiveRef.current = false
     }
   }, [])
 

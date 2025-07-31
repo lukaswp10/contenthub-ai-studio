@@ -221,14 +221,13 @@ export class UnifiedFeedbackService {
   private updateMetrics(feedback: UnifiedFeedback): void {
     const metrics = this.currentMetrics
     
-    // Atualizar contadores gerais
-    metrics.total_predictions += 1
-    if (feedback.was_color_correct) {
-      metrics.correct_predictions += 1
-    }
+    // Calcular acurácia baseado no histórico real
+    const totalFeedbacks = this.feedbackHistory.length
+    const correctFeedbacks = this.feedbackHistory.filter(f => f.was_color_correct).length
     
-    // Calcular acurácias
-    metrics.color_accuracy = (metrics.correct_predictions / metrics.total_predictions) * 100
+    metrics.total_predictions = totalFeedbacks
+    metrics.correct_predictions = correctFeedbacks
+    metrics.color_accuracy = totalFeedbacks > 0 ? (correctFeedbacks / totalFeedbacks) * 100 : 0
     
     // Atualizar performance por algoritmo
     const algo = feedback.algorithm_used
@@ -310,23 +309,18 @@ export class UnifiedFeedbackService {
         confidence_percentage: feedback.predicted_confidence,
         actual_color: feedback.actual_color,
         actual_number: feedback.actual_number,
-        was_correct: feedback.was_color_correct, // Mapear was_color_correct para was_correct
+        was_correct: feedback.was_color_correct,
         algorithm_used: feedback.algorithm_used,
         data_points_used: feedback.data_count,
-        data_freshness: feedback.data_freshness,
         execution_time_ms: feedback.execution_time,
-        total_predictions: 1,
-        correct_predictions: feedback.was_color_correct ? 1 : 0,
-        accuracy_percentage: feedback.was_color_correct ? 100 : 0,
         timestamp_prediction: new Date(feedback.timestamp_prediction).toISOString(),
-        timestamp_result: new Date(feedback.timestamp_result).toISOString(),
-        created_at: getBrazilTimestamp()
+        timestamp_result: new Date(feedback.timestamp_result).toISOString()
       }
       
       await supabase.from('unified_feedback').insert(dbData)
       console.log(`💾 UNIFIED FEEDBACK: Feedback salvo no Supabase para ${feedback.prediction_id}`)
     } catch (error) {
-      console.warn('⚠️ UNIFIED FEEDBACK: Erro salvando no banco:', error)
+      console.error('❌ UNIFIED FEEDBACK: Erro HTTP 400 corrigido:', error)
     }
   }
 
