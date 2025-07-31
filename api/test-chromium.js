@@ -115,7 +115,13 @@ export default async function handler(req, res) {
         args: [
           ...chromium.args,
           '--no-sandbox',
-          '--disable-setuid-sandbox'
+          '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled', // ✅ Remove sinais de bot
+          '--disable-features=VizDisplayCompositor',
+          '--disable-web-security',
+          '--disable-dev-shm-usage',
+          '--no-first-run',
+          '--disable-extensions'
         ],
         executablePath,
         headless: chromium.headless || true,
@@ -134,13 +140,48 @@ export default async function handler(req, res) {
        log('✅ Página criada com sucesso');
        diagnostico.etapas.push('Página: OK');
        
-       // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
+       // ===== CONFIGURAÇÕES ANTI-DETECÇÃO =====
+       log('🥷 Aplicando configurações anti-detecção...');
+       
+       // User-agent realista
+       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+       
+       // Viewport realista  
+       await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+       
+       // Headers realistas
+       await page.setExtraHTTPHeaders({
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+         'Accept-Encoding': 'gzip, deflate, br',
+         'DNT': '1',
+         'Connection': 'keep-alive',
+         'Upgrade-Insecure-Requests': '1'
+       });
+       
+       // Remover flags de webdriver
+       await page.evaluateOnNewDocument(() => {
+         Object.defineProperty(navigator, 'webdriver', {
+           get: () => undefined,
+         });
+         delete window.navigator.webdriver;
+       });
+       
+       log('✅ Anti-detecção aplicada');
+       
+              // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
        log('🌐 ETAPA 6: Testando navegação para Blaze...');
        diagnostico.etapas.push('ETAPA 6: Navegação Blaze iniciado');
-      await page.goto('https://blaze.bet.br/pt/games/double', { 
-        waitUntil: 'domcontentloaded',
-        timeout: 20000 
-      });
+       
+       // Delay humano aleatório
+       const humanDelay = Math.random() * 2000 + 1000; // 1-3s
+       await new Promise(resolve => setTimeout(resolve, humanDelay));
+       log(`⏱️ Delay humano: ${Math.round(humanDelay)}ms`);
+       
+       await page.goto('https://blaze.bet.br/pt/games/double', { 
+         waitUntil: 'domcontentloaded',
+         timeout: 20000 
+       });
       
       log('✅ Página Blaze carregada com sucesso');
       diagnostico.etapas.push('Navegação Blaze: OK');
