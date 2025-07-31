@@ -3,13 +3,15 @@
  * 
  * Endpoint modernizado para captura de dados da Blaze via Chromium
  * Usa @sparticuz/chromium + puppeteer-core para produção serverless
+ * Compatível com Vercel FREE tier conforme documentação oficial
  * 
  * @author ClipsForge Team
- * @version 2.0.0 - Modernizado 2025
+ * @version 2.1.0 - Vercel FREE Compatible
  */
 
-import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
+// ✅ IMPORTS VERCEL COMPATIBLE (conforme docs)
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -29,6 +31,14 @@ export default async function handler(req, res) {
   }
 
   let browser = null;
+  const isProduction = process.env.VERCEL_ENV === 'production';
+  
+  // ✅ LOGS CONDICIONAIS (só produção)
+  const log = (message) => {
+    if (isProduction) {
+      console.log(message);
+    }
+  };
   
   try {
     const { action } = req.body;
@@ -40,30 +50,46 @@ export default async function handler(req, res) {
       });
     }
     
-    console.log('🚀 CHROMIUM MODERNO: Iniciando captura com @sparticuz/chromium...');
+    log('🚀 VERCEL FREE: Iniciando Chromium moderno...');
     
-    // ✅ CONFIGURAÇÃO MODERNA SERVERLESS
+    // ✅ VERIFICAR DEPENDÊNCIAS ANTES DE USAR
+    if (!chromium || !puppeteer) {
+      throw new Error('Dependências Chromium/Puppeteer não encontradas');
+    }
+    
+    log('📦 DEPENDÊNCIAS: chromium e puppeteer carregados');
+    
+    // ✅ OBTER EXECUTABLE PATH COM VERIFICAÇÃO
+    const executablePath = await chromium.executablePath();
+    log(`🔧 EXECUTABLE PATH: ${executablePath ? 'Encontrado' : 'ERRO - Não encontrado'}`);
+    
+    if (!executablePath) {
+      throw new Error('Chromium executable não encontrado');
+    }
+    
+    log('🌐 BROWSER: Iniciando launch com configuração FREE tier...');
+    
+    // ✅ CONFIGURAÇÃO SIMPLIFICADA VERCEL FREE
     browser = await puppeteer.launch({
       args: [
         ...chromium.args,
         '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-setuid-sandbox'
       ],
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      executablePath,
+      headless: chromium.headless || true,
+      timeout: 30000, // ✅ 30s timeout para FREE tier
     });
+    
+    log('✅ BROWSER: Lançado com sucesso');
 
     const page = await browser.newPage();
+    log('📄 PAGE: Nova página criada');
     
-    // ✅ CONFIGURAÇÕES OTIMIZADAS
+    // ✅ CONFIGURAÇÕES BÁSICAS VERCEL FREE
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({ width: 1280, height: 720 }); // ✅ Menor para FREE tier
+    log('🔧 PAGE: Configurações aplicadas');
 
     let latestGameData = null;
 
@@ -87,11 +113,11 @@ export default async function handler(req, res) {
               corEmoji: game.color === 0 ? '⚪' : game.color === 1 ? '🔴' : '⚫',
               id: game.id,
               timestamp: game.created_at,
-              url: 'chromium_modern_capture'
+              url: 'chromium_vercel_free'
             };
             
-            console.log(`🎯 CAPTURADO MODERNO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
-            console.log(`📅 Timestamp: ${latestGameData.timestamp}`);
+            log(`🎯 CAPTURADO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
+            log(`📅 Timestamp: ${latestGameData.timestamp}`);
             
           } else if (data && data.roll !== undefined) {
             latestGameData = {
@@ -101,74 +127,73 @@ export default async function handler(req, res) {
               corEmoji: data.color === 0 ? '⚪' : data.color === 1 ? '🔴' : '⚫',
               id: data.id,
               timestamp: data.created_at,
-              url: 'chromium_modern_capture'
+              url: 'chromium_vercel_free'
             };
             
-            console.log(`🎯 CAPTURADO MODERNO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
-            console.log(`📅 Timestamp: ${latestGameData.timestamp}`);
+            log(`🎯 CAPTURADO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
+            log(`📅 Timestamp: ${latestGameData.timestamp}`);
           }
           
         } catch (error) {
-          console.log(`⚠️ Erro ao processar resposta de ${url}:`, error.message);
+          log(`⚠️ Erro processando ${url}: ${error.message}`);
         }
       }
     });
 
-    console.log('🌐 NAVEGANDO: https://blaze.com/pt/games/double');
+    log('🌐 NAVEGANDO: https://blaze.com/pt/games/double');
     
-    // ✅ NAVEGAÇÃO OTIMIZADA
+    // ✅ NAVEGAÇÃO SIMPLIFICADA VERCEL FREE
     await page.goto('https://blaze.com/pt/games/double', { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
+      waitUntil: 'domcontentloaded', // ✅ Mais rápido que networkidle
+      timeout: 20000 // ✅ 20s para FREE tier
     });
 
-    console.log('📡 AGUARDANDO: Dados de jogos...');
+    log('📡 AGUARDANDO: Dados de jogos...');
     
-    // ✅ AGUARDAR DADOS COM TIMEOUT OTIMIZADO
+    // ✅ TIMEOUT REDUZIDO VERCEL FREE
     let attempts = 0;
-    const maxAttempts = 25; // 25 segundos máximo
+    const maxAttempts = 15; // ✅ 15s máximo (FREE tier)
     
     while (!latestGameData && attempts < maxAttempts) {
       await page.waitForTimeout(1000);
       attempts++;
       
       if (attempts % 5 === 0) {
-        console.log(`⏳ Aguardando dados... (${attempts}/${maxAttempts}s)`);
+        log(`⏳ Aguardando... (${attempts}/${maxAttempts}s)`);
       }
     }
 
     if (latestGameData) {
-      console.log('✅ DADOS CAPTURADOS COM SUCESSO (MODERNO)!');
-      console.log('════════════════════════════════════');
-      console.log(`🎲 ÚLTIMO JOGO: ${latestGameData.corEmoji} ${latestGameData.corNome}`);
-      console.log(`🔢 Número: ${latestGameData.numero}`);
-      console.log(`🆔 ID: ${latestGameData.id}`);
-      console.log(`⏰ Horário: ${latestGameData.timestamp}`);
-      console.log('════════════════════════════════════');
+      log('✅ SUCESSO: Dados capturados Vercel FREE!');
+      log(`🎲 JOGO: ${latestGameData.corEmoji} ${latestGameData.corNome} (${latestGameData.numero})`);
+      log(`🆔 ID: ${latestGameData.id}`);
       
       return res.status(200).json({
         success: true,
         data: latestGameData
       });
     } else {
-      throw new Error('TIMEOUT: Nenhum dado capturado em 25 segundos');
+      throw new Error('TIMEOUT: Nenhum dado capturado em 15s (Vercel FREE)');
     }
     
   } catch (error) {
-    console.error('❌ ERRO CHROMIUM MODERNO:', error);
+    // ✅ LOG DE ERRO SEMPRE (produção e local para debug)
+    console.error('❌ ERRO VERCEL FREE:', error.message);
+    log(`❌ STACK: ${error.stack}`);
     
     return res.status(500).json({
       success: false,
-      error: error.message || 'Erro interno do servidor moderno'
+      error: error.message || 'Erro Vercel FREE tier',
+      type: 'chromium_error'
     });
   } finally {
     // ✅ CLEANUP OBRIGATÓRIO
     if (browser) {
       try {
         await browser.close();
-        console.log('🔒 Browser fechado com sucesso');
+        log('🔒 CLEANUP: Browser fechado');
       } catch (cleanupError) {
-        console.error('⚠️ Erro no cleanup:', cleanupError);
+        console.error('⚠️ Erro cleanup:', cleanupError.message);
       }
     }
   }

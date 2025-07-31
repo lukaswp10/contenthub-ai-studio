@@ -8,12 +8,12 @@
   "alias": ["clipsforge.vercel.app"],
   "functions": {
     "api/chromium-capture.js": {
-      "maxDuration": 60,
-      "memory": 1024
+      "maxDuration": 25,
+      "memory": 512
     },
     "api/chromium-execute.js": {
-      "maxDuration": 60,
-      "memory": 1024
+      "maxDuration": 25,
+      "memory": 512
     }
   },
   "rewrites": [
