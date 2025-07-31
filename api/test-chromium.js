@@ -168,58 +168,185 @@ export default async function handler(req, res) {
        
        log('✅ Anti-detecção Playwright aplicada');
        
-              // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
-       log('🌐 ETAPA 6: Testando navegação para Blaze...');
-       diagnostico.etapas.push('ETAPA 6: Navegação Blaze iniciado');
+              // ===== ETAPA 6: INTERCEPTAÇÃO AVANÇADA =====
+       log('🕵️ ETAPA 6: Configurando interceptação e análise...');
+       diagnostico.etapas.push('ETAPA 6: Interceptação iniciado');
        
-       // Delay humano aleatório
-       const humanDelay = Math.random() * 2000 + 1000; // 1-3s
-       await new Promise(resolve => setTimeout(resolve, humanDelay));
-       log(`⏱️ Delay humano: ${Math.round(humanDelay)}ms`);
+       let detectionEvents = [];
+       let blockedRedirects = 0;
+       let allRequests = [];
        
-       await page.goto('https://blaze.bet.br/pt/games/double', { 
-         waitUntil: 'domcontentloaded',
-         timeout: 20000 
+       // ===== INTERCEPTAR TODOS OS REQUESTS =====
+       await page.route('**/*', async (route) => {
+         const request = route.request();
+         const url = request.url();
+         
+         allRequests.push({ 
+           url: url,
+           method: request.method(),
+           headers: request.headers(),
+           timestamp: Date.now()
+         });
+         
+         // BLOQUEAR REDIRECIONAMENTOS PARA /blocked
+         if (url.includes('/blocked') || url.includes('block')) {
+           log(`🚫 BLOQUEADO: Tentativa de redirect para ${url}`);
+           blockedRedirects++;
+           route.abort(); // BLOQUEAR!
+           return;
+         }
+         
+         // BLOQUEAR SCRIPTS DE DETECÇÃO SUSPEITOS
+         if (url.includes('bot-detect') || url.includes('antibot') || url.includes('captcha')) {
+           log(`🚫 BLOQUEADO: Script de detecção ${url}`);
+           route.abort();
+           return;
+         }
+         
+         route.continue();
        });
+       
+       // ===== INTERCEPTAR NAVEGAÇÃO =====
+       page.on('framenavigated', (frame) => {
+         log(`🔄 NAVEGAÇÃO: ${frame.url()}`);
+         detectionEvents.push(`NAV: ${frame.url()}`);
+       });
+       
+       // ===== INTERCEPTAR CONSOLE =====
+       page.on('console', (msg) => {
+         const text = msg.text();
+         if (text.includes('bot') || text.includes('detect') || text.includes('block')) {
+           log(`📢 CONSOLE SUSPEITO: ${text}`);
+           detectionEvents.push(`CONSOLE: ${text}`);
+         }
+       });
+       
+       // ===== TESTAR MÚLTIPLAS URLs =====
+       const testUrls = [
+         'https://blaze.bet.br/pt/games/double',
+         'https://blaze.bet.br/pt/games/double?ref=direct',
+         'https://blaze.bet.br/pt/games/double#game',
+         'https://blaze.bet.br/'
+       ];
+       
+       let successUrl = null;
+       
+       for (const testUrl of testUrls) {
+         try {
+           log(`🔗 TESTANDO URL: ${testUrl}`);
+           
+           // Delay humano aleatório
+           const humanDelay = Math.random() * 2000 + 1000;
+           await new Promise(resolve => setTimeout(resolve, humanDelay));
+           
+           await page.goto(testUrl, { 
+             waitUntil: 'domcontentloaded',
+             timeout: 15000 
+           });
+           
+           // Aguardar um pouco para ver se redireciona
+           await new Promise(resolve => setTimeout(resolve, 3000));
+           
+           const finalUrl = page.url();
+           log(`📍 URL FINAL: ${finalUrl}`);
+           
+           if (!finalUrl.includes('/blocked')) {
+             log(`✅ SUCESSO: URL não bloqueada!`);
+             successUrl = finalUrl;
+             break;
+           } else {
+             log(`❌ BLOQUEADA: ${finalUrl}`);
+           }
+           
+         } catch (error) {
+           log(`⚠️ ERRO URL ${testUrl}: ${error.message}`);
+         }
+       }
       
-      log('✅ Página Blaze carregada com sucesso');
-      diagnostico.etapas.push('Navegação Blaze: OK');
-      
-      // ===== ETAPA 7: VERIFICAR MODAL =====
-      log('🔍 ETAPA 7: Verificando se modal aparece...');
-      diagnostico.etapas.push('ETAPA 7: Verificação modal iniciado');
-      
-      const pageInfo = await page.evaluate(() => {
-        return {
-          modalExists: document.querySelector('[class*="modal"]') !== null ||
-                      document.querySelector('[data-modal]') !== null ||
-                      window.location.href.includes('modal=pay_table'),
-          hasGameBoard: document.querySelector('[class*="game"]') !== null,
-          title: document.title,
-          readyState: document.readyState,
-          url: window.location.href
-        };
-      });
-      
-      log(`📋 Modal detectado: ${pageInfo.modalExists ? 'SIM' : 'NÃO'}`);
-      log(`📍 URL atual: ${pageInfo.url}`);
-      log(`🎮 Título: ${pageInfo.title}`);
-      log(`📊 Estado: ${pageInfo.readyState}`);
-      
-      diagnostico.etapas.push(`Modal: ${pageInfo.modalExists ? 'DETECTADO' : 'NÃO DETECTADO'}`);
-      diagnostico.etapas.push(`URL: ${pageInfo.url}`);
-      diagnostico.etapas.push(`Estado: ${pageInfo.readyState}`);
-      
-      // ===== SUCESSO TOTAL =====
-      log('🎉 DIAGNÓSTICO: NAVEGAÇÃO BLAZE TESTADA!');
-      diagnostico.sucesso = true;
-      diagnostico.etapas.push('DIAGNÓSTICO: NAVEGAÇÃO COMPLETA');
-      
-             return res.status(200).json({
+             // ===== ETAPA 7: ANÁLISE DOS RESULTADOS =====
+       log('🔍 ETAPA 7: Analisando resultados da interceptação...');
+       diagnostico.etapas.push('ETAPA 7: Análise iniciado');
+       
+       const finalUrl = page.url();
+       const isBlocked = finalUrl.includes('/blocked');
+       
+       log(`📊 RELATÓRIO DE INTERCEPTAÇÃO:`);
+       log(`🔗 URL Final: ${finalUrl}`);
+       log(`🚫 Redirects bloqueados: ${blockedRedirects}`);
+       log(`📡 Total requests: ${allRequests.length}`);
+       log(`🕵️ Eventos suspeitos: ${detectionEvents.length}`);
+       
+       // Análise detalhada se ainda bloqueou
+       let analysisData = {};
+       
+       if (isBlocked) {
+         log(`❌ AINDA BLOQUEADO - Analisando causa...`);
+         
+         // Analisar requests suspeitos
+         const suspiciousRequests = allRequests.filter(req => 
+           req.url.includes('detect') || 
+           req.url.includes('bot') || 
+           req.url.includes('security') ||
+           req.url.includes('protection')
+         );
+         
+         log(`🔍 Requests suspeitos: ${suspiciousRequests.length}`);
+         suspiciousRequests.forEach(req => {
+           log(`  └─ ${req.method} ${req.url}`);
+         });
+         
+         analysisData = {
+           blocked: true,
+           blockedRedirects,
+           totalRequests: allRequests.length,
+           suspiciousRequests: suspiciousRequests.length,
+           detectionEvents,
+           firstFewRequests: allRequests.slice(0, 10)
+         };
+         
+       } else {
+         log(`✅ SUCESSO! URL não bloqueada: ${finalUrl}`);
+         analysisData = {
+           blocked: false,
+           successUrl: finalUrl,
+           blockedRedirects,
+           totalRequests: allRequests.length
+         };
+       }
+       
+       // ===== VERIFICAR ESTADO DA PÁGINA =====
+       const pageInfo = await page.evaluate(() => {
+         return {
+           modalExists: document.querySelector('[class*="modal"]') !== null ||
+                       document.querySelector('[data-modal]') !== null ||
+                       window.location.href.includes('modal=pay_table'),
+           hasGameBoard: document.querySelector('[class*="game"]') !== null,
+           title: document.title,
+           readyState: document.readyState,
+           url: window.location.href,
+           bodyText: document.body ? document.body.innerText.substring(0, 500) : 'No body'
+         };
+       });
+       
+       log(`📋 Modal detectado: ${pageInfo.modalExists ? 'SIM' : 'NÃO'}`);
+       log(`🎮 Título: ${pageInfo.title}`);
+       log(`📊 Estado: ${pageInfo.readyState}`);
+       
+       diagnostico.etapas.push(`Análise: ${isBlocked ? 'BLOQUEADO' : 'SUCESSO'}`);
+       diagnostico.etapas.push(`Redirects bloqueados: ${blockedRedirects}`);
+       diagnostico.etapas.push(`URL: ${finalUrl}`);
+       
+       // ===== RESULTADO FINAL =====
+       log('🎉 DIAGNÓSTICO: INTERCEPTAÇÃO COMPLETA!');
+       diagnostico.sucesso = true;
+       diagnostico.etapas.push('DIAGNÓSTICO: INTERCEPTAÇÃO COMPLETA');
+       
+       return res.status(200).json({
          success: true,
-         message: 'Chromium + Blaze testado com sucesso',
+         message: 'Interceptação e análise concluída',
          diagnostico,
-         pageInfo
+         pageInfo,
+         analysisData
        });
        
     } catch (error) {
