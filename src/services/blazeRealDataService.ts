@@ -95,6 +95,10 @@ class BlazeRealDataService {
   private processedDataHashes = new Set<string>()
   private lastEmittedData: string = '' // ✅ OTIMIZAÇÃO: Prevenir eventos duplicados
   
+  // 🆕 DATABASE POLLING: Controle de timestamp para produção
+  private lastKnownTimestamp: string | null = null
+  private databasePollingInterval: NodeJS.Timeout | null = null
+  
   // URL do nosso proxy local
   private readonly PROXY_URL = '/api/blaze-proxy'
 
@@ -153,7 +157,7 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIA: DUAL - LOCAL (PROXY) + PRODUÇÃO (CHROMIUM)
+   * ESTRATÉGIA: DUAL - LOCAL (PROXY) + PRODUÇÃO (DATABASE POLLING)
    */
   async startCapturing(): Promise<void> {
     if (this.isCapturing) {
@@ -170,8 +174,8 @@ class BlazeRealDataService {
       console.log('🔧 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS) - estratégia que funcionava')
       await this.tryDevelopmentStrategies() // ✅ VOLTAR PARA O QUE FUNCIONAVA
     } else {
-      console.log('🚀 PRODUÇÃO: Usando Chromium (DADOS REAIS) - resolver erro 500')
-      await this.tryChromiumCapture()       // ✅ CHROMIUM SÓ EM PRODUÇÃO
+      console.log('🗄️ PRODUÇÃO: Usando Database Polling (DADOS REAIS) - sem anti-bot')
+      await this.tryDatabasePolling()       // 🆕 DATABASE POLLING SÓ EM PRODUÇÃO
     }
   }
 
@@ -250,6 +254,111 @@ class BlazeRealDataService {
       console.log('💡 SOLUÇÃO: Use upload de CSV ou entrada manual para adicionar números')
       
       this.handleFatalError('Não foi possível conectar com dados reais da Blaze - Use entrada manual ou CSV')
+    }
+  }
+
+  /**
+   * 🆕 ESTRATÉGIA PARA PRODUÇÃO: DATABASE POLLING
+   */
+  private async tryDatabasePolling(): Promise<void> {
+    try {
+      console.log('🗄️ PRODUÇÃO: Iniciando Database Polling...')
+      
+      // Buscar último dado disponível para inicializar
+      const { data: latestData, error } = await supabase
+        .from('blaze_real_data')
+        .select('number, color, timestamp_blaze, round_id, source')
+        .order('timestamp_blaze', { ascending: false })
+        .limit(1)
+      
+      if (error) {
+        throw new Error(`Erro ao buscar dados iniciais: ${error.message}`)
+      }
+      
+      if (latestData && latestData.length > 0) {
+        const latest = latestData[0]
+        this.lastKnownTimestamp = latest.timestamp_blaze
+        this.lastKnownRound = latest.round_id
+        
+        console.log('✅ PRODUÇÃO: Database Polling iniciado com sucesso!')
+        console.log(`📊 Último dado: ${latest.number} (${latest.color}) - ${latest.timestamp_blaze}`)
+        
+        this.currentStrategy = 'DATABASE_POLLING'
+        this.startDatabasePolling()
+      } else {
+        throw new Error('Nenhum dado encontrado no banco para inicializar')
+      }
+      
+    } catch (error) {
+      console.log('❌ Produção: Falha ao inicializar Database Polling')
+      console.log(`❌ Erro: ${error instanceof Error ? error.message : String(error)}`)
+      this.isCapturing = false
+      this.currentStrategy = 'ERRO_FATAL'
+    }
+  }
+
+  /**
+   * 🆕 INICIAR POLLING DO BANCO DE DADOS
+   */
+  private startDatabasePolling(): void {
+    console.log('🔄 PRODUÇÃO: Iniciando polling do banco a cada 5s...')
+    
+    this.databasePollingInterval = setInterval(() => {
+      this.checkForNewDataInDatabase()
+    }, 5000) // Polling a cada 5 segundos
+  }
+
+  /**
+   * 🆕 VERIFICAR NOVOS DADOS NO BANCO
+   */
+  private async checkForNewDataInDatabase(): Promise<void> {
+    try {
+      if (!this.lastKnownTimestamp) {
+        return // Não inicializado ainda
+      }
+      
+      // Buscar dados mais novos que o último conhecido
+      const { data: newData, error } = await supabase
+        .from('blaze_real_data')
+        .select('number, color, timestamp_blaze, round_id, source')
+        .gt('timestamp_blaze', this.lastKnownTimestamp)
+        .order('timestamp_blaze', { ascending: false })
+        .limit(1)
+      
+      if (error) {
+        console.error('❌ PRODUÇÃO: Erro ao verificar novos dados:', error.message)
+        return
+      }
+      
+      if (newData && newData.length > 0) {
+        const latest = newData[0]
+        
+        // NOVO DADO ENCONTRADO!
+        console.log('🆕 PRODUÇÃO: NOVO DADO DETECTADO NO BANCO!')
+        console.log(`📊 Número: ${latest.number} (${latest.color})`)
+        console.log(`⏰ Timestamp: ${latest.timestamp_blaze}`)
+        
+        // Atualizar controles
+        this.lastKnownTimestamp = latest.timestamp_blaze
+        this.lastKnownRound = latest.round_id
+        
+        // Converter para formato BlazeRealData e emitir
+        const blazeData: BlazeRealData = {
+          id: latest.round_id,
+          round_id: latest.round_id,
+          number: latest.number,
+          color: latest.color as 'red' | 'black' | 'white',
+          timestamp_blaze: latest.timestamp_blaze,
+          source: 'database_polling'
+        }
+        
+        // Emitir dados para interface
+        this.emitRealData(blazeData)
+        console.log('📡 PRODUÇÃO: Dados emitidos para interface via Database Polling')
+      }
+      
+    } catch (error) {
+      console.error('❌ PRODUÇÃO: Erro no polling do banco:', error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -682,6 +791,12 @@ class BlazeRealDataService {
       clearInterval(this.pollingInterval)
       this.pollingInterval = null
     }
+    
+    // 🆕 Limpar database polling interval
+    if (this.databasePollingInterval) {
+      clearInterval(this.databasePollingInterval)
+      this.databasePollingInterval = null
+    }
   }
 
   /**
@@ -696,6 +811,15 @@ class BlazeRealDataService {
       clearInterval(this.pollingInterval)
       this.pollingInterval = null
     }
+    
+    // 🆕 Limpar database polling interval
+    if (this.databasePollingInterval) {
+      clearInterval(this.databasePollingInterval)
+      this.databasePollingInterval = null
+    }
+    
+    // 🆕 Reset database polling controls
+    this.lastKnownTimestamp = null
     
     // ✅ CORREÇÃO 4: Reset completo de estado
     BlazeRealDataService.idCounter = 0
