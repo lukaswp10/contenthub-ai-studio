@@ -524,7 +524,7 @@ export class TimeSeriesFoundationModel {
     await this.saveComponentPredictions(components, data)
     
     // 7. USAR ENSEMBLE TRADICIONAL COM PESOS ADAPTATIVOS
-    return this.simpleEnsemble(weightedComponents)
+    return this.simpleEnsemble(weightedComponents, data)
   }
   
   /**
@@ -578,7 +578,7 @@ export class TimeSeriesFoundationModel {
   /**
    * ⚖️ SIMPLE ENSEMBLE (WEIGHTED AVERAGE)
    */
-  private simpleEnsemble(components: Array<{ prediction: Partial<ProbabilisticPrediction>, weight: number }>): ProbabilisticPrediction {
+  private simpleEnsemble(components: Array<{ prediction: Partial<ProbabilisticPrediction>, weight: number }>, data: BlazeNumber[]): ProbabilisticPrediction {
     // Ensemble simples por weighted average - muito mais simples que antes
     
     let finalDistribution = {
@@ -624,11 +624,14 @@ export class TimeSeriesFoundationModel {
     const finalColor = maxConfidence === finalDistribution.red.confidence ? 'red' :
                       maxConfidence === finalDistribution.black.confidence ? 'black' : 'white'
     
+    const selectedNumber = this.selectNumberForColor(finalColor, data)
+    const validatedNumber = this.validateNumberForColor(finalColor, selectedNumber)
+    
     return {
       distribution: finalDistribution,
       finalPrediction: {
         color: finalColor,
-        number: 0, // Será definido depois
+        number: validatedNumber,
         confidence: maxConfidence * 100
       },
       uncertainty: 0, // Será calculado depois
@@ -862,6 +865,22 @@ export class TimeSeriesFoundationModel {
     return Array.from(scores.entries()).reduce((max, current) => 
       current[1] > max[1] ? current : max
     )[0]
+  }
+  
+  private validateNumberForColor(color: 'red' | 'black' | 'white', number: number): number {
+    if (color === 'white' && number !== 0) {
+      console.warn(`❌ VALIDATION: White deve ser 0, mas foi ${number}`)
+      return 0
+    }
+    if (color === 'red' && (number < 1 || number > 7)) {
+      console.warn(`❌ VALIDATION: Red deve ser 1-7, mas foi ${number}`)
+      return Math.max(1, Math.min(7, number)) // Força para range válido
+    }
+    if (color === 'black' && (number < 8 || number > 14)) {
+      console.warn(`❌ VALIDATION: Black deve ser 8-14, mas foi ${number}`)
+      return Math.max(8, Math.min(14, number)) // Força para range válido
+    }
+    return number // Número já está correto
   }
   
   private getTimeFromLastWhite(data: BlazeNumber[]): number {
