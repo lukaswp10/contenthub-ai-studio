@@ -153,7 +153,7 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIA: CHROMIUM PRIMÁRIO - DADOS REAIS DA BLAZE
+   * ESTRATÉGIA: DUAL - LOCAL (PROXY) + PRODUÇÃO (CHROMIUM)
    */
   async startCapturing(): Promise<void> {
     if (this.isCapturing) {
@@ -166,16 +166,13 @@ class BlazeRealDataService {
     // Detectar ambiente
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     
-    console.log('🚀 CHROMIUM PRIMÁRIO: Capturando dados REAIS da Blaze via navegador...')
-    
     if (isDevelopment) {
-      console.log('🔧 DESENVOLVIMENTO: Chromium + script local para dados REAIS')
+      console.log('🔧 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS) - estratégia que funcionava')
+      await this.tryDevelopmentStrategies() // ✅ VOLTAR PARA O QUE FUNCIONAVA
     } else {
-      console.log('🚀 PRODUÇÃO: Chromium + API serverless para dados REAIS')
+      console.log('🚀 PRODUÇÃO: Usando Chromium (DADOS REAIS) - resolver erro 500')
+      await this.tryChromiumCapture()       // ✅ CHROMIUM SÓ EM PRODUÇÃO
     }
-    
-    // IR DIRETO PARA CHROMIUM (DADOS REAIS)
-    await this.tryChromiumCapture()
   }
 
   /**
