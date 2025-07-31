@@ -29,7 +29,7 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
   const [isGenerating, setIsGenerating] = useState(false)
   
   // ✅ NOVO: Instância do Fusion Engine
-  const [fusionEngine] = useState(() => new AdaptiveFusionEngine())
+  // const [fusionEngine] = useState(() => new AdaptiveFusionEngine()) // REMOVIDO: Foundation Model 2025
 
   // ✅ MELHORIA 2: Gerar predição automaticamente quando tiver mais de 10 números
   useEffect(() => {
@@ -138,16 +138,17 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
         }
       }
 
-      // 4. ✨ APLICAR FUSION ENGINE CIENTÍFICO ✨
-      logAlgorithm('🚀 Aplicando Fusion Engine com 6 técnicas científicas...')
+      // 4. ✨ APLICAR FUSION ENGINE CIENTÍFICO ✨ - REMOVIDO: Foundation Model 2025
+      logAlgorithm('🚀 Fusion Engine REMOVIDO - usando fallback simples...')
       
-      const fusionResult = await fusionEngine.fusePredictions(
-        realPrediction,
-        mlPrediction, 
-        currentContext
-      )
-
-      const enhancedPrediction = fusionResult.final_prediction
+      // FALLBACK: Usar apenas Real Algorithms e converter formato
+      const enhancedPrediction = {
+        color: realPrediction?.color || 'red',
+        number: realPrediction?.expectedNumbers?.[0] || 0,
+        confidence: realPrediction?.confidence || 60,
+        algorithms: ['real_algorithms_fallback'],
+        timestamp: Date.now()
+      }
 
       // 5. Converter para formato compatível (mantém interface atual)
       const compatiblePrediction: Prediction = {
@@ -158,19 +159,12 @@ export function usePredictionEngine(numbers: BlazeNumberWithSource[]) {
         timestamp: enhancedPrediction.timestamp
       }
 
-      // 6. Adicionar dados científicos como propriedades extras (compatibilidade)
+      // 6. Dados científicos removidos - FALLBACK simples
       const enhancedCompatiblePrediction = {
         ...compatiblePrediction,
-        // Dados científicos adicionais (opcional para interface)
+        // REMOVIDO: enhanced_data científico (Foundation Model 2025)
         enhanced_data: {
-          uncertainty_metrics: enhancedPrediction.uncertainty_metrics,
-          algorithm_contributions: enhancedPrediction.algorithm_contributions,
-          context_analysis: enhancedPrediction.context_analysis,
-          fusion_explanation: enhancedPrediction.fusion_explanation,
-          scientific_reasoning: enhancedPrediction.scientific_reasoning,
-          expected_value: enhancedPrediction.expected_value,
-          kelly_criterion: enhancedPrediction.kelly_criterion_percentage,
-          risk_assessment: enhancedPrediction.risk_assessment
+          fallback: 'Foundation Model 2025 removed'
         }
       } as Prediction
 

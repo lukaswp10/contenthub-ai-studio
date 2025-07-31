@@ -3387,9 +3387,11 @@ export default function TesteJogoPage() {
       })).sort((a, b) => a.timestamp - b.timestamp) // Ordem cronológica
 
       // Executar predição avançada
-              // const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
-      setAdvancedMLPrediction(advancedPrediction)
+      // const advancedPrediction = await advancedMLService.makePrediction(blazeDataPoints) // REMOVIDO: Foundation Model 2025
+      // setAdvancedMLPrediction(advancedPrediction) // REMOVIDO: Foundation Model 2025
 
+      // REMOVIDO: Código que dependia do advancedPrediction
+      /*
       // Registrar predição para monitoramento
       const context = {
         hour_of_day: new Date().getHours(),
@@ -3416,8 +3418,9 @@ export default function TesteJogoPage() {
       setMLModelMetrics(advancedPrediction.individual_predictions)
 
       logThrottled('ml-prediction-result', `✅ PREDIÇÃO ML AVANÇADA CONCLUÍDA: ${advancedPrediction.predicted_color} (${advancedPrediction.confidence_percentage.toFixed(1)}%) | Consensus: ${advancedPrediction.model_consensus}% | Risk: ${advancedPrediction.risk_assessment.volatility_level} | Models: ${advancedPrediction.individual_predictions.length}`)
+      */
 
-      return advancedPrediction
+      return null // FALLBACK: Foundation Model 2025
 
     } catch (error) {
       console.error('❌ Erro no ML avançado:', error)
