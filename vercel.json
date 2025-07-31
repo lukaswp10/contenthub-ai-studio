@@ -14,6 +14,10 @@
     "api/chromium-execute.js": {
       "maxDuration": 25,
       "memory": 512
+    },
+    "api/test-chromium.js": {
+      "maxDuration": 20,
+      "memory": 512
     }
   },
   "rewrites": [
