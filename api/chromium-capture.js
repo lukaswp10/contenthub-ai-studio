@@ -109,7 +109,7 @@ export default async function handler(req, res) {
     page.on('response', async (response) => {
       const url = response.url();
       
-      if (url.includes('blaze.com/api/roulette_games') || 
+      if (url.includes('blaze.bet.br/api/roulette_games') || 
           (url.includes('roulette') && 
            (url.includes('recent') || url.includes('current') || url.includes('history')))) {
         
@@ -152,10 +152,10 @@ export default async function handler(req, res) {
       }
     });
 
-    log('🌐 NAVEGANDO: https://blaze.com/pt/games/double');
+    log('🌐 NAVEGANDO: https://blaze.bet.br/pt/games/double');
     
     // ✅ NAVEGAÇÃO SIMPLIFICADA VERCEL FREE
-    await page.goto('https://blaze.com/pt/games/double', { 
+    await page.goto('https://blaze.bet.br/pt/games/double', { 
       waitUntil: 'domcontentloaded', // ✅ Mais rápido que networkidle
       timeout: 20000 // ✅ 20s para FREE tier
     });

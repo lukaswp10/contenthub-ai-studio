@@ -18,15 +18,15 @@ export default async function handler(req, res) {
   try {
     console.log('🎯 [PROXY] Fazendo requisição server-side para Blaze...');
     
-    const response = await fetch('https://blaze.com/api/roulette_games/recent?limit=1', {
+    const response = await fetch('https://blaze.bet.br/api/roulette_games/recent?limit=1', {
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://blaze.com/',
-        'Origin': 'https://blaze.com',
+        'Referer': 'https://blaze.bet.br/',
+        'Origin': 'https://blaze.bet.br',
         'Connection': 'keep-alive',
         'Sec-Fetch-Dest': 'empty',
         'Sec-Fetch-Mode': 'cors',
