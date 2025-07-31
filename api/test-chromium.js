@@ -151,16 +151,61 @@ export default async function handler(req, res) {
       }
     }
 
-    // ===== SUCESSO TOTAL =====
-    log('🎉 DIAGNÓSTICO: TODOS OS TESTES PASSARAM!');
-    diagnostico.sucesso = true;
-    diagnostico.etapas.push('DIAGNÓSTICO: SUCESSO TOTAL');
+    // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
+    log('🌐 ETAPA 6: Testando navegação para Blaze...');
+    diagnostico.etapas.push('ETAPA 6: Navegação Blaze iniciado');
     
-    return res.status(200).json({
-      success: true,
-      message: 'Chromium funcionando perfeitamente',
-      diagnostico
-    });
+    try {
+      await page.goto('https://blaze.bet.br/pt/games/double', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 20000 
+      });
+      
+      log('✅ Página Blaze carregada com sucesso');
+      diagnostico.etapas.push('Navegação Blaze: OK');
+      
+      // ===== ETAPA 7: VERIFICAR MODAL =====
+      log('🔍 ETAPA 7: Verificando se modal aparece...');
+      diagnostico.etapas.push('ETAPA 7: Verificação modal iniciado');
+      
+      const pageInfo = await page.evaluate(() => {
+        return {
+          modalExists: document.querySelector('[class*="modal"]') !== null ||
+                      document.querySelector('[data-modal]') !== null ||
+                      window.location.href.includes('modal=pay_table'),
+          hasGameBoard: document.querySelector('[class*="game"]') !== null,
+          title: document.title,
+          readyState: document.readyState,
+          url: window.location.href
+        };
+      });
+      
+      log(`📋 Modal detectado: ${pageInfo.modalExists ? 'SIM' : 'NÃO'}`);
+      log(`📍 URL atual: ${pageInfo.url}`);
+      log(`🎮 Título: ${pageInfo.title}`);
+      log(`📊 Estado: ${pageInfo.readyState}`);
+      
+      diagnostico.etapas.push(`Modal: ${pageInfo.modalExists ? 'DETECTADO' : 'NÃO DETECTADO'}`);
+      diagnostico.etapas.push(`URL: ${pageInfo.url}`);
+      diagnostico.etapas.push(`Estado: ${pageInfo.readyState}`);
+      
+      // ===== SUCESSO TOTAL =====
+      log('🎉 DIAGNÓSTICO: NAVEGAÇÃO BLAZE TESTADA!');
+      diagnostico.sucesso = true;
+      diagnostico.etapas.push('DIAGNÓSTICO: NAVEGAÇÃO COMPLETA');
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Chromium + Blaze testado com sucesso',
+        diagnostico,
+        pageInfo
+      });
+      
+    } catch (navError) {
+      log(`❌ Erro navegação Blaze: ${navError.message}`);
+      diagnostico.etapas.push(`Navegação Blaze: ERRO - ${navError.message}`);
+      throw new Error(`Erro navegando para Blaze: ${navError.message}`);
+    }
 
   } catch (error) {
     // ✅ LOG DE ERRO SEMPRE (para debug)
