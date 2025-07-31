@@ -57,15 +57,15 @@ export default async function handler(req, res) {
     }
     
     try {
-      // ✅ CORREÇÃO: ES6 import dinâmico  
-      puppeteer = await import('puppeteer-core');
+      // ✅ TESTE: Playwright em vez de Puppeteer (menos detectável)
+      puppeteer = await import('playwright-core');
       puppeteer = puppeteer.default || puppeteer; // Handle default export
-      log('✅ puppeteer-core: CARREGADO (ES6)');
-      diagnostico.etapas.push('puppeteer-core: OK (ES6)');
+      log('✅ playwright-core: CARREGADO (ES6) - TESTE ANTI-DETECÇÃO');
+      diagnostico.etapas.push('playwright-core: OK (ES6)');
     } catch (error) {
-      log(`❌ puppeteer-core: ERRO - ${error.message}`);
-      diagnostico.etapas.push(`puppeteer-core: ERRO - ${error.message}`);
-      throw new Error(`Erro carregando puppeteer-core: ${error.message}`);
+      log(`❌ playwright-core: ERRO - ${error.message}`);
+      diagnostico.etapas.push(`playwright-core: ERRO - ${error.message}`);
+      throw new Error(`Erro carregando playwright-core: ${error.message}`);
     }
 
     // ===== ETAPA 2: VERIFICAR EXECUTABLE =====
@@ -111,7 +111,8 @@ export default async function handler(req, res) {
     try {
       const startTime = Date.now();
       
-      browser = await puppeteer.launch({
+      // ✅ PLAYWRIGHT SYNTAX (diferente de Puppeteer)
+      browser = await puppeteer.chromium.launch({
         args: [
           ...chromium.args,
           '--no-sandbox',
