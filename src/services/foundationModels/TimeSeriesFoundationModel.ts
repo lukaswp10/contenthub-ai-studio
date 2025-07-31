@@ -311,7 +311,7 @@ export class TimeSeriesFoundationModel {
       finalPrediction: {
         color: predictedColor,
         number: this.selectNumberForColor(predictedColor, data),
-        confidence: maxScore * 100
+        confidence: Math.min(95, Math.max(30, maxScore * 150))
       },
       modelConfidence: maxScore,
       algorithm: 'FoundationModel'
@@ -416,7 +416,7 @@ export class TimeSeriesFoundationModel {
       finalPrediction: {
         color: predictedColor,
         number: this.selectNumberForColor(predictedColor, data),
-        confidence: maxScore * 100
+        confidence: Math.min(95, Math.max(30, maxScore * 150))
       },
       modelConfidence: maxScore,
       algorithm: 'FoundationModel'
@@ -483,7 +483,7 @@ export class TimeSeriesFoundationModel {
       finalPrediction: {
         color: predictedColor,
         number: this.selectNumberForColor(predictedColor, data),
-        confidence: maxScore * 100
+        confidence: Math.min(95, Math.max(30, maxScore * 150))
       },
       modelConfidence: maxScore,
       algorithm: 'FoundationModel'
@@ -509,9 +509,9 @@ export class TimeSeriesFoundationModel {
     
     // 4. ✅ CORREÇÃO 6: Pesos otimizados para Blaze (pattern é mais eficaz que transformer)
     const finalWeights = {
-      transformer: (adaptiveWeights.transformer * 0.3) + (driftWeights.transformer * 0.2), // ✅ Reduzido
-      pattern: (adaptiveWeights.pattern * 0.5) + (driftWeights.pattern * 0.4), // ✅ Aumentado
-      statistical: (adaptiveWeights.statistical * 0.2) + (driftWeights.statistical * 0.4) // ✅ Ajustado
+      transformer: (adaptiveWeights.transformer * 0.6) + (driftWeights.transformer * 0.6), // ✅ Aumentado
+      pattern: (adaptiveWeights.pattern * 0.8) + (driftWeights.pattern * 0.7), // ✅ Aumentado
+      statistical: (adaptiveWeights.statistical * 0.6) + (driftWeights.statistical * 0.7) // ✅ Aumentado
     }
     
     // 5. APLICAR PESOS FINAIS
@@ -542,23 +542,23 @@ export class TimeSeriesFoundationModel {
       statistical: this.config.ensembleWeights.statistical
     }
     
-    // CONCEPT DRIFT ALTO (>0.3) = Dados mudando rapidamente
-    if (conceptDrift > 0.3) {
+    // CONCEPT DRIFT ALTO (>0.5) = Dados mudando rapidamente
+    if (conceptDrift > 0.5) {
       // Favorecer PATTERN (adapta mais rápido) e reduzir TRANSFORMER (longo prazo)
       weights.pattern += 0.15      // +15% para pattern
       weights.transformer -= 0.10  // -10% para transformer
       weights.statistical -= 0.05  // -5% para statistical
     }
     
-    // CONCEPT DRIFT MÉDIO (0.1 a 0.3) = Mudança moderada
-    else if (conceptDrift > 0.1) {
+    // CONCEPT DRIFT MÉDIO (0.3 a 0.5) = Mudança moderada
+    else if (conceptDrift > 0.3) {
       // Leve boost para pattern, manter outros estáveis
       weights.pattern += 0.08
       weights.transformer -= 0.05
       weights.statistical -= 0.03
     }
     
-    // CONCEPT DRIFT BAIXO (<0.1) = Dados estáveis
+    // CONCEPT DRIFT BAIXO (<0.3) = Dados estáveis
     else {
       // Favorecer TRANSFORMER (bom para padrões estáveis de longo prazo)
       weights.transformer += 0.10  // +10% para transformer
@@ -627,12 +627,30 @@ export class TimeSeriesFoundationModel {
     const selectedNumber = this.selectNumberForColor(finalColor, data)
     const validatedNumber = this.validateNumberForColor(finalColor, selectedNumber)
     
+    // ✅ BOOST DE CONSENSO: Se 2+ componentes concordam na mesma cor
+    let consensusBoost = 1.0
+    const componentPredictions = components.map(c => {
+      const compDist = c.prediction.distribution
+      if (!compDist) return null
+      const maxComp = Math.max(compDist.red.confidence, compDist.black.confidence, compDist.white.confidence)
+      return maxComp === compDist.red.confidence ? 'red' :
+             maxComp === compDist.black.confidence ? 'black' : 'white'
+    }).filter(Boolean)
+    
+    const agreementCount = componentPredictions.filter(pred => pred === finalColor).length
+    if (agreementCount >= 2) {
+      consensusBoost = 1.2 // +20% boost se 2+ componentes concordam
+    }
+    if (agreementCount === 3) {
+      consensusBoost = 1.4 // +40% boost se todos 3 componentes concordam
+    }
+    
     return {
       distribution: finalDistribution,
       finalPrediction: {
         color: finalColor,
         number: validatedNumber,
-        confidence: maxConfidence * 100
+        confidence: Math.min(95, Math.max(30, maxConfidence * 150 * consensusBoost))
       },
       uncertainty: 0, // Será calculado depois
       conceptDrift: 0, // Será calculado depois
@@ -1461,11 +1479,11 @@ export class TimeSeriesFoundationModel {
   }
   
   private detectConceptDrift(data: BlazeNumber[]): number {
-    if (data.length < 100) return 0
+    if (data.length < 200) return 0
     
-    // Comparar distribuição recente vs histórica
-    const recent = data.slice(-50)
-    const historical = data.slice(-100, -50)
+    // Comparar distribuição recente vs histórica (janelas maiores)
+    const recent = data.slice(-100)
+    const historical = data.slice(-200, -100)
     
     const getDistribution = (subset: BlazeNumber[]) => {
       const counts = { red: 0, black: 0, white: 0 }
@@ -1494,14 +1512,22 @@ export class TimeSeriesFoundationModel {
   }
   
   private async updateOnlineLearning(prediction: ProbabilisticPrediction, data: BlazeNumber[]): Promise<void> {
-    // Online learning simples - ajustar pesos baseado em performance recente
+    // Online learning conservador - só ajustar após dados suficientes
     const recentAccuracy = await this.calculateRecentAccuracy()
     
-    if (recentAccuracy < 0.4) {
-      // Performance ruim - ajustar pesos
-      this.config.ensembleWeights.transformer = Math.max(0.5, this.config.ensembleWeights.transformer - 0.05)
-      this.config.ensembleWeights.pattern = Math.min(0.3, this.config.ensembleWeights.pattern + 0.03)
-      this.config.ensembleWeights.statistical = Math.min(0.2, this.config.ensembleWeights.statistical + 0.02)
+    // Só ajustar se tiver dados suficientes (20+ predições)
+    const { data: predictionCount } = await supabase
+      .from('foundation_predictions')
+      .select('id', { count: 'exact' })
+      .not('was_correct', 'is', null)
+    
+    if ((predictionCount?.length || 0) < 20) return
+    
+    if (recentAccuracy < 0.3) {
+      // Performance muito ruim - ajustar pesos mais conservadoramente
+      this.config.ensembleWeights.transformer = Math.max(0.5, this.config.ensembleWeights.transformer - 0.02)
+      this.config.ensembleWeights.pattern = Math.min(0.3, this.config.ensembleWeights.pattern + 0.01)
+      this.config.ensembleWeights.statistical = Math.min(0.2, this.config.ensembleWeights.statistical + 0.01)
     } else if (recentAccuracy > 0.7) {
       // Performance boa - reforçar transformer
       this.config.ensembleWeights.transformer = Math.min(0.8, this.config.ensembleWeights.transformer + 0.02)
