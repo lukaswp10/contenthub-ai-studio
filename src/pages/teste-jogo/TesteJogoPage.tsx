@@ -978,204 +978,100 @@ export default function TesteJogoPage() {
   const lastProcessedResult = useRef<string | null>(null);
   const isCheckingAccuracy = useRef(false);
   
-  // ✅ SISTEMA ANTI-RESET: Persistência contínua independente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Salvar estatísticas a cada 5 segundos se há dados
-      if (predictionStats.correctPredictions > 0 || predictionStats.incorrectPredictions > 0) {
-        try {
-          const timestampKey = `blaze_stats_autosave_${Date.now()}`;
-          localStorage.setItem(timestampKey, JSON.stringify(predictionStats));
-          localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(predictionStats));
-          
-          // Manter apenas os 3 autosaves mais recentes
-          const allKeys = Object.keys(localStorage);
-          const autosaveKeys = allKeys.filter(key => key.startsWith('blaze_stats_autosave_'))
-                                    .sort()
-                                    .reverse();
-          if (autosaveKeys.length > 3) {
-            autosaveKeys.slice(3).forEach(key => localStorage.removeItem(key));
-          }
-          
-          console.log('💾 AUTO-SAVE CONTÍNUO:', {
-            correct: predictionStats.correctPredictions,
-            incorrect: predictionStats.incorrectPredictions,
-            total: predictionStats.totalPredictions,
-            timestamp: new Date().toLocaleTimeString()
-          });
-        } catch (error) {
-          console.warn('⚠️ Erro no auto-save contínuo:', error);
+
+  
+  // ✅ NOVO SISTEMA: CARREGAR MÉTRICAS DO BANCO DE DADOS
+  const loadMetricsFromDatabase = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_prediction_stats')
+        .select('*')
+        .eq('user_id', 'default_user')
+        .single()
+      
+      if (data && !error) {
+        console.log('✅ Métricas carregadas do banco')
+        return {
+          totalPredictions: data.total_predictions,
+          correctPredictions: data.correct_predictions,
+          incorrectPredictions: data.incorrect_predictions,
+          accuracy: data.accuracy_percentage,
+          streak: data.current_streak,
+          maxStreak: data.max_streak,
+          bestAccuracyEver: data.best_accuracy_ever,
+          total_feedbacks: data.total_feedbacks,
+          recent_accuracy: data.recent_accuracy,
+          confidence_reliability: data.confidence_reliability,
+          average_response_time: data.average_response_time,
+          lastUpdated: new Date(data.last_updated),
+          // Preservar outros campos existentes
+          waitingForResult: false,
+          lastPrediction: null,
+          evolutionGeneration: 1,
+          adaptationRate: 0.1,
+          streakCorrect: 0,
+          streakIncorrect: 0,
+          confidenceScore: 0.7
         }
       }
-    }, 5000); // A cada 5 segundos
-    
-    return () => clearInterval(interval);
-  }, [predictionStats]);
-  
+    } catch (error) {
+      console.warn('⚠️ Erro carregando métricas:', error)
+    }
+    return null
+  }
+
+  // ✅ NOVO SISTEMA: SALVAR MÉTRICAS NO BANCO DE DADOS
+  const saveMetricsToDatabase = async (metrics: typeof predictionStats) => {
+    try {
+      const { error } = await supabase
+        .from('user_prediction_stats')
+        .upsert({
+          user_id: 'default_user',
+          total_predictions: metrics.totalPredictions,
+          correct_predictions: metrics.correctPredictions,
+          incorrect_predictions: metrics.incorrectPredictions,
+          accuracy_percentage: metrics.accuracy,
+          current_streak: metrics.streak,
+          max_streak: metrics.maxStreak,
+          best_accuracy_ever: metrics.bestAccuracyEver,
+          total_feedbacks: metrics.total_feedbacks,
+          recent_accuracy: metrics.recent_accuracy,
+          confidence_reliability: metrics.confidence_reliability,
+          average_response_time: metrics.average_response_time,
+          last_updated: new Date().toISOString()
+        }, { onConflict: 'user_id' })
+      
+      if (!error) {
+        console.log('✅ Métricas salvas no banco')
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro salvando métricas:', error)
+    }
+  }
+
   useEffect(() => {
     if (!statsLoaded) {
-      const loadStatsWithRecovery = () => {
-        try {
-          console.log('🔍 CARREGANDO ESTATÍSTICAS - Sistema de recuperação ativo...');
-          let loadedStats = null;
-          let source = '';
-          
-          // 1. Tentar carregar from latest (mais confiável)
-          try {
-            const latest = localStorage.getItem('blaze_prediction_stats_latest');
-            if (latest) {
-              const parsedLatest = JSON.parse(latest);
-              if (parsedLatest.correctPredictions >= 0 && parsedLatest.incorrectPredictions >= 0) {
-                loadedStats = parsedLatest;
-                source = 'latest';
-              }
-            }
-          } catch (e) {
-            console.warn('⚠️ Erro carregando latest:', e);
-          }
-          
-          // 2. Tentar carregar estatísticas principais
-          if (!loadedStats) {
-            try {
-              const saved = localStorage.getItem('blaze_prediction_stats');
-              if (saved) {
-                const parsedStats = JSON.parse(saved);
-                if (parsedStats.correctPredictions >= 0 && parsedStats.incorrectPredictions >= 0) {
-                  loadedStats = parsedStats;
-                  source = 'principal';
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️ Erro carregando estatísticas principais:', e);
-            }
-          }
-          
-          // 3. Tentar autosaves mais recentes
-          if (!loadedStats) {
-            try {
-              const allKeys = Object.keys(localStorage);
-              const autosaveKeys = allKeys.filter(key => key.startsWith('blaze_stats_autosave_'))
-                                        .sort()
-                                        .reverse();
-              
-              for (const autosaveKey of autosaveKeys) {
-                try {
-                  const autosave = localStorage.getItem(autosaveKey);
-                  if (autosave) {
-                    const parsedAutosave = JSON.parse(autosave);
-                    if (parsedAutosave.correctPredictions >= 0 && parsedAutosave.incorrectPredictions >= 0) {
-                      loadedStats = parsedAutosave;
-                      source = `autosave (${autosaveKey})`;
-                      break;
-                    }
-                  }
-                } catch (e) {
-                  console.warn(`⚠️ Erro no autosave ${autosaveKey}:`, e);
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️ Erro carregando autosaves:', e);
-            }
-          }
-          
-          // 4. Se falhou, tentar backup de emergência
-          if (!loadedStats) {
-            try {
-              const emergency = localStorage.getItem('blaze_prediction_stats_emergency');
-              if (emergency) {
-                const parsedEmergency = JSON.parse(emergency);
-                if (parsedEmergency.correctPredictions >= 0 && parsedEmergency.incorrectPredictions >= 0) {
-                  loadedStats = parsedEmergency;
-                  source = 'emergência';
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️ Erro carregando backup de emergência:', e);
-            }
-          }
-          
-          // 5. Se ainda falhou, tentar backups com timestamp
-          if (!loadedStats) {
-            try {
-              const allKeys = Object.keys(localStorage);
-              const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'))
-                                       .sort()
-                                       .reverse(); // Mais recente primeiro
-              
-              for (const backupKey of backupKeys) {
-                try {
-                  const backup = localStorage.getItem(backupKey);
-                  if (backup) {
-                    const parsedBackup = JSON.parse(backup);
-                    if (parsedBackup.correctPredictions >= 0 && parsedBackup.incorrectPredictions >= 0) {
-                      loadedStats = parsedBackup;
-                      source = `backup (${backupKey})`;
-                      break;
-                    }
-                  }
-                } catch (e) {
-                  console.warn(`⚠️ Erro no backup ${backupKey}:`, e);
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️ Erro carregando backups:', e);
-            }
-          }
-          
-          // 6. Última tentativa: sessionStorage de emergência
-          if (!loadedStats) {
-            try {
-              const session = sessionStorage.getItem('blaze_stats_emergency');
-              if (session) {
-                const parsedSession = JSON.parse(session);
-                if (parsedSession.correctPredictions >= 0 && parsedSession.incorrectPredictions >= 0) {
-                  loadedStats = parsedSession;
-                  source = 'sessionStorage';
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️ Erro carregando sessionStorage:', e);
-            }
-          }
-          
-          // 7. Aplicar estatísticas carregadas ou usar padrão
-          if (loadedStats) {
-            // console.log(`📊 ESTATÍSTICAS RECUPERADAS da fonte: ${source}`);
-            // console.log('🔢 Valores carregados:', {
-            //   correctPredictions: loadedStats.correctPredictions,
-            //   incorrectPredictions: loadedStats.incorrectPredictions,
-            //   totalPredictions: loadedStats.totalPredictions,
-            //   accuracy: loadedStats.accuracy
-            // });
-            
-            setPredictionStats(loadedStats);
-            
-            // Salvar novamente no local principal se veio de backup
-            if (source !== 'principal' && source !== 'latest') {
-              try {
-                localStorage.setItem('blaze_prediction_stats', JSON.stringify(loadedStats));
-                localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(loadedStats));
-                // console.log('💾 Estatísticas restauradas nos locais principais');
-              } catch (e) {
-                console.warn('⚠️ Erro restaurando nos principais:', e);
-              }
-            }
-            
-            // console.log('✅ ESTATÍSTICAS CARREGADAS COM SUCESSO!');
-          } else {
-            console.log('📊 NENHUMA ESTATÍSTICA ENCONTRADA - Iniciando do zero (0/0/0)');
-          }
-          
-        } catch (error) {
-          console.error('❌ ERRO CRÍTICO no carregamento:', error);
-          console.log('🆘 Iniciando com estatísticas zeradas...');
+      const initializeMetrics = async () => {
+        const savedMetrics = await loadMetricsFromDatabase()
+        if (savedMetrics) {
+          setPredictionStats(prev => ({ ...prev, ...savedMetrics }))
+          console.log('📊 Métricas carregadas do banco de dados')
+        } else {
+          console.log('📊 Nenhuma métrica encontrada - Iniciando do zero')
         }
-      };
+      }
       
-      loadStatsWithRecovery();
-      setStatsLoaded(true);
+      initializeMetrics()
+      setStatsLoaded(true)
     }
   }, []);
+
+  // ✅ AUTO-SAVE: Salvar métricas no banco sempre que mudarem
+  useEffect(() => {
+    if (predictionStats.totalPredictions > 0) {
+      saveMetricsToDatabase(predictionStats)
+    }
+  }, [predictionStats]);
   
   // 🕵️ DEBUG MELHORADO: Monitorar mudanças em predictionStats
   useEffect(() => {
@@ -1186,25 +1082,6 @@ export default function TesteJogoPage() {
     //   accuracy: predictionStats.accuracy.toFixed(1) + '%',
     //   waitingForResult: predictionStats.waitingForResult
     // });
-    
-    // Backup secundário a cada mudança
-    if (predictionStats.correctPredictions > 0 || predictionStats.incorrectPredictions > 0) {
-      try {
-        const backupKey = `blaze_stats_backup_${Date.now()}`;
-        localStorage.setItem(backupKey, JSON.stringify(predictionStats));
-        
-        // Manter apenas os 5 backups mais recentes
-        const allKeys = Object.keys(localStorage).filter(key => key.startsWith('blaze_stats_backup_'));
-        if (allKeys.length > 5) {
-          const sortedKeys = allKeys.sort();
-          sortedKeys.slice(0, -5).forEach(key => localStorage.removeItem(key));
-        }
-        
-        // console.log('💾 BACKUP CRIADO:', backupKey);
-      } catch (error) {
-        console.warn('⚠️ Erro criando backup:', error);
-      }
-    }
     
     if (predictionStats.correctPredictions === 7 && predictionStats.incorrectPredictions === 11) {
       console.log('🚨 ALERTA: NÚMEROS 7/11 DETECTADOS!');
@@ -1544,22 +1421,7 @@ export default function TesteJogoPage() {
           setPredictionStats(prev => {
             const newStats = updateFunction(prev);
             
-            // Salvar imediatamente em múltiplos locais
-            try {
-              localStorage.setItem('blaze_prediction_stats', JSON.stringify(newStats));
-              localStorage.setItem('blaze_prediction_stats_latest', JSON.stringify(newStats));
-              localStorage.setItem('blaze_prediction_stats_secure', JSON.stringify(newStats));
-              sessionStorage.setItem('blaze_stats_current', JSON.stringify(newStats));
-              
-              console.log('💾 ESTATÍSTICAS SALVAS PROTEGIDAS:', {
-                correct: newStats.correctPredictions,
-                incorrect: newStats.incorrectPredictions,
-                total: newStats.totalPredictions,
-                accuracy: newStats.accuracy?.toFixed(1) + '%'
-              });
-            } catch (error) {
-              console.error('❌ Erro salvando estatísticas protegidas:', error);
-            }
+            // ✅ Métricas serão salvas automaticamente no banco pelo auto-save useEffect
             
             return newStats;
           });
@@ -6939,7 +6801,7 @@ ${consensus.conflictLevel === 'low' ?
                                 
                                 if (parsed.correctPredictions >= 0 && parsed.incorrectPredictions >= 0) {
                                   setPredictionStats(parsed);
-                                  localStorage.setItem('blaze_prediction_stats', JSON.stringify(parsed));
+                                  // ✅ Auto-save no banco será feito automaticamente
                                   console.log('✅ ESTATÍSTICAS RECUPERADAS DO BACKUP!');
                                   alert(`✅ Recuperação realizada!\n\nEstatísticas restauradas:\n• Acertos: ${parsed.correctPredictions}\n• Erros: ${parsed.incorrectPredictions}\n• Precisão: ${parsed.accuracy.toFixed(1)}%`);
                                 } else {
@@ -6962,24 +6824,21 @@ ${consensus.conflictLevel === 'low' ?
                       </button>
                       
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm('⚠️ ATENÇÃO!\n\nIsso irá RESETAR TODAS as estatísticas para ZERO.\n\nEsta ação NÃO pode ser desfeita!\n\nDeseja continuar?')) {
                             console.log('🗑️ RESET COMPLETO DAS ESTATÍSTICAS...');
                             console.log('📊 Estatísticas antes do reset:', predictionStats);
                             
-                            // Limpar TUDO do localStorage
+                            // ✅ Limpar dados do banco de dados
                             try {
-                              localStorage.removeItem('blaze_prediction_stats');
-                              localStorage.removeItem('blaze_prediction_stats_emergency');
+                              await supabase
+                                .from('user_prediction_stats')
+                                .delete()
+                                .eq('user_id', 'default_user')
                               
-                              // Limpar backups
-                              const allKeys = Object.keys(localStorage);
-                              const backupKeys = allKeys.filter(key => key.startsWith('blaze_stats_backup_'));
-                              backupKeys.forEach(key => localStorage.removeItem(key));
-                              
-                              console.log(`🧹 Removidos ${backupKeys.length} backups`);
+                              console.log('🗑️ Métricas removidas do banco de dados');
                             } catch (e) {
-                              console.warn('⚠️ Erro limpando localStorage:', e);
+                              console.warn('⚠️ Erro limpando banco:', e);
                             }
                             
                             // Resetar estado
