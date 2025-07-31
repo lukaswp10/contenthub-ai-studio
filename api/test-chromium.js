@@ -141,17 +141,15 @@ export default async function handler(req, res) {
        log('✅ Página criada com sucesso');
        diagnostico.etapas.push('Página: OK');
        
-       // ===== CONFIGURAÇÕES ANTI-DETECÇÃO =====
-       log('🥷 Aplicando configurações anti-detecção...');
+       // ===== CONFIGURAÇÕES ANTI-DETECÇÃO PLAYWRIGHT =====
+       log('🥷 Aplicando configurações anti-detecção Playwright...');
        
-       // User-agent realista
-       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+       // Viewport realista (Playwright syntax)
+       await page.setViewportSize({ width: 1366, height: 768 });
        
-       // Viewport realista  
-       await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
-       
-       // Headers realistas
+       // Headers realistas incluindo User-Agent (Playwright syntax)
        await page.setExtraHTTPHeaders({
+         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
          'Accept-Encoding': 'gzip, deflate, br',
@@ -160,15 +158,15 @@ export default async function handler(req, res) {
          'Upgrade-Insecure-Requests': '1'
        });
        
-       // Remover flags de webdriver
-       await page.evaluateOnNewDocument(() => {
+       // Remover flags de webdriver (Playwright syntax)
+       await page.addInitScript(() => {
          Object.defineProperty(navigator, 'webdriver', {
            get: () => undefined,
          });
          delete window.navigator.webdriver;
        });
        
-       log('✅ Anti-detecção aplicada');
+       log('✅ Anti-detecção Playwright aplicada');
        
               // ===== ETAPA 6: TESTAR NAVEGAÇÃO BLAZE =====
        log('🌐 ETAPA 6: Testando navegação para Blaze...');
