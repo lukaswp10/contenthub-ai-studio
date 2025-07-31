@@ -153,7 +153,7 @@ class BlazeRealDataService {
   }
 
   /**
-   * ESTRATÉGIA: PROXY LOCAL PRIORITÁRIO (FUNCIONA PERFEITAMENTE)
+   * ESTRATÉGIA: CHROMIUM PRIMÁRIO - DADOS REAIS DA BLAZE
    */
   async startCapturing(): Promise<void> {
     if (this.isCapturing) {
@@ -166,13 +166,16 @@ class BlazeRealDataService {
     // Detectar ambiente
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     
+    console.log('🚀 CHROMIUM PRIMÁRIO: Capturando dados REAIS da Blaze via navegador...')
+    
     if (isDevelopment) {
-      logThrottled('dev-proxy-init', '🚀 DESENVOLVIMENTO: Usando proxy local (DADOS REAIS)...')
-      await this.tryDevelopmentStrategies()
+      console.log('🔧 DESENVOLVIMENTO: Chromium + script local para dados REAIS')
     } else {
-      console.log('🚀 PRODUÇÃO: Usando proxy serverless...')
-      await this.testProxyConnection()
+      console.log('🚀 PRODUÇÃO: Chromium + API serverless para dados REAIS')
     }
+    
+    // IR DIRETO PARA CHROMIUM (DADOS REAIS)
+    await this.tryChromiumCapture()
   }
 
   /**
@@ -1469,16 +1472,24 @@ class BlazeRealDataService {
       
     } catch (error) {
       console.error('❌ CHROMIUM FALHOU:', error instanceof Error ? error.message : String(error))
-      console.log('🔄 FALLBACK: Tentando estratégias alternativas...')
+      console.log('🛑 SISTEMA PARADO: Chromium é o único método para dados REAIS')
+      console.log('💡 DICA: Verifique se o Chromium está funcionando corretamente')
       
-      // Fallback para estratégias tradicionais
+      // Marcar como não disponível e parar captura
       this.chromiumAvailable = false
-      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      this.isCapturing = false
+      this.currentStrategy = 'CHROMIUM_ERRO_FATAL'
       
-      if (isDevelopment) {
-        await this.tryDevelopmentStrategies()
-      } else {
-        await this.testProxyConnection()
+      // Emitir erro para interface
+      if (typeof window !== 'undefined') {
+        const errorEvent = new CustomEvent('blazeConnectionError', { 
+          detail: { 
+            error: `Chromium falhou: ${error instanceof Error ? error.message : String(error)}`,
+            strategy: 'CHROMIUM_PRIMARIO',
+            timestamp: getBrazilTimestamp()
+          }
+        })
+        window.dispatchEvent(errorEvent)
       }
     }
   }
@@ -1487,12 +1498,12 @@ class BlazeRealDataService {
    * POLLING VIA CHROMIUM
    */
   private startChromiumPolling(): void {
-    console.log('🚀 Iniciando polling via Chromium a cada 15 segundos...')
+    console.log('🚀 Iniciando polling via Chromium a cada 10 segundos (DADOS REAIS)...')
     
-    // Polling a cada 15 segundos (Chromium é mais pesado)
+    // Polling a cada 10 segundos (otimizado para captura primária)
     this.pollingInterval = setInterval(() => {
       this.checkViaChromium()
-    }, 15000)
+    }, 10000)
   }
 
   /**
