@@ -162,9 +162,13 @@ export default async function handler(req, res) {
 
     log('📡 AGUARDANDO: Dados de jogos...');
     
-    // ✅ TIMEOUT REDUZIDO VERCEL FREE
+    // ✅ AGUARDAR MODAL FECHAR (10s + margem)
+    await new Promise(resolve => setTimeout(resolve, 12000));
+    log('🕰️ Aguardei modal fechar, iniciando captura...');
+    
+    // ✅ TIMEOUT AUMENTADO PARA MODAL
     let attempts = 0;
-    const maxAttempts = 15; // ✅ 15s máximo (FREE tier)
+    const maxAttempts = 30; // ✅ 30s máximo (modal + captura)
     
     while (!latestGameData && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // ✅ CORREÇÃO: waitForTimeout depreciado
