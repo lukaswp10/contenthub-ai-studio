@@ -1471,11 +1471,18 @@ export class TimeSeriesFoundationModel {
       if (confidences.length > 1) {
         const mean = confidences.reduce((a, b) => a + b, 0) / confidences.length
         const variance = confidences.reduce((sum, c) => sum + Math.pow(c - mean, 2), 0) / confidences.length
-        totalDivergence += Math.sqrt(variance)
+        const stdDev = Math.sqrt(variance)
+        
+        // ✅ PROTEÇÃO: Verificar se é número válido
+        if (!isNaN(stdDev) && isFinite(stdDev)) {
+          totalDivergence += stdDev
+        }
       }
     }
     
-    return Math.min(1, totalDivergence / colors.length)
+    // ✅ PROTEÇÃO: Garantir retorno válido
+    const result = colors.length > 0 ? totalDivergence / colors.length : 0
+    return Math.min(1, Math.max(0, result))
   }
   
   private detectConceptDrift(data: BlazeNumber[]): number {
@@ -1490,25 +1497,31 @@ export class TimeSeriesFoundationModel {
       subset.forEach(d => counts[d.color]++)
       const total = subset.length
       return {
-        red: counts.red / total,
-        black: counts.black / total,
-        white: counts.white / total
+        red: total > 0 ? counts.red / total : 0,
+        black: total > 0 ? counts.black / total : 0,
+        white: total > 0 ? counts.white / total : 0
       }
     }
     
     const recentDist = getDistribution(recent)
     const historicalDist = getDistribution(historical)
     
-    // KL Divergence simplificado
+    // KL Divergence com proteção
     let drift = 0
     const colors = ['red', 'black', 'white'] as const
     for (const color of colors) {
-      if (historicalDist[color] > 0) {
-        drift += recentDist[color] * Math.log(recentDist[color] / historicalDist[color])
+      if (historicalDist[color] > 0 && recentDist[color] > 0) {
+        // ✅ PROTEÇÃO: Só calcular se ambos > 0
+        const klTerm = recentDist[color] * Math.log(recentDist[color] / historicalDist[color])
+        if (!isNaN(klTerm) && isFinite(klTerm)) {
+          drift += klTerm
+        }
       }
     }
     
-    return Math.min(1, Math.abs(drift))
+    // ✅ PROTEÇÃO: Garantir retorno válido
+    const result = Math.abs(drift)
+    return Math.min(1, Math.max(0, isNaN(result) ? 0 : result))
   }
   
   private async updateOnlineLearning(prediction: ProbabilisticPrediction, data: BlazeNumber[]): Promise<void> {
@@ -1668,8 +1681,8 @@ export class TimeSeriesFoundationModel {
         white_confidence: prediction.distribution.white.confidence,
         
         // Métricas modernas
-        uncertainty_score: prediction.uncertainty,
-        concept_drift_score: prediction.conceptDrift,
+        uncertainty_score: prediction.uncertainty ?? 0,
+        concept_drift_score: prediction.conceptDrift ?? 0,
         model_confidence: prediction.modelConfidence,
         
         // Metadata
